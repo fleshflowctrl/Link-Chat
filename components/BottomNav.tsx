@@ -28,8 +28,18 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function hideBottomNavOnPath(pathname: string | null) {
+  if (!pathname) return false;
+  const m = pathname.match(/^\/messages\/([^/]+)$/);
+  return Boolean(m && m[1] !== "new");
+}
+
 export function BottomNav() {
   const pathname = usePathname();
+
+  if (hideBottomNavOnPath(pathname)) {
+    return null;
+  }
 
   return (
     <nav

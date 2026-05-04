@@ -2,17 +2,34 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { BadgeCheck } from "lucide-react";
 import {
   chatFilterChips,
   threadsForFilter,
   type ChatFilterId,
+  type MessageThread,
 } from "@/data/messages";
+import {
+  getThreadPreviewsSnapshot,
+  subscribeThreadPreviews,
+} from "@/lib/thread-preview-store";
 
 export function MessagesView() {
   const [filter, setFilter] = useState<ChatFilterId | null>(null);
-  const list = useMemo(() => threadsForFilter(filter), [filter]);
+  const baseList = useMemo(() => threadsForFilter(filter), [filter]);
+  const previews = useSyncExternalStore(
+    subscribeThreadPreviews,
+    getThreadPreviewsSnapshot,
+    getThreadPreviewsSnapshot,
+  );
+  const list = useMemo(() => {
+    return baseList.map((t): MessageThread => {
+      const o = previews.byId[t.id];
+      if (!o) return t;
+      return { ...t, lastMessage: o.lastMessage, timestampLabel: o.timestampLabel };
+    });
+  }, [baseList, previews.byId, previews.version]);
 
   return (
     <>
