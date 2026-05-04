@@ -69,7 +69,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
   const [heroIndex, setHeroIndex] = useState(0);
   const [liked, setLiked] = useState(false);
 
-  const heroSrc = gallery[heroIndex] ?? profile.imageUrl;
+  const heroSrc = gallery[heroIndex] ?? profile.photo;
 
   const thumbSlots = useMemo(
     () =>

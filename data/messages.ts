@@ -5,6 +5,14 @@ export type ChatFilterId =
   | "online"
   | "more";
 
+export type MessagePreviewType =
+  | "text"
+  | "photo"
+  | "voice"
+  | "reaction"
+  | "typing"
+  | "locked";
+
 export interface MessageThread {
   id: string;
   name: string;
@@ -12,124 +20,219 @@ export interface MessageThread {
   lastMessage: string;
   /** Shown top-right, e.g. 10:32, Yesterday, 2d ago */
   timestampLabel: string;
-  /** Purple “Online now” line under preview */
+  /** Purple “Online now” line under preview (legacy / optional) */
   onlineNow?: boolean;
   /** Green dot on avatar */
   showOnlineDot?: boolean;
   verified?: boolean;
   unreadCount?: number;
-  /** Quick-filter chips this row belongs to */
-  filterTags: ChatFilterId[];
+  /** Legacy DB filter tags */
+  filterTags?: ChatFilterId[];
+  pinned?: boolean;
+  messageType?: MessagePreviewType;
+  /** They linked — waiting on your reply */
+  linkedPending?: boolean;
+  previewImage?: string;
+  voiceDuration?: string;
+  reactionEmoji?: string;
+  /** ISO for sorting (newest first) */
+  lastActivityAt: string;
 }
 
-export interface ChatFilterChip {
-  id: ChatFilterId;
-  label: string;
-  avatarUrl: string;
-  badge?: { kind: "count" | "plus"; value: string };
-  showOnlineDot?: boolean;
-}
+export type LinkedStripUser = {
+  id: string;
+  name: string;
+  age: number;
+  photo: string;
+  isNew?: boolean;
+};
 
-/** Horizontal filter row — avatars + labels + badges (decorative counts where noted). */
-export const chatFilterChips: ChatFilterChip[] = [
+const u = (id: string, w = 400) =>
+  `https://images.unsplash.com/${id}?w=${w}&q=80&auto=format&fit=crop`;
+
+const COFFEE_IMG =
+  "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&q=80&auto=format&fit=crop";
+
+/** Horizontal “Linked with you” cards — tap card → profile, Say hi → chat. */
+export const linkedUsers: LinkedStripUser[] = [
   {
-    id: "links",
-    label: "Your links",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&q=80&auto=format&fit=crop",
-    showOnlineDot: true,
+    id: "marcus",
+    name: "Marcus",
+    age: 29,
+    photo: u("photo-1506794778202-cad84cf45f1d"),
+    isNew: true,
   },
   {
-    id: "active",
-    label: "Active now",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=120&q=80&auto=format&fit=crop",
-    showOnlineDot: true,
+    id: "iris",
+    name: "Iris",
+    age: 24,
+    photo: u("photo-1531746020798-e6953c6e8e04"),
+    isNew: true,
   },
   {
-    id: "replies",
-    label: "New replies",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&q=80&auto=format&fit=crop",
-    badge: { kind: "count", value: "2" },
+    id: "lena",
+    name: "Lena",
+    age: 26,
+    photo: u("photo-1494790108377-be9c29b29330"),
+    isNew: true,
   },
   {
-    id: "online",
-    label: "Online",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&q=80&auto=format&fit=crop",
-    badge: { kind: "count", value: "5" },
-  },
-  {
-    id: "more",
-    label: "More",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&q=80&auto=format&fit=crop",
-    badge: { kind: "plus", value: "7" },
+    id: "zoe",
+    name: "Zoe",
+    age: 25,
+    photo: u("photo-1529626455594-4ff0802cfb7e"),
+    isNew: false,
   },
 ];
 
+export const linkedWithYouNewCount = linkedUsers.filter((u) => u.isNew).length;
+
 export const messageThreads: MessageThread[] = [
+  {
+    id: "elena",
+    name: "Elena",
+    avatarUrl: u("photo-1524504388940-b1c1722653e1"),
+    lastMessage: "typing…",
+    timestampLabel: "now",
+    onlineNow: true,
+    showOnlineDot: true,
+    verified: true,
+    unreadCount: 1,
+    filterTags: ["links", "active", "online"],
+    messageType: "typing",
+    lastActivityAt: "2026-05-04T18:42:00.000Z",
+  },
   {
     id: "maya",
     name: "Maya",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80&auto=format&fit=crop",
-    lastMessage: "Yes! Let's plan it this weekend?",
+    avatarUrl: u("photo-1534528741775-53994a69daeb"),
+    lastMessage: "Sent a photo",
     timestampLabel: "10:41 AM",
     onlineNow: true,
     showOnlineDot: true,
     verified: true,
     unreadCount: 1,
     filterTags: ["links", "active", "replies", "online"],
+    messageType: "photo",
+    previewImage: COFFEE_IMG,
+    lastActivityAt: "2026-05-04T18:40:12.000Z",
   },
   {
-    id: "elena",
-    name: "Elena",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&q=80&auto=format&fit=crop",
-    lastMessage: "You seem fun 😊",
-    timestampLabel: "Yesterday",
-    onlineNow: true,
+    id: "marcus",
+    name: "Marcus",
+    avatarUrl: u("photo-1506794778202-cad84cf45f1d"),
+    lastMessage: "Reacted to your message",
+    timestampLabel: "10:22 AM",
     showOnlineDot: true,
-    unreadCount: 2,
-    filterTags: ["links", "active", "replies", "online"],
+    verified: false,
+    messageType: "reaction",
+    reactionEmoji: "❤️",
+    lastActivityAt: "2026-05-04T18:22:00.000Z",
+  },
+  {
+    id: "quinn",
+    name: "River",
+    avatarUrl: u("photo-1517841905240-472988babdf9"),
+    lastMessage: "Link to see their message",
+    timestampLabel: "9:58 AM",
+    unreadCount: 1,
+    filterTags: ["replies"],
+    messageType: "locked",
+    previewImage: COFFEE_IMG,
+    lastActivityAt: "2026-05-04T17:58:00.000Z",
+  },
+  {
+    id: "victoria",
+    name: "Victoria",
+    avatarUrl: u("photo-1529626455594-4ff0802cfb7e"),
+    lastMessage: "Voice message",
+    timestampLabel: "9:45 AM",
+    showOnlineDot: true,
+    verified: true,
+    pinned: true,
+    messageType: "voice",
+    voiceDuration: "0:24",
+    lastActivityAt: "2026-05-04T17:45:00.000Z",
+  },
+  {
+    id: "oliver",
+    name: "Oliver",
+    avatarUrl: u("photo-1472099645785-5658abf4ff4e"),
+    lastMessage: "Sent a photo",
+    timestampLabel: "Yesterday",
+    messageType: "photo",
+    previewImage: u("photo-1546069901-ba9599a7e63c"),
+    lastActivityAt: "2026-05-03T21:10:00.000Z",
+  },
+  {
+    id: "clara",
+    name: "Clara",
+    avatarUrl: u("photo-1524504388940-b1c1722653e1"),
+    lastMessage: "Books, tea, and honest convos — want to compare notes?",
+    timestampLabel: "Yesterday",
+    showOnlineDot: true,
+    unreadCount: 1,
+    messageType: "text",
+    lastActivityAt: "2026-05-03T19:30:00.000Z",
   },
   {
     id: "sophie",
     name: "Sophie",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80&auto=format&fit=crop",
+    avatarUrl: u("photo-1544005313-94ddf0286df2"),
     lastMessage: "Thanks for the chat!",
     timestampLabel: "Yesterday",
     showOnlineDot: true,
     filterTags: ["links", "online"],
+    messageType: "text",
+    lastActivityAt: "2026-05-03T16:00:00.000Z",
+  },
+  {
+    id: "thomas",
+    name: "Thomas",
+    avatarUrl: u("photo-1507003211169-0a1dd7228f2d"),
+    lastMessage: "Film nerd · always down to chat 🎬",
+    timestampLabel: "Yesterday",
+    linkedPending: true,
+    messageType: "text",
+    lastActivityAt: "2026-05-03T14:20:00.000Z",
+  },
+  {
+    id: "lena",
+    name: "Lena",
+    avatarUrl: u("photo-1494790108377-be9c29b29330"),
+    lastMessage: "Hey! I loved your profile ✨",
+    timestampLabel: "2d ago",
+    linkedPending: true,
+    messageType: "text",
+    lastActivityAt: "2026-05-02T11:00:00.000Z",
   },
   {
     id: "julia",
     name: "Julia",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&q=80&auto=format&fit=crop",
+    avatarUrl: u("photo-1517841905240-472988babdf9"),
     lastMessage: "It was nice talking to you",
     timestampLabel: "2d ago",
     filterTags: ["more"],
+    messageType: "text",
+    lastActivityAt: "2026-05-02T09:15:00.000Z",
   },
   {
     id: "nina",
     name: "Nina",
-    avatarUrl:
-      "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200&q=80&auto=format&fit=crop",
+    avatarUrl: u("photo-1531746020798-e6953c6e8e04"),
     lastMessage: "Hey, how's your day?",
     timestampLabel: "2d ago",
     filterTags: ["more"],
+    messageType: "text",
+    lastActivityAt: "2026-05-02T08:00:00.000Z",
   },
 ];
 
-export function threadsForFilter(filterId: ChatFilterId | null): MessageThread[] {
-  if (filterId == null) {
-    return messageThreads;
-  }
-  return messageThreads.filter((t) => t.filterTags.includes(filterId));
+export function sortThreadsByRecency(threads: MessageThread[]): MessageThread[] {
+  return [...threads].sort(
+    (a, b) =>
+      new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
+  );
 }
 
 /** --- Chat conversation (thread detail) --- */
@@ -152,9 +255,6 @@ export interface ChatMessage {
   /** When set, a ❤️-style badge overlaps the bottom-left of this bubble */
   reactionBadge?: string;
 }
-
-const COFFEE_IMG =
-  "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&q=80&auto=format&fit=crop";
 
 /** Full Maya ↔ you demo thread */
 export const mayaConversation: ChatMessage[] = [
@@ -250,9 +350,18 @@ function shortThread(peerName: string): ChatMessage[] {
 export const messagesById: Record<string, ChatMessage[]> = {
   maya: mayaConversation,
   elena: shortThread("Elena"),
+  marcus: shortThread("Marcus"),
   sophie: shortThread("Sophie"),
   julia: shortThread("Julia"),
   nina: shortThread("Nina"),
+  quinn: shortThread("River"),
+  thomas: shortThread("Thomas"),
+  oliver: shortThread("Oliver"),
+  victoria: shortThread("Victoria"),
+  clara: shortThread("Clara"),
+  lena: shortThread("Lena"),
+  iris: shortThread("Iris"),
+  zoe: shortThread("Zoe"),
 };
 
 export function getSeedMessages(chatId: string): ChatMessage[] {

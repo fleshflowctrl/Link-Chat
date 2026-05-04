@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "cross-env WATCHPACK_POLLING=true next dev",
+    "dev:clean": "rm -rf .next && cross-env WATCHPACK_POLLING=true next dev",
     "dev:turbo": "next dev --turbo",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.105.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.14.0",
     "next": "14.2.35",

@@ -1,62 +1,70 @@
-export type CreditPackageVariant = "purple" | "pink" | "orange" | "yellow";
+export type CreditPackTopBadge = "most-popular" | "trending" | "best-value";
 
 export interface CreditPackage {
   id: string;
   credits: number;
-  bonusCredits: number;
-  subtitle: string;
-  price: string;
-  originalPrice: string;
-  variant: CreditPackageVariant;
-  /** “Most popular” ribbon above card */
-  mostPopular?: boolean;
-  /** Default selection on load */
+  bonus: number;
+  price: number;
+  original: number;
+  perCredit: number;
+  icon: string;
+  /** Tailwind gradient stops (applied with `bg-gradient-to-br`). */
+  tile: string;
+  /** Optional top-left ribbon. */
+  badge?: CreditPackTopBadge;
+  /** Green “Save 20%” pill top-right (e.g. most popular pack). */
+  saveBadge?: boolean;
   defaultSelected?: boolean;
 }
 
-export const creditPackages: CreditPackage[] = [
+export const packages: CreditPackage[] = [
   {
-    id: "starter",
+    id: "100",
     credits: 100,
-    bonusCredits: 20,
-    subtitle: "Start more conversations",
-    price: "$9.99",
-    originalPrice: "$12.49",
-    variant: "purple",
-    mostPopular: true,
+    bonus: 20,
+    price: 9.99,
+    original: 12.49,
+    perCredit: 0.1,
+    icon: "⭐",
+    tile: "from-[#7C5CFF] to-[#9B7BFF]",
+    badge: "most-popular",
+    saveBadge: true,
     defaultSelected: true,
   },
   {
-    id: "regular",
+    id: "250",
     credits: 250,
-    bonusCredits: 50,
-    subtitle: "Great for regular chatters",
-    price: "$19.99",
-    originalPrice: "$24.99",
-    variant: "pink",
+    bonus: 50,
+    price: 19.99,
+    original: 24.99,
+    perCredit: 0.08,
+    icon: "🎂",
+    tile: "from-pink-400 to-pink-500",
   },
   {
-    id: "value",
+    id: "500",
     credits: 500,
-    bonusCredits: 120,
-    subtitle: "More chats, more possibilities",
-    price: "$34.99",
-    originalPrice: "$43.99",
-    variant: "orange",
+    bonus: 120,
+    price: 34.99,
+    original: 43.99,
+    perCredit: 0.07,
+    icon: "👜",
+    tile: "from-orange-400 to-orange-500",
+    badge: "trending",
   },
   {
-    id: "best",
+    id: "1000",
     credits: 1000,
-    bonusCredits: 250,
-    subtitle: "Best value for active users",
-    price: "$59.99",
-    originalPrice: "$74.99",
-    variant: "yellow",
+    bonus: 250,
+    price: 59.99,
+    original: 74.99,
+    perCredit: 0.05,
+    icon: "🔐",
+    tile: "from-yellow-400 to-amber-500",
+    badge: "best-value",
   },
 ];
 
-export const creditBalance = 12;
-
-/** Initial countdown: 23:59:47 → total seconds until midnight-style display */
+/** Countdown seed: 23:59:39 — resets to this when it hits 0. */
 export const offerCountdownInitialSeconds =
-  23 * 3600 + 59 * 60 + 47;
+  23 * 3600 + 59 * 60 + 39;

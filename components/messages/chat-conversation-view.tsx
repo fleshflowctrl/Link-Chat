@@ -24,11 +24,8 @@ import {
   Send,
   Smile,
 } from "lucide-react";
-import {
-  getSeedMessages,
-  getThreadMeta,
-  type ChatMessage,
-} from "@/data/messages";
+import { type ChatMessage } from "@/data/messages";
+import type { ThreadMeta } from "@/lib/chat/server-data";
 import { setThreadPreview } from "@/lib/thread-preview-store";
 
 const GROUP_GAP_MIN = 5;
@@ -89,16 +86,25 @@ function ReadReceipt({ phase }: { phase: "single" | "double" }) {
   );
 }
 
-export function ChatConversationView({ chatId }: { chatId: string }) {
+export function ChatConversationView({
+  chatId,
+  initialMessages,
+  threadMeta,
+  useSupabase,
+}: {
+  chatId: string;
+  initialMessages: ChatMessage[];
+  threadMeta: ThreadMeta;
+  useSupabase: boolean;
+}) {
   const router = useRouter();
-  const meta = useMemo(() => getThreadMeta(chatId), [chatId]);
+  const meta = threadMeta;
   const seedMessageIds = useMemo(
-    () => new Set(getSeedMessages(chatId).map((m) => m.id)),
-    [chatId],
+    () => new Set(initialMessages.map((m) => m.id)),
+    [initialMessages],
   );
-  const [messages, setMessages] = useState<ChatMessage[]>(() =>
-    getSeedMessages(chatId),
-  );
+  const [messages, setMessages] =
+    useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [readPhase, setReadPhase] = useState<Record<string, "single" | "double">>(
     {},
@@ -140,32 +146,89 @@ export function ChatConversationView({ chatId }: { chatId: string }) {
     };
   }, []);
 
-  function sendText(text: string) {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const { timeLabel, minuteOfDay } = nowClock();
-    const id = gid();
-    setMessages((prev) => [
-      ...prev,
-      {
-        id,
-        sender: "me",
-        kind: "text",
-        body: trimmed,
-        timeLabel,
-        minuteOfDay,
-      },
-    ]);
-    setInput("");
-    setReadPhase((p) => ({ ...p, [id]: "single" }));
-    window.setTimeout(() => {
-      setReadPhase((p) => ({ ...p, [id]: "double" }));
-    }, 520);
-    setThreadPreview(chatId, {
-      lastMessage: trimmed,
-      timestampLabel: timeLabel,
-    });
-  }
+  const sendText = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      if (!useSupabase) {
+        const { timeLabel, minuteOfDay } = nowClock();
+        const id = gid();
+        setMessages((prev) => [
+          ...prev,
+          {
+            id,
+            sender: "me",
+            kind: "text",
+            body: trimmed,
+            timeLabel,
+            minuteOfDay,
+          },
+        ]);
+        setInput("");
+        setReadPhase((p) => ({ ...p, [id]: "single" }));
+        window.setTimeout(() => {
+          setReadPhase((p) => ({ ...p, [id]: "double" }));
+        }, 520);
+        setThreadPreview(chatId, {
+          lastMessage: trimmed,
+          timestampLabel: timeLabel,
+        });
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(chatId)}/messages`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: trimmed }),
+          },
+        );
+        const data = (await res.json()) as {
+          ok?: boolean;
+          userMessage?: ChatMessage;
+          peerMessage?: ChatMessage | null;
+          warning?: string;
+          error?: string;
+        };
+
+        if (!res.ok || !data.userMessage) {
+          console.error("[chat]", data.error ?? res.status);
+          return;
+        }
+
+        if (data.warning) {
+          console.warn("[chat]", data.warning);
+        }
+
+        setMessages((prev) => {
+          const next = [...prev, data.userMessage!];
+          if (data.peerMessage) next.push(data.peerMessage);
+          return next;
+        });
+
+        const uid = data.userMessage.id;
+        setReadPhase((p) => ({ ...p, [uid]: "single" }));
+        window.setTimeout(() => {
+          setReadPhase((p) => ({ ...p, [uid]: "double" }));
+        }, 520);
+
+        const preview =
+          data.peerMessage?.body ?? data.userMessage.body ?? trimmed;
+        const { timeLabel } = nowClock();
+        setThreadPreview(chatId, {
+          lastMessage: preview,
+          timestampLabel: timeLabel,
+        });
+        setInput("");
+      } catch (e) {
+        console.error("[chat] send failed", e);
+      }
+    },
+    [chatId, useSupabase],
+  );
 
   function attachReactionTo(messageId: string, emoji: string) {
     setMessages((prev) =>
@@ -573,7 +636,7 @@ export function ChatConversationView({ chatId }: { chatId: string }) {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  sendText(input);
+                  void sendText(input);
                 }
               }}
               placeholder="Type a message..."
@@ -596,7 +659,7 @@ export function ChatConversationView({ chatId }: { chatId: string }) {
               animate={{ scale: 1, opacity: 1 }}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
               aria-label="Send"
-              onClick={() => sendText(input)}
+              onClick={() => void sendText(input)}
             >
               <Send className="h-5 w-5" strokeWidth={2.25} />
             </motion.button>

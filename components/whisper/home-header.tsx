@@ -1,26 +1,40 @@
-import { SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { Bell } from "lucide-react";
+import { homeUnreadNotificationCount, meProfile } from "@/data/me";
 
 export function HomeHeader() {
+  const credits = meProfile.stats.credits.value;
+  const unread = homeUnreadNotificationCount;
+
   return (
-    <header className="flex items-start justify-between gap-3 px-5 pt-4">
+    <header className="flex items-center justify-between gap-3 px-5 pt-4">
       <h1 className="font-display text-[2.35rem] font-semibold leading-none tracking-tight text-ink lowercase">
         whisper
       </h1>
-      <div className="flex shrink-0 items-center gap-2 pt-1">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-ink shadow-pill">
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accentGreen/50 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-accentGreen" />
-          </span>
-          12 online now
-        </div>
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink shadow-pill transition active:scale-95"
-          aria-label="Filters"
+
+      <div className="mt-1.5 flex shrink-0 items-center gap-2">
+        <Link
+          href="/credits"
+          className="inline-flex items-center gap-2 rounded-full border border-gray-100 bg-white py-1.5 pl-2 pr-3 shadow-sm transition active:scale-95"
         >
-          <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={2} />
-        </button>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-[11px] font-bold text-white">
+            $
+          </span>
+          <span className="text-[14px] font-bold text-gray-900">{credits}</span>
+        </Link>
+
+        <Link
+          href="/notifications"
+          className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-100 bg-white text-gray-500 shadow-sm transition active:scale-95"
+          aria-label="Notifications"
+        >
+          <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
+          {unread > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#7C5CFF] px-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-canvas">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          )}
+        </Link>
       </div>
     </header>
   );

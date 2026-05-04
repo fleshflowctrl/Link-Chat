@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   DollarSign,
-  Heart,
+  Link2,
   MessageCircle,
   Search,
   User,
@@ -18,7 +18,7 @@ const tabs = [
     Icon: MessageCircle,
     badge: "3",
   },
-  { href: "/likes", label: "Likes", Icon: Heart, badge: null },
+  { href: "/links", label: "Links", Icon: Link2, badge: null },
   { href: "/credits", label: "Credits", Icon: DollarSign, badge: null },
   { href: "/me", label: "Me", Icon: User, badge: null },
 ] as const;

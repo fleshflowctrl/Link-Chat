@@ -1,9 +1,9 @@
-export type StatusChipVariant =
-  | "active_now"
+export type ProfileStatusVariant =
+  | "active"
   | "replied"
-  | "new_here"
+  | "new"
   | "popular"
-  | "quiet_tonight"
+  | "quiet"
   | "online";
 
 export type ProfileInterestIcon =
@@ -22,13 +22,19 @@ export interface Profile {
   id: string;
   name: string;
   age: number;
+  /** Hero image for cards & previews (Unsplash). */
+  photo: string;
   distanceKm: number;
+  /** Short line on home cards & list snippets. */
   bioSnippet: string;
-  imageUrl: string;
-  statusChip: {
-    variant: StatusChipVariant;
+  status: {
+    variant: ProfileStatusVariant;
     label: string;
   };
+  /** Initial “say hi” state for home grid (client may override). */
+  sayHiSent: boolean;
+  /** Initial like state for home grid (client may override). */
+  liked: boolean;
   presenceLabel: string;
   /** Long-form bio on profile detail */
   bio: string;
@@ -43,16 +49,57 @@ export interface Profile {
 const u = (id: string, w = 800) =>
   `https://images.unsplash.com/${id}?w=${w}&q=80&auto=format&fit=crop`;
 
+function newHereProfiles(): Profile[] {
+  const g = (photo: string) =>
+    [1200, 1200, 1200, 1200, 1200, 1200].map((w) => u(photo, w));
+  const row = (
+    id: string,
+    name: string,
+    photoId: string,
+  ): Profile => ({
+    id,
+    name,
+    age: 25,
+    photo: u(photoId),
+    distanceKm: 4,
+    bioSnippet: "New on whisper ✨",
+    status: { variant: "new", label: "New" },
+    sayHiSent: false,
+    liked: false,
+    presenceLabel: "Just joined",
+    isVerified: false,
+    lastActive: "Just now",
+    lookingFor: "Good conversations",
+    bio: `${name} recently joined whisper.`,
+    gallery: g(photoId),
+    interests: [
+      { label: "New here", icon: "listener" },
+      { label: "Friendly", icon: "warm" },
+    ],
+  });
+  return [
+    row("sophie", "Sophie", "photo-1544005313-94ddf0286df2"),
+    row("lena", "Lena", "photo-1494790108377-be9c29b29330"),
+    row("mia", "Mia", "photo-1534528741775-53994a69daeb"),
+    row("ava", "Ava", "photo-1438761681033-6461ffad8d80"),
+    row("zoe", "Zoe", "photo-1529626455594-4ff0802cfb7e"),
+    row("iris", "Iris", "photo-1531746020798-e6953c6e8e04"),
+    row("nora", "Nora", "photo-1517841905240-472988babdf9"),
+  ];
+}
+
 /** Seed profiles — extend `gallery`, `bio`, and `interests` as you grow the app. */
 export const profiles: Profile[] = [
   {
     id: "maya",
     name: "Maya",
     age: 26,
+    photo: u("photo-1534528741775-53994a69daeb"),
     distanceKm: 2,
     bioSnippet: "Loves coffee & deep talks ☕",
-    imageUrl: u("photo-1534528741775-53994a69daeb"),
-    statusChip: { variant: "active_now", label: "Active now" },
+    status: { variant: "active", label: "Active now" },
+    sayHiSent: false,
+    liked: false,
     presenceLabel: "Active now",
     isVerified: true,
     lastActive: "Active today",
@@ -80,10 +127,12 @@ export const profiles: Profile[] = [
     id: "marcus",
     name: "Marcus",
     age: 29,
+    photo: u("photo-1506794778202-cad84cf45f1d"),
     distanceKm: 5,
     bioSnippet: "Night runs & good playlists 🎧",
-    imageUrl: u("photo-1506794778202-cad84cf45f1d"),
-    statusChip: { variant: "replied", label: "Replied 10s ago" },
+    status: { variant: "replied", label: "Replied 10s ago" },
+    sayHiSent: false,
+    liked: false,
     presenceLabel: "Active now",
     isVerified: false,
     lastActive: "Active today",
@@ -109,10 +158,12 @@ export const profiles: Profile[] = [
     id: "thomas",
     name: "Thomas",
     age: 27,
+    photo: u("photo-1507003211169-0a1dd7228f2d"),
     distanceKm: 8,
     bioSnippet: "Film nerd · always down to chat 🎬",
-    imageUrl: u("photo-1507003211169-0a1dd7228f2d"),
-    statusChip: { variant: "new_here", label: "New here" },
+    status: { variant: "new", label: "New" },
+    sayHiSent: false,
+    liked: false,
     presenceLabel: "Active now",
     isVerified: true,
     lastActive: "Active today",
@@ -137,10 +188,12 @@ export const profiles: Profile[] = [
     id: "oliver",
     name: "Oliver",
     age: 38,
+    photo: u("photo-1472099645785-5658abf4ff4e"),
     distanceKm: 12,
     bioSnippet: "Cooking Sundays & slow mornings 🍳",
-    imageUrl: u("photo-1472099645785-5658abf4ff4e"),
-    statusChip: { variant: "popular", label: "Popular 🔥" },
+    status: { variant: "popular", label: "Popular" },
+    sayHiSent: false,
+    liked: false,
     presenceLabel: "Active now",
     isVerified: false,
     lastActive: "Active today",
@@ -166,10 +219,12 @@ export const profiles: Profile[] = [
     id: "victoria",
     name: "Victoria",
     age: 29,
+    photo: u("photo-1529626455594-4ff0802cfb7e"),
     distanceKm: 3,
     bioSnippet: "Art galleries & vinyl finds 🎨",
-    imageUrl: u("photo-1529626455594-4ff0802cfb7e"),
-    statusChip: { variant: "quiet_tonight", label: "Quiet tonight" },
+    status: { variant: "quiet", label: "Quiet tonight" },
+    sayHiSent: false,
+    liked: false,
     presenceLabel: "Active now",
     isVerified: true,
     lastActive: "Active today",
@@ -194,10 +249,12 @@ export const profiles: Profile[] = [
     id: "clara",
     name: "Clara",
     age: 26,
+    photo: u("photo-1524504388940-b1c1722653e1"),
     distanceKm: 1,
     bioSnippet: "Books, tea, and honest convos 📚",
-    imageUrl: u("photo-1524504388940-b1c1722653e1"),
-    statusChip: { variant: "online", label: "Online" },
+    status: { variant: "online", label: "Online" },
+    sayHiSent: false,
+    liked: false,
     presenceLabel: "Active now",
     isVerified: false,
     lastActive: "Active today",
@@ -220,7 +277,11 @@ export const profiles: Profile[] = [
       { label: "Good listener", icon: "listener" },
     ],
   },
+  ...newHereProfiles(),
 ];
+
+/** Maya → Clara — matches home discovery grid order. */
+export const homeGridProfiles: Profile[] = profiles.slice(0, 6);
 
 export function getProfileById(id: string): Profile | undefined {
   return profiles.find((p) => p.id === id);
@@ -228,7 +289,7 @@ export function getProfileById(id: string): Profile | undefined {
 
 /** Tiny avatars for the bottom “likes” strip — subset of profile photos. */
 export const likesPreviewAvatarUrls: string[] = [
-  profiles[0].imageUrl,
-  profiles[4].imageUrl,
-  profiles[5].imageUrl,
+  profiles[0].photo,
+  profiles[4].photo,
+  profiles[5].photo,
 ];

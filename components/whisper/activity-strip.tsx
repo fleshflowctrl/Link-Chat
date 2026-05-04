@@ -1,85 +1,73 @@
+"use client";
+
 import Image from "next/image";
-import { AudioWaveform, Flame } from "lucide-react";
-import { profiles } from "@/data/profiles";
+import Link from "next/link";
+import { Sparkles } from "lucide-react";
+import {
+  formatJoinedAgo,
+  getNewWhisperUsers,
+  showNewJoinBadge,
+} from "@/data/newUsers";
 
 export function ActivityStrip() {
-  const maya = profiles.find((p) => p.id === "maya")!;
-  const clara = profiles.find((p) => p.id === "clara")!;
-
-  const cells = [
-    {
-      key: "typing",
-      icon: (
-        <div className="relative flex shrink-0">
-          <span className="relative z-10 h-9 w-9 overflow-hidden rounded-full ring-2 ring-white">
-            <Image
-              src={maya.imageUrl}
-              alt=""
-              width={72}
-              height={72}
-              className="h-full w-full object-cover"
-            />
-          </span>
-          <span className="-ml-3 relative z-0 h-9 w-9 overflow-hidden rounded-full ring-2 ring-white">
-            <Image
-              src={clara.imageUrl}
-              alt=""
-              width={72}
-              height={72}
-              className="h-full w-full object-cover"
-            />
-          </span>
-        </div>
-      ),
-      title: "Maya is typing…",
-      subtitle: "Start the convo?",
-    },
-    {
-      key: "joined",
-      icon: (
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-primary shadow-sm">
-          <AudioWaveform className="h-5 w-5" strokeWidth={2} />
-        </span>
-      ),
-      title: "Clara just joined",
-      subtitle: "Say hi 👋",
-    },
-    {
-      key: "near",
-      icon: (
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-accentOrange shadow-sm">
-          <Flame className="h-5 w-5" strokeWidth={2} />
-        </span>
-      ),
-      title: "3 people near you",
-      subtitle: "are online now",
-    },
-  ];
+  const users = getNewWhisperUsers();
 
   return (
     <div className="px-5 pt-6">
-      <div className="flex overflow-hidden rounded-2xl bg-lavender shadow-card">
-        {cells.map((cell, i) => (
-          <div
-            key={cell.key}
-            className={`flex min-w-0 flex-1 flex-col gap-2 px-3 py-3.5 ${i > 0 ? "border-l border-white/60" : ""}`}
-          >
-            <div className="flex items-center gap-1.5">
-              {cell.icon}
-              {cell.key === "typing" && (
-                <span className="shrink-0 text-[13px] font-medium text-ink/35">
-                  ·
-                </span>
-              )}
-              <div className="min-w-0">
-                <p className="truncate text-[12px] font-semibold text-ink">
-                  {cell.title}
-                </p>
-                <p className="truncate text-[11px] text-inkMuted">{cell.subtitle}</p>
+      <div className="space-y-3 rounded-2xl bg-[#EDE7FF] p-4">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Sparkles
+            className="h-4 w-4 shrink-0 text-primary"
+            strokeWidth={2.25}
+            aria-hidden
+          />
+          <h2 className="truncate text-[15px] font-bold text-ink">
+            New on whisper
+          </h2>
+        </div>
+
+        <div className="scrollbar-hide -mx-1 flex gap-3 overflow-x-auto px-1 pb-0.5 pt-0.5">
+          {users.map((user) => (
+            <Link
+              key={user.id}
+              href={`/profile/${user.id}`}
+              className="flex w-[72px] shrink-0 flex-col items-center gap-1.5 text-center"
+            >
+              <div className="relative shrink-0">
+                <div
+                  className="rounded-full p-[2.5px]"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #9B7BFF 0%, #7C5CFF 100%)",
+                  }}
+                >
+                  <div className="rounded-full bg-white p-[2px]">
+                    <div className="relative h-14 w-14 overflow-hidden rounded-full bg-lavender">
+                      <Image
+                        src={user.avatar}
+                        alt=""
+                        width={112}
+                        height={112}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {showNewJoinBadge(user.joinedAt) && (
+                  <span className="absolute -right-0.5 -top-0.5 z-10 rounded-full bg-[#EC4899] px-1.5 py-0.5 text-[9px] font-bold uppercase leading-none tracking-wide text-white shadow-sm ring-[2px] ring-[#EDE7FF]">
+                    NEW
+                  </span>
+                )}
               </div>
-            </div>
-          </div>
-        ))}
+              <span className="w-full truncate text-[12px] font-semibold text-ink">
+                {user.name}
+              </span>
+              <span className="w-full truncate text-[10px] text-inkMuted">
+                {formatJoinedAgo(user.joinedAt)}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
