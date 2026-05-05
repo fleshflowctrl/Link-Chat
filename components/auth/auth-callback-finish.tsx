@@ -16,7 +16,7 @@ const EMAIL_OTP_TYPES = new Set([
 export function AuthCallbackFinish() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [hint, setHint] = useState("Completing sign-in…");
+  const [hint, setHint] = useState("Inloggen afronden…");
   const ran = useRef(false);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function AuthCallbackFinish() {
 
       try {
         if (token_hash && type && EMAIL_OTP_TYPES.has(type)) {
-          setHint("Verifying your link…");
+          setHint("Je link controleren…");
           const { error } = await supabase.auth.verifyOtp({
             token_hash,
             type: type as
@@ -48,7 +48,7 @@ export function AuthCallbackFinish() {
           });
           if (error) throw error;
         } else if (code) {
-          setHint("Securing your session…");
+          setHint("Je sessie beveiligen…");
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
         } else {

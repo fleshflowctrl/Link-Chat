@@ -16,20 +16,20 @@ function bad(msg: string, status = 400) {
 
 export async function GET() {
   if (!isSupabaseConfigured()) {
-    return bad("Supabase not configured", 503);
+    return bad("Supabase niet geconfigureerd", 503);
   }
 
   let supabase: ReturnType<typeof createClient>;
   try {
     supabase = createClient();
   } catch {
-    return bad("Server misconfigured", 503);
+    return bad("Server verkeerd geconfigureerd", 503);
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return bad("Unauthorized", 401);
+  if (!user) return bad("Niet geautoriseerd", 401);
 
   const { data: row, error } = await supabase
     .from("user_profiles")
@@ -39,7 +39,7 @@ export async function GET() {
 
   if (error) {
     console.error("[GET /api/me/profile]", error);
-    return bad("Failed to load profile", 500);
+    return bad("Profiel laden mislukt", 500);
   }
 
   if (!row) {
@@ -55,32 +55,32 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   if (!isSupabaseConfigured()) {
-    return bad("Supabase not configured", 503);
+    return bad("Supabase niet geconfigureerd", 503);
   }
 
   let body: EditProfileState;
   try {
     body = (await request.json()) as EditProfileState;
   } catch {
-    return bad("Invalid JSON");
+    return bad("Ongeldige JSON");
   }
 
-  if (!body || typeof body !== "object") return bad("Invalid body");
+  if (!body || typeof body !== "object") return bad("Ongeldige body");
   if (typeof body.bio === "string" && body.bio.length > BIO_MAX) {
-    return bad(`Bio must be at most ${BIO_MAX} characters`);
+    return bad(`Bio mag maximaal ${BIO_MAX} tekens zijn`);
   }
 
   let supabase: ReturnType<typeof createClient>;
   try {
     supabase = createClient();
   } catch {
-    return bad("Server misconfigured", 503);
+    return bad("Server verkeerd geconfigureerd", 503);
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return bad("Unauthorized", 401);
+  if (!user) return bad("Niet geautoriseerd", 401);
 
   const { data: existing } = await supabase
     .from("user_profiles")
@@ -137,7 +137,7 @@ export async function PATCH(request: Request) {
 
   if (error) {
     console.error("[PATCH /api/me/profile]", error);
-    return bad("Failed to save profile", 500);
+    return bad("Profiel opslaan mislukt", 500);
   }
 
   const profile = userProfileRowToEditState(row as UserProfileRow);

@@ -81,7 +81,7 @@ function MessagesHeaderActions({ credits }: { credits: number }) {
       <Link
         href="/notifications"
         className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-100 bg-white text-gray-500 shadow-sm transition active:scale-95"
-        aria-label="Notifications"
+        aria-label="Meldingen"
       >
         <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
         {unread > 0 && (
@@ -101,7 +101,7 @@ function PinnedSection({ threads }: { threads: MessageThread[] }) {
     <section className="px-5 pb-4 pt-2">
       <div className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">
         <Pin className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.5} />
-        <span>Pinned · {threads.length}</span>
+        <span>Vastgezet · {threads.length}</span>
       </div>
       <div className="flex flex-col gap-2">
         {threads.map((t) => (
@@ -133,13 +133,13 @@ function PinnedSection({ threads }: { threads: MessageThread[] }) {
                   <BadgeCheck
                     className="h-4 w-4 shrink-0 text-primary"
                     strokeWidth={2.25}
-                    aria-label="Verified"
+                    aria-label="Geverifieerd"
                   />
                 )}
               </div>
               <div className="mt-1 flex items-center gap-1.5 text-[13px] text-inkMuted">
                 <Mic className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
-                <span>Voice message · {t.voiceDuration ?? "0:24"}</span>
+                <span>Spraakbericht · {t.voiceDuration ?? "0:24"}</span>
               </div>
             </div>
             <span className="shrink-0 pt-0.5 text-[10px] font-medium text-gray-500">
@@ -193,13 +193,13 @@ function ConversationRow({
               locked ? "text-gray-500" : "text-ink"
             }`}
           >
-            {locked ? "Someone new" : t.name}
+            {locked ? "Iemand nieuw" : t.name}
           </span>
           {!locked && t.verified && (
             <BadgeCheck
               className="h-4 w-4 shrink-0 text-primary"
               strokeWidth={2.25}
-              aria-label="Verified"
+              aria-label="Geverifieerd"
             />
           )}
         </div>
@@ -214,7 +214,7 @@ function ConversationRow({
 
       {mt === "typing" && (
         <p className="mt-0.5 text-[13px] font-semibold italic text-primary">
-          typing
+          typt
           <TypingDots />
         </p>
       )}
@@ -233,7 +233,7 @@ function ConversationRow({
             )}
           </span>
           <span className="min-w-0 flex-1 truncate text-[13px] text-inkMuted">
-            Sent a photo
+            Stuurde een foto
           </span>
           {unreadBadge}
         </div>
@@ -243,7 +243,7 @@ function ConversationRow({
         <div className="mt-1 flex items-center gap-1.5 text-[13px] text-inkMuted">
           <Mic className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
           <span className="min-w-0 flex-1 truncate">
-            Voice message · {t.voiceDuration ?? "0:00"}
+            Spraakbericht · {t.voiceDuration ?? "0:00"}
           </span>
           {unreadBadge}
         </div>
@@ -251,8 +251,8 @@ function ConversationRow({
 
       {mt === "reaction" && (
         <p className="mt-1 text-[13px] italic text-gray-500">
-          <span className="not-italic">{t.reactionEmoji ?? "❤️"}</span> Reacted to
-          your message
+          <span className="not-italic">{t.reactionEmoji ?? "❤️"}</span> reageerde op
+          je bericht
         </p>
       )}
 
@@ -267,7 +267,7 @@ function ConversationRow({
 
       {locked && (
         <p className="mt-1 truncate text-[13px] italic text-gray-500">
-          🔗 Link to see their message
+          🔗 Koppel om hun bericht te zien
         </p>
       )}
     </div>
@@ -305,7 +305,7 @@ function ConversationRow({
           className="mt-0.5 flex h-9 shrink-0 items-center gap-1 self-center rounded-full bg-[#7C5CFF] px-3 text-[11px] font-bold text-white shadow-sm transition active:scale-95"
         >
           <Link2 className="h-3.5 w-3.5" strokeWidth={2.5} />
-          Link
+          Koppel
         </button>
       </div>
     );
@@ -410,7 +410,7 @@ export function MessagesView({
     <div className="bg-[#F5F3EE] pb-6">
       <header className="flex items-start justify-between gap-3 px-5 pb-1 pt-2">
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
-          Messages
+          Berichten
         </h1>
         <MessagesHeaderActions credits={headerCredits} />
       </header>
@@ -422,7 +422,7 @@ export function MessagesView({
       <section className="pt-2">
         <div className="mb-2 flex items-center justify-between px-5">
           <h2 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-            Conversations
+            Gesprekken
           </h2>
           <span className="text-[12px] font-semibold text-primary">
             {sorted.length} chats
@@ -433,17 +433,17 @@ export function MessagesView({
           {sorted.length === 0 ? (
             <div className="px-5 py-14 text-center">
               <p className="text-[15px] font-semibold text-ink">
-                No conversations yet
+                Nog geen gesprekken
               </p>
               <p className="mt-2 text-[13px] leading-relaxed text-inkMuted">
-                Open someone&apos;s profile from the home grid and send a message
-                — your chats will show up here.
+                Open iemands profiel vanaf de startpagina en stuur een bericht —
+                je chats verschijnen hier.
               </p>
               <Link
                 href="/"
                 className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-6 py-2.5 text-[14px] font-bold text-white shadow-pill transition active:scale-[0.99]"
               >
-                Browse profiles
+                Profielen bekijken
               </Link>
             </div>
           ) : (

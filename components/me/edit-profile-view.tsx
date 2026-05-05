@@ -28,11 +28,19 @@ import {
   LOOKING_FOR_OPTIONS,
   PRONOUN_OPTIONS,
   type EditProfileState,
+  type PronounsValue,
 } from "@/data/me-edit";
 import { uploadProfileImage } from "@/lib/me/client-storage-upload";
 import { setMeProfileSnapshot } from "@/lib/me-profile-store";
 
 const BIO_MAX = 280;
+
+const PRONOUN_LABEL_NL: Record<PronounsValue, string> = {
+  "she/her": "zij/haar",
+  "he/him": "hij/hem",
+  "they/them": "hen/hun",
+  custom: "Aangepast",
+};
 
 function gid() {
   return `g-${Math.random().toString(36).slice(2, 11)}`;
@@ -103,7 +111,7 @@ export function EditProfileView({
         setMeProfileSnapshot(next);
         setState(next);
         initialSerialized.current = JSON.stringify(next);
-        showToast("Profile updated ✨");
+        showToast("Profiel bijgewerkt ✨");
         window.setTimeout(() => router.push("/me"), 450);
         return;
       }
@@ -113,15 +121,15 @@ export function EditProfileView({
         initialSerialized.current = JSON.stringify(state);
         showToast(
           res.status === 401
-            ? "Saved on this device (sign in to sync)"
-            : "Saved on this device (Supabase unavailable)",
+            ? "Opgeslagen op dit apparaat (log in om te synchroniseren)"
+            : "Opgeslagen op dit apparaat (Supabase niet beschikbaar)",
         );
         window.setTimeout(() => router.push("/me"), 450);
         return;
       }
 
       const err = (await res.json().catch(() => ({}))) as { error?: string };
-      showToast(err.error ?? "Could not save profile");
+      showToast(err.error ?? "Profiel opslaan mislukt");
     } finally {
       setSaving(false);
     }
@@ -143,13 +151,13 @@ export function EditProfileView({
           URL.revokeObjectURL(blobUrl);
           return { ...s, mainPhotoUrl: r.publicUrl };
         });
-        showToast("Main photo uploaded");
+        showToast("Hoofdfoto geüpload");
         return;
       }
 
       showToast(
-        r.error === "Supabase is not configured"
-          ? "Preview only — connect Supabase to sync photos"
+        r.error === "Supabase is niet geconfigureerd"
+          ? "Alleen voorbeeld — koppel Supabase om foto’s te synchroniseren"
           : r.error,
       );
     },
@@ -180,15 +188,15 @@ export function EditProfileView({
 
         if (!r.ok) {
           showToast(
-            r.error === "Supabase is not configured"
-              ? "Gallery preview only without Supabase"
+            r.error === "Supabase is niet geconfigureerd"
+              ? "Galerij alleen voorbeeld zonder Supabase"
               : r.error,
           );
         }
       }
 
       if (anyUploaded) {
-        showToast("Photos uploaded — save profile to keep changes");
+        showToast("Foto’s geüpload — sla profiel op om wijzigingen te bewaren");
       }
       if (galleryInputRef.current) galleryInputRef.current.value = "";
     },
@@ -196,7 +204,7 @@ export function EditProfileView({
   );
 
   function removeGalleryPhoto(id: string, url: string) {
-    if (!window.confirm("Remove this photo from your profile?")) return;
+    if (!window.confirm("Deze foto uit je profiel verwijderen?")) return;
     if (url.startsWith("blob:")) URL.revokeObjectURL(url);
     setState((s) => ({
       ...s,
@@ -224,12 +232,12 @@ export function EditProfileView({
           type="button"
           onClick={() => router.back()}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/80 text-white shadow-md transition active:scale-95"
-          aria-label="Back"
+          aria-label="Terug"
         >
           <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
         </button>
         <h1 className="flex-1 text-center text-lg font-bold text-ink">
-          Edit profile
+          Profiel bewerken
         </h1>
         <button
           type="button"
@@ -239,7 +247,7 @@ export function EditProfileView({
             saveDisabled ? "text-ink/30" : "text-primary"
           }`}
         >
-          Save
+          Opslaan
         </button>
       </header>
 
@@ -267,7 +275,7 @@ export function EditProfileView({
             type="button"
             onClick={() => mainInputRef.current?.click()}
             className="absolute bottom-1 right-1 flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink shadow-lg ring-2 ring-canvas transition active:scale-95"
-            aria-label="Change photo"
+            aria-label="Foto wijzigen"
           >
             <Camera className="h-5 w-5" strokeWidth={2} />
           </button>
@@ -288,15 +296,15 @@ export function EditProfileView({
           onClick={() => mainInputRef.current?.click()}
           className="mt-3 text-[13px] font-semibold text-primary"
         >
-          {state.mainPhotoUrl ? "Change main photo" : "Add main photo"}
+          {state.mainPhotoUrl ? "Hoofdfoto wijzigen" : "Hoofdfoto toevoegen"}
         </button>
       </div>
 
       <section className="px-5 pt-8">
         <div className="mb-2 flex items-end justify-between gap-2">
-          <h2 className="text-lg font-bold text-ink">Your photos</h2>
+          <h2 className="text-lg font-bold text-ink">Jouw foto’s</h2>
           <p className="text-right text-[11px] font-medium text-inkMuted">
-            Add up to 6 photos
+            Maximaal 6 foto’s
           </p>
         </div>
 
@@ -328,7 +336,7 @@ export function EditProfileView({
               type="button"
               onClick={() => galleryInputRef.current?.click()}
               className="flex aspect-square items-center justify-center rounded-2xl border-2 border-dashed border-primary/45 bg-primary/[0.04] text-primary transition active:bg-primary/10"
-              aria-label="Add photo"
+              aria-label="Foto toevoegen"
             >
               <Plus className="h-7 w-7" strokeWidth={2} />
             </button>
@@ -346,7 +354,7 @@ export function EditProfileView({
 
       <section className="mt-6 px-5">
         <div className="overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-black/[0.06]">
-          <FieldRow label="Name">
+          <FieldRow label="Naam">
             <input
               className="w-full border-0 bg-transparent py-1 text-lg font-semibold text-ink outline-none ring-0 placeholder:text-ink/30"
               value={state.firstName}
@@ -356,12 +364,12 @@ export function EditProfileView({
             />
           </FieldRow>
           <div className="mx-4 h-px bg-black/[0.06]" />
-          <FieldRow label="Age">
+          <FieldRow label="Leeftijd">
             <input
               type="number"
               min={18}
               max={120}
-              placeholder="Add age"
+              placeholder="Leeftijd toevoegen"
               className="w-full border-0 bg-transparent py-1 text-lg font-semibold text-ink outline-none placeholder:text-ink/30"
               value={state.age ?? ""}
               onChange={(e) => {
@@ -377,7 +385,7 @@ export function EditProfileView({
             />
           </FieldRow>
           <div className="mx-4 h-px bg-black/[0.06]" />
-          <FieldRow label="Location">
+          <FieldRow label="Locatie">
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5 shrink-0 text-ink/35" strokeWidth={2} />
               <input
@@ -392,7 +400,7 @@ export function EditProfileView({
           <div className="mx-4 h-px bg-black/[0.06]" />
           <div className="px-4 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
-              Pronouns
+              Voornaamwoorden
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {PRONOUN_OPTIONS.map((p) => (
@@ -411,14 +419,14 @@ export function EditProfileView({
                       : "bg-ink/[0.06] text-ink ring-1 ring-black/[0.06]"
                   }`}
                 >
-                  {p === "custom" ? "Custom" : p}
+                  {PRONOUN_LABEL_NL[p]}
                 </button>
               ))}
             </div>
             {state.pronouns === "custom" && (
               <input
                 className="mt-2 w-full rounded-xl bg-ink/[0.04] px-3 py-2 text-sm font-medium text-ink outline-none ring-1 ring-black/[0.06]"
-                placeholder="Add your pronouns"
+                placeholder="Jouw voornaamwoorden"
                 value={state.customPronouns}
                 onChange={(e) =>
                   setState((s) => ({ ...s, customPronouns: e.target.value }))
@@ -431,7 +439,7 @@ export function EditProfileView({
 
       <section className="mt-6 px-5">
         <label className="text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
-          About me
+          Over mij
         </label>
         <div className="relative mt-2">
           <textarea
@@ -463,10 +471,10 @@ export function EditProfileView({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-accentPink">
-              Looking for
+              Op zoek naar
             </p>
             <p className="truncate text-[15px] font-bold text-ink">
-              {state.lookingFor || "Choose what you’re looking for"}
+              {state.lookingFor || "Kies waar je naar op zoek bent"}
             </p>
           </div>
           <ChevronRight className="h-5 w-5 shrink-0 text-ink/30" />
@@ -475,11 +483,11 @@ export function EditProfileView({
 
       <section className="mt-6 px-5">
         <div className="mb-1 flex items-end justify-between gap-2">
-          <h2 className="text-lg font-bold text-ink">Interests</h2>
-          <p className="text-[11px] font-medium text-inkMuted">Pick up to 8</p>
+          <h2 className="text-lg font-bold text-ink">Interesses</h2>
+          <p className="text-[11px] font-medium text-inkMuted">Max. 8</p>
         </div>
         <p className="mb-3 text-[12px] text-inkMuted">
-          They help us find better links for you
+          Zo vinden we betere koppelingen voor je
         </p>
         <div className="flex flex-wrap gap-2">
           {state.interests.map((label) => (
@@ -491,7 +499,7 @@ export function EditProfileView({
               <button
                 type="button"
                 className="ml-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-ink/70 transition hover:bg-black/15"
-                aria-label={`Remove ${label}`}
+                aria-label={`${label} verwijderen`}
                 onClick={() => toggleInterest(label)}
               >
                 <X className="h-3 w-3" strokeWidth={2.5} />
@@ -503,7 +511,7 @@ export function EditProfileView({
             onClick={() => setInterestsOpen(true)}
             className="inline-flex items-center rounded-full border-2 border-dashed border-primary/45 px-3 py-2 text-[13px] font-bold text-primary"
           >
-            + Add more
+            + Meer toevoegen
           </button>
         </div>
       </section>
@@ -514,7 +522,7 @@ export function EditProfileView({
           onClick={() => setPrefsOpen((o) => !o)}
           className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-card ring-1 ring-black/[0.06]"
         >
-          <span className="text-lg font-bold text-ink">Preferences</span>
+          <span className="text-lg font-bold text-ink">Voorkeuren</span>
           <ChevronDown
             className={`h-5 w-5 text-ink/40 transition ${prefsOpen ? "rotate-180" : ""}`}
           />
@@ -529,7 +537,7 @@ export function EditProfileView({
             >
               <div className="mt-2 space-y-0 overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-black/[0.06]">
                 <ToggleRow
-                  label="Show my distance"
+                  label="Toon mijn afstand"
                   checked={state.preferences.showDistance}
                   onChange={(v) =>
                     setState((s) => ({
@@ -540,7 +548,7 @@ export function EditProfileView({
                 />
                 <div className="mx-4 h-px bg-black/[0.06]" />
                 <ToggleRow
-                  label="Show online status"
+                  label="Toon onlinestatus"
                   checked={state.preferences.showOnlineStatus}
                   onChange={(v) =>
                     setState((s) => ({
@@ -551,7 +559,7 @@ export function EditProfileView({
                 />
                 <div className="mx-4 h-px bg-black/[0.06]" />
                 <ToggleRow
-                  label="Allow new chat requests"
+                  label="Sta nieuwe chatverzoeken toe"
                   checked={state.preferences.allowNewChatRequests}
                   onChange={(v) =>
                     setState((s) => ({
@@ -562,7 +570,7 @@ export function EditProfileView({
                 />
                 <div className="mx-4 h-px bg-black/[0.06]" />
                 <ToggleRow
-                  label="Push notifications"
+                  label="Pushmeldingen"
                   checked={state.preferences.pushNotifications}
                   onChange={(v) =>
                     setState((s) => ({
@@ -581,7 +589,7 @@ export function EditProfileView({
             className="text-left text-[13px] font-medium text-inkMuted underline-offset-2 hover:underline"
             onClick={() => console.log("[edit] Hide profile temporarily")}
           >
-            Hide my profile temporarily
+            Profiel tijdelijk verbergen
           </button>
           <button
             type="button"
@@ -589,7 +597,7 @@ export function EditProfileView({
             onClick={() => console.log("[edit] Delete account")}
           >
             <Trash2 className="h-4 w-4" strokeWidth={2} />
-            Delete account
+            Account verwijderen
           </button>
         </div>
       </section>
@@ -603,7 +611,7 @@ export function EditProfileView({
             saveDisabled ? "cursor-not-allowed opacity-50" : "active:scale-[0.99]"
           }`}
         >
-          Save changes
+          Wijzigingen opslaan
         </button>
         <p className="mt-2 text-center text-[11px] text-inkMuted">
           {state.lastUpdatedLabel}
@@ -624,7 +632,7 @@ export function EditProfileView({
       </AnimatePresence>
 
       <Sheet open={lookingOpen} onClose={() => setLookingOpen(false)}>
-        <h3 className="mb-3 text-lg font-bold text-ink">Looking for</h3>
+        <h3 className="mb-3 text-lg font-bold text-ink">Op zoek naar</h3>
         <div className="flex flex-col gap-1">
           <button
             type="button"
@@ -638,7 +646,7 @@ export function EditProfileView({
                 : "text-ink hover:bg-black/[0.03]"
             }`}
           >
-            Not set yet
+            Nog niet ingesteld
           </button>
           {LOOKING_FOR_OPTIONS.map((opt) => (
             <button
@@ -661,9 +669,9 @@ export function EditProfileView({
       </Sheet>
 
       <Sheet open={interestsOpen} onClose={() => setInterestsOpen(false)}>
-        <h3 className="mb-3 text-lg font-bold text-ink">Add interests</h3>
+        <h3 className="mb-3 text-lg font-bold text-ink">Interesses toevoegen</h3>
         <p className="mb-3 text-[12px] text-inkMuted">
-          {state.interests.length} / 8 selected
+          {state.interests.length} / 8 geselecteerd
         </p>
         <div className="max-h-[55vh] space-y-5 overflow-y-auto pr-1">
           {INTEREST_LIBRARY.map((cat) => (

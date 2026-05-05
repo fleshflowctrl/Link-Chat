@@ -55,7 +55,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
     <Link
       href={profileHref}
       className="block w-full overflow-hidden rounded-2xl bg-white shadow-sm outline-none ring-black/5 transition active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
-      aria-label={`View ${profile.name}'s profile`}
+      aria-label={`Profiel van ${profile.name} bekijken`}
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden">
         <Image
@@ -86,14 +86,14 @@ export function ProfileCard({ profile }: { profile: Profile }) {
         <div className="flex items-center gap-1 text-[11px] text-gray-500">
           <MapPin className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
           <span>
-            {profile.distanceKm} km away
+            {profile.distanceKm} km verderop
           </span>
         </div>
         <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-gray-700">
           {profile.bio}
         </p>
         <div className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-gray-900 py-2 text-[12px] font-bold text-white">
-          View profile
+          Profiel bekijken
           <ArrowRight className="size-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
         </div>
       </div>

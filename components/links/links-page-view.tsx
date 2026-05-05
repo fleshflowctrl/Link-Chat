@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { StatusBarMock } from "@/components/messages/status-bar-mock";
 import {
-  formatSentAgo,
+  formatLinkRequestSentLabel,
   initialLinkStats,
   seedLinkRequests,
   seedLinkedUsers,
@@ -59,7 +59,7 @@ export function LinksPageView() {
       requestsReceived: Math.max(0, s.requestsReceived - 1),
       linkedCount: s.linkedCount + 1,
     }));
-    showToast(`Linked with ${req.name} ✨`);
+    showToast(`Gekoppeld met ${req.name} ✨`);
   }
 
   return (
@@ -83,7 +83,7 @@ export function LinksPageView() {
 
       <header className="flex items-start justify-between gap-3 px-5 pb-2 pt-1">
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
-          Links
+          Koppelingen
         </h1>
         <Link
           href="/credits"
@@ -100,7 +100,7 @@ export function LinksPageView() {
         <div className="flex overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
           <div className="flex flex-1 flex-col items-center justify-center py-4">
             <span className="text-[10px] font-bold uppercase tracking-wider text-pink-500">
-              Requests
+              Verzoeken
             </span>
             <span className="mt-1 text-2xl font-extrabold tabular-nums text-ink">
               {stats.requestsReceived}
@@ -111,7 +111,7 @@ export function LinksPageView() {
           </div>
           <div className="flex flex-1 flex-col items-center justify-center py-4">
             <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-              Linked
+              Gekoppeld
             </span>
             <span className="mt-1 text-2xl font-extrabold tabular-nums text-ink">
               {stats.linkedCount}
@@ -122,7 +122,7 @@ export function LinksPageView() {
           </div>
           <div className="flex flex-1 flex-col items-center justify-center py-4">
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-              Sent
+              Verstuurd
             </span>
             <span className="mt-1 text-2xl font-extrabold tabular-nums text-ink">
               {stats.sentCount}
@@ -133,10 +133,10 @@ export function LinksPageView() {
 
       <section className="px-5 pb-5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h2 className="text-[15px] font-bold text-ink">Wants to link with you</h2>
+          <h2 className="text-[15px] font-bold text-ink">Wil met je koppelen</h2>
           {newRequestCount > 0 && (
             <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-semibold text-pink-600">
-              {newRequestCount} new
+              {newRequestCount} nieuw
             </span>
           )}
         </div>
@@ -166,9 +166,7 @@ export function LinksPageView() {
                   </p>
                   <p className="truncate text-[11px] text-gray-500">{req.bio}</p>
                   <p className="mt-0.5 text-[10px] font-medium text-pink-500">
-                    {formatSentAgo(req.sentAt) === "just now"
-                      ? "Sent just now"
-                      : `Sent ${formatSentAgo(req.sentAt)} ago`}
+                    {formatLinkRequestSentLabel(req.sentAt)}
                   </p>
                 </div>
               </Link>
@@ -180,7 +178,7 @@ export function LinksPageView() {
                 }}
                 className="shrink-0 rounded-full bg-[#7C5CFF] px-3 py-1.5 text-[11px] font-bold text-white shadow-sm transition active:scale-95"
               >
-                Link
+                Koppel
               </button>
             </div>
           ))}
@@ -193,7 +191,7 @@ export function LinksPageView() {
             <span className="text-[15px]" aria-hidden>
               🔗
             </span>
-            <h2 className="text-[15px] font-bold text-ink">Your links</h2>
+            <h2 className="text-[15px] font-bold text-ink">Jouw koppelingen</h2>
             <span className="rounded-full bg-[#EDE7FF] px-2 py-0.5 text-[10px] font-bold text-[#7C5CFF]">
               {linked.length}
             </span>
@@ -202,7 +200,7 @@ export function LinksPageView() {
             href="/links/all"
             className="shrink-0 text-[13px] font-semibold text-primary transition active:opacity-70"
           >
-            See all
+            Alles tonen
           </Link>
         </div>
 

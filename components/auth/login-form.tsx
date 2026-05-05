@@ -47,7 +47,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       if (!res.ok) {
         setStatus("error");
         setMessage(
-          "Test bypass is off for this host. If you use a custom domain, set ALLOW_TEST_BYPASS=1 or NEXT_PUBLIC_ALLOW_TEST_BYPASS=true, then redeploy.",
+          "Test-bypass staat uit voor deze host. Gebruik je een eigen domein? Zet ALLOW_TEST_BYPASS=1 of NEXT_PUBLIC_ALLOW_TEST_BYPASS=true en deploy opnieuw.",
         );
         return;
       }
@@ -67,12 +67,12 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
     if (mode === "signup") {
       if (password.length < PASSWORD_MIN) {
         setStatus("error");
-        setMessage(`Password must be at least ${PASSWORD_MIN} characters.`);
+        setMessage(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn.`);
         return;
       }
       if (password !== confirmPassword) {
         setStatus("error");
-        setMessage("Passwords do not match.");
+        setMessage("Wachtwoorden komen niet overeen.");
         return;
       }
     }
@@ -117,42 +117,42 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
 
     setStatus("needs_confirm");
     setMessage(
-      "Check your email to confirm your account, then sign in here.",
+      "Controleer je e-mail om je account te bevestigen en log daarna hier in.",
     );
   }
 
   if (!supabaseConfigured) {
-    const title = mode === "signup" ? "Sign up" : "Sign in";
+    const title = mode === "signup" ? "Registreren" : "Inloggen";
     return (
       <div className="rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]">
         <h1 className="font-serif text-2xl font-semibold text-ink">{title}</h1>
         <p className="mt-3 text-sm text-inkMuted">
-          Add <code className="rounded bg-black/[0.06] px-1">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
-          and{" "}
+          Voeg <code className="rounded bg-black/[0.06] px-1">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
+          en{" "}
           <code className="rounded bg-black/[0.06] px-1">
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
           </code>{" "}
-          to <code className="rounded bg-black/[0.06] px-1">.env.local</code>.
+          toe aan <code className="rounded bg-black/[0.06] px-1">.env.local</code>.
         </p>
         <p className="mt-6 text-center text-sm text-inkMuted">
           {mode === "signup" ? (
             <>
-              Already have an account?{" "}
+              Heb je al een account?{" "}
               <Link
                 href={`/login${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
-                Sign in
+                Inloggen
               </Link>
             </>
           ) : (
             <>
-              New here?{" "}
+              Nieuw hier?{" "}
               <Link
                 href={`/signup${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
-                Sign up
+                Registreren
               </Link>
             </>
           )}
@@ -161,20 +161,20 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
     );
   }
 
-  const title = mode === "signup" ? "Sign up" : "Sign in";
+  const title = mode === "signup" ? "Registreren" : "Inloggen";
   const subtitle =
     mode === "signup"
-      ? "Create your account with email and password."
-      : "Sign in with your email and password.";
+      ? "Maak je account met e-mail en wachtwoord."
+      : "Log in met je e-mail en wachtwoord.";
 
   const submitLabel =
     mode === "signup"
       ? status === "loading"
-        ? "Creating account…"
-        : "Create account"
+        ? "Account aanmaken…"
+        : "Account aanmaken"
       : status === "loading"
-        ? "Signing in…"
-        : "Sign in";
+        ? "Bezig met inloggen…"
+        : "Inloggen";
 
   return (
     <div className="rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]">
@@ -189,7 +189,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       {errorParam && (
         <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">
           {errorParam === "config"
-            ? "Server configuration error."
+            ? "Serverconfiguratiefout."
             : decodeURIComponent(errorParam)}
         </p>
       )}
@@ -202,7 +202,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
         <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wide text-inkMuted">
-              Email
+              E-mail
             </span>
             <input
               type="email"
@@ -210,13 +210,13 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder="jij@voorbeeld.nl"
               className="mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
             />
           </label>
           <label className="block">
             <span className="text-xs font-bold uppercase tracking-wide text-inkMuted">
-              Password
+              Wachtwoord
             </span>
             <input
               type="password"
@@ -232,14 +232,14 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
             />
             {mode === "signup" && (
               <p className="mt-1 text-[11px] text-inkMuted">
-                At least {PASSWORD_MIN} characters
+                Minimaal {PASSWORD_MIN} tekens
               </p>
             )}
           </label>
           {mode === "signup" && (
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wide text-inkMuted">
-                Confirm password
+                Wachtwoord bevestigen
               </span>
               <input
                 type="password"
@@ -268,7 +268,8 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       {supabaseConfigured && (
         <div className="mt-5 rounded-2xl border border-dashed border-amber-400/60 bg-amber-50/80 px-4 py-3">
           <p className="text-center text-[11px] font-medium text-amber-900/80">
-            Skip sign-in for UI testing (localhost, *.vercel.app, or set ALLOW_TEST_BYPASS on a custom domain)
+            Sla inloggen over voor UI-testen (localhost, *.vercel.app, of zet
+            ALLOW_TEST_BYPASS op een eigen domein)
           </p>
           <button
             type="button"
@@ -276,7 +277,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
             onClick={() => void continueWithoutLogin()}
             className="mt-2 flex h-11 w-full items-center justify-center rounded-full bg-amber-200/90 text-[13px] font-bold text-amber-950 transition enabled:active:scale-[0.98] disabled:opacity-60"
           >
-            {testBypassLoading ? "Opening…" : "Continue without signing in"}
+            {testBypassLoading ? "Openen…" : "Doorgaan zonder inloggen"}
           </button>
         </div>
       )}
@@ -284,22 +285,22 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       <p className="mt-6 text-center text-sm text-inkMuted">
         {mode === "signup" ? (
           <>
-            Already have an account?{" "}
+            Heb je al een account?{" "}
             <Link
               href={`/login${authToggleQuery}`}
               className="font-semibold text-primary underline-offset-2 hover:underline"
             >
-              Sign in
+              Inloggen
             </Link>
           </>
         ) : (
           <>
-            New here?{" "}
+            Nieuw hier?{" "}
             <Link
               href={`/signup${authToggleQuery}`}
               className="font-semibold text-primary underline-offset-2 hover:underline"
             >
-              Sign up
+              Registreren
             </Link>
           </>
         )}

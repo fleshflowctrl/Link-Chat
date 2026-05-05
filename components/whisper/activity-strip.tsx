@@ -18,7 +18,7 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
             aria-hidden
           />
           <h2 className="truncate text-[15px] font-bold text-ink">
-            New on whisper
+            Nieuw op whisper
           </h2>
         </div>
 
@@ -51,7 +51,7 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
                 </div>
                 {showNewJoinBadge(user.joinedAt) && (
                   <span className="absolute -right-0.5 -top-0.5 z-10 rounded-full bg-[#EC4899] px-1 py-0.5 text-[7px] font-bold uppercase leading-none tracking-wide text-white shadow-sm ring-[2px] ring-[#EDE7FF]">
-                    NEW
+                    NIEUW
                   </span>
                 )}
               </div>

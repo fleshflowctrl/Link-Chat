@@ -14,16 +14,16 @@ const PURPLE = "#7C5CFF";
 const GRAY = "#9CA3AF";
 
 const tabs = [
-  { href: "/", label: "Discover", Icon: Search, badge: null as string | null },
+  { href: "/", label: "Ontdekken", Icon: Search, badge: null as string | null },
   {
     href: "/messages",
-    label: "Messages",
+    label: "Berichten",
     Icon: MessageCircle,
     badge: "3",
   },
-  { href: "/links", label: "Links", Icon: Link2, badge: null },
-  { href: "/credits", label: "Sparkles", Icon: Sparkles, badge: null },
-  { href: "/me", label: "Me", Icon: User, badge: null },
+  { href: "/links", label: "Koppelingen", Icon: Link2, badge: null },
+  { href: "/credits", label: "Sprankels", Icon: Sparkles, badge: null },
+  { href: "/me", label: "Profiel", Icon: User, badge: null },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -47,7 +47,7 @@ export function BottomNav() {
   return (
     <nav
       className="shrink-0 border-t border-black/[0.06] bg-[#FDFCF9]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#FDFCF9]/90"
-      aria-label="Main"
+      aria-label="Hoofdnavigatie"
     >
       <div className="mx-auto flex max-w-[430px] justify-between gap-0.5 px-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {tabs.map(({ href, label, Icon, badge }) => {

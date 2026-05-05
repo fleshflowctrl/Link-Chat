@@ -43,17 +43,17 @@ export function isoToThreadTimeLabel(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   const diff = Date.now() - d.getTime();
-  if (diff < 60_000) return "Now";
+  if (diff < 60_000) return "Nu";
   if (diff < 86_400_000) {
-    return d.toLocaleTimeString("en-US", {
+    return d.toLocaleTimeString("nl-NL", {
       hour: "numeric",
       minute: "2-digit",
-      hour12: true,
+      hour12: false,
     });
   }
-  if (diff < 172_800_000) return "Yesterday";
-  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d ago`;
-  return d.toLocaleDateString();
+  if (diff < 172_800_000) return "Gisteren";
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)} d geleden`;
+  return d.toLocaleDateString("nl-NL");
 }
 
 export function profileRowToThread(row: ChatProfileRow): MessageThread {
@@ -62,7 +62,7 @@ export function profileRowToThread(row: ChatProfileRow): MessageThread {
     id: row.id,
     name: row.display_name,
     avatarUrl: row.avatar_url,
-    lastMessage: row.last_message_preview ?? "Say hi! 👋",
+    lastMessage: row.last_message_preview ?? "Zeg hallo! 👋",
     timestampLabel: isoToThreadTimeLabel(row.last_message_at),
     onlineNow: row.online_now,
     showOnlineDot: row.online_now,
@@ -90,7 +90,7 @@ export function mergeProfileWithLatestUserMessage(
   if (latest.kind === "image") {
     return {
       ...base,
-      lastMessage: "Photo",
+      lastMessage: "Foto",
       messageType: "photo",
       previewImage: latest.image_url ?? undefined,
       timestampLabel: ts,
@@ -103,7 +103,7 @@ export function mergeProfileWithLatestUserMessage(
       ...base,
       messageType: "reaction",
       reactionEmoji: latest.reaction_emoji,
-      lastMessage: "Reacted to your message",
+      lastMessage: "Reageerde op je bericht",
       timestampLabel: ts,
       lastActivityAt: at,
     };
@@ -112,7 +112,7 @@ export function mergeProfileWithLatestUserMessage(
   return {
     ...base,
     messageType: "text",
-    lastMessage: (latest.body ?? "").trim() || "Message",
+    lastMessage: (latest.body ?? "").trim() || "Bericht",
     timestampLabel: ts,
     lastActivityAt: at,
   };
@@ -120,10 +120,10 @@ export function mergeProfileWithLatestUserMessage(
 
 export function messageRowToUi(row: ChatMessageRow): ChatMessage {
   const d = new Date(row.created_at);
-  const timeLabel = d.toLocaleTimeString("en-US", {
+  const timeLabel = d.toLocaleTimeString("nl-NL", {
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
+    hour12: false,
   });
   const minuteOfDay =
     d.getHours() * 60 +

@@ -102,7 +102,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
             type="button"
             onClick={() => router.back()}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
-            aria-label="Back"
+            aria-label="Terug"
           >
             <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
           </button>
@@ -111,7 +111,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
               type="button"
               onClick={() => console.log("[profile] Share placeholder")}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
-              aria-label="Share"
+              aria-label="Delen"
             >
               <Share2 className="h-5 w-5" strokeWidth={2} />
             </button>
@@ -119,7 +119,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
               type="button"
               onClick={() => console.log("[profile] More options placeholder")}
               className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
-              aria-label="More"
+              aria-label="Meer"
             >
               <MoreHorizontal className="h-5 w-5" strokeWidth={2} />
             </button>
@@ -129,7 +129,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
         <div className="absolute bottom-0 left-0 right-0 z-10 p-5 pb-28">
           <div className="inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-md">
             <span className="h-2 w-2 rounded-full bg-accentGreen shadow-[0_0_0_2px_rgba(255,255,255,0.35)]" />
-            Online now
+            Nu online
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-md">
@@ -139,13 +139,13 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
               <BadgeCheck
                 className="h-8 w-8 shrink-0 text-primary drop-shadow-md"
                 strokeWidth={2}
-                aria-label="Verified"
+                aria-label="Geverifieerd"
               />
             )}
           </div>
           <p className="mt-2 flex items-center gap-1.5 text-[15px] font-medium text-white/95 drop-shadow">
             <MapPin className="h-4 w-4 shrink-0 text-white" strokeWidth={2.25} />
-            {profile.distanceKm} km away
+            {profile.distanceKm} km verderop
           </p>
           <span className="mt-3 inline-flex rounded-full bg-primary px-3 py-1.5 text-[12px] font-bold text-white shadow-lg ring-2 ring-white/25">
             {profile.lastActive}
@@ -193,7 +193,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-bold uppercase tracking-wide text-accentPink">
-              Looking for
+              Op zoek naar
             </p>
             <p className="text-[15px] font-bold leading-snug text-ink">
               {profile.lookingFor}
@@ -203,14 +203,14 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
         </button>
 
         <section className="mt-8">
-          <h2 className="text-lg font-bold text-ink">About me</h2>
+          <h2 className="text-lg font-bold text-ink">Over mij</h2>
           <p className="mt-2 text-[15px] leading-relaxed text-inkMuted">
             {profile.bio}
           </p>
         </section>
 
         <section className="mt-8">
-          <h2 className="text-lg font-bold text-ink">Interests</h2>
+          <h2 className="text-lg font-bold text-ink">Interesses</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {profile.interests.map((item) => (
               <span
@@ -228,7 +228,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
               onClick={() => console.log("[profile] Add more interests")}
               className="inline-flex items-center rounded-full border-2 border-dashed border-primary/50 bg-transparent px-3 py-2 text-[13px] font-semibold text-primary transition active:bg-primary/5"
             >
-              + Add more
+              + Meer toevoegen
             </button>
           </div>
         </section>
@@ -243,12 +243,12 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
             className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99]"
           >
             <MessageCircle className="h-5 w-5" strokeWidth={2.25} />
-            Say hi
+            Zeg hallo
           </Link>
           <motion.button
             type="button"
             aria-pressed={liked}
-            aria-label={liked ? "Unlike" : "Like"}
+            aria-label={liked ? "Vind-ik-leuk ongedaan" : "Vind ik leuk"}
             onClick={() => setLiked((v) => !v)}
             className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full border-2 border-ink/10 bg-white text-ink shadow-card transition-colors"
             whileTap={{ scale: 0.92 }}

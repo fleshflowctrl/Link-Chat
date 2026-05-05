@@ -91,8 +91,8 @@ export function showNewJoinBadge(joinedAt: string, now = Date.now()): boolean {
 export function formatJoinedAgo(joinedAt: string, now = Date.now()): string {
   const diffMs = Math.max(0, now - new Date(joinedAt).getTime());
   const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return "Zojuist";
+  if (mins < 60) return `${mins} min geleden`;
   const hours = Math.floor(mins / 60);
-  return `${hours}h ago`;
+  return `${hours} u geleden`;
 }

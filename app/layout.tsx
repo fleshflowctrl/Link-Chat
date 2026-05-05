@@ -17,8 +17,8 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "whisper — real people, real conversations",
-  description: "A calm place to chat at your pace.",
+  title: "whisper — echte mensen, echte gesprekken",
+  description: "Een rustige plek om in je eigen tempo te chatten.",
 };
 
 /** Lock mobile viewport so users can't pinch / double-tap zoom (native-app feel). */
@@ -37,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="nl">
       <body className={`${inter.variable} ${playfair.variable} font-sans`}>
         <NoZoom />
         {children}

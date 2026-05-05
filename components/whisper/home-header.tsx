@@ -25,7 +25,7 @@ export function HomeHeader({ credits }: { credits: number }) {
         <Link
           href="/notifications"
           className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-100 bg-white text-gray-500 shadow-sm transition active:scale-95"
-          aria-label="Notifications"
+          aria-label="Meldingen"
         >
           <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
           {unread > 0 && (

@@ -60,10 +60,10 @@ function annotateMessages(msgs: ChatMessage[]): Annotated[] {
 
 function nowClock(): { timeLabel: string; minuteOfDay: number } {
   const d = new Date();
-  const timeLabel = d.toLocaleTimeString("en-US", {
+  const timeLabel = d.toLocaleTimeString("nl-NL", {
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
+    hour12: false,
   });
   return { timeLabel, minuteOfDay: d.getHours() * 60 + d.getMinutes() };
 }
@@ -261,7 +261,7 @@ export function ChatConversationView({
           setAssistantError(
             typeof data.error === "string"
               ? data.error
-              : `Could not send (${res.status})`,
+              : `Versturen mislukt (${res.status})`,
           );
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
           setReadPhase((p) => {
@@ -281,7 +281,7 @@ export function ChatConversationView({
               : data.warning;
           setAssistantError(
             data.peerMessage == null
-              ? `Reply didn’t load: ${short}`
+              ? `Antwoord laadt niet: ${short}`
               : short,
           );
         } else {
@@ -318,7 +318,9 @@ export function ChatConversationView({
       } catch (e) {
         console.error("[chat] send failed", e);
         setAssistantError(
-          e instanceof Error ? e.message : "Network error — message not sent",
+          e instanceof Error
+            ? e.message
+            : "Netwerkfout — bericht niet verstuurd",
         );
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setReadPhase((p) => {
@@ -348,7 +350,7 @@ export function ChatConversationView({
           type="button"
           onClick={() => router.back()}
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/80 text-white shadow-md transition active:scale-95"
-          aria-label="Back"
+          aria-label="Terug"
         >
           <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
         </button>
@@ -370,14 +372,14 @@ export function ChatConversationView({
               <BadgeCheck
                 className="h-[18px] w-[18px] shrink-0 text-primary"
                 strokeWidth={2}
-                aria-label="Verified"
+                aria-label="Geverifieerd"
               />
             )}
           </div>
           {meta.onlineNow ? (
             <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-inkMuted">
               <span className="h-2 w-2 shrink-0 rounded-full bg-accentGreen shadow-[0_0_0_2px_rgba(124,92,255,0.12)]" />
-              <span className="font-medium text-primary">Online now</span>
+              <span className="font-medium text-primary">Nu online</span>
             </p>
           ) : (
             <p className="mt-0.5 text-[12px] text-inkMuted">Offline</p>
@@ -388,7 +390,7 @@ export function ChatConversationView({
             type="button"
             onClick={() => setHeaderMenuOpen((o) => !o)}
             className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink shadow-card ring-1 ring-black/[0.06] transition active:scale-95"
-            aria-label="Chat options"
+            aria-label="Chatopties"
             aria-expanded={headerMenuOpen}
           >
             <MoreHorizontal className="h-5 w-5" strokeWidth={2} />
@@ -398,7 +400,7 @@ export function ChatConversationView({
               <>
                 <button
                   type="button"
-                  aria-label="Close menu"
+                  aria-label="Menu sluiten"
                   className="fixed inset-0 z-[60]"
                   onClick={() => setHeaderMenuOpen(false)}
                 />
@@ -413,7 +415,7 @@ export function ChatConversationView({
                     className="block px-4 py-3 text-[14px] font-semibold text-ink transition hover:bg-black/[0.04]"
                     onClick={() => setHeaderMenuOpen(false)}
                   >
-                    View profile
+                    Profiel bekijken
                   </Link>
                   <button
                     type="button"
@@ -423,7 +425,7 @@ export function ChatConversationView({
                       console.log("[chat] Mute placeholder");
                     }}
                   >
-                    Mute
+                    Dempen
                   </button>
                   <button
                     type="button"
@@ -433,7 +435,7 @@ export function ChatConversationView({
                       console.log("[chat] Block placeholder");
                     }}
                   >
-                    Block
+                    Blokkeren
                   </button>
                   <button
                     type="button"
@@ -443,7 +445,7 @@ export function ChatConversationView({
                       console.log("[chat] Report placeholder");
                     }}
                   >
-                    Report
+                    Rapporteren
                   </button>
                 </motion.div>
               </>
@@ -470,7 +472,7 @@ export function ChatConversationView({
             strokeWidth={2.25}
             aria-hidden
           />
-          Messages are end-to-end encrypted. Your chat stays private.
+          Berichten zijn end-to-end versleuteld. Jullie chat blijft privé.
         </p>
       </div>
 
@@ -479,7 +481,7 @@ export function ChatConversationView({
         className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pb-3"
       >
         <p className="py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
-          Today
+          Vandaag
         </p>
 
         <div className="space-y-0 pb-4">
@@ -666,7 +668,7 @@ export function ChatConversationView({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="fixed inset-0 z-[80] bg-black/25"
-              aria-label="Close reactions"
+              aria-label="Reacties sluiten"
               onClick={() => setReactionTargetId(null)}
             />
             <motion.div
@@ -698,7 +700,7 @@ export function ChatConversationView({
           <button
             type="button"
             className="fixed inset-0 z-[100]"
-            aria-label="Close"
+            aria-label="Sluiten"
             onClick={() => setBubbleMenu(null)}
           />
           <div
@@ -708,13 +710,20 @@ export function ChatConversationView({
               top: Math.min(bubbleMenu.y, typeof window !== "undefined" ? window.innerHeight - 200 : 0),
             }}
           >
-            {(["Reply", "Copy", "React", "Delete"] as const).map((label) => (
+            {(
+              [
+                { key: "reply", label: "Antwoorden" },
+                { key: "copy", label: "Kopiëren" },
+                { key: "react", label: "Reageren" },
+                { key: "delete", label: "Verwijderen" },
+              ] as const
+            ).map(({ key, label }) => (
               <button
-                key={label}
+                key={key}
                 type="button"
                 className="block w-full px-4 py-2.5 text-left text-[14px] font-semibold text-ink transition hover:bg-black/[0.04]"
                 onClick={() => {
-                  console.log(`[chat] ${label} on`, bubbleMenu.id);
+                  console.log(`[chat] ${key} on`, bubbleMenu.id);
                   setBubbleMenu(null);
                 }}
               >
@@ -736,7 +745,7 @@ export function ChatConversationView({
           <button
             type="button"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
-            aria-label="Attachments"
+            aria-label="Bijlagen"
             onClick={() => console.log("[chat] Attachments placeholder")}
           >
             <Plus className="h-5 w-5" strokeWidth={2.5} />
@@ -752,7 +761,7 @@ export function ChatConversationView({
                   void sendText(input);
                 }
               }}
-              placeholder="Type a message..."
+              placeholder="Typ een bericht…"
               className="h-12 w-full rounded-full border-0 bg-white pl-4 pr-12 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none transition placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
             />
             <button
@@ -771,7 +780,7 @@ export function ChatConversationView({
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
-              aria-label="Send"
+              aria-label="Versturen"
               onClick={() => void sendText(input)}
             >
               <Send className="h-5 w-5" strokeWidth={2.25} />
@@ -783,7 +792,7 @@ export function ChatConversationView({
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
-              aria-label="Gifts"
+              aria-label="Cadeaus"
               onClick={() => console.log("[chat] Gifts placeholder")}
             >
               <Gift className="h-5 w-5" strokeWidth={2.25} />

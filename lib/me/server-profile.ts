@@ -44,14 +44,14 @@ const DEFAULT_CREDITS = 125;
 export function formatProfileLastUpdatedLabel(
   iso: string | null | undefined,
 ): string {
-  if (!iso) return "Not saved yet";
+  if (!iso) return "Nog niet opgeslagen";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "Not saved yet";
+  if (Number.isNaN(d.getTime())) return "Nog niet opgeslagen";
   const diff = Date.now() - d.getTime();
   const days = Math.floor(diff / 86_400_000);
-  if (days <= 0) return "Updated today";
-  if (days === 1) return "Updated yesterday";
-  return `Updated ${days} days ago`;
+  if (days <= 0) return "Vandaag bijgewerkt";
+  if (days === 1) return "Gisteren bijgewerkt";
+  return `${days} dagen geleden bijgewerkt`;
 }
 
 function parsePronouns(raw: string): PronounsValue {

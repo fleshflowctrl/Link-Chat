@@ -26,7 +26,7 @@ export async function GET(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Niet geautoriseerd" }, { status: 401 });
   }
 
   const { data: msgs, error } = await supabase
@@ -54,7 +54,7 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Ongeldige JSON" }, { status: 400 });
   }
 
   const text =
@@ -66,11 +66,11 @@ export async function POST(
       : "";
 
   if (!text) {
-    return NextResponse.json({ ok: false, error: "Missing text" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Geen tekst" }, { status: 400 });
   }
   if (text.length > MAX_LEN) {
     return NextResponse.json(
-      { ok: false, error: `Message too long (max ${MAX_LEN} chars)` },
+      { ok: false, error: `Bericht te lang (max. ${MAX_LEN} tekens)` },
       { status: 400 },
     );
   }
@@ -80,7 +80,7 @@ export async function POST(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Niet geautoriseerd" }, { status: 401 });
   }
 
   const peerId = params.peerId;
@@ -92,7 +92,7 @@ export async function POST(
     .maybeSingle();
 
   if (pe || !profile) {
-    return NextResponse.json({ ok: false, error: "Unknown peer" }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "Onbekende persoon" }, { status: 404 });
   }
 
   const p = profile as ChatProfileRow;
@@ -111,7 +111,7 @@ export async function POST(
 
   if (ie || !insertedUser) {
     return NextResponse.json(
-      { ok: false, error: ie?.message ?? "Insert failed" },
+      { ok: false, error: ie?.message ?? "Opslaan mislukt" },
       { status: 500 },
     );
   }

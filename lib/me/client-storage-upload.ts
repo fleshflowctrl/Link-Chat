@@ -23,13 +23,13 @@ export async function uploadProfileImage(
   subfolder?: "gallery",
 ): Promise<UploadResult> {
   if (!getSupabasePublicEnv()) {
-    return { ok: false, error: "Supabase is not configured" };
+    return { ok: false, error: "Supabase is niet geconfigureerd" };
   }
   if (!file.type.startsWith("image/")) {
-    return { ok: false, error: "Please choose an image file" };
+    return { ok: false, error: "Kies een afbeeldingsbestand" };
   }
   if (file.size > MAX_BYTES) {
-    return { ok: false, error: "Image must be 5MB or smaller" };
+    return { ok: false, error: "Afbeelding mag maximaal 5 MB zijn" };
   }
 
   let supabase: ReturnType<typeof createClient>;
@@ -38,7 +38,7 @@ export async function uploadProfileImage(
   } catch (e) {
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "Could not connect",
+      error: e instanceof Error ? e.message : "Kan geen verbinding maken",
     };
   }
 
@@ -47,7 +47,7 @@ export async function uploadProfileImage(
     error: userErr,
   } = await supabase.auth.getUser();
   if (userErr || !user) {
-    return { ok: false, error: "Sign in to upload photos" };
+    return { ok: false, error: "Log in om foto’s te uploaden" };
   }
 
   const ext = extForFile(file);

@@ -26,11 +26,11 @@ export type EditProfileState = {
 };
 
 export const LOOKING_FOR_OPTIONS = [
-  "Meaningful connection",
-  "Something casual",
-  "New friends",
-  "Just chatting",
-  "Not sure yet",
+  "Betekenisvolle connectie",
+  "Iets casuals",
+  "Nieuwe vrienden",
+  "Alleen chatten",
+  "Nog niet zeker",
 ] as const;
 
 export const PRONOUN_OPTIONS: PronounsValue[] = [
@@ -42,38 +42,38 @@ export const PRONOUN_OPTIONS: PronounsValue[] = [
 
 export const INTEREST_LIBRARY: { category: string; items: string[] }[] = [
   {
-    category: "Vibes",
+    category: "Sfeer",
     items: [
-      "Caring",
-      "Romantic",
-      "Playful",
-      "Adventurous",
+      "Zorgzaam",
+      "Romantisch",
+      "Speels",
+      "Avontuurlijk",
       "Chill",
-      "Witty",
-      "Curious",
+      "Scherpzinnig",
+      "Nieuwsgierig",
     ],
   },
   {
-    category: "Hobbies",
+    category: "Hobby’s",
     items: [
-      "Coffee",
-      "Travel",
-      "Music",
-      "Movies",
-      "Gym",
-      "Cooking",
-      "Reading",
-      "Gaming",
-      "Art",
+      "Koffie",
+      "Reizen",
+      "Muziek",
+      "Films",
+      "Sportschool",
+      "Koken",
+      "Lezen",
+      "Gamen",
+      "Kunst",
     ],
   },
   {
-    category: "Connection style",
+    category: "Manier van contact",
     items: [
-      "Good listener",
-      "Warm company",
-      "Deep talks",
-      "Light banter",
+      "Goede luisteraar",
+      "Warm gezelschap",
+      "Diepe gesprekken",
+      "Luchtige humor",
     ],
   },
 ];
@@ -97,7 +97,7 @@ export function emptyEditProfileState(): EditProfileState {
       allowNewChatRequests: true,
       pushNotifications: true,
     },
-    lastUpdatedLabel: "Complete your profile",
+    lastUpdatedLabel: "Vul je profiel aan",
   };
 }
 

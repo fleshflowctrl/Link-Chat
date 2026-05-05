@@ -17,25 +17,25 @@ export const meStatCardLayout: Record<
 > = {
   chats: {
     label: "Chats",
-    subtitle: "Open conversations",
+    subtitle: "Open gesprekken",
     emoji: "💬",
     cardBg: "bg-purple-100",
   },
   links: {
-    label: "Linked",
-    subtitle: "You're linked",
+    label: "Gekoppeld",
+    subtitle: "Jullie zijn gekoppeld",
     emoji: "🔗",
     cardBg: "bg-pink-100",
   },
   likes: {
     label: "Likes",
-    subtitle: "People who liked you",
+    subtitle: "Mensen die jou liketen",
     emoji: "❤️",
     cardBg: "bg-rose-100",
   },
   credits: {
-    label: "Sparkles",
-    subtitle: "Top up to chat more",
+    label: "Sprankels",
+    subtitle: "Opwaarderen voor meer chat",
     emoji: "✨",
     cardBg: "bg-amber-100",
   },
@@ -45,9 +45,9 @@ export const meStatCardLayout: Record<
 export const meProfile = {
   firstName: "Emily",
   age: 28,
-  location: "London, UK",
-  bioLine1: "Coffee lover ☕ · Travel addict ✈️",
-  bioLine2: "Looking for real conversations and good vibes.",
+  location: "Amsterdam, NL",
+  bioLine1: "Koffieliefhebber ☕ · Reizen ✈️",
+  bioLine2: "Op zoek naar echte gesprekken en goede vibes.",
   avatarUrl:
     "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=720&q=80&auto=format&fit=crop",
   verified: true,
@@ -82,49 +82,49 @@ export const meSettingsSections: MeSettingsSection[] = [
     rows: [
       {
         href: "/me/account",
-        title: "Account & security",
-        subtitle: "Manage your account and privacy",
+        title: "Account & beveiliging",
+        subtitle: "Beheer je account en privacy",
         icon: "shield",
       },
       {
         href: "/me/privacy",
-        title: "Privacy settings",
-        subtitle: "Control who can see and contact you",
+        title: "Privacyinstellingen",
+        subtitle: "Bepaal wie je kan zien en contacteren",
         icon: "lock",
       },
     ],
   },
   {
-    label: "BILLING",
+    label: "BETALING",
     rows: [
       {
         href: "/me/payment",
-        title: "Payment methods",
-        subtitle: "Manage cards and subscriptions",
+        title: "Betaalmethoden",
+        subtitle: "Kaarten en abonnementen beheren",
         icon: "credit",
       },
       {
         href: "/me/history",
-        title: "Purchase history",
-        subtitle: "View your past transactions",
+        title: "Aankoopgeschiedenis",
+        subtitle: "Eerdere aankopen bekijken",
         icon: "history",
       },
       {
         href: "/me/earn",
-        title: "Earn free sparkles",
-        subtitle: "Invite friends and get free sparkles",
+        title: "Verdien gratis sprankels",
+        subtitle: "Nodig vrienden uit en ontvang sprankels",
         icon: "gift",
         bonusPill: "+50",
       },
     ],
   },
   {
-    label: "SUPPORT",
+    label: "ONDERSTEUNING",
     rows: [
       {
         href: "/me/help",
-        title: "Help & support",
-        subtitle: "Get help or contact us",
+        title: "Help & ondersteuning",
+        subtitle: "Hulp nodig of contact opnemen",
         icon: "help",
       },
     ],

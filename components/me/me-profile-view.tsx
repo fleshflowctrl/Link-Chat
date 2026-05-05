@@ -91,7 +91,7 @@ export function MeProfileView({
   const bioLine1 = bioParts[0]?.trim() ?? "";
   const bioLine2 = bioParts.slice(1).join("\n").trim();
   const hasPhoto = live.mainPhotoUrl.trim().length > 0;
-  const displayName = live.firstName.trim() || "Your profile";
+  const displayName = live.firstName.trim() || "Jouw profiel";
   const ageLoc = formatAgeLocation(live.age, live.location);
 
   function openPhotoPicker() {
@@ -120,12 +120,12 @@ export function MeProfileView({
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
-        showToast(err.error ?? "Could not save photo");
+        showToast(err.error ?? "Foto opslaan mislukt");
         return;
       }
       const data = (await res.json()) as { profile: EditProfileState };
       setMeProfileSnapshot(data.profile);
-      showToast("Profile photo updated");
+      showToast("Profielfoto bijgewerkt");
       router.refresh();
     } finally {
       setPhotoBusy(false);
@@ -138,7 +138,7 @@ export function MeProfileView({
 
       <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-1">
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
-          Profile
+          Profiel
         </h1>
         <div className="mt-0.5 flex shrink-0 items-center gap-2">
           <Link
@@ -153,7 +153,7 @@ export function MeProfileView({
           <Link
             href="/me/settings"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-100 bg-white text-gray-600 shadow-sm transition active:scale-95"
-            aria-label="Settings"
+            aria-label="Instellingen"
           >
             <Settings className="h-[18px] w-[18px]" strokeWidth={2} />
           </Link>
@@ -207,7 +207,7 @@ export function MeProfileView({
                 onClick={openPhotoPicker}
                 disabled={photoBusy}
                 className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-primary shadow-md ring-2 ring-white/40 transition enabled:active:scale-95 disabled:opacity-50"
-                aria-label="Change profile photo"
+                aria-label="Profielfoto wijzigen"
               >
                 <Camera className="h-4 w-4" strokeWidth={2.25} />
               </button>
@@ -220,7 +220,7 @@ export function MeProfileView({
                 </span>
                 {showVerified && (
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/95 text-primary shadow-sm ring-1 ring-white/50">
-                    <BadgeCheck className="h-4 w-4" strokeWidth={2.5} aria-label="Verified" />
+                    <BadgeCheck className="h-4 w-4" strokeWidth={2.5} aria-label="Geverifieerd" />
                   </span>
                 )}
               </div>
@@ -228,7 +228,7 @@ export function MeProfileView({
                 <p className="mt-1 text-xs text-white/90">{ageLoc}</p>
               ) : (
                 <p className="mt-1 text-xs text-white/75">
-                  Add age &amp; location in edit
+                  Voeg leeftijd &amp; locatie toe bij bewerken
                 </p>
               )}
               {bioLine1 && (
@@ -239,14 +239,14 @@ export function MeProfileView({
               )}
               {!bioLine1 && !bioLine2 && (
                 <p className="mt-1 text-xs text-white/75">
-                  Add a short bio in edit — tell people what you&apos;re into.
+                  Voeg een korte bio toe bij bewerken — vertel waar je van houdt.
                 </p>
               )}
               <Link
                 href="/me/edit"
                 className="mt-3 inline-block rounded-full bg-white px-3 py-1.5 text-xs font-bold text-primary shadow-sm transition active:scale-[0.98]"
               >
-                Edit profile
+                Profiel bewerken
               </Link>
             </div>
           </div>

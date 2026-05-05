@@ -16,7 +16,7 @@ export function MePlaceholderPage({ title, description }: Props) {
         href="/me"
         className="inline-flex min-h-[44px] max-w-xs items-center justify-center rounded-2xl bg-lavender px-5 py-3 text-sm font-bold text-primary ring-1 ring-primary/15"
       >
-        Back to profile
+        Terug naar profiel
       </Link>
     </div>
   );

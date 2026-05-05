@@ -33,7 +33,7 @@ export const seedLinkRequests: LinkRequest[] = [
     name: "Sophie",
     age: 24,
     photo: u("photo-1544005313-94ddf0286df2"),
-    bio: "Coffee shops, indie films, and slow Sundays.",
+    bio: "Koffiebars, indie-films en trage zondagen.",
     sentAt: new Date(Date.now() - 4 * 60_000).toISOString(),
     isNew: true,
   },
@@ -42,7 +42,7 @@ export const seedLinkRequests: LinkRequest[] = [
     name: "Iris",
     age: 27,
     photo: u("photo-1531746020798-e6953c6e8e04"),
-    bio: "Runner, reader, always up for good pasta.",
+    bio: "Hardloper, lezer, altijd in voor goede pasta.",
     sentAt: new Date(Date.now() - 18 * 60_000).toISOString(),
     isNew: true,
   },
@@ -51,7 +51,7 @@ export const seedLinkRequests: LinkRequest[] = [
     name: "Nora",
     age: 25,
     photo: u("photo-1517841905240-472988babdf9"),
-    bio: "Art school grad. Let’s swap playlists.",
+    bio: "Afgestudeerd aan kunstacademie. Playlists ruilen?",
     sentAt: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
     isNew: true,
   },
@@ -60,7 +60,7 @@ export const seedLinkRequests: LinkRequest[] = [
     name: "Ava",
     age: 29,
     photo: u("photo-1438761681033-6461ffad8d80"),
-    bio: "Yoga mornings, spicy food, honest chats.",
+    bio: "Yoga-ochtenden, pittig eten, eerlijke gesprekken.",
     sentAt: new Date(Date.now() - 5 * 60 * 60_000).toISOString(),
     isNew: false,
   },
@@ -69,7 +69,7 @@ export const seedLinkRequests: LinkRequest[] = [
     name: "Zoe",
     age: 26,
     photo: u("photo-1529626455594-4ff0802cfb7e"),
-    bio: "Weekend hikes and farmers markets.",
+    bio: "Weekendwandelingen en boerenmarkten.",
     sentAt: new Date(Date.now() - 26 * 60 * 60_000).toISOString(),
     isNew: false,
   },
@@ -78,7 +78,7 @@ export const seedLinkRequests: LinkRequest[] = [
     name: "Mia",
     age: 23,
     photo: u("photo-1534528741775-53994a69daeb"),
-    bio: "Photography, jazz bars, and long walks.",
+    bio: "Fotografie, jazzbars en lange wandelingen.",
     sentAt: new Date(Date.now() - 50 * 60 * 60_000).toISOString(),
     isNew: false,
   },
@@ -104,14 +104,14 @@ export const seedLinkedUsers: LinkedUser[] = Array.from({ length: 12 }, (_, i) =
   };
 });
 
-/** Relative time without trailing “ago” (UI: `Sent {x} ago`). */
-export function formatSentAgo(sentAt: string, now = Date.now()): string {
+/** Volledige zin voor “verstuurd … geleden” in de koppelings-UI. */
+export function formatLinkRequestSentLabel(sentAt: string, now = Date.now()): string {
   const diffMs = Math.max(0, now - new Date(sentAt).getTime());
   const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m`;
+  if (mins < 1) return "Zojuist verstuurd";
+  if (mins < 60) return `${mins} min geleden verstuurd`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
+  if (hrs < 24) return `${hrs} u geleden verstuurd`;
   const days = Math.floor(hrs / 24);
-  return `${days}d`;
+  return `${days} d geleden verstuurd`;
 }

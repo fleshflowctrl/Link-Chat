@@ -29,7 +29,7 @@ export function OnlineNowRail({ className, compact, users: usersProp }: OnlineNo
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500/75 opacity-75" />
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
         </span>
-        <span className="text-[15px] font-bold text-ink">Online now</span>
+        <span className="text-[15px] font-bold text-ink">Nu online</span>
         <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">
           {count}
         </span>
@@ -38,7 +38,7 @@ export function OnlineNowRail({ className, compact, users: usersProp }: OnlineNo
       <div className="scrollbar-hide flex gap-3 overflow-x-auto px-5 pb-1">
         {count === 0 && (
           <p className="px-1 pb-2 text-[13px] text-inkMuted">
-            No one online right now — check back later.
+            Niemand online — probeer het later opnieuw.
           </p>
         )}
         {users.map((user) => (
