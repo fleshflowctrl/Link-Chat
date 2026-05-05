@@ -212,13 +212,19 @@ export const FUNNEL_SESSION_KEY = "whisper_funnel_session";
 export const ONBOARDED_KEY = "whisper_onboarded";
 export const WHISPER_USER_KEY = "whisper_user";
 
+/** Funnel Step 4 — age window (slider) or “open to any age”. */
+export type FunnelAgeRange = {
+  min: number;
+  max: number;
+  anyAge: boolean;
+};
+
 export type WhisperUserLocal = {
   name: string;
   age: number;
   location: string;
   vibe: string[];
-  ageMin: number;
-  ageMax: number;
+  ageRange: FunnelAgeRange;
   lookingFor: FunnelLookingFor;
   pickedMatchId: string;
   firstMessage: string;

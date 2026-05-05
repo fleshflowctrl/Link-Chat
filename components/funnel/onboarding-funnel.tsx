@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
   type Dispatch,
+  type PointerEvent as ReactPointerEvent,
   type SetStateAction,
 } from "react";
 import {
@@ -31,6 +32,7 @@ import {
   FUNNEL_STARTER_MESSAGES,
   FUNNEL_VIBES,
   ONBOARDED_KEY,
+  type FunnelAgeRange,
   type FunnelLookingFor,
   type WhisperUserLocal,
   WHISPER_USER_KEY,
@@ -54,8 +56,7 @@ type FunnelPersist = {
   step: number;
   lookingFor: FunnelLookingFor | null;
   vibes: string[];
-  ageMin: number;
-  ageMax: number;
+  ageRange: FunnelAgeRange;
   name: string;
   age: string;
   location: string;
@@ -73,12 +74,49 @@ function normalizeLookingFor(raw: unknown): FunnelLookingFor | null {
     : null;
 }
 
+const DEFAULT_AGE_RANGE: FunnelAgeRange = {
+  min: 18,
+  max: 35,
+  anyAge: false,
+};
+
+function normalizeAgeRange(
+  p: Partial<FunnelPersist> & { ageMin?: number; ageMax?: number },
+): FunnelAgeRange {
+  if (p.ageRange && typeof p.ageRange === "object") {
+    const ar = p.ageRange as Partial<FunnelAgeRange>;
+    return {
+      min:
+        typeof ar.min === "number"
+          ? Math.min(70, Math.max(18, Math.round(ar.min)))
+          : DEFAULT_AGE_RANGE.min,
+      max:
+        typeof ar.max === "number"
+          ? Math.min(70, Math.max(18, Math.round(ar.max)))
+          : DEFAULT_AGE_RANGE.max,
+      anyAge: Boolean(ar.anyAge),
+    };
+  }
+  const min =
+    typeof p.ageMin === "number"
+      ? Math.min(70, Math.max(18, Math.round(p.ageMin)))
+      : DEFAULT_AGE_RANGE.min;
+  const max =
+    typeof p.ageMax === "number"
+      ? Math.min(70, Math.max(18, Math.round(p.ageMax)))
+      : DEFAULT_AGE_RANGE.max;
+  return {
+    min: Math.min(min, max - 2),
+    max: Math.max(max, min + 2),
+    anyAge: false,
+  };
+}
+
 const defaultPersist = (): FunnelPersist => ({
   step: 1,
   lookingFor: null,
   vibes: ["caring", "warm", "listener"],
-  ageMin: 18,
-  ageMax: 35,
+  ageRange: { ...DEFAULT_AGE_RANGE },
   name: "",
   age: "",
   location: "London, UK",
@@ -97,10 +135,12 @@ function loadSession(): FunnelPersist | null {
     const lf =
       normalizeLookingFor(p.lookingFor) ??
       normalizeLookingFor(p.lookingForId);
+    const ageRange = normalizeAgeRange(p);
     return {
       ...defaultPersist(),
       ...p,
       lookingFor: lf,
+      ageRange,
       step: Math.min(STEP_TOTAL, Math.max(1, Number(p.step) || 1)),
     };
   } catch {
@@ -123,17 +163,21 @@ export function OnboardingFunnel() {
 
   const [lookingFor, setLookingFor] = useState<FunnelLookingFor | null>(null);
   const [vibes, setVibes] = useState<string[]>(() => defaultPersist().vibes);
-  const [ageMin, setAgeMin] = useState(18);
-  const [ageMax, setAgeMax] = useState(35);
+  const [ageRange, setAgeRange] = useState<FunnelAgeRange>(() => ({
+    ...DEFAULT_AGE_RANGE,
+  }));
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   const [location, setLocation] = useState("London, UK");
   const [pickedMatchId, setPickedMatchId] = useState<string | null>(null);
   const [firstMessage, setFirstMessage] = useState("");
 
+  const matchAgeMin = ageRange.anyAge ? 18 : ageRange.min;
+  const matchAgeMax = ageRange.anyAge ? 70 : ageRange.max;
+
   const matches = useMemo(
-    () => pickFunnelMatchProfiles(vibes, ageMin, ageMax),
-    [vibes, ageMin, ageMax],
+    () => pickFunnelMatchProfiles(vibes, matchAgeMin, matchAgeMax),
+    [vibes, matchAgeMin, matchAgeMax],
   );
 
   const pickedMatch = useMemo(
@@ -153,8 +197,7 @@ export function OnboardingFunnel() {
       setStep(saved.step);
       setLookingFor(saved.lookingFor);
       setVibes(saved.vibes);
-      setAgeMin(saved.ageMin);
-      setAgeMax(saved.ageMax);
+      setAgeRange(saved.ageRange);
       setName(saved.name);
       setAge(saved.age);
       setLocation(saved.location);
@@ -169,8 +212,7 @@ export function OnboardingFunnel() {
       step,
       lookingFor,
       vibes,
-      ageMin,
-      ageMax,
+      ageRange,
       name,
       age,
       location,
@@ -183,8 +225,7 @@ export function OnboardingFunnel() {
     step,
     lookingFor,
     vibes,
-    ageMin,
-    ageMax,
+    ageRange,
     name,
     age,
     location,
@@ -220,8 +261,7 @@ export function OnboardingFunnel() {
         age: ageNum,
         location: location.trim() || "London, UK",
         vibe: vibes,
-        ageMin,
-        ageMax,
+        ageRange,
         lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
         pickedMatchId,
         firstMessage: firstMessage.trim(),
@@ -253,8 +293,7 @@ export function OnboardingFunnel() {
     },
     [
       age,
-      ageMax,
-      ageMin,
+      ageRange,
       firstMessage,
       location,
       lookingFor,
@@ -347,10 +386,8 @@ export function OnboardingFunnel() {
               )}
               {step === 4 && (
                 <StepAgeRange
-                  ageMin={ageMin}
-                  ageMax={ageMax}
-                  setAgeMin={setAgeMin}
-                  setAgeMax={setAgeMax}
+                  ageRange={ageRange}
+                  setAgeRange={setAgeRange}
                   onContinue={goNext}
                 />
               )}
@@ -797,72 +834,189 @@ function StepVibes({
   );
 }
 
+const AGE_LO = 18;
+const AGE_HI = 70;
+const MIN_GAP = 2;
+
+function ageToPct(v: number): number {
+  return ((v - AGE_LO) / (AGE_HI - AGE_LO)) * 100;
+}
+
+function formatMaxLabel(max: number): string {
+  return max >= AGE_HI ? "70+" : String(max);
+}
+
+function fakePeopleCount(min: number, max: number): number {
+  return Math.min(15_000, Math.round((max - min) * 700 + 200));
+}
+
 function StepAgeRange({
-  ageMin,
-  ageMax,
-  setAgeMin,
-  setAgeMax,
+  ageRange,
+  setAgeRange,
   onContinue,
 }: {
-  ageMin: number;
-  ageMax: number;
-  setAgeMin: (n: number) => void;
-  setAgeMax: (n: number) => void;
+  ageRange: FunnelAgeRange;
+  setAgeRange: Dispatch<SetStateAction<FunnelAgeRange>>;
   onContinue: () => void;
 }) {
-  const onMin = (v: number) => {
-    const next = Math.min(v, ageMax - 1);
-    setAgeMin(Math.max(18, next));
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef<"min" | "max" | null>(null);
+  const beforeAnyRef = useRef({ min: 18, max: 35 });
+
+  const readClientXToAge = (clientX: number): number => {
+    const el = trackRef.current;
+    if (!el) return AGE_LO;
+    const r = el.getBoundingClientRect();
+    const t = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
+    return Math.round(AGE_LO + t * (AGE_HI - AGE_LO));
   };
-  const onMax = (v: number) => {
-    const next = Math.max(v, ageMin + 1);
-    setAgeMax(Math.min(55, next));
+
+  const startDrag = (which: "min" | "max") => (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (ageRange.anyAge) return;
+    e.preventDefault();
+    dragging.current = which;
+
+    const onMove = (ev: PointerEvent) => {
+      if (dragging.current !== which) return;
+      const v = readClientXToAge(ev.clientX);
+      setAgeRange((prev) => {
+        if (prev.anyAge) return prev;
+        if (which === "min") {
+          const min = Math.max(AGE_LO, Math.min(v, prev.max - MIN_GAP));
+          return { ...prev, min };
+        }
+        const max = Math.min(AGE_HI, Math.max(v, prev.min + MIN_GAP));
+        return { ...prev, max };
+      });
+    };
+
+    const onUp = () => {
+      dragging.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   };
+
+  const { min, max, anyAge } = ageRange;
+  const pMin = ageToPct(min);
+  const pMax = ageToPct(max);
+  const countLabel = `~${fakePeopleCount(min, max).toLocaleString()} people in this range`;
 
   return (
     <>
-      <div className="flex flex-1 flex-col px-5 pb-28 pt-5">
-        <h2 className="text-[28px] font-extrabold leading-tight text-gray-900">Who do you want to meet?</h2>
-        <p className="mt-1 text-[14px] text-gray-600">Pick an age range.</p>
-        <p className="mt-10 text-center text-[42px] font-extrabold tabular-nums text-gray-900">
-          {ageMin} – {ageMax}
+      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-1 font-sans">
+        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+          <span className="block">Who do you</span>
+          <span className="block">want to meet?</span>
+        </h2>
+        <p className="mt-1 text-[14px] text-gray-600">
+          Drag the handles to set an age range.
         </p>
-        <div className="mt-8 space-y-6 px-1">
-          <div>
-            <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
-              Minimum age
-            </label>
-            <input
-              type="range"
-              min={18}
-              max={Math.max(18, ageMax - 1)}
-              value={ageMin}
-              onChange={(e) => onMin(Number(e.target.value))}
-              className="h-2 w-full cursor-pointer accent-[#7C5CFF]"
+
+        <div className="mt-6 rounded-3xl bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0] p-6 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#7C5CFF]">
+            Looking for ages
+          </p>
+          {anyAge ? (
+            <p className="mt-1 text-balance text-4xl font-extrabold leading-tight text-gray-900 sm:text-5xl">
+              Any age · ~15,000 people
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-5xl font-extrabold tabular-nums text-gray-900">
+                {min} – {formatMaxLabel(max)}
+              </p>
+              <p className="mt-1 text-[12px] text-gray-600">{countLabel}</p>
+            </>
+          )}
+        </div>
+
+        <div
+          className={`relative mt-8 h-10 px-2 touch-none ${anyAge ? "pointer-events-none opacity-50" : ""}`}
+        >
+          <div
+            ref={trackRef}
+            className="absolute left-2 right-2 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-gray-200"
+          >
+            <div
+              className="absolute inset-y-0 bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
+              style={{
+                left: `${pMin}%`,
+                width: `${Math.max(0, pMax - pMin)}%`,
+              }}
             />
           </div>
-          <div>
-            <label className="mb-2 block text-[11px] font-bold uppercase tracking-wide text-gray-500">
-              Maximum age
-            </label>
-            <input
-              type="range"
-              min={Math.min(55, ageMin + 1)}
-              max={55}
-              value={ageMax}
-              onChange={(e) => onMax(Number(e.target.value))}
-              className="h-2 w-full cursor-pointer accent-[#7C5CFF]"
-            />
+
+          <button
+            type="button"
+            aria-label="Minimum age"
+            disabled={anyAge}
+            onPointerDown={startDrag("min")}
+            className="absolute top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md ring-2 ring-[#7C5CFF] disabled:cursor-not-allowed"
+            style={{ left: `calc(0.5rem + (100% - 1rem) * ${pMin / 100})` }}
+          />
+          <button
+            type="button"
+            aria-label="Maximum age"
+            disabled={anyAge}
+            onPointerDown={startDrag("max")}
+            className="absolute top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md ring-2 ring-[#7C5CFF] disabled:cursor-not-allowed"
+            style={{ left: `calc(0.5rem + (100% - 1rem) * ${pMax / 100})` }}
+          />
+        </div>
+
+        <div className="mt-1 flex justify-between px-2 text-[11px] text-gray-400">
+          <span>18</span>
+          <span>30</span>
+          <span>50</span>
+          <span>70+</span>
+        </div>
+
+        <div className="mt-6 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm">
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-bold text-gray-900">Open to any age</p>
+            <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+              Show me everyone — I&apos;ll filter later
+            </p>
           </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={anyAge}
+            onClick={() => {
+              setAgeRange((prev) => {
+                if (prev.anyAge) {
+                  return { ...beforeAnyRef.current, anyAge: false };
+                }
+                beforeAnyRef.current = { min: prev.min, max: prev.max };
+                return { min: AGE_LO, max: AGE_HI, anyAge: true };
+              });
+            }}
+            className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
+              anyAge ? "bg-[#7C5CFF]" : "bg-gray-200"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                anyAge ? "translate-x-[18px]" : "translate-x-0.5"
+              }`}
+            />
+          </button>
         </div>
       </div>
-      <div className="sticky bottom-0 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+
+      <div className="sticky bottom-0 z-20 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
           onClick={onContinue}
-          className="flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-bold text-white shadow-pill transition active:scale-95"
+          className="flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
-          Continue
+          Continue →
         </button>
       </div>
     </>
