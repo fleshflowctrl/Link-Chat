@@ -7,6 +7,16 @@ export function extractOutputText(data: Record<string, unknown>): string | null 
     return data.text.trim();
   }
 
+  /** Legacy `/v1/chat/completions` shape */
+  const choices = data.choices;
+  if (Array.isArray(choices) && choices[0] && typeof choices[0] === "object") {
+    const msg = (choices[0] as Record<string, unknown>).message;
+    if (msg && typeof msg === "object") {
+      const c = (msg as Record<string, unknown>).content;
+      if (typeof c === "string" && c.trim()) return c.trim();
+    }
+  }
+
   const output = data.output;
   if (!Array.isArray(output)) return null;
 
@@ -17,8 +27,14 @@ export function extractOutputText(data: Record<string, unknown>): string | null 
     if (!item || typeof item !== "object") continue;
     const block = item as Record<string, unknown>;
 
+    if (typeof block.text === "string" && block.text.trim()) {
+      fallbackTexts.push(block.text.trim());
+    }
+
     const content = block.content;
-    if (Array.isArray(content)) {
+    if (typeof content === "string" && content.trim()) {
+      fallbackTexts.push(content.trim());
+    } else if (Array.isArray(content)) {
       for (const part of content) {
         if (!part || typeof part !== "object") continue;
         const p = part as Record<string, unknown>;
@@ -28,8 +44,6 @@ export function extractOutputText(data: Record<string, unknown>): string | null 
         if (p.type === "output_text") outputTexts.push(trimmed);
         else fallbackTexts.push(trimmed);
       }
-    } else if (typeof content === "string" && content.trim()) {
-      fallbackTexts.push(content.trim());
     }
 
     const summary = block.summary;

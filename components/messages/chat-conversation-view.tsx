@@ -118,6 +118,8 @@ export function ChatConversationView({
     y: number;
   } | null>(null);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  /** Shown when the AI reply failed (e.g. xAI error); user message is still saved. */
+  const [assistantError, setAssistantError] = useState<string | null>(null);
   const [composerLift, setComposerLift] = useState(0);
   const longPressRef = useRef<number | null>(null);
 
@@ -212,6 +214,7 @@ export function ChatConversationView({
       }
 
       try {
+        setAssistantError(null);
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
           {
@@ -230,11 +233,27 @@ export function ChatConversationView({
 
         if (!res.ok || !data.userMessage) {
           console.error("[chat]", data.error ?? res.status);
+          setAssistantError(
+            typeof data.error === "string"
+              ? data.error
+              : `Could not send (${res.status})`,
+          );
           return;
         }
 
         if (data.warning) {
           console.warn("[chat]", data.warning);
+          const short =
+            data.warning.length > 220
+              ? `${data.warning.slice(0, 220)}…`
+              : data.warning;
+          setAssistantError(
+            data.peerMessage == null
+              ? `Reply didn’t load: ${short}`
+              : short,
+          );
+        } else {
+          setAssistantError(null);
         }
 
         setMessages((prev) => {
@@ -389,6 +408,17 @@ export function ChatConversationView({
           </AnimatePresence>
         </div>
       </header>
+
+      {assistantError ? (
+        <div
+          className="shrink-0 border-b border-amber-200/90 bg-amber-50 px-4 py-2.5"
+          role="status"
+        >
+          <p className="text-[12px] font-medium leading-snug text-amber-950">
+            {assistantError}
+          </p>
+        </div>
+      ) : null}
 
       <div className="shrink-0 px-4 py-2">
         <p className="mx-auto max-w-[92%] rounded-full bg-lavender px-3 py-2 text-center text-[11px] font-medium leading-snug text-ink/80 ring-1 ring-primary/10">

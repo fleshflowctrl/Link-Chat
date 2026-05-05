@@ -10,6 +10,8 @@ import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
+/** Grok reasoning can exceed default limits; raise on hosts that support it (e.g. Vercel). */
+export const maxDuration = 120;
 
 const MAX_LEN = 4000;
 
@@ -152,7 +154,18 @@ Keep replies natural and fairly short (under ~100 words). You are ${p.display_na
       })),
     ];
 
-    const grok = await grokResponsesComplete(input);
+    let grok: Awaited<ReturnType<typeof grokResponsesComplete>>;
+    try {
+      grok = await grokResponsesComplete(input);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[conversations/messages] grok threw", peerId, msg);
+      grok = { ok: false as const, error: msg };
+    }
+
+    if (!grok.ok) {
+      console.error("[conversations/messages] grok failed", peerId, grok.error);
+    }
 
     if (grok.ok) {
       const { data: insertedPeer, error: peIns } = await supabase
