@@ -213,8 +213,33 @@ export function ChatConversationView({
         return;
       }
 
+      const { timeLabel, minuteOfDay } = nowClock();
+      const tempId = `tmp-${gid()}`;
+      const optimisticUserMessage: ChatMessage = {
+        id: tempId,
+        sender: "me",
+        kind: "text",
+        body: trimmed,
+        timeLabel,
+        minuteOfDay,
+      };
+
+      setAssistantError(null);
+      setInput("");
+      setMessages((prev) => [...prev, optimisticUserMessage]);
+      setReadPhase((p) => ({ ...p, [tempId]: "single" }));
+      const sentAt = new Date().toISOString();
+      setThreadPreview(chatId, {
+        lastMessage: trimmed,
+        timestampLabel: timeLabel,
+        lastActivityAt: sentAt,
+        name: meta.name,
+        avatarUrl: meta.avatarUrl,
+        verified: meta.verified,
+        showOnlineDot: meta.onlineNow,
+      });
+
       try {
-        setAssistantError(null);
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
           {
@@ -238,6 +263,13 @@ export function ChatConversationView({
               ? data.error
               : `Could not send (${res.status})`,
           );
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
+          setReadPhase((p) => {
+            if (!(tempId in p)) return p;
+            const { [tempId]: _, ...rest } = p;
+            return rest;
+          });
+          setInput(trimmed);
           return;
         }
 
@@ -257,33 +289,44 @@ export function ChatConversationView({
         }
 
         setMessages((prev) => {
-          const next = [...prev, data.userMessage!];
-          if (data.peerMessage) next.push(data.peerMessage);
-          return next;
+          const replaced = prev.map((m) =>
+            m.id === tempId ? data.userMessage! : m,
+          );
+          return data.peerMessage ? [...replaced, data.peerMessage] : replaced;
         });
 
         const uid = data.userMessage.id;
-        setReadPhase((p) => ({ ...p, [uid]: "single" }));
+        setReadPhase((p) => {
+          const { [tempId]: prevPhase, ...rest } = p;
+          return { ...rest, [uid]: prevPhase ?? "single" };
+        });
         window.setTimeout(() => {
           setReadPhase((p) => ({ ...p, [uid]: "double" }));
         }, 520);
 
         const preview =
           data.peerMessage?.body ?? data.userMessage.body ?? trimmed;
-        const { timeLabel } = nowClock();
-        const sentAt = new Date().toISOString();
         setThreadPreview(chatId, {
           lastMessage: preview,
-          timestampLabel: timeLabel,
-          lastActivityAt: sentAt,
+          timestampLabel: nowClock().timeLabel,
+          lastActivityAt: new Date().toISOString(),
           name: meta.name,
           avatarUrl: meta.avatarUrl,
           verified: meta.verified,
           showOnlineDot: meta.onlineNow,
         });
-        setInput("");
       } catch (e) {
         console.error("[chat] send failed", e);
+        setAssistantError(
+          e instanceof Error ? e.message : "Network error — message not sent",
+        );
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setReadPhase((p) => {
+          if (!(tempId in p)) return p;
+          const { [tempId]: _, ...rest } = p;
+          return rest;
+        });
+        setInput(trimmed);
       }
     },
     [chatId, useSupabase, meta],
