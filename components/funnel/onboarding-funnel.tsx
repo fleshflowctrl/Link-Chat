@@ -44,7 +44,8 @@ import {
   appendOnboardingOutboundToMockThread,
   getThreadMeta,
 } from "@/data/messages";
-import { getProfileById, likesPreviewAvatarUrls } from "@/data/profiles";
+import { funnelSets } from "@/data/funnelProfiles";
+import { likesPreviewAvatarUrls } from "@/data/profiles";
 import {
   pickFunnelMatchProfiles,
   sharedVibeEmojis,
@@ -517,104 +518,42 @@ export function OnboardingFunnel() {
   );
 }
 
-const HERO_FLOAT_BASE = {
-  repeat: Infinity,
-  repeatType: "mirror" as const,
-  ease: "easeInOut" as const,
-};
-
-function welcomeCardKm(km: number): string {
-  const r = Math.round(km * 10) / 10;
-  const s = Math.abs(r - Math.round(r)) < 0.05 ? String(Math.round(r)) : r.toFixed(1);
-  return `${s} km`;
-}
-
-type WelcomeFloatCfg = {
-  id: string;
-  pill?: "online" | "new";
-  widthPx: number;
-  top: string;
-  left?: string;
-  right?: string;
-  rotateFrom: number;
-  rotateTo: number;
-  duration: number;
-};
-
-const WELCOME_FLOAT: WelcomeFloatCfg[] = [
+const WELCOME_CARD_SLOTS = [
   {
-    id: "maya",
-    pill: "online",
-    widthPx: 115,
     top: "top-[10%]",
-    left: "left-[4%]",
-    rotateFrom: -6,
-    rotateTo: -4,
-    duration: 4.8,
+    left: "left-[5%]",
+    width: 120,
+    rotate: -6,
   },
   {
-    id: "marcus",
-    pill: "new",
-    widthPx: 125,
     top: "top-[6%]",
-    right: "right-[4%]",
-    rotateFrom: 5,
-    rotateTo: 7,
-    duration: 5.1,
+    right: "right-[5%]",
+    width: 130,
+    rotate: 5,
   },
   {
-    id: "clara",
-    widthPx: 105,
-    top: "top-[28%]",
-    right: "right-[18%]",
-    rotateFrom: -3,
-    rotateTo: -2,
-    duration: 4.4,
+    top: "top-[30%]",
+    left: "left-[9%]",
+    width: 105,
+    rotate: -3,
   },
   {
-    id: "sophie",
-    pill: "online",
-    widthPx: 95,
-    top: "top-[20%]",
-    left: "left-[28%]",
-    rotateFrom: 7,
-    rotateTo: 9,
-    duration: 4.6,
+    top: "top-[34%]",
+    right: "right-[8%]",
+    width: 115,
+    rotate: 4,
   },
-  {
-    id: "lena",
-    widthPx: 95,
-    top: "top-[3%]",
-    left: "left-[36%]",
-    rotateFrom: -4,
-    rotateTo: -2,
-    duration: 5.2,
-  },
-  {
-    id: "iris",
-    pill: "new",
-    widthPx: 85,
-    top: "top-[40%]",
-    left: "left-[2%]",
-    rotateFrom: 10,
-    rotateTo: 12,
-    duration: 4.2,
-  },
-  {
-    id: "zoe",
-    pill: "online",
-    widthPx: 85,
-    top: "top-[42%]",
-    right: "right-[3%]",
-    rotateFrom: -8,
-    rotateTo: -6,
-    duration: 4.9,
-  },
-];
+] as const;
 
 function StepWelcome({ onStart }: { onStart: () => void }) {
   const countMv = useMotionValue(0);
   const [countLabel, setCountLabel] = useState("0");
+  const [setIndex, setSetIndex] = useState(0);
+  const lastInteractRef = useRef(0);
+
+  const touchCards = useCallback(() => {
+    lastInteractRef.current = Date.now();
+  }, []);
 
   useEffect(() => {
     const unsub = countMv.on("change", (v) => {
@@ -627,14 +566,24 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
     };
   }, [countMv]);
 
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (Date.now() - lastInteractRef.current < 1500) return;
+      setSetIndex((i) => (i + 1) % funnelSets.length);
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const activeSet = funnelSets[setIndex] ?? funnelSets[0];
+
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F5F3EE] font-sans">
       <div
-        className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#9B7BFF]/20 blur-3xl"
+        className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#9B7BFF]/30 blur-3xl"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-pink-300/25 blur-3xl"
+        className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-pink-300/40 blur-3xl"
         aria-hidden
       />
 
@@ -651,64 +600,88 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
       </div>
 
       <div
-        className="pointer-events-none absolute inset-0 z-10 pt-[40px]"
-        aria-hidden
+        className="absolute inset-0 z-10 pt-[40px]"
+        onPointerDownCapture={touchCards}
       >
-        {WELCOME_FLOAT.map((cfg, idx) => {
-          const p = getProfileById(cfg.id);
-          if (!p) return null;
-          const pos = [cfg.top, cfg.left, cfg.right].filter(Boolean).join(" ");
+        {WELCOME_CARD_SLOTS.map((slot, slotIndex) => {
+          const profile = activeSet[slotIndex];
+          if (!profile) return null;
+          const pos = [slot.top, "left" in slot ? slot.left : "", "right" in slot ? slot.right : ""]
+            .filter(Boolean)
+            .join(" ");
+
           return (
-            <motion.div
-              key={cfg.id}
+            <div
+              key={slotIndex}
               className={`absolute ${pos}`}
-              style={{ width: cfg.widthPx }}
-              initial={false}
-              animate={{
-                y: [0, -6, 0],
-                rotate: [cfg.rotateFrom, cfg.rotateTo, cfg.rotateFrom],
-              }}
-              transition={{
-                ...HERO_FLOAT_BASE,
-                duration: cfg.duration,
-                delay: idx * 0.12,
-              }}
+              style={{ width: slot.width }}
             >
-              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
-                <Image
-                  src={p.photo}
-                  alt=""
-                  fill
-                  className="object-cover"
-                  sizes={`${cfg.widthPx}px`}
-                  priority={idx < 3}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
-                {cfg.pill === "online" && (
-                  <span className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                    Online
-                  </span>
-                )}
-                {cfg.pill === "new" && (
-                  <span className="absolute left-2 top-2 rounded-full bg-pink-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-                    NEW
-                  </span>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 p-2 pt-7">
-                  <p className="text-[12px] font-bold leading-tight text-white drop-shadow-sm">
-                    {p.name}, {p.age}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-medium text-white/85">
-                    {welcomeCardKm(p.distanceKm)}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={profile.id}
+                  initial={{ opacity: 0, scale: 0.92, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, y: 8 }}
+                  transition={{
+                    duration: 0.5,
+                    ease: "easeInOut",
+                    delay: slotIndex * 0.05,
+                  }}
+                  className="origin-center"
+                >
+                  <motion.div
+                    animate={{
+                      y: [0, -6, 0],
+                      rotate: [slot.rotate, slot.rotate + 2, slot.rotate],
+                    }}
+                    transition={{
+                      duration: 4 + slotIndex,
+                      repeat: Infinity,
+                      repeatType: "mirror",
+                      ease: "easeInOut",
+                    }}
+                  >
+                    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
+                      <Image
+                        src={profile.photo}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes={`${slot.width}px`}
+                        priority={setIndex === 0 && slotIndex < 2}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
+                      {profile.status === "online" && (
+                        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500 pl-2 pr-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" aria-hidden />
+                          Online
+                        </span>
+                      )}
+                      {profile.status === "new" && (
+                        <span className="absolute left-2 top-2 rounded-full bg-pink-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                          NEW
+                        </span>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 p-2 pt-7">
+                        <p className="text-left text-[12px] font-bold leading-tight text-white drop-shadow-sm">
+                          {profile.name}, {profile.age}
+                        </p>
+                        {profile.distance ? (
+                          <p className="mt-0.5 text-left text-[10px] font-medium text-white/85">
+                            {profile.distance}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
           );
         })}
       </div>
 
-      <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#F5F3EE] via-[#F5F3EE]/95 via-50% to-transparent px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-12">
+      <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#F5F3EE] via-[#F5F3EE]/95 via-50% to-transparent px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-12">
         <h1 className="font-display text-5xl font-semibold lowercase leading-none tracking-tight text-ink">
           whisper
         </h1>
@@ -743,8 +716,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
               ))}
             </div>
             <p className="min-w-0 text-[11px] leading-snug text-gray-700">
-              <span className="font-bold tabular-nums text-gray-900">{countLabel}</span>{" "}
-              connecting right now
+              <span className="font-bold tabular-nums text-gray-900">{countLabel}</span> connecting now
             </p>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 shadow-sm ring-1 ring-black/[0.06]">
