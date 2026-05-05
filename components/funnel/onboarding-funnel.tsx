@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import {
   FUNNEL_LOOKING_FOR,
-  FUNNEL_LOOKING_NOT_SURE_ID,
   FUNNEL_SESSION_KEY,
   FUNNEL_STARTER_MESSAGES,
   FUNNEL_VIBES,
@@ -490,19 +489,6 @@ function StepLookingFor({
           );
         })}
       </ul>
-      <div className="mt-6 shrink-0">
-        <button
-          type="button"
-          onClick={() => onSelect(FUNNEL_LOOKING_NOT_SURE_ID)}
-          className={`flex w-full items-center justify-center rounded-2xl border-2 bg-white py-3.5 text-[15px] font-semibold shadow-sm transition active:scale-95 ${
-            selected === FUNNEL_LOOKING_NOT_SURE_ID
-              ? "border-[#7C5CFF] text-[#7C5CFF] ring-1 ring-[#7C5CFF]/20"
-              : "border-gray-200 text-gray-700"
-          }`}
-        >
-          Not sure yet
-        </button>
-      </div>
     </div>
   );
 }

@@ -32,10 +32,13 @@ export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
     label: "Something casual",
     description: "Keep it fun and easy",
   },
+  {
+    id: "not_sure",
+    emoji: "🤷",
+    label: "Not sure yet",
+    description: "We'll show you a mix — you can refine later",
+  },
 ];
-
-/** Step 2 — bottom control; stored on `WhisperUserLocal.lookingForId` like other intents. */
-export const FUNNEL_LOOKING_NOT_SURE_ID = "not_sure";
 
 export type VibeOption = {
   id: string;
