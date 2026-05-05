@@ -477,7 +477,7 @@ export function OnboardingFunnel() {
               exit="exit"
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
               className={
-                step === 1 || step === 2 || step === 3
+                step === 1 || step === 2 || step === 3 || step === 4
                   ? "absolute inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none"
                   : "absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain"
               }
@@ -1046,8 +1046,8 @@ function StepAgeRange({
   const countLabel = `~${fakePeopleCount(min, max).toLocaleString()} people in this range`;
 
   return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-1 font-sans">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
+      <div className="shrink-0 px-5 pt-1">
         <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
           <span className="block">Who do you</span>
           <span className="block">want to meet?</span>
@@ -1055,100 +1055,106 @@ function StepAgeRange({
         <p className="mt-1 text-[14px] text-gray-600">
           Drag the handles to set an age range.
         </p>
+      </div>
 
-        <div className="mt-6 rounded-3xl bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0] p-6 text-center">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#7C5CFF]">
-            Looking for ages
-          </p>
-          {anyAge ? (
-            <p className="mt-1 text-balance text-4xl font-extrabold leading-tight text-gray-900 sm:text-5xl">
-              Any age · ~15,000 people
+      <div className="flex min-h-0 flex-1 flex-col justify-center px-5 py-2">
+        <div className="flex w-full max-w-full flex-col gap-y-[clamp(1rem,3.5vmin,1.75rem)]">
+          <div className="rounded-3xl bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0] p-6 text-center">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#7C5CFF]">
+              Looking for ages
             </p>
-          ) : (
-            <>
-              <p className="mt-1 text-5xl font-extrabold tabular-nums text-gray-900">
-                {min} – {formatMaxLabel(max)}
+            {anyAge ? (
+              <p className="mt-1 text-balance text-4xl font-extrabold leading-tight text-gray-900 sm:text-5xl">
+                Any age · ~15,000 people
               </p>
-              <p className="mt-1 text-[12px] text-gray-600">{countLabel}</p>
-            </>
-          )}
-        </div>
+            ) : (
+              <>
+                <p className="mt-1 text-5xl font-extrabold tabular-nums text-gray-900">
+                  {min} – {formatMaxLabel(max)}
+                </p>
+                <p className="mt-1 text-[12px] text-gray-600">{countLabel}</p>
+              </>
+            )}
+          </div>
 
-        <div
-          className={`relative mt-8 h-10 px-2 touch-none ${anyAge ? "pointer-events-none opacity-50" : ""}`}
-        >
-          <div
-            ref={trackRef}
-            className="absolute left-2 right-2 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-gray-200"
-          >
+          <div>
             <div
-              className="absolute inset-y-0 bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
-              style={{
-                left: `${pMin}%`,
-                width: `${Math.max(0, pMax - pMin)}%`,
+              className={`relative h-10 px-2 touch-none ${anyAge ? "pointer-events-none opacity-50" : ""}`}
+            >
+              <div
+                ref={trackRef}
+                className="absolute left-2 right-2 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-gray-200"
+              >
+                <div
+                  className="absolute inset-y-0 bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
+                  style={{
+                    left: `${pMin}%`,
+                    width: `${Math.max(0, pMax - pMin)}%`,
+                  }}
+                />
+              </div>
+
+              <button
+                type="button"
+                aria-label="Minimum age"
+                disabled={anyAge}
+                onPointerDown={startDrag("min")}
+                className="absolute top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md ring-2 ring-[#7C5CFF] disabled:cursor-not-allowed"
+                style={{ left: `calc(0.5rem + (100% - 1rem) * ${pMin / 100})` }}
+              />
+              <button
+                type="button"
+                aria-label="Maximum age"
+                disabled={anyAge}
+                onPointerDown={startDrag("max")}
+                className="absolute top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md ring-2 ring-[#7C5CFF] disabled:cursor-not-allowed"
+                style={{ left: `calc(0.5rem + (100% - 1rem) * ${pMax / 100})` }}
+              />
+            </div>
+
+            <div className="mt-1 flex justify-between px-2 text-[11px] text-gray-400">
+              <span>18</span>
+              <span>30</span>
+              <span>50</span>
+              <span>70+</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm">
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-gray-900">Open to any age</p>
+              <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
+                Show me everyone — I&apos;ll filter later
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={anyAge}
+              onClick={() => {
+                setAgeRange((prev) => {
+                  if (prev.anyAge) {
+                    return { ...beforeAnyRef.current, anyAge: false };
+                  }
+                  beforeAnyRef.current = { min: prev.min, max: prev.max };
+                  return { min: AGE_LO, max: AGE_HI, anyAge: true };
+                });
               }}
-            />
-          </div>
-
-          <button
-            type="button"
-            aria-label="Minimum age"
-            disabled={anyAge}
-            onPointerDown={startDrag("min")}
-            className="absolute top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md ring-2 ring-[#7C5CFF] disabled:cursor-not-allowed"
-            style={{ left: `calc(0.5rem + (100% - 1rem) * ${pMin / 100})` }}
-          />
-          <button
-            type="button"
-            aria-label="Maximum age"
-            disabled={anyAge}
-            onPointerDown={startDrag("max")}
-            className="absolute top-1/2 z-10 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md ring-2 ring-[#7C5CFF] disabled:cursor-not-allowed"
-            style={{ left: `calc(0.5rem + (100% - 1rem) * ${pMax / 100})` }}
-          />
-        </div>
-
-        <div className="mt-1 flex justify-between px-2 text-[11px] text-gray-400">
-          <span>18</span>
-          <span>30</span>
-          <span>50</span>
-          <span>70+</span>
-        </div>
-
-        <div className="mt-6 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm">
-          <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-bold text-gray-900">Open to any age</p>
-            <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
-              Show me everyone — I&apos;ll filter later
-            </p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={anyAge}
-            onClick={() => {
-              setAgeRange((prev) => {
-                if (prev.anyAge) {
-                  return { ...beforeAnyRef.current, anyAge: false };
-                }
-                beforeAnyRef.current = { min: prev.min, max: prev.max };
-                return { min: AGE_LO, max: AGE_HI, anyAge: true };
-              });
-            }}
-            className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
-              anyAge ? "bg-[#7C5CFF]" : "bg-gray-200"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                anyAge ? "translate-x-[18px]" : "translate-x-0.5"
+              className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
+                anyAge ? "bg-[#7C5CFF]" : "bg-gray-200"
               }`}
-            />
-          </button>
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  anyAge ? "translate-x-[18px]" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-20 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
         <button
           type="button"
           onClick={onContinue}
@@ -1157,7 +1163,7 @@ function StepAgeRange({
           Continue →
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
