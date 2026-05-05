@@ -1,6 +1,15 @@
-/** In-memory overrides for message list previews (last line + time). */
+/** In-memory overrides for inbox rows (preview + optional stub meta for new threads). */
 
-export type ThreadPreview = { lastMessage: string; timestampLabel: string };
+export type ThreadPreview = {
+  lastMessage: string;
+  timestampLabel: string;
+  /** ISO time for sorting; set when the user sends so the row jumps to the top */
+  lastActivityAt?: string;
+  name?: string;
+  avatarUrl?: string;
+  verified?: boolean;
+  showOnlineDot?: boolean;
+};
 
 type Snapshot = { version: number; byId: Record<string, ThreadPreview> };
 

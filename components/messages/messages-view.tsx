@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   BadgeCheck,
   Bell,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { OnlineNowRail } from "@/components/OnlineNowRail";
 import {
+  getThreadMeta,
   sortThreadsByRecency,
   type MessageThread,
   type MessagePreviewType,
@@ -34,11 +36,17 @@ function normalizeThread(t: MessageThread): MessageThread {
   };
 }
 
-function mergePreview(t: MessageThread, lastMessage?: string, ts?: string): MessageThread {
+function mergePreview(
+  t: MessageThread,
+  lastMessage?: string,
+  ts?: string,
+  lastActivityAt?: string,
+): MessageThread {
   return {
     ...t,
     lastMessage: lastMessage ?? t.lastMessage,
     timestampLabel: ts ?? t.timestampLabel,
+    lastActivityAt: lastActivityAt ?? t.lastActivityAt,
   };
 }
 
@@ -324,7 +332,13 @@ export function MessagesView({
   onlineRailUsers: OnlineUser[];
   headerCredits: number;
 }) {
+  const router = useRouter();
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
+
+  /** Refetch inbox when opening this tab — avoids stale Router Cache after new chats. */
+  useEffect(() => {
+    router.refresh();
+  }, [router]);
 
   /** Server is the source of truth; never show legacy mock threads in the inbox. */
   const source = initialThreads ?? [];
@@ -340,11 +354,46 @@ export function MessagesView({
   );
 
   const merged = useMemo(() => {
-    return normalized.map((t): MessageThread => {
+    const byId = new Map<string, MessageThread>();
+
+    for (const t of normalized) {
       const o = previews.byId[t.id];
-      if (!o) return t;
-      return mergePreview(t, o.lastMessage, o.timestampLabel);
-    });
+      byId.set(
+        t.id,
+        o
+          ? mergePreview(
+              t,
+              o.lastMessage,
+              o.timestampLabel,
+              o.lastActivityAt,
+            )
+          : t,
+      );
+    }
+
+    for (const id of Object.keys(previews.byId)) {
+      if (byId.has(id)) continue;
+      const o = previews.byId[id];
+      if (!o) continue;
+      const stub = getThreadMeta(id);
+      byId.set(
+        id,
+        normalizeThread({
+          id,
+          name: o.name ?? stub.name,
+          avatarUrl: o.avatarUrl ?? stub.avatarUrl,
+          verified: o.verified ?? stub.verified,
+          showOnlineDot: o.showOnlineDot ?? stub.onlineNow,
+          lastMessage: o.lastMessage,
+          timestampLabel: o.timestampLabel,
+          lastActivityAt:
+            o.lastActivityAt ?? new Date().toISOString(),
+          messageType: "text",
+        }),
+      );
+    }
+
+    return Array.from(byId.values());
   }, [normalized, previews.byId, previews.version]);
 
   const sorted = useMemo(() => sortThreadsByRecency(merged), [merged]);

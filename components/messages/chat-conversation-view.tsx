@@ -170,9 +170,15 @@ export function ChatConversationView({
         window.setTimeout(() => {
           setReadPhase((p) => ({ ...p, [id]: "double" }));
         }, 520);
+        const sentAt = new Date().toISOString();
         setThreadPreview(chatId, {
           lastMessage: trimmed,
           timestampLabel: timeLabel,
+          lastActivityAt: sentAt,
+          name: meta.name,
+          avatarUrl: meta.avatarUrl,
+          verified: meta.verified,
+          showOnlineDot: meta.onlineNow,
         });
         return;
       }
@@ -218,16 +224,22 @@ export function ChatConversationView({
         const preview =
           data.peerMessage?.body ?? data.userMessage.body ?? trimmed;
         const { timeLabel } = nowClock();
+        const sentAt = new Date().toISOString();
         setThreadPreview(chatId, {
           lastMessage: preview,
           timestampLabel: timeLabel,
+          lastActivityAt: sentAt,
+          name: meta.name,
+          avatarUrl: meta.avatarUrl,
+          verified: meta.verified,
+          showOnlineDot: meta.onlineNow,
         });
         setInput("");
       } catch (e) {
         console.error("[chat] send failed", e);
       }
     },
-    [chatId, useSupabase],
+    [chatId, useSupabase, meta],
   );
 
   function attachReactionTo(messageId: string, emoji: string) {
