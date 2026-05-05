@@ -191,7 +191,7 @@ function normalizeFirstContact(
 const defaultPersist = (): FunnelPersist => ({
   step: 1,
   lookingFor: null,
-  vibes: ["caring", "warm", "listener"],
+  vibes: ["caring", "playful", "chill"],
   ageRange: { ...DEFAULT_AGE_RANGE },
   basics: { ...DEFAULT_BASICS },
   firstContact: { profileId: null },
@@ -292,17 +292,20 @@ export function OnboardingFunnel() {
     const prevHtmlOverflow = html.style.overflow;
     const prevBodyTouch = document.body.style.touchAction;
     const prevBodyOverscroll = document.body.style.overscrollBehavior;
+    const prevHtmlOverscroll = html.style.overscrollBehavior;
 
     document.body.style.overflow = "hidden";
     html.style.overflow = "hidden";
-    document.body.style.touchAction = "none";
+    document.body.style.touchAction = "manipulation";
     document.body.style.overscrollBehavior = "none";
+    html.style.overscrollBehavior = "none";
 
     return () => {
       document.body.style.overflow = prevBodyOverflow;
       html.style.overflow = prevHtmlOverflow;
       document.body.style.touchAction = prevBodyTouch;
       document.body.style.overscrollBehavior = prevBodyOverscroll;
+      html.style.overscrollBehavior = prevHtmlOverscroll;
     };
   }, []);
 
@@ -431,8 +434,8 @@ export function OnboardingFunnel() {
   }
 
   return (
-    <div className="relative flex h-[100dvh] max-h-[100dvh] h-screen max-h-screen justify-center overflow-hidden overscroll-none bg-[#E4DFD4] touch-none">
-      <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)] touch-none">
+    <div className="relative flex h-[100dvh] max-h-[100dvh] h-screen max-h-screen justify-center overflow-hidden overscroll-none bg-[#E4DFD4] touch-manipulation">
+      <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)] touch-manipulation">
         {step > 1 && (
           <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
             {step < 8 ? (
@@ -474,7 +477,7 @@ export function OnboardingFunnel() {
               exit="exit"
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
               className={
-                step === 1 || step === 2
+                step === 1 || step === 2 || step === 3
                   ? "absolute inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none"
                   : "absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain"
               }
@@ -881,15 +884,19 @@ function StepVibes({
   const ok = n >= 3;
 
   return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-1 font-sans">
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
+      <div className="shrink-0 px-4 pt-1">
         <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
           <span className="block">What&apos;s your</span>
           <span className="block">vibe?</span>
         </h2>
-        <p className="mt-1 text-[14px] text-gray-600">Pick the ones that feel like you.</p>
+        <p className="mt-1 text-[13px] leading-snug text-gray-600">
+          Pick the ones that feel like you.
+        </p>
+      </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-2.5">
+      <div className="min-h-0 flex-1 px-4 pb-2 pt-2">
+        <div className="grid h-full min-h-0 w-full grid-cols-3 grid-rows-3 gap-[clamp(4px,1.2vmin,10px)]">
           {FUNNEL_VIBES.map((v) => {
             const on = vibes.includes(v.id);
             return (
@@ -897,19 +904,22 @@ function StepVibes({
                 key={v.id}
                 type="button"
                 onClick={() => toggle(v.id)}
-                className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl p-3 transition active:scale-95 ${
+                className={`relative flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center rounded-2xl px-1.5 py-1.5 transition active:scale-[0.98] sm:px-2 sm:py-2 ${
                   on
                     ? `${v.selectedBg} ring-2 ${v.selectedRing}`
-                    : "bg-white shadow-sm"
+                    : "bg-white shadow-sm ring-1 ring-black/[0.04]"
                 }`}
               >
-                <span className="text-3xl" aria-hidden>
+                <span
+                  className="text-[clamp(1.35rem,6vmin,1.85rem)] leading-none"
+                  aria-hidden
+                >
                   {v.emoji}
                 </span>
-                <span className="mt-1 text-center text-[12px] font-bold leading-tight text-gray-900">
+                <span className="mt-1 max-w-full truncate px-0.5 text-center text-[clamp(10px,2.6vmin,12px)] font-bold leading-tight text-gray-900">
                   {v.label}
                 </span>
-                <span className="pointer-events-none absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center">
+                <span className="pointer-events-none absolute right-1 top-1 flex h-4 w-4 items-center justify-center sm:right-1.5 sm:top-1.5">
                   <AnimatePresence>
                     {on && (
                       <motion.span
@@ -931,7 +941,7 @@ function StepVibes({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-20 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
         <button
           type="button"
           disabled={!ok}
@@ -952,13 +962,13 @@ function StepVibes({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 6 }}
-            className="pointer-events-none fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 z-[60] w-[min(92vw,360px)] -translate-x-1/2 rounded-2xl bg-gray-900/90 px-4 py-2.5 text-center text-[13px] font-medium leading-snug text-white shadow-lg"
+            className="pointer-events-none absolute bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-1/2 z-[60] w-[min(92vw,360px)] -translate-x-1/2 rounded-2xl bg-gray-900/90 px-4 py-2.5 text-center text-[13px] font-medium leading-snug text-white shadow-lg"
           >
             {toast}
           </motion.p>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }
 
