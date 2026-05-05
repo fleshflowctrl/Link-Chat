@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
 type LoginFormMode = "login" | "signup";
 
+const PASSWORD_MIN = 6;
+
 export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
     const n = searchParams.get("next");
@@ -24,9 +27,11 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
   }, [nextPath]);
 
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
-    "idle",
-  );
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "needs_confirm" | "error"
+  >("idle");
   const [message, setMessage] = useState<string | null>(null);
 
   const supabaseConfigured = Boolean(
@@ -37,16 +42,45 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
     e.preventDefault();
     setMessage(null);
     const trimmed = email.trim().toLowerCase();
-    if (!trimmed) return;
+    if (!trimmed || !password) return;
 
-    setStatus("sending");
+    if (mode === "signup") {
+      if (password.length < PASSWORD_MIN) {
+        setStatus("error");
+        setMessage(`Password must be at least ${PASSWORD_MIN} characters.`);
+        return;
+      }
+      if (password !== confirmPassword) {
+        setStatus("error");
+        setMessage("Passwords do not match.");
+        return;
+      }
+    }
+
+    setStatus("loading");
     const supabase = createClient();
     const origin = window.location.origin;
-    const { error } = await supabase.auth.signInWithOtp({
+    const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+
+    if (mode === "login") {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: trimmed,
+        password,
+      });
+      if (error) {
+        setStatus("error");
+        setMessage(error.message);
+        return;
+      }
+      router.replace(nextPath);
+      router.refresh();
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signUp({
       email: trimmed,
-      options: {
-        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`,
-      },
+      password,
+      options: { emailRedirectTo },
     });
 
     if (error) {
@@ -55,8 +89,16 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       return;
     }
 
-    setStatus("sent");
-    setMessage("Check your email for the sign-in link.");
+    if (data.session) {
+      router.replace(nextPath);
+      router.refresh();
+      return;
+    }
+
+    setStatus("needs_confirm");
+    setMessage(
+      "Check your email to confirm your account, then sign in here.",
+    );
   }
 
   if (!supabaseConfigured) {
@@ -102,8 +144,17 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
   const title = mode === "signup" ? "Sign up" : "Sign in";
   const subtitle =
     mode === "signup"
-      ? "Create your account — we'll email you a magic link. No password needed."
-      : "We'll email you a magic link — no password to remember.";
+      ? "Create your account with email and password."
+      : "Sign in with your email and password.";
+
+  const submitLabel =
+    mode === "signup"
+      ? status === "loading"
+        ? "Creating account…"
+        : "Create account"
+      : status === "loading"
+        ? "Signing in…"
+        : "Sign in";
 
   return (
     <div className="rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]">
@@ -123,7 +174,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
         </p>
       )}
 
-      {status === "sent" ? (
+      {status === "needs_confirm" ? (
         <p className="mt-6 rounded-2xl bg-lavender px-4 py-4 text-center text-sm font-medium text-ink ring-1 ring-primary/15">
           {message}
         </p>
@@ -143,15 +194,53 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
               className="mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
             />
           </label>
+          <label className="block">
+            <span className="text-xs font-bold uppercase tracking-wide text-inkMuted">
+              Password
+            </span>
+            <input
+              type="password"
+              autoComplete={
+                mode === "signup" ? "new-password" : "current-password"
+              }
+              required
+              minLength={mode === "signup" ? PASSWORD_MIN : undefined}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
+            />
+            {mode === "signup" && (
+              <p className="mt-1 text-[11px] text-inkMuted">
+                At least {PASSWORD_MIN} characters
+              </p>
+            )}
+          </label>
+          {mode === "signup" && (
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wide text-inkMuted">
+                Confirm password
+              </span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                className="mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
+              />
+            </label>
+          )}
           {message && status === "error" && (
             <p className="text-sm text-red-600">{message}</p>
           )}
           <button
             type="submit"
-            disabled={status === "sending"}
+            disabled={status === "loading"}
             className="h-12 rounded-full bg-gradient-primary text-[15px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60"
           >
-            {status === "sending" ? "Sending…" : "Email me a link"}
+            {submitLabel}
           </button>
         </form>
       )}
