@@ -10,13 +10,12 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AnimatePresence, motion, Reorder } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Camera,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  GripVertical,
   Heart,
   MapPin,
   Plus,
@@ -205,44 +204,8 @@ export function EditProfileView() {
             Add up to 6 photos
           </p>
         </div>
-        <p className="mb-2 text-[11px] text-inkMuted">
-          Drag thumbnails to reorder — grid follows the same order.
-        </p>
-        <Reorder.Group
-          axis="x"
-          values={state.gallery}
-          onReorder={(gallery) => setState((s) => ({ ...s, gallery }))}
-          className="mb-3 flex gap-2 overflow-x-auto pb-1"
-        >
-          {state.gallery.map((item) => (
-            <Reorder.Item
-              key={item.id}
-              value={item}
-              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-ink/10 ring-1 ring-black/[0.08]"
-            >
-              <GripVertical className="absolute left-0.5 top-0.5 z-10 h-4 w-4 text-white drop-shadow-md" />
-              <Image
-                src={item.url}
-                alt=""
-                width={128}
-                height={128}
-                className="h-full w-full object-cover"
-                unoptimized={item.url.startsWith("blob:")}
-              />
-              <button
-                type="button"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => removeGalleryPhoto(item.id, item.url)}
-                className="absolute right-0.5 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white"
-                aria-label="Remove photo"
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-              </button>
-            </Reorder.Item>
-          ))}
-        </Reorder.Group>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-3 gap-2">
           {state.gallery.map((item) => (
             <div
               key={`grid-${item.id}`}
