@@ -27,9 +27,11 @@ export function AuthCallbackFinish() {
       const code = searchParams.get("code");
       const token_hash = searchParams.get("token_hash");
       const type = searchParams.get("type");
-      const nextRaw = searchParams.get("next") ?? "/";
+      const nextRaw = searchParams.get("next") ?? "/discover";
       const next =
-        nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/";
+        nextRaw.startsWith("/") && !nextRaw.startsWith("//")
+          ? nextRaw
+          : "/discover";
 
       const supabase = createClient();
 

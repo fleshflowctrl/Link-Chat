@@ -8,7 +8,7 @@ export default function ProfileNotFound() {
         Deze persoon staat niet in je ontdeklijst.
       </p>
       <Link
-        href="/"
+        href="/discover"
         className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-white shadow-pill"
       >
         Terug naar ontdekken

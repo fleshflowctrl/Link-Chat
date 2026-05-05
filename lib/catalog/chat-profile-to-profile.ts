@@ -30,6 +30,19 @@ function parseStatusVariant(raw: string | null | undefined): ProfileStatusVarian
   return "active";
 }
 
+const ICON_TO_VIBE: Record<ProfileInterestIcon, string> = {
+  caring: "caring",
+  romantic: "romantic",
+  playful: "playful",
+  warm: "warm",
+  listener: "listener",
+};
+
+function vibesFromInterests(interests: ProfileInterest[]): string[] {
+  const ids = interests.map((i) => ICON_TO_VIBE[i.icon]).filter(Boolean);
+  return Array.from(new Set(ids.length ? ids : ["warm", "listener"]));
+}
+
 function parseInterests(raw: unknown): ProfileInterest[] {
   if (!Array.isArray(raw)) return [];
   const out: ProfileInterest[] = [];
@@ -68,6 +81,8 @@ export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
         : "Active now",
   };
 
+  const interests = parseInterests(row.interests);
+
   return {
     id: row.id,
     name: row.display_name,
@@ -80,7 +95,8 @@ export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
     status,
     bio: row.bio ?? "",
     gallery: galleryForRow(row),
-    interests: parseInterests(row.interests),
+    interests,
+    vibe: vibesFromInterests(interests),
     lookingFor:
       typeof row.looking_for === "string" && row.looking_for.trim()
         ? row.looking_for.trim()

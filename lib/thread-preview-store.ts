@@ -9,6 +9,8 @@ export type ThreadPreview = {
   avatarUrl?: string;
   verified?: boolean;
   showOnlineDot?: boolean;
+  /** When set, overrides inbox row unread badge (merged with `MessageThread`). */
+  unreadCount?: number;
 };
 
 type Snapshot = { version: number; byId: Record<string, ThreadPreview> };

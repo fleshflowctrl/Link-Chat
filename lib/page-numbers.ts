@@ -3,7 +3,8 @@
  * Keep in sync when you add routes.
  */
 export function getPageNumber(pathname: string): number {
-  if (pathname === "/") return 1;
+  if (pathname === "/") return 0;
+  if (pathname === "/discover" || pathname.startsWith("/discover/")) return 1;
   if (pathname === "/messages/new") return 4;
   if (pathname.startsWith("/messages/")) return 3;
   if (pathname === "/messages") return 2;

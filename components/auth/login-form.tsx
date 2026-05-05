@@ -14,14 +14,14 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
     const n = searchParams.get("next");
-    if (!n || !n.startsWith("/") || n.startsWith("//")) return "/";
+    if (!n || !n.startsWith("/") || n.startsWith("//")) return "/discover";
     return n;
   }, [searchParams]);
   const errorParam = searchParams.get("error");
 
   const authToggleQuery = useMemo(() => {
     const q = new URLSearchParams();
-    if (nextPath && nextPath !== "/") q.set("next", nextPath);
+    if (nextPath && nextPath !== "/discover") q.set("next", nextPath);
     const s = q.toString();
     return s ? `?${s}` : "";
   }, [nextPath]);

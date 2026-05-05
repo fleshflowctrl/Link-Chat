@@ -1,3 +1,5 @@
+import { getProfileById } from "@/data/profiles";
+
 export type ChatFilterId =
   | "links"
   | "active"
@@ -322,6 +324,36 @@ export const messagesById: Record<string, ChatMessage[]> = {
   zoe: shortThread("Zoe"),
 };
 
+/**
+ * Browser-only: append the user’s first onboarding message to the in-memory mock
+ * thread (used when Supabase is off / demo inbox).
+ */
+export function appendOnboardingOutboundToMockThread(
+  chatId: string,
+  body: string,
+): void {
+  if (typeof window === "undefined") return;
+  const trimmed = body.trim();
+  if (!trimmed) return;
+  const d = new Date();
+  const timeLabel = d.toLocaleTimeString("en-GB", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const minuteOfDay = d.getHours() * 60 + d.getMinutes();
+  const msg: ChatMessage = {
+    id: `onboard-${d.getTime()}`,
+    sender: "me",
+    kind: "text",
+    body: trimmed,
+    timeLabel,
+    minuteOfDay,
+  };
+  const prev = messagesById[chatId] ?? [];
+  messagesById[chatId] = [...prev.filter((m) => !m.id.startsWith("onboard-")), msg];
+}
+
 /** Always empty — real history lives in Supabase per user; no demo transcripts. */
 export function getSeedMessages(_chatId: string): ChatMessage[] {
   return [];
@@ -334,12 +366,17 @@ export function getThreadMeta(chatId: string): {
   onlineNow: boolean;
 } {
   const row = messageThreads.find((t) => t.id === chatId);
+  const profile = getProfileById(chatId);
   return {
-    name: row?.name ?? chatId.charAt(0).toUpperCase() + chatId.slice(1),
+    name:
+      row?.name ??
+      profile?.name ??
+      chatId.charAt(0).toUpperCase() + chatId.slice(1),
     avatarUrl:
       row?.avatarUrl ??
+      profile?.photo ??
       "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=200&q=80&auto=format&fit=crop",
-    verified: row?.verified ?? false,
-    onlineNow: row?.onlineNow ?? false,
+    verified: row?.verified ?? profile?.isVerified ?? false,
+    onlineNow: row?.onlineNow ?? profile?.status.variant === "online",
   };
 }

@@ -8,7 +8,7 @@ export default function NotificationsPage() {
         Tijdelijke pagina — je meldingen en activiteit verschijnen hier.
       </p>
       <Link
-        href="/"
+        href="/discover"
         className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-2xl bg-lavender px-5 py-3 text-sm font-bold text-primary ring-1 ring-primary/15"
       >
         Terug naar home

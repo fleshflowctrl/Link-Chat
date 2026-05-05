@@ -16,6 +16,10 @@ function hasDevBypassCookie(request: NextRequest): boolean {
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/login" || pathname === "/signup") return true;
   if (pathname.startsWith("/auth")) return true;
+  /** Funnel + discover home for first-time / anonymous onboarding flows */
+  if (pathname === "/" || pathname === "/discover" || pathname.startsWith("/discover/"))
+    return true;
+  if (pathname.startsWith("/profile/")) return true;
   return false;
 }
 
@@ -66,7 +70,14 @@ export async function middleware(request: NextRequest) {
       }
       if (user && (pathname === "/login" || pathname === "/signup")) {
         const url = request.nextUrl.clone();
-        url.pathname = "/";
+        url.pathname = "/discover";
+        url.search = "";
+        return redirectPreservingSessionCookies(response, url);
+      }
+
+      if (user && pathname === "/") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/discover";
         url.search = "";
         return redirectPreservingSessionCookies(response, url);
       }

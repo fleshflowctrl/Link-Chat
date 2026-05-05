@@ -40,12 +40,15 @@ function mergePreview(
   lastMessage?: string,
   ts?: string,
   lastActivityAt?: string,
+  unreadCount?: number,
 ): MessageThread {
   return {
     ...t,
     lastMessage: lastMessage ?? t.lastMessage,
     timestampLabel: ts ?? t.timestampLabel,
     lastActivityAt: lastActivityAt ?? t.lastActivityAt,
+    unreadCount:
+      unreadCount !== undefined ? unreadCount : t.unreadCount,
   };
 }
 
@@ -365,6 +368,7 @@ export function MessagesView({
               o.lastMessage,
               o.timestampLabel,
               o.lastActivityAt,
+              o.unreadCount,
             )
           : t,
       );
@@ -388,6 +392,7 @@ export function MessagesView({
           lastActivityAt:
             o.lastActivityAt ?? new Date().toISOString(),
           messageType: "text",
+          unreadCount: o.unreadCount ?? 1,
         }),
       );
     }
@@ -440,7 +445,7 @@ export function MessagesView({
                 je chats verschijnen hier.
               </p>
               <Link
-                href="/"
+                href="/discover"
                 className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-6 py-2.5 text-[14px] font-bold text-white shadow-pill transition active:scale-[0.99]"
               >
                 Profielen bekijken

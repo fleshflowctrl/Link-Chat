@@ -35,6 +35,8 @@ export interface Profile {
   /** Gallery photos — first is default hero; use ≥6 for thumbnail rail + extras */
   gallery: string[];
   interests: ProfileInterest[];
+  /** Funnel / onboarding vibe ids — overlap with user picks drives match %. */
+  vibe: string[];
   lookingFor: string;
   lastActive: string;
   isVerified: boolean;
@@ -67,6 +69,7 @@ function newHereProfiles(): Profile[] {
       { label: "Nieuw hier", icon: "listener" },
       { label: "Vriendelijk", icon: "warm" },
     ],
+    vibe: ["warm", "listener", "playful", "chill"],
   });
   return [
     row("sophie", "Sophie", "photo-1544005313-94ddf0286df2", "Haarlem"),
@@ -109,6 +112,7 @@ export const profiles: Profile[] = [
       { label: "Warm gezelschap", icon: "warm" },
       { label: "Goede luisteraar", icon: "listener" },
     ],
+    vibe: ["caring", "romantic", "playful", "warm", "listener", "coffee", "travel", "chill"],
   },
   {
     id: "marcus",
@@ -136,6 +140,7 @@ export const profiles: Profile[] = [
       { label: "Foodie", icon: "playful" },
       { label: "Nachtuil", icon: "romantic" },
     ],
+    vibe: ["gym", "listener", "playful", "romantic", "witty", "coffee", "travel"],
   },
   {
     id: "thomas",
@@ -162,6 +167,7 @@ export const profiles: Profile[] = [
       { label: "Speels", icon: "playful" },
       { label: "Warm gezelschap", icon: "warm" },
     ],
+    vibe: ["movies", "romantic", "playful", "warm", "art", "coffee", "reading"],
   },
   {
     id: "oliver",
@@ -189,6 +195,7 @@ export const profiles: Profile[] = [
       { label: "Zorgzaam", icon: "caring" },
       { label: "Goede luisteraar", icon: "listener" },
     ],
+    vibe: ["warm", "romantic", "caring", "listener", "coffee", "chill", "reading"],
   },
   {
     id: "victoria",
@@ -215,6 +222,7 @@ export const profiles: Profile[] = [
       { label: "Speels", icon: "playful" },
       { label: "Warm gezelschap", icon: "warm" },
     ],
+    vibe: ["art", "romantic", "listener", "playful", "warm", "travel", "movies"],
   },
   {
     id: "clara",
@@ -243,6 +251,7 @@ export const profiles: Profile[] = [
       { label: "Romantisch", icon: "romantic" },
       { label: "Goede luisteraar", icon: "listener" },
     ],
+    vibe: ["reading", "listener", "caring", "romantic", "coffee", "warm", "chill"],
   },
   ...newHereProfiles(),
 ];

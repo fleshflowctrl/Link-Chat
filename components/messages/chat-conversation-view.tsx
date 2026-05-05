@@ -24,9 +24,13 @@ import {
   Send,
   Smile,
 } from "lucide-react";
+import { WHISPER_USER_KEY } from "@/data/funnel";
 import { type ChatMessage } from "@/data/messages";
 import type { ThreadMeta } from "@/lib/chat/server-data";
-import { setThreadPreview } from "@/lib/thread-preview-store";
+import {
+  getThreadPreviewOverride,
+  setThreadPreview,
+} from "@/lib/thread-preview-store";
 
 const GROUP_GAP_MIN = 5;
 
@@ -133,6 +137,67 @@ export function ChatConversationView({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  /** Clear funnel “unread” bump once the thread is opened. */
+  useEffect(() => {
+    try {
+      const raw =
+        typeof window !== "undefined"
+          ? localStorage.getItem(WHISPER_USER_KEY)
+          : null;
+      if (!raw) return;
+      const u = JSON.parse(raw) as {
+        pickedMatchId?: string;
+        firstMessage?: string;
+      };
+      if (u.pickedMatchId !== chatId || !u.firstMessage?.trim()) return;
+      const o = getThreadPreviewOverride(chatId);
+      setThreadPreview(chatId, {
+        lastMessage: o?.lastMessage ?? u.firstMessage.trim(),
+        timestampLabel: o?.timestampLabel ?? "now",
+        lastActivityAt: o?.lastActivityAt ?? new Date().toISOString(),
+        name: meta.name,
+        avatarUrl: meta.avatarUrl,
+        verified: meta.verified,
+        showOnlineDot: meta.onlineNow,
+        unreadCount: 0,
+      });
+    } catch {
+      /* ignore */
+    }
+  }, [chatId, meta.avatarUrl, meta.name, meta.onlineNow, meta.verified]);
+
+  /** If mock transcript missed SSR, merge saved first outbound from onboarding. */
+  useEffect(() => {
+    if (useSupabase) return;
+    try {
+      const raw = localStorage.getItem(WHISPER_USER_KEY);
+      if (!raw) return;
+      const u = JSON.parse(raw) as {
+        pickedMatchId?: string;
+        firstMessage?: string;
+      };
+      if (u.pickedMatchId !== chatId || !u.firstMessage?.trim()) return;
+      setMessages((prev) => {
+        const body = u.firstMessage!.trim();
+        if (prev.some((m) => m.sender === "me" && m.body === body)) return prev;
+        const { timeLabel, minuteOfDay } = nowClock();
+        return [
+          ...prev,
+          {
+            id: `onboard-${Date.now()}`,
+            sender: "me" as const,
+            kind: "text" as const,
+            body,
+            timeLabel,
+            minuteOfDay,
+          },
+        ];
+      });
+    } catch {
+      /* ignore */
+    }
+  }, [chatId, useSupabase]);
+
   /** Load persisted thread from API — RSC payload can be stale/empty after navigation. */
   useEffect(() => {
     if (!useSupabase) return;
@@ -209,6 +274,7 @@ export function ChatConversationView({
           avatarUrl: meta.avatarUrl,
           verified: meta.verified,
           showOnlineDot: meta.onlineNow,
+          unreadCount: 0,
         });
         return;
       }
@@ -237,6 +303,7 @@ export function ChatConversationView({
         avatarUrl: meta.avatarUrl,
         verified: meta.verified,
         showOnlineDot: meta.onlineNow,
+        unreadCount: 0,
       });
 
       try {

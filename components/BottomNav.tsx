@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
+import {
+  getMessagesTabBadgeLabel,
+  subscribeMessagesTabBadge,
+} from "@/lib/messages-tab-badge";
 import {
   Link2,
   MessageCircle,
@@ -14,12 +19,12 @@ const PURPLE = "#7C5CFF";
 const GRAY = "#9CA3AF";
 
 const tabs = [
-  { href: "/", label: "Ontdekken", Icon: Search, badge: null as string | null },
+  { href: "/discover", label: "Ontdekken", Icon: Search, badge: null as string | null },
   {
     href: "/messages",
     label: "Berichten",
     Icon: MessageCircle,
-    badge: "3",
+    badge: null as string | null,
   },
   { href: "/links", label: "Koppelingen", Icon: Link2, badge: null },
   { href: "/credits", label: "Sprankels", Icon: Sparkles, badge: null },
@@ -27,7 +32,7 @@ const tabs = [
 ] as const;
 
 function isActive(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
+  if (href === "/discover") return pathname === "/discover" || pathname === "/discover/new";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -39,6 +44,11 @@ function hideBottomNavOnPath(pathname: string | null) {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const messagesBadge = useSyncExternalStore(
+    subscribeMessagesTabBadge,
+    getMessagesTabBadgeLabel,
+    getMessagesTabBadgeLabel,
+  );
 
   if (hideBottomNavOnPath(pathname)) {
     return null;
@@ -52,6 +62,7 @@ export function BottomNav() {
       <div className="mx-auto flex max-w-[430px] justify-between gap-0.5 px-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {tabs.map(({ href, label, Icon, badge }) => {
           const active = isActive(pathname, href);
+          const badgeLabel = href === "/messages" ? messagesBadge : badge;
           return (
             <Link
               key={href}
@@ -65,9 +76,9 @@ export function BottomNav() {
                   stroke={active ? PURPLE : GRAY}
                   strokeWidth={active ? 2.4 : 2}
                 />
-                {badge && (
+                {badgeLabel && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white shadow-sm ring-2 ring-[#FDFCF9] sm:h-[18px] sm:min-w-[18px] sm:text-[10px]">
-                    {badge}
+                    {badgeLabel}
                   </span>
                 )}
               </span>
