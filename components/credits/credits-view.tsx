@@ -77,14 +77,14 @@ function PackageCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-base font-bold text-ink">
-              {pkg.credits} credits
+              {pkg.credits} sparkles
             </span>
             <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
               +{pkg.bonus} bonus
             </span>
           </div>
           <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
-            ≈ {formatMoney(pkg.perCredit)} / credit · Save 20%
+            ≈ {formatMoney(pkg.perCredit)} / sparkle · Save 20%
           </p>
         </div>
 
@@ -149,7 +149,7 @@ export function CreditsView() {
       <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-1">
         <div>
           <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
-            Credits
+            Sparkles
           </h1>
           <p className="mt-1 text-[12px] text-gray-500">
             Send messages &amp; link with people

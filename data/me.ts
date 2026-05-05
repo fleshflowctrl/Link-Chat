@@ -34,9 +34,9 @@ export const meStatCardLayout: Record<
     cardBg: "bg-rose-100",
   },
   credits: {
-    label: "Credits",
+    label: "Sparkles",
     subtitle: "Top up to chat more",
-    emoji: "💰",
+    emoji: "✨",
     cardBg: "bg-amber-100",
   },
 };
@@ -67,7 +67,7 @@ export type MeSettingsRow = {
   title: string;
   subtitle: string;
   icon: MeSettingsIconKey;
-  /** Pink pill before chevron (e.g. Earn free credits). */
+  /** Pink pill before chevron (e.g. Earn free sparkles). */
   bonusPill?: string;
 };
 
@@ -111,8 +111,8 @@ export const meSettingsSections: MeSettingsSection[] = [
       },
       {
         href: "/me/earn",
-        title: "Earn free credits",
-        subtitle: "Invite friends and get free credits",
+        title: "Earn free sparkles",
+        subtitle: "Invite friends and get free sparkles",
         icon: "gift",
         bonusPill: "+50",
       },

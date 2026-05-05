@@ -24,7 +24,6 @@ import {
   getThreadPreviewsSnapshot,
   subscribeThreadPreviews,
 } from "@/lib/thread-preview-store";
-import { StatusBarMock } from "./status-bar-mock";
 
 function normalizeThread(t: MessageThread): MessageThread {
   return {
@@ -409,8 +408,6 @@ export function MessagesView({
 
   return (
     <div className="bg-[#F5F3EE] pb-6">
-      <StatusBarMock />
-
       <header className="flex items-start justify-between gap-3 px-5 pb-1 pt-2">
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
           Messages

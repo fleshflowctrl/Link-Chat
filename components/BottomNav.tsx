@@ -22,7 +22,7 @@ const tabs = [
     badge: "3",
   },
   { href: "/links", label: "Links", Icon: Link2, badge: null },
-  { href: "/credits", label: "Credits", Icon: Sparkles, badge: null },
+  { href: "/credits", label: "Sparkles", Icon: Sparkles, badge: null },
   { href: "/me", label: "Me", Icon: User, badge: null },
 ] as const;
 
