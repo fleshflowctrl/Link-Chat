@@ -13,6 +13,7 @@ import {
   type ChatMessageRow,
   type ChatProfileRow,
 } from "@/lib/chat/map-rows";
+import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -24,6 +25,10 @@ export type ThreadMeta = {
 };
 
 export async function fetchThreadListServer(): Promise<MessageThread[]> {
+  if (hasServerDevBypassCookie()) {
+    return messageThreads;
+  }
+
   if (!isSupabaseConfigured()) {
     return messageThreads;
   }
@@ -104,6 +109,14 @@ export async function fetchConversationServer(peerId: string): Promise<{
   meta: ThreadMeta;
   useSupabase: boolean;
 }> {
+  if (hasServerDevBypassCookie()) {
+    return {
+      messages: getSeedMessages(peerId),
+      meta: getThreadMeta(peerId),
+      useSupabase: false,
+    };
+  }
+
   if (!isSupabaseConfigured()) {
     return {
       messages: getSeedMessages(peerId),

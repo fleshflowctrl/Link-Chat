@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type { ChatMessage } from "@/data/messages";
+import { getSeedMessages } from "@/data/messages";
+import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
 import {
   messageRowToUi,
   type ChatMessageRow,
@@ -17,6 +19,15 @@ export async function GET(
   _request: Request,
   { params }: { params: { peerId: string } },
 ) {
+  const peerId = params.peerId;
+
+  if (hasServerDevBypassCookie()) {
+    return NextResponse.json({
+      ok: true,
+      messages: getSeedMessages(peerId),
+    });
+  }
+
   const supabase = createClient();
   const {
     data: { user },
@@ -25,7 +36,6 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const peerId = params.peerId;
   const { data: msgs, error } = await supabase
     .from("chat_messages")
     .select("*")
@@ -47,15 +57,6 @@ export async function POST(
   request: Request,
   { params }: { params: { peerId: string } },
 ) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
-
-  const peerId = params.peerId;
   let body: unknown;
   try {
     body = await request.json();
@@ -80,6 +81,42 @@ export async function POST(
       { status: 400 },
     );
   }
+
+  if (hasServerDevBypassCookie()) {
+    const now = new Date();
+    const minuteOfDay = now.getHours() * 60 + now.getMinutes();
+    const timeLabel = now.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    const userMessage: ChatMessage = {
+      id: `dev-${Date.now()}`,
+      sender: "me",
+      kind: "text",
+      body: text,
+      timeLabel,
+      minuteOfDay,
+    };
+    const peerMessage: ChatMessage = {
+      id: `dev-reply-${Date.now()}`,
+      sender: "peer",
+      kind: "text",
+      body: "Test mode — your message isn’t saved. Sign in for real chat.",
+      timeLabel,
+      minuteOfDay: minuteOfDay + 1,
+    };
+    return NextResponse.json({ ok: true, userMessage, peerMessage });
+  }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const peerId = params.peerId;
 
   const { data: profile, error: pe } = await supabase
     .from("chat_profiles")

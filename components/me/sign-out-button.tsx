@@ -11,6 +11,7 @@ export function SignOutButton() {
   async function signOut() {
     setPending(true);
     try {
+      await fetch("/api/dev/bypass", { method: "DELETE" }).catch(() => {});
       const supabase = createClient();
       await supabase.auth.signOut();
       router.push("/login");

@@ -33,10 +33,32 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
     "idle" | "loading" | "needs_confirm" | "error"
   >("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [testBypassLoading, setTestBypassLoading] = useState(false);
 
   const supabaseConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL?.length,
   );
+
+  const showTestBypassButton =
+    process.env.NODE_ENV === "development" ||
+    process.env.NEXT_PUBLIC_ALLOW_TEST_BYPASS === "true";
+
+  async function continueWithoutLogin() {
+    setMessage(null);
+    setTestBypassLoading(true);
+    try {
+      const res = await fetch("/api/dev/bypass", { method: "POST" });
+      if (!res.ok) {
+        setStatus("error");
+        setMessage("Test bypass is not enabled on this deployment.");
+        return;
+      }
+      router.replace(nextPath);
+      router.refresh();
+    } finally {
+      setTestBypassLoading(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -243,6 +265,22 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
             {submitLabel}
           </button>
         </form>
+      )}
+
+      {showTestBypassButton && supabaseConfigured && (
+        <div className="mt-5 rounded-2xl border border-dashed border-amber-400/60 bg-amber-50/80 px-4 py-3">
+          <p className="text-center text-[11px] font-medium text-amber-900/80">
+            Temporary: skip auth for UI testing
+          </p>
+          <button
+            type="button"
+            disabled={testBypassLoading}
+            onClick={() => void continueWithoutLogin()}
+            className="mt-2 flex h-11 w-full items-center justify-center rounded-full bg-amber-200/90 text-[13px] font-bold text-amber-950 transition enabled:active:scale-[0.98] disabled:opacity-60"
+          >
+            {testBypassLoading ? "Opening…" : "Continue without signing in"}
+          </button>
+        </div>
       )}
 
       <p className="mt-6 text-center text-sm text-inkMuted">

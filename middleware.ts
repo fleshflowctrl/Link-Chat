@@ -1,5 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
+import {
+  DEV_BYPASS_COOKIE,
+  DEV_BYPASS_VALUE,
+  isDevBypassFeatureEnabled,
+} from "@/lib/dev-bypass-config";
 import { updateSession } from "@/utils/supabase/middleware";
+
+function hasDevBypassCookie(request: NextRequest): boolean {
+  if (!isDevBypassFeatureEnabled()) return false;
+  return request.cookies.get(DEV_BYPASS_COOKIE)?.value === DEV_BYPASS_VALUE;
+}
 
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/login" || pathname === "/signup") return true;
@@ -44,6 +54,9 @@ export async function middleware(request: NextRequest) {
 
     if (supabaseConfigured) {
       if (!user && !isPublicPath(pathname)) {
+        if (hasDevBypassCookie(request)) {
+          return response;
+        }
         const url = request.nextUrl.clone();
         url.pathname = "/login";
         url.searchParams.set("next", pathname + request.nextUrl.search);
