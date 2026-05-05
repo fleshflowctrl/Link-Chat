@@ -1,0 +1,16 @@
+---
+description: Na codewijzigingen altijd committen en naar GitHub pushen
+alwaysApply: true
+---
+
+# Git: commit en push na elke wijziging
+
+Na **iedere** inhoudelijke codewijziging in dit project:
+
+1. `git add -u` (of gerichte `git add` voor nieuwe tracked files)
+2. Een duidelijke commit message (Nederlands of Engels, kort en beschrijvend)
+3. `git push origin main` (of de actieve branch als die anders is)
+
+Doe dit **zelf** in de terminal; vraag de gebruiker niet om handmatig te pushen tenzij push faalt (bijv. auth) en er actie van de gebruiker nodig is.
+
+Build- of gegenereerde artifacts zoals `tsconfig.tsbuildinfo` niet committen tenzij de gebruiker dat expliciet wil.
