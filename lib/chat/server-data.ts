@@ -7,7 +7,6 @@ import {
   type ChatMessageRow,
   type ChatProfileRow,
 } from "@/lib/chat/map-rows";
-import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -28,12 +27,12 @@ export type ConversationPageData = {
 
 /**
  * “Online now” on Messages — catalog personas with `online_now`, same as home’s
- * mock rail when Supabase is off / bypass / no matches (strip stays visible).
+ * mock rail when Supabase is off or query has no matches (strip stays visible).
  */
 export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
   const mockRail = () => getOnlineUsers();
 
-  if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     return mockRail();
   }
 
@@ -73,7 +72,7 @@ export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
  * Never injects demo threads — new users see an empty list until they send a message.
  */
 export async function fetchThreadListServer(): Promise<MessageThread[]> {
-  if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
+  if (!isSupabaseConfigured()) {
     return [];
   }
 
@@ -159,14 +158,6 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
 export async function fetchConversationServer(
   peerId: string,
 ): Promise<ConversationPageData> {
-  if (hasServerDevBypassCookie()) {
-    return {
-      messages: [],
-      meta: getThreadMeta(peerId),
-      useSupabase: false,
-    };
-  }
-
   if (!isSupabaseConfigured()) {
     return {
       messages: [],

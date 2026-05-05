@@ -99,9 +99,9 @@ export function ChatConversationView({
 }) {
   const router = useRouter();
   const meta = threadMeta;
-  const seedMessageIds = useMemo(
+  /** Ids that skip entry animation — SSR baseline, then full list after API sync. */
+  const [skipEntryAnimateIds, setSkipEntryAnimateIds] = useState(
     () => new Set(initialMessages.map((m) => m.id)),
-    [initialMessages],
   );
   const [messages, setMessages] =
     useState<ChatMessage[]>(initialMessages);
@@ -130,6 +130,34 @@ export function ChatConversationView({
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  /** Load persisted thread from API — RSC payload can be stale/empty after navigation. */
+  useEffect(() => {
+    if (!useSupabase) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(chatId)}/messages`,
+          { cache: "no-store" },
+        );
+        const data = (await res.json()) as {
+          ok?: boolean;
+          messages?: ChatMessage[];
+        };
+        if (cancelled || !res.ok || !data.ok || !Array.isArray(data.messages)) {
+          return;
+        }
+        setMessages(data.messages);
+        setSkipEntryAnimateIds(new Set(data.messages.map((m) => m.id)));
+      } catch {
+        /* keep SSR / local state */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatId, useSupabase]);
 
   useLayoutEffect(() => {
     const vv = window.visualViewport;
@@ -386,7 +414,7 @@ export function ChatConversationView({
             <motion.div
               key={msg.id}
               initial={
-                seedMessageIds.has(msg.id)
+                skipEntryAnimateIds.has(msg.id)
                   ? false
                   : { scale: 0.94, opacity: 0 }
               }

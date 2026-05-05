@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { ChatMessage } from "@/data/messages";
-import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
 import {
   messageRowToUi,
   type ChatMessageRow,
@@ -19,13 +18,6 @@ export async function GET(
   { params }: { params: { peerId: string } },
 ) {
   const peerId = params.peerId;
-
-  if (hasServerDevBypassCookie()) {
-    return NextResponse.json({
-      ok: true,
-      messages: [] as ChatMessage[],
-    });
-  }
 
   const supabase = createClient();
   const {
@@ -79,32 +71,6 @@ export async function POST(
       { ok: false, error: `Message too long (max ${MAX_LEN} chars)` },
       { status: 400 },
     );
-  }
-
-  if (hasServerDevBypassCookie()) {
-    const now = new Date();
-    const minuteOfDay = now.getHours() * 60 + now.getMinutes();
-    const timeLabel = now.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-    const userMessage: ChatMessage = {
-      id: `dev-${Date.now()}`,
-      sender: "me",
-      kind: "text",
-      body: text,
-      timeLabel,
-      minuteOfDay,
-    };
-    const peerMessage: ChatMessage = {
-      id: `dev-reply-${Date.now()}`,
-      sender: "peer",
-      kind: "text",
-      body: "Test mode — your message isn’t saved. Sign in for real chat.",
-      timeLabel,
-      minuteOfDay: minuteOfDay + 1,
-    };
-    return NextResponse.json({ ok: true, userMessage, peerMessage });
   }
 
   const supabase = createClient();
