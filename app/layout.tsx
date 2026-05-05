@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import { NoZoom } from "@/components/system/no-zoom";
 import "./globals.css";
 
 const inter = Inter({
@@ -20,6 +21,16 @@ export const metadata: Metadata = {
   description: "A calm place to chat at your pace.",
 };
 
+/** Lock mobile viewport so users can't pinch / double-tap zoom (native-app feel). */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  minimumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,6 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${playfair.variable} font-sans`}>
+        <NoZoom />
         {children}
       </body>
     </html>

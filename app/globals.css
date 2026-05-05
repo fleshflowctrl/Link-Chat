@@ -10,10 +10,14 @@
 
 html {
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: pan-x pan-y;
 }
 
 body {
   @apply bg-[#E8E4DC] text-ink antialiased;
+  touch-action: pan-x pan-y;
 }
 
 @keyframes pulseDot {
