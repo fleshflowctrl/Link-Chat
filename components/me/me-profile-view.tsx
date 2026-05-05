@@ -27,6 +27,11 @@ import {
   type MeSettingsIconKey,
   type MeStatKey,
 } from "@/data/me";
+import {
+  FUNNEL_SESSION_KEY,
+  ONBOARDED_KEY,
+  WHISPER_USER_KEY,
+} from "@/data/funnel";
 import type { EditProfileState } from "@/data/me-edit";
 import { uploadProfileImage } from "@/lib/me/client-storage-upload";
 import type { MeProfileStats } from "@/lib/me/server-profile";
@@ -329,6 +334,25 @@ export function MeProfileView({
             </div>
           </section>
         ))}
+      </div>
+
+      <div className="px-5 pb-3">
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              localStorage.removeItem(ONBOARDED_KEY);
+              localStorage.removeItem(WHISPER_USER_KEY);
+              sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+            } catch {
+              /* ignore */
+            }
+            router.push("/?testFunnel=1");
+          }}
+          className="flex w-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/90 py-3 text-[13px] font-semibold text-gray-600 shadow-sm transition active:scale-95"
+        >
+          Test onboarding funnel
+        </button>
       </div>
 
       <div className="flex justify-center px-5 pb-8">

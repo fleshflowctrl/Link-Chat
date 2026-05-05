@@ -75,7 +75,11 @@ export async function middleware(request: NextRequest) {
         return redirectPreservingSessionCookies(response, url);
       }
 
-      if (user && pathname === "/") {
+      if (
+        user &&
+        pathname === "/" &&
+        request.nextUrl.searchParams.get("testFunnel") !== "1"
+      ) {
         const url = request.nextUrl.clone();
         url.pathname = "/discover";
         url.search = "";
