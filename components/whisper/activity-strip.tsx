@@ -3,14 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import {
-  formatJoinedAgo,
-  getNewWhisperUsers,
-  showNewJoinBadge,
-} from "@/data/newUsers";
+import type { NewWhisperUser } from "@/data/newUsers";
+import { formatJoinedAgo, showNewJoinBadge } from "@/data/newUsers";
 
-export function ActivityStrip() {
-  const users = getNewWhisperUsers();
+export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
 
   return (
     <div className="px-5 pt-6">

@@ -16,6 +16,16 @@ export type ChatProfileRow = {
   filter_tags: string[] | null;
   last_message_preview: string | null;
   last_message_at: string | null;
+  age?: number | null;
+  distance_km?: number | null;
+  gallery_urls?: string[] | null;
+  interests?: unknown;
+  looking_for?: string | null;
+  last_active_label?: string | null;
+  status_variant?: string | null;
+  status_label?: string | null;
+  joined_at?: string | null;
+  home_sort?: number | null;
 };
 
 export type ChatMessageRow = {

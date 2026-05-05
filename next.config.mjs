@@ -1,3 +1,18 @@
+const supabasePatterns = [];
+try {
+  const u = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (u) {
+    const host = new URL(u).hostname;
+    supabasePatterns.push({
+      protocol: "https",
+      hostname: host,
+      pathname: "/storage/v1/object/public/**",
+    });
+  }
+} catch {
+  /* ignore invalid env */
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -7,6 +22,7 @@ const nextConfig = {
         hostname: "images.unsplash.com",
         pathname: "/**",
       },
+      ...supabasePatterns,
     ],
   },
   /** Fewer native file watchers + polling (see `npm run dev`) — avoids macOS EMFILE / dev crashes on save. */

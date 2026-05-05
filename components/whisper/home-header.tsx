@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { homeUnreadNotificationCount, meProfile } from "@/data/me";
+import { homeUnreadNotificationCount } from "@/data/me";
 
-export function HomeHeader() {
-  const credits = meProfile.stats.credits.value;
+export function HomeHeader({ credits }: { credits: number }) {
   const unread = homeUnreadNotificationCount;
 
   return (

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import {
   BadgeCheck,
   Camera,
@@ -25,8 +25,10 @@ import {
   type MeSettingsIconKey,
   type MeStatKey,
 } from "@/data/me";
+import type { EditProfileState } from "@/data/me-edit";
 import {
   getMeProfileSnapshot,
+  setMeProfileSnapshot,
   subscribeMeProfile,
 } from "@/lib/me-profile-store";
 
@@ -39,9 +41,24 @@ const settingsIcons: Record<MeSettingsIconKey, typeof ShieldCheck> = {
   help: HelpCircle,
 };
 
-export function MeProfileView() {
+type MeProfileViewProps = {
+  initialProfile: EditProfileState;
+  syncToken: string;
+  credits: number;
+};
+
+export function MeProfileView({
+  initialProfile,
+  syncToken,
+  credits,
+}: MeProfileViewProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMeProfileSnapshot(initialProfile);
+  }, [syncToken, initialProfile]);
+
   const live = useSyncExternalStore(
     subscribeMeProfile,
     getMeProfileSnapshot,
@@ -69,8 +86,6 @@ export function MeProfileView() {
       router.push("/");
     }
   }
-
-  const credits = meProfile.stats.credits.value;
 
   return (
     <div className="bg-[#F5F3EE] pb-8">
@@ -177,6 +192,7 @@ export function MeProfileView() {
       <div className="grid grid-cols-2 gap-2.5 px-5 pb-6">
         {meStatGridOrder.map((key) => {
           const s = meProfile.stats[key as MeStatKey];
+          const value = key === "credits" ? credits : s.value;
           return (
             <div
               key={key}
@@ -193,7 +209,7 @@ export function MeProfileView() {
                   {s.label}
                 </p>
                 <p className="text-lg font-extrabold tabular-nums text-ink">
-                  {s.value}
+                  {value}
                 </p>
               </div>
             </div>

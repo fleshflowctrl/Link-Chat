@@ -29,11 +29,8 @@ import {
   PRONOUN_OPTIONS,
   type EditProfileState,
 } from "@/data/me-edit";
-import {
-  getMeProfileSnapshot,
-  setMeProfileSnapshot,
-  subscribeMeProfile,
-} from "@/lib/me-profile-store";
+import { uploadProfileImage } from "@/lib/me/client-storage-upload";
+import { setMeProfileSnapshot } from "@/lib/me-profile-store";
 
 const BIO_MAX = 280;
 
@@ -45,25 +42,34 @@ function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x)) as T;
 }
 
-export function EditProfileView() {
+type EditProfileViewProps = {
+  initialProfile: EditProfileState;
+  syncToken: string;
+};
+
+export function EditProfileView({
+  initialProfile,
+  syncToken,
+}: EditProfileViewProps) {
   const router = useRouter();
   const mainInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const initialSerialized = useRef<string | null>(null);
 
   const [state, setState] = useState<EditProfileState>(() =>
-    clone(getMeProfileSnapshot()),
+    clone(initialProfile),
   );
   const [toast, setToast] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [lookingOpen, setLookingOpen] = useState(false);
   const [interestsOpen, setInterestsOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(true);
 
   useEffect(() => {
-    const snap = clone(getMeProfileSnapshot());
+    const snap = clone(initialProfile);
     setState(snap);
     initialSerialized.current = JSON.stringify(snap);
-  }, []);
+  }, [syncToken, initialProfile]);
 
   const dirty = useMemo(() => {
     if (initialSerialized.current == null) return false;
@@ -78,33 +84,114 @@ export function EditProfileView() {
     window.setTimeout(() => setToast(null), 2800);
   }, []);
 
-  const save = useCallback(() => {
-    if (!dirty || bioOver) return;
-    setMeProfileSnapshot(clone(state));
-    initialSerialized.current = JSON.stringify(state);
-    showToast("Profile updated ✨");
-    window.setTimeout(() => router.push("/me"), 450);
-  }, [bioOver, dirty, router, showToast, state]);
+  const save = useCallback(async () => {
+    if (!dirty || bioOver || saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/me/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state),
+        credentials: "same-origin",
+      });
 
-  function setMainFromFile(file: File) {
-    const url = URL.createObjectURL(file);
-    setState((s) => ({ ...s, mainPhotoUrl: url }));
-  }
-
-  function addGalleryFiles(files: FileList | null) {
-    if (!files?.length) return;
-    setState((s) => {
-      if (s.gallery.length >= 6) return s;
-      const next = [...s.gallery];
-      for (let i = 0; i < files.length && next.length < 6; i++) {
-        const f = files[i];
-        if (!f.type.startsWith("image/")) continue;
-        next.push({ id: gid(), url: URL.createObjectURL(f) });
+      if (res.ok) {
+        const data = (await res.json()) as { profile: EditProfileState };
+        const next = clone(data.profile);
+        setMeProfileSnapshot(next);
+        setState(next);
+        initialSerialized.current = JSON.stringify(next);
+        showToast("Profile updated ✨");
+        window.setTimeout(() => router.push("/me"), 450);
+        return;
       }
-      return { ...s, gallery: next };
-    });
-    if (galleryInputRef.current) galleryInputRef.current.value = "";
-  }
+
+      if (res.status === 401 || res.status === 503) {
+        setMeProfileSnapshot(clone(state));
+        initialSerialized.current = JSON.stringify(state);
+        showToast(
+          res.status === 401
+            ? "Saved on this device (sign in to sync)"
+            : "Saved on this device (Supabase unavailable)",
+        );
+        window.setTimeout(() => router.push("/me"), 450);
+        return;
+      }
+
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      showToast(err.error ?? "Could not save profile");
+    } finally {
+      setSaving(false);
+    }
+  }, [bioOver, dirty, router, saving, showToast, state]);
+
+  const setMainFromFile = useCallback(
+    async (file: File) => {
+      const blobUrl = URL.createObjectURL(file);
+      setState((s) => {
+        const prev = s.mainPhotoUrl;
+        if (prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+        return { ...s, mainPhotoUrl: blobUrl };
+      });
+
+      const r = await uploadProfileImage(file);
+      if (r.ok) {
+        setState((s) => {
+          if (s.mainPhotoUrl !== blobUrl) return s;
+          URL.revokeObjectURL(blobUrl);
+          return { ...s, mainPhotoUrl: r.publicUrl };
+        });
+        showToast("Main photo uploaded");
+        return;
+      }
+
+      showToast(
+        r.error === "Supabase is not configured"
+          ? "Preview only — connect Supabase to sync photos"
+          : r.error,
+      );
+    },
+    [showToast],
+  );
+
+  const addGalleryFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files?.length) return;
+      const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      let anyUploaded = false;
+
+      for (const f of arr) {
+        const r = await uploadProfileImage(f, "gallery");
+        if (r.ok) anyUploaded = true;
+
+        setState((s) => {
+          if (s.gallery.length >= 6) return s;
+          if (r.ok) {
+            return {
+              ...s,
+              gallery: [...s.gallery, { id: gid(), url: r.publicUrl }],
+            };
+          }
+          const blobUrl = URL.createObjectURL(f);
+          return { ...s, gallery: [...s.gallery, { id: gid(), url: blobUrl }] };
+        });
+
+        if (!r.ok) {
+          showToast(
+            r.error === "Supabase is not configured"
+              ? "Gallery preview only without Supabase"
+              : r.error,
+          );
+        }
+      }
+
+      if (anyUploaded) {
+        showToast("Photos uploaded — save profile to keep changes");
+      }
+      if (galleryInputRef.current) galleryInputRef.current.value = "";
+    },
+    [showToast],
+  );
 
   function removeGalleryPhoto(id: string, url: string) {
     if (!window.confirm("Remove this photo from your profile?")) return;
@@ -126,7 +213,7 @@ export function EditProfileView() {
     });
   }
 
-  const saveDisabled = !dirty || bioOver;
+  const saveDisabled = !dirty || bioOver || saving;
 
   return (
     <div className="pb-36">
@@ -144,7 +231,7 @@ export function EditProfileView() {
         </h1>
         <button
           type="button"
-          onClick={save}
+          onClick={() => void save()}
           disabled={saveDisabled}
           className={`min-h-[44px] shrink-0 px-2 text-[15px] font-bold ${
             saveDisabled ? "text-ink/30" : "text-primary"
@@ -183,7 +270,7 @@ export function EditProfileView() {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) setMainFromFile(f);
+              if (f) void setMainFromFile(f);
               e.target.value = "";
             }}
           />
@@ -245,7 +332,7 @@ export function EditProfileView() {
           accept="image/*"
           multiple
           className="hidden"
-          onChange={(e) => addGalleryFiles(e.target.files)}
+          onChange={(e) => void addGalleryFiles(e.target.files)}
         />
       </section>
 
@@ -498,7 +585,7 @@ export function EditProfileView() {
         <button
           type="button"
           disabled={saveDisabled}
-          onClick={save}
+          onClick={() => void save()}
           className={`flex min-h-[52px] w-full items-center justify-center rounded-full bg-gradient-primary py-3.5 text-[15px] font-bold text-white shadow-fab transition ${
             saveDisabled ? "cursor-not-allowed opacity-50" : "active:scale-[0.99]"
           }`}

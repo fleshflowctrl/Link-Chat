@@ -120,3 +120,27 @@ export function createInitialEditable(): EditProfileState {
     lastUpdatedLabel: "Last updated 2 days ago",
   };
 }
+
+/** Empty signed-in profile before the user saves anything (DB row may still exist from signup trigger). */
+export function createDefaultEditableForNewUser(): EditProfileState {
+  return {
+    firstName: "",
+    age: 25,
+    location: "",
+    pronouns: "they/them",
+    customPronouns: "",
+    bio: "",
+    lookingFor: LOOKING_FOR_OPTIONS[0],
+    interests: [],
+    mainPhotoUrl:
+      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=720&q=80&auto=format&fit=crop",
+    gallery: [],
+    preferences: {
+      showDistance: true,
+      showOnlineStatus: true,
+      allowNewChatRequests: true,
+      pushNotifications: true,
+    },
+    lastUpdatedLabel: "Not saved yet",
+  };
+}
