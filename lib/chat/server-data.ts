@@ -2,11 +2,10 @@ import { redirect } from "next/navigation";
 import {
   getSeedMessages,
   getThreadMeta,
-  messageThreads,
   type ChatMessage,
   type MessageThread,
 } from "@/data/messages";
-import { getOnlineUsers, type OnlineUser } from "@/data/onlineUsers";
+import type { OnlineUser } from "@/data/onlineUsers";
 import {
   mergeProfileWithLatestUserMessage,
   messageRowToUi,
@@ -32,21 +31,17 @@ export type ConversationPageData = {
   notFound?: boolean;
 };
 
-function mockOnlineRail(): OnlineUser[] {
-  return getOnlineUsers();
-}
-
-/** “Online now” personas for the Messages screen (catalog `online_now`). */
+/** “Online now” on Messages — only real catalog data (no mock strip that looks like inbox). */
 export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
-    return mockOnlineRail();
+    return [];
   }
 
   let supabase: ReturnType<typeof createClient>;
   try {
     supabase = createClient();
   } catch {
-    return mockOnlineRail();
+    return [];
   }
 
   const {
@@ -75,11 +70,11 @@ export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
 
 /**
  * Threads for the signed-in user: one row per peer they have actually messaged.
- * No mock catalog filler when Supabase is active.
+ * Never injects demo threads — new users see an empty list until they send a message.
  */
 export async function fetchThreadListServer(): Promise<MessageThread[]> {
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
-    return messageThreads;
+    return [];
   }
 
   let supabase: ReturnType<typeof createClient>;

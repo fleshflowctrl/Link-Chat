@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { OnlineNowRail } from "@/components/OnlineNowRail";
 import {
-  messageThreads,
   sortThreadsByRecency,
   type MessageThread,
   type MessagePreviewType,
@@ -327,7 +326,8 @@ export function MessagesView({
 }) {
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
 
-  const source = initialThreads !== undefined ? initialThreads : messageThreads;
+  /** Server is the source of truth; never show legacy mock threads in the inbox. */
+  const source = initialThreads ?? [];
   const previews = useSyncExternalStore(
     subscribeThreadPreviews,
     getThreadPreviewsSnapshot,
