@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
-export function LoginForm() {
+type LoginFormMode = "login" | "signup";
+
+export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
     const n = searchParams.get("next");
@@ -12,6 +15,13 @@ export function LoginForm() {
     return n;
   }, [searchParams]);
   const errorParam = searchParams.get("error");
+
+  const authToggleQuery = useMemo(() => {
+    const q = new URLSearchParams();
+    if (nextPath && nextPath !== "/") q.set("next", nextPath);
+    const s = q.toString();
+    return s ? `?${s}` : "";
+  }, [nextPath]);
 
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
@@ -50,9 +60,10 @@ export function LoginForm() {
   }
 
   if (!supabaseConfigured) {
+    const title = mode === "signup" ? "Sign up" : "Sign in";
     return (
       <div className="rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]">
-        <h1 className="font-serif text-2xl font-semibold text-ink">Sign in</h1>
+        <h1 className="font-serif text-2xl font-semibold text-ink">{title}</h1>
         <p className="mt-3 text-sm text-inkMuted">
           Add <code className="rounded bg-black/[0.06] px-1">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
           and{" "}
@@ -61,9 +72,38 @@ export function LoginForm() {
           </code>{" "}
           to <code className="rounded bg-black/[0.06] px-1">.env.local</code>.
         </p>
+        <p className="mt-6 text-center text-sm text-inkMuted">
+          {mode === "signup" ? (
+            <>
+              Already have an account?{" "}
+              <Link
+                href={`/login${authToggleQuery}`}
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Sign in
+              </Link>
+            </>
+          ) : (
+            <>
+              New here?{" "}
+              <Link
+                href={`/signup${authToggleQuery}`}
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Sign up
+              </Link>
+            </>
+          )}
+        </p>
       </div>
     );
   }
+
+  const title = mode === "signup" ? "Sign up" : "Sign in";
+  const subtitle =
+    mode === "signup"
+      ? "Create your account — we'll email you a magic link. No password needed."
+      : "We'll email you a magic link — no password to remember.";
 
   return (
     <div className="rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]">
@@ -71,11 +111,9 @@ export function LoginForm() {
         whisper
       </p>
       <h1 className="mt-2 text-center font-serif text-2xl font-semibold text-ink">
-        Sign in
+        {title}
       </h1>
-      <p className="mt-2 text-center text-sm text-inkMuted">
-        We&apos;ll email you a magic link — no password to remember.
-      </p>
+      <p className="mt-2 text-center text-sm text-inkMuted">{subtitle}</p>
 
       {errorParam && (
         <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">
@@ -117,6 +155,30 @@ export function LoginForm() {
           </button>
         </form>
       )}
+
+      <p className="mt-6 text-center text-sm text-inkMuted">
+        {mode === "signup" ? (
+          <>
+            Already have an account?{" "}
+            <Link
+              href={`/login${authToggleQuery}`}
+              className="font-semibold text-primary underline-offset-2 hover:underline"
+            >
+              Sign in
+            </Link>
+          </>
+        ) : (
+          <>
+            New here?{" "}
+            <Link
+              href={`/signup${authToggleQuery}`}
+              className="font-semibold text-primary underline-offset-2 hover:underline"
+            >
+              Sign up
+            </Link>
+          </>
+        )}
+      </p>
     </div>
   );
 }

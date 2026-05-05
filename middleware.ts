@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/utils/supabase/middleware";
 
 function isPublicPath(pathname: string): boolean {
-  if (pathname === "/login") return true;
+  if (pathname === "/login" || pathname === "/signup") return true;
   if (pathname.startsWith("/auth")) return true;
   return false;
 }
@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
         url.searchParams.set("next", pathname + request.nextUrl.search);
         return redirectPreservingSessionCookies(response, url);
       }
-      if (user && pathname === "/login") {
+      if (user && (pathname === "/login" || pathname === "/signup")) {
         const url = request.nextUrl.clone();
         url.pathname = "/";
         url.search = "";
