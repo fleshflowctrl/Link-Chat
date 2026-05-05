@@ -78,6 +78,7 @@ export function sharedVibeEmojis(
     art: "🎨",
     witty: "🌶️",
     chill: "🌿",
+    cooking: "🍳",
   };
   return meta.map((id) => emojis[id] ?? "✨").filter(Boolean);
 }

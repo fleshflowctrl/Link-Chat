@@ -3,7 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   animate,
   AnimatePresence,
@@ -676,23 +684,47 @@ function StepVibes({
   onContinue,
 }: {
   vibes: string[];
-  setVibes: (v: string[]) => void;
+  setVibes: Dispatch<SetStateAction<string[]>>;
   onContinue: () => void;
 }) {
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number | null>(null);
+
   const toggle = (id: string) => {
-    setVibes(
-      vibes.includes(id) ? vibes.filter((x) => x !== id) : [...vibes, id],
-    );
+    setVibes((prev) => {
+      const adding = !prev.includes(id);
+      const next = adding ? [...prev, id] : prev.filter((x) => x !== id);
+      if (adding && next.length === 8) {
+        if (toastTimer.current != null) window.clearTimeout(toastTimer.current);
+        setToast("Up to 8 keeps your matches sharp");
+        toastTimer.current = window.setTimeout(() => {
+          setToast(null);
+          toastTimer.current = null;
+        }, 2600);
+      }
+      return next;
+    });
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current != null) window.clearTimeout(toastTimer.current);
+    };
+  }, []);
+
   const n = vibes.length;
   const ok = n >= 3;
 
   return (
     <>
-      <div className="flex flex-1 flex-col px-5 pb-28 pt-5">
-        <h2 className="text-[28px] font-extrabold leading-tight text-gray-900">What&apos;s your vibe?</h2>
-        <p className="mt-1 text-[14px] text-gray-600">Pick 3 or more.</p>
-        <div className="mt-6 flex flex-wrap gap-2">
+      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-1 font-sans">
+        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+          <span className="block">What&apos;s your</span>
+          <span className="block">vibe?</span>
+        </h2>
+        <p className="mt-1 text-[14px] text-gray-600">Pick the ones that feel like you.</p>
+
+        <div className="mt-5 grid grid-cols-3 gap-2.5">
           {FUNNEL_VIBES.map((v) => {
             const on = vibes.includes(v.id);
             return (
@@ -700,32 +732,67 @@ function StepVibes({
                 key={v.id}
                 type="button"
                 onClick={() => toggle(v.id)}
-                className={`rounded-full px-3.5 py-2 text-[13px] font-semibold transition active:scale-95 ${
+                className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl p-3 transition active:scale-95 ${
                   on
-                    ? `${v.selectedClass} text-gray-900`
-                    : `${v.tint} text-gray-700 ring-1 ring-black/[0.06]`
+                    ? `${v.selectedBg} ring-2 ${v.selectedRing}`
+                    : "bg-white shadow-sm"
                 }`}
               >
-                {v.emoji} {v.label}
+                <span className="text-3xl" aria-hidden>
+                  {v.emoji}
+                </span>
+                <span className="mt-1 text-center text-[12px] font-bold leading-tight text-gray-900">
+                  {v.label}
+                </span>
+                <span className="pointer-events-none absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center">
+                  <AnimatePresence>
+                    {on && (
+                      <motion.span
+                        key="c"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        transition={{ type: "spring", stiffness: 520, damping: 28 }}
+                        className="flex h-4 w-4 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] font-bold text-white"
+                      >
+                        ✓
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </span>
               </button>
             );
           })}
         </div>
       </div>
-      <div className="sticky bottom-0 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+
+      <div className="sticky bottom-0 z-20 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
           disabled={!ok}
           onClick={onContinue}
-          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-bold transition active:scale-95 ${
+          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
             ok
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-pill"
-              : "cursor-not-allowed bg-gray-200 text-gray-500"
+              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
+              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
-          Continue ({n}/3)
+          Continue · {n} picked
         </button>
       </div>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            className="pointer-events-none fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-1/2 z-[60] w-[min(92vw,360px)] -translate-x-1/2 rounded-2xl bg-gray-900/90 px-4 py-2.5 text-center text-[13px] font-medium leading-snug text-white shadow-lg"
+          >
+            {toast}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </>
   );
 }

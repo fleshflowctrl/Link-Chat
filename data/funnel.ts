@@ -65,13 +65,17 @@ export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
   },
 ];
 
+export type VibeCategory = "vibes" | "hobbies" | "style";
+
 export type VibeOption = {
   id: string;
   emoji: string;
   label: string;
-  /** Tailwind-ish background when selected */
-  tint: string;
-  selectedClass: string;
+  category: VibeCategory;
+  /** Selected tile background (Tailwind). */
+  selectedBg: string;
+  /** Ring color only — combined with `ring-2` in UI. */
+  selectedRing: string;
 };
 
 export const FUNNEL_VIBES: VibeOption[] = [
@@ -79,99 +83,121 @@ export const FUNNEL_VIBES: VibeOption[] = [
     id: "caring",
     emoji: "💗",
     label: "Caring",
-    tint: "bg-pink-100",
-    selectedClass: "bg-pink-200 ring-2 ring-pink-300/80",
+    category: "vibes",
+    selectedBg: "bg-pink-100",
+    selectedRing: "ring-pink-400",
   },
   {
     id: "romantic",
     emoji: "💜",
     label: "Romantic",
-    tint: "bg-purple-100",
-    selectedClass: "bg-purple-200 ring-2 ring-purple-300/80",
+    category: "vibes",
+    selectedBg: "bg-purple-100",
+    selectedRing: "ring-purple-400",
   },
   {
     id: "playful",
     emoji: "🙂",
     label: "Playful",
-    tint: "bg-amber-100",
-    selectedClass: "bg-amber-200 ring-2 ring-amber-300/80",
-  },
-  {
-    id: "warm",
-    emoji: "👥",
-    label: "Warm",
-    tint: "bg-orange-100",
-    selectedClass: "bg-orange-200 ring-2 ring-orange-300/80",
-  },
-  {
-    id: "listener",
-    emoji: "🎧",
-    label: "Listener",
-    tint: "bg-sky-100",
-    selectedClass: "bg-sky-200 ring-2 ring-sky-300/80",
-  },
-  {
-    id: "coffee",
-    emoji: "☕",
-    label: "Coffee",
-    tint: "bg-stone-100",
-    selectedClass: "bg-stone-200 ring-2 ring-stone-300/80",
-  },
-  {
-    id: "travel",
-    emoji: "✈️",
-    label: "Travel",
-    tint: "bg-cyan-100",
-    selectedClass: "bg-cyan-200 ring-2 ring-cyan-300/80",
-  },
-  {
-    id: "movies",
-    emoji: "🎬",
-    label: "Movies",
-    tint: "bg-indigo-100",
-    selectedClass: "bg-indigo-200 ring-2 ring-indigo-300/80",
-  },
-  {
-    id: "gym",
-    emoji: "💪",
-    label: "Gym",
-    tint: "bg-red-100",
-    selectedClass: "bg-red-200 ring-2 ring-red-300/80",
-  },
-  {
-    id: "reading",
-    emoji: "📚",
-    label: "Reading",
-    tint: "bg-emerald-100",
-    selectedClass: "bg-emerald-200 ring-2 ring-emerald-300/80",
-  },
-  {
-    id: "gaming",
-    emoji: "🎮",
-    label: "Gaming",
-    tint: "bg-violet-100",
-    selectedClass: "bg-violet-200 ring-2 ring-violet-300/80",
-  },
-  {
-    id: "art",
-    emoji: "🎨",
-    label: "Art",
-    tint: "bg-fuchsia-100",
-    selectedClass: "bg-fuchsia-200 ring-2 ring-fuchsia-300/80",
+    category: "vibes",
+    selectedBg: "bg-yellow-100",
+    selectedRing: "ring-yellow-400",
   },
   {
     id: "witty",
     emoji: "🌶️",
     label: "Witty",
-    tint: "bg-rose-100",
-    selectedClass: "bg-rose-200 ring-2 ring-rose-300/80",
+    category: "vibes",
+    selectedBg: "bg-red-100",
+    selectedRing: "ring-red-400",
   },
   {
     id: "chill",
     emoji: "🌿",
     label: "Chill",
-    tint: "bg-lime-100",
-    selectedClass: "bg-lime-200 ring-2 ring-lime-300/80",
+    category: "vibes",
+    selectedBg: "bg-green-100",
+    selectedRing: "ring-green-400",
+  },
+  {
+    id: "coffee",
+    emoji: "☕",
+    label: "Coffee",
+    category: "hobbies",
+    selectedBg: "bg-amber-100",
+    selectedRing: "ring-amber-400",
+  },
+  {
+    id: "travel",
+    emoji: "✈️",
+    label: "Travel",
+    category: "hobbies",
+    selectedBg: "bg-sky-100",
+    selectedRing: "ring-sky-400",
+  },
+  {
+    id: "movies",
+    emoji: "🎬",
+    label: "Movies",
+    category: "hobbies",
+    selectedBg: "bg-blue-100",
+    selectedRing: "ring-blue-400",
+  },
+  {
+    id: "gym",
+    emoji: "💪",
+    label: "Gym",
+    category: "hobbies",
+    selectedBg: "bg-orange-100",
+    selectedRing: "ring-orange-400",
+  },
+  {
+    id: "reading",
+    emoji: "📚",
+    label: "Reading",
+    category: "hobbies",
+    selectedBg: "bg-teal-100",
+    selectedRing: "ring-teal-400",
+  },
+  {
+    id: "gaming",
+    emoji: "🎮",
+    label: "Gaming",
+    category: "hobbies",
+    selectedBg: "bg-indigo-100",
+    selectedRing: "ring-indigo-400",
+  },
+  {
+    id: "art",
+    emoji: "🎨",
+    label: "Art",
+    category: "hobbies",
+    selectedBg: "bg-fuchsia-100",
+    selectedRing: "ring-fuchsia-400",
+  },
+  {
+    id: "cooking",
+    emoji: "🍳",
+    label: "Cooking",
+    category: "hobbies",
+    selectedBg: "bg-rose-100",
+    selectedRing: "ring-rose-400",
+  },
+  {
+    id: "listener",
+    emoji: "🎧",
+    label: "Listener",
+    category: "style",
+    selectedBg: "bg-violet-100",
+    selectedRing: "ring-violet-400",
+  },
+  {
+    id: "warm",
+    emoji: "👥",
+    label: "Warm",
+    category: "style",
+    selectedBg: "bg-emerald-100",
+    selectedRing: "ring-emerald-400",
   },
 ];
 
