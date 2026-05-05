@@ -39,53 +39,11 @@ export interface MessageThread {
   lastActivityAt: string;
 }
 
-export type LinkedStripUser = {
-  id: string;
-  name: string;
-  age: number;
-  photo: string;
-  isNew?: boolean;
-};
-
 const u = (id: string, w = 400) =>
   `https://images.unsplash.com/${id}?w=${w}&q=80&auto=format&fit=crop`;
 
 const COFFEE_IMG =
   "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&q=80&auto=format&fit=crop";
-
-/** Horizontal “Linked with you” cards — tap card → profile, Say hi → chat. */
-export const linkedUsers: LinkedStripUser[] = [
-  {
-    id: "marcus",
-    name: "Marcus",
-    age: 29,
-    photo: u("photo-1506794778202-cad84cf45f1d"),
-    isNew: true,
-  },
-  {
-    id: "iris",
-    name: "Iris",
-    age: 24,
-    photo: u("photo-1531746020798-e6953c6e8e04"),
-    isNew: true,
-  },
-  {
-    id: "lena",
-    name: "Lena",
-    age: 26,
-    photo: u("photo-1494790108377-be9c29b29330"),
-    isNew: true,
-  },
-  {
-    id: "zoe",
-    name: "Zoe",
-    age: 25,
-    photo: u("photo-1529626455594-4ff0802cfb7e"),
-    isNew: false,
-  },
-];
-
-export const linkedWithYouNewCount = linkedUsers.filter((u) => u.isNew).length;
 
 export const messageThreads: MessageThread[] = [
   {

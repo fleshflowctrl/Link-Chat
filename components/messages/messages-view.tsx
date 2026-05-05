@@ -12,8 +12,6 @@ import {
 } from "lucide-react";
 import { OnlineNowRail } from "@/components/OnlineNowRail";
 import {
-  linkedUsers,
-  linkedWithYouNewCount,
   messageThreads,
   sortThreadsByRecency,
   type MessageThread,
@@ -90,70 +88,11 @@ function MessagesHeaderActions() {
   );
 }
 
-function LinkedWithYouStrip() {
-  return (
-    <section className="px-5 pb-4 pt-2">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="text-[15px]" aria-hidden>
-          🔗
-        </span>
-        <h2 className="text-[14px] font-bold text-ink">Linked with you</h2>
-        {linkedWithYouNewCount > 0 && (
-          <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
-            {linkedWithYouNewCount} new
-          </span>
-        )}
-      </div>
-
-      <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-1">
-        {linkedUsers.map((user) => (
-          <div
-            key={user.id}
-            className="relative w-[110px] shrink-0 overflow-hidden rounded-2xl shadow-sm"
-          >
-            <div className="relative aspect-[3/4] w-full">
-              <Image
-                src={user.photo}
-                alt=""
-                fill
-                sizes="110px"
-                className="object-cover"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
-              {user.isNew && (
-                <span className="absolute left-2 top-2 z-20 rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
-                  NEW
-                </span>
-              )}
-              <Link
-                href={`/profile/${user.id}`}
-                className="absolute inset-0 bottom-11 z-10"
-                aria-label={`View ${user.name}'s profile`}
-              />
-              <div className="absolute bottom-0 left-0 right-0 z-20 flex flex-col gap-1.5 p-2">
-                <p className="pointer-events-none text-center text-[12px] font-bold leading-tight text-white drop-shadow-sm">
-                  {user.name}, {user.age}
-                </p>
-                <Link
-                  href={`/messages/${user.id}`}
-                  className="w-full rounded-full bg-white py-1.5 text-center text-[11px] font-semibold text-gray-900 shadow-sm transition active:scale-[0.98]"
-                >
-                  Say hi
-                </Link>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function PinnedSection({ threads }: { threads: MessageThread[] }) {
   if (threads.length === 0) return null;
 
   return (
-    <section className="px-5 pb-4">
+    <section className="px-5 pb-4 pt-2">
       <div className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">
         <Pin className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.5} />
         <span>Pinned · {threads.length}</span>
@@ -428,12 +367,10 @@ export function MessagesView({
 
       <OnlineNowRail compact className="pt-3" />
 
-      <LinkedWithYouStrip />
-
       <PinnedSection threads={pinnedThreads} />
 
-      <section className="px-5 pt-2">
-        <div className="mb-2 flex items-center justify-between">
+      <section className="pt-2">
+        <div className="mb-2 flex items-center justify-between px-5">
           <h2 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
             Conversations
           </h2>
@@ -442,7 +379,7 @@ export function MessagesView({
           </span>
         </div>
 
-        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
+        <div className="overflow-hidden border-y border-black/[0.06] bg-white shadow-sm">
           <ul className="divide-y divide-gray-100">
             {sorted.map((thread) => (
               <li key={thread.id}>
