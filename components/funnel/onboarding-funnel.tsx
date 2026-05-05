@@ -191,7 +191,7 @@ function normalizeFirstContact(
 const defaultPersist = (): FunnelPersist => ({
   step: 1,
   lookingFor: null,
-  vibes: ["caring", "playful", "chill"],
+  vibes: [],
   ageRange: { ...DEFAULT_AGE_RANGE },
   basics: { ...DEFAULT_BASICS },
   firstContact: { profileId: null },
