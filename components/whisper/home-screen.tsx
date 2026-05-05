@@ -4,7 +4,7 @@ import type { Profile } from "@/data/profiles";
 import { ActivityStrip } from "./activity-strip";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
 import { HomeHeader } from "./home-header";
-import { ProfileGrid } from "./profile-grid";
+import { PersonalizedProfileGrid } from "./personalized-profile-grid";
 
 type Props = {
   gridProfiles: Profile[];
@@ -48,7 +48,7 @@ export function HomeScreen({
           </div>
         </div>
       </section>
-      <ProfileGrid profiles={gridProfiles} />
+      <PersonalizedProfileGrid profiles={gridProfiles} />
       <div className="h-6 shrink-0" aria-hidden />
     </>
   );
