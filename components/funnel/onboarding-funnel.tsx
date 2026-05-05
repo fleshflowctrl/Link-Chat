@@ -409,8 +409,8 @@ export function OnboardingFunnel() {
   }
 
   return (
-    <div className="relative flex min-h-[100dvh] justify-center overflow-hidden bg-[#E4DFD4]">
-      <div className="relative flex min-h-[100dvh] w-full max-w-[430px] flex-col bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]">
+    <div className="relative flex h-[100dvh] max-h-[100dvh] justify-center overflow-hidden bg-[#E4DFD4]">
+      <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-[430px] flex-col overflow-hidden bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]">
         {step > 1 && (
           <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
             {step < 8 ? (
@@ -451,7 +451,11 @@ export function OnboardingFunnel() {
               animate="animate"
               exit="exit"
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-              className="absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain"
+              className={
+                step === 1
+                  ? "absolute inset-0 flex min-h-0 flex-col overflow-hidden"
+                  : "absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain"
+              }
             >
               {step === 1 && <StepWelcome onStart={goNext} />}
               {step === 2 && (
@@ -513,11 +517,100 @@ export function OnboardingFunnel() {
   );
 }
 
-const HERO_FLOAT = {
+const HERO_FLOAT_BASE = {
   repeat: Infinity,
   repeatType: "mirror" as const,
   ease: "easeInOut" as const,
 };
+
+function welcomeCardKm(km: number): string {
+  const r = Math.round(km * 10) / 10;
+  const s = Math.abs(r - Math.round(r)) < 0.05 ? String(Math.round(r)) : r.toFixed(1);
+  return `${s} km`;
+}
+
+type WelcomeFloatCfg = {
+  id: string;
+  pill?: "online" | "new";
+  widthPx: number;
+  top: string;
+  left?: string;
+  right?: string;
+  rotateFrom: number;
+  rotateTo: number;
+  duration: number;
+};
+
+const WELCOME_FLOAT: WelcomeFloatCfg[] = [
+  {
+    id: "maya",
+    pill: "online",
+    widthPx: 115,
+    top: "top-[10%]",
+    left: "left-[4%]",
+    rotateFrom: -6,
+    rotateTo: -4,
+    duration: 4.8,
+  },
+  {
+    id: "marcus",
+    pill: "new",
+    widthPx: 125,
+    top: "top-[6%]",
+    right: "right-[4%]",
+    rotateFrom: 5,
+    rotateTo: 7,
+    duration: 5.1,
+  },
+  {
+    id: "clara",
+    widthPx: 105,
+    top: "top-[28%]",
+    right: "right-[18%]",
+    rotateFrom: -3,
+    rotateTo: -2,
+    duration: 4.4,
+  },
+  {
+    id: "sophie",
+    pill: "online",
+    widthPx: 95,
+    top: "top-[20%]",
+    left: "left-[28%]",
+    rotateFrom: 7,
+    rotateTo: 9,
+    duration: 4.6,
+  },
+  {
+    id: "lena",
+    widthPx: 95,
+    top: "top-[3%]",
+    left: "left-[36%]",
+    rotateFrom: -4,
+    rotateTo: -2,
+    duration: 5.2,
+  },
+  {
+    id: "iris",
+    pill: "new",
+    widthPx: 85,
+    top: "top-[40%]",
+    left: "left-[2%]",
+    rotateFrom: 10,
+    rotateTo: 12,
+    duration: 4.2,
+  },
+  {
+    id: "zoe",
+    pill: "online",
+    widthPx: 85,
+    top: "top-[42%]",
+    right: "right-[3%]",
+    rotateFrom: -8,
+    rotateTo: -6,
+    duration: 4.9,
+  },
+];
 
 function StepWelcome({ onStart }: { onStart: () => void }) {
   const countMv = useMotionValue(0);
@@ -534,22 +627,18 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
     };
   }, [countMv]);
 
-  const maya = getProfileById("maya");
-  const marcus = getProfileById("marcus");
-  const clara = getProfileById("clara");
-
   return (
-    <div className="relative min-h-[100dvh] min-h-screen w-full overflow-hidden bg-[#F5F3EE] font-sans">
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F5F3EE] font-sans">
       <div
-        className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#9B7BFF]/30 blur-3xl"
+        className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#9B7BFF]/20 blur-3xl"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-pink-300/40 blur-3xl"
+        className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-pink-300/25 blur-3xl"
         aria-hidden
       />
 
-      <div className="sticky top-3 z-30 flex items-center gap-3 pl-5 pr-5 pt-[max(4px,env(safe-area-inset-top))]">
+      <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 flex items-center gap-3 px-5 pt-[max(8px,env(safe-area-inset-top))]">
         <div className="min-w-0 flex-1">
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
             <div
@@ -562,109 +651,64 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
       </div>
 
       <div
-        className="pointer-events-none absolute inset-x-0 top-[52px] z-10 h-[min(52vh,420px)] max-[375px]:h-[48vh]"
+        className="pointer-events-none absolute inset-0 z-10 pt-[40px]"
         aria-hidden
       >
-        {maya && (
-          <motion.div
-            className="absolute left-[2%] top-[2%] w-[30%] max-w-[118px] min-[376px]:top-[3%]"
-            animate={{
-              y: [0, -8, 0],
-              rotate: [-6, -4, -6],
-            }}
-            transition={{ ...HERO_FLOAT, duration: 4.8 }}
-          >
-            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
-              <Image
-                src={maya.photo}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="120px"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
-              <span className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                Online
-              </span>
-              <div className="absolute bottom-0 left-0 right-0 p-2.5 pt-8">
-                <p className="text-[13px] font-bold leading-tight text-white">
-                  {maya.name}, {maya.age}
-                </p>
-                <p className="mt-0.5 text-[11px] font-medium text-white/85">2 km</p>
+        {WELCOME_FLOAT.map((cfg, idx) => {
+          const p = getProfileById(cfg.id);
+          if (!p) return null;
+          const pos = [cfg.top, cfg.left, cfg.right].filter(Boolean).join(" ");
+          return (
+            <motion.div
+              key={cfg.id}
+              className={`absolute ${pos}`}
+              style={{ width: cfg.widthPx }}
+              initial={false}
+              animate={{
+                y: [0, -6, 0],
+                rotate: [cfg.rotateFrom, cfg.rotateTo, cfg.rotateFrom],
+              }}
+              transition={{
+                ...HERO_FLOAT_BASE,
+                duration: cfg.duration,
+                delay: idx * 0.12,
+              }}
+            >
+              <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
+                <Image
+                  src={p.photo}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes={`${cfg.widthPx}px`}
+                  priority={idx < 3}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
+                {cfg.pill === "online" && (
+                  <span className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                    Online
+                  </span>
+                )}
+                {cfg.pill === "new" && (
+                  <span className="absolute left-2 top-2 rounded-full bg-pink-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                    NEW
+                  </span>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 p-2 pt-7">
+                  <p className="text-[12px] font-bold leading-tight text-white drop-shadow-sm">
+                    {p.name}, {p.age}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-medium text-white/85">
+                    {welcomeCardKm(p.distanceKm)}
+                  </p>
+                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
-
-        {marcus && (
-          <motion.div
-            className="absolute right-[1%] top-0 w-[31%] max-w-[120px] min-[376px]:-top-[1%]"
-            animate={{
-              y: [0, -6, 0],
-              rotate: [5, 7, 5],
-            }}
-            transition={{ ...HERO_FLOAT, duration: 5.2 }}
-          >
-            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
-              <Image
-                src={marcus.photo}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="120px"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
-              <span className="absolute left-2 top-2 rounded-full bg-pink-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-                NEW
-              </span>
-              <div className="absolute bottom-0 left-0 right-0 p-2.5 pt-8">
-                <p className="text-[13px] font-bold leading-tight text-white">
-                  {marcus.name}, {marcus.age}
-                </p>
-                <p className="mt-0.5 text-[11px] font-medium text-white/85">5 km</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {clara && (
-          <motion.div
-            className="absolute bottom-[8%] right-[4%] w-[28%] max-w-[112px] max-[375px]:bottom-[6%]"
-            animate={{
-              y: [0, -10, 0],
-              rotate: [-3, -1, -3],
-            }}
-            transition={{ ...HERO_FLOAT, duration: 4.5 }}
-          >
-            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
-              <Image
-                src={clara.photo}
-                alt=""
-                fill
-                className="object-cover"
-                sizes="112px"
-                priority
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-2.5 pt-8">
-                <p className="text-[13px] font-bold leading-tight text-white">
-                  {clara.name}, 24
-                </p>
-                <p className="mt-0.5 text-[11px] font-medium text-white/85">1.1 km</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          );
+        })}
       </div>
 
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-[12] h-[min(52vh,400px)] bg-gradient-to-t from-[#F5F3EE] from-20% via-[#F5F3EE]/95 via-55% to-transparent"
-        aria-hidden
-      />
-
-      <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-20 px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-16">
+      <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#F5F3EE] via-[#F5F3EE]/95 via-50% to-transparent px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-12">
         <h1 className="font-display text-5xl font-semibold lowercase leading-none tracking-tight text-ink">
           whisper
         </h1>
@@ -674,54 +718,53 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
           <span className="block">kind of people.</span>
         </h2>
 
-        <p className="mt-3 text-[15px] leading-snug">
+        <p className="mt-3 text-[14px] leading-snug">
           <span className="text-gray-600">Real conversations. </span>
           <span className="font-bold text-[#7C5CFF]">At your pace.</span>
         </p>
 
-        <div className="mt-4 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-2">
-          <div className="flex min-w-0 max-w-[72%] items-center gap-2">
-            <div className="flex shrink-0 -space-x-2 pl-1">
+        <div className="mt-3 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+          <div className="flex min-w-0 max-w-[70%] items-center gap-1.5">
+            <div className="flex shrink-0 -space-x-1.5 pl-0.5">
               {likesPreviewAvatarUrls.map((url, i) => (
                 <span
                   key={url}
-                  className="relative h-7 w-7 overflow-hidden rounded-full ring-2 ring-[#F5F3EE]"
+                  className="relative h-6 w-6 overflow-hidden rounded-full ring-2 ring-[#F5F3EE]"
                   style={{ zIndex: 3 - i }}
                 >
                   <Image
                     src={url}
                     alt=""
-                    width={56}
-                    height={56}
+                    width={48}
+                    height={48}
                     className="h-full w-full object-cover"
                   />
                 </span>
               ))}
             </div>
-            <p className="min-w-0 text-[12px] leading-snug text-gray-700">
+            <p className="min-w-0 text-[11px] leading-snug text-gray-700">
               <span className="font-bold tabular-nums text-gray-900">{countLabel}</span>{" "}
               connecting right now
             </p>
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 shadow-sm ring-1 ring-black/[0.06]">
-            <span className="relative flex h-2 w-2">
+          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 shadow-sm ring-1 ring-black/[0.06]">
+            <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
             </span>
-            <span className="text-[11px] font-semibold text-green-600">Live</span>
+            <span className="text-[10px] font-semibold text-green-600">Live</span>
           </div>
         </div>
 
         <button
           type="button"
           onClick={onStart}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-4 text-[16px] font-extrabold text-white shadow-lg transition active:scale-95"
+          className="mt-4 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
-          Get started
-          <ArrowRight className="h-5 w-5 shrink-0" strokeWidth={2.5} />
+          Get started →
         </button>
 
-        <p className="mt-3 text-center text-[12px] text-gray-500">
+        <p className="mt-2 text-center text-[11px] text-gray-500">
           Already have an account?{" "}
           <Link
             href="/login"
