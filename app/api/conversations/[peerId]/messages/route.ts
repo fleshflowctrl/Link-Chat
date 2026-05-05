@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { ChatMessage } from "@/data/messages";
-import { getSeedMessages } from "@/data/messages";
 import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
 import {
   messageRowToUi,
@@ -24,7 +23,7 @@ export async function GET(
   if (hasServerDevBypassCookie()) {
     return NextResponse.json({
       ok: true,
-      messages: getSeedMessages(peerId),
+      messages: [] as ChatMessage[],
     });
   }
 

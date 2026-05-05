@@ -322,17 +322,9 @@ export const messagesById: Record<string, ChatMessage[]> = {
   zoe: shortThread("Zoe"),
 };
 
-export function getSeedMessages(chatId: string): ChatMessage[] {
-  return messagesById[chatId] ?? [
-    {
-      id: "x1",
-      sender: "peer",
-      kind: "text",
-      body: "Start the conversation — say hi!",
-      timeLabel: "Now",
-      minuteOfDay: 12 * 60,
-    },
-  ];
+/** Always empty — real history lives in Supabase per user; no demo transcripts. */
+export function getSeedMessages(_chatId: string): ChatMessage[] {
+  return [];
 }
 
 export function getThreadMeta(chatId: string): {

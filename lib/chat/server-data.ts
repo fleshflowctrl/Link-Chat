@@ -1,10 +1,5 @@
 import { redirect } from "next/navigation";
-import {
-  getSeedMessages,
-  getThreadMeta,
-  type ChatMessage,
-  type MessageThread,
-} from "@/data/messages";
+import { getThreadMeta, type ChatMessage, type MessageThread } from "@/data/messages";
 import { getOnlineUsers, type OnlineUser } from "@/data/onlineUsers";
 import {
   mergeProfileWithLatestUserMessage,
@@ -166,7 +161,7 @@ export async function fetchConversationServer(
 ): Promise<ConversationPageData> {
   if (hasServerDevBypassCookie()) {
     return {
-      messages: getSeedMessages(peerId),
+      messages: [],
       meta: getThreadMeta(peerId),
       useSupabase: false,
     };
@@ -174,7 +169,7 @@ export async function fetchConversationServer(
 
   if (!isSupabaseConfigured()) {
     return {
-      messages: getSeedMessages(peerId),
+      messages: [],
       meta: getThreadMeta(peerId),
       useSupabase: false,
     };
@@ -185,7 +180,7 @@ export async function fetchConversationServer(
     supabase = createClient();
   } catch {
     return {
-      messages: getSeedMessages(peerId),
+      messages: [],
       meta: getThreadMeta(peerId),
       useSupabase: false,
     };
