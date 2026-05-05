@@ -25,16 +25,11 @@ export interface Profile {
   /** Hero image for cards & previews (Unsplash). */
   photo: string;
   distanceKm: number;
-  /** Short line on home cards & list snippets. */
-  bioSnippet: string;
   status: {
     variant: ProfileStatusVariant;
     label: string;
   };
-  /** Initial like state for home grid (client may override). */
-  liked: boolean;
-  presenceLabel: string;
-  /** Long-form bio on profile detail */
+  /** Shown on home cards (line-clamped) and profile detail. */
   bio: string;
   /** Gallery photos — first is default hero; use ≥6 for thumbnail rail + extras */
   gallery: string[];
@@ -60,10 +55,7 @@ function newHereProfiles(): Profile[] {
     age: 25,
     photo: u(photoId),
     distanceKm: 4,
-    bioSnippet: "New on whisper ✨",
     status: { variant: "new", label: "New" },
-    liked: false,
-    presenceLabel: "Just joined",
     isVerified: false,
     lastActive: "Just now",
     lookingFor: "Good conversations",
@@ -93,10 +85,7 @@ export const profiles: Profile[] = [
     age: 26,
     photo: u("photo-1534528741775-53994a69daeb"),
     distanceKm: 2,
-    bioSnippet: "Loves coffee & deep talks ☕",
     status: { variant: "active", label: "Active now" },
-    liked: false,
-    presenceLabel: "Active now",
     isVerified: true,
     lastActive: "Active today",
     lookingFor: "Meaningful connection",
@@ -125,10 +114,7 @@ export const profiles: Profile[] = [
     age: 29,
     photo: u("photo-1506794778202-cad84cf45f1d"),
     distanceKm: 5,
-    bioSnippet: "Night runs & good playlists 🎧",
     status: { variant: "replied", label: "Replied 10s ago" },
-    liked: false,
-    presenceLabel: "Active now",
     isVerified: false,
     lastActive: "Active today",
     lookingFor: "Running partner & late-night talks",
@@ -155,10 +141,7 @@ export const profiles: Profile[] = [
     age: 27,
     photo: u("photo-1507003211169-0a1dd7228f2d"),
     distanceKm: 8,
-    bioSnippet: "Film nerd · always down to chat 🎬",
     status: { variant: "new", label: "New" },
-    liked: false,
-    presenceLabel: "Active now",
     isVerified: true,
     lastActive: "Active today",
     lookingFor: "Cinema dates & deep dives",
@@ -184,10 +167,7 @@ export const profiles: Profile[] = [
     age: 38,
     photo: u("photo-1472099645785-5658abf4ff4e"),
     distanceKm: 12,
-    bioSnippet: "Cooking Sundays & slow mornings 🍳",
     status: { variant: "popular", label: "Popular" },
-    liked: false,
-    presenceLabel: "Active now",
     isVerified: false,
     lastActive: "Active today",
     lookingFor: "Slow mornings & good food",
@@ -214,10 +194,7 @@ export const profiles: Profile[] = [
     age: 29,
     photo: u("photo-1529626455594-4ff0802cfb7e"),
     distanceKm: 3,
-    bioSnippet: "Art galleries & vinyl finds 🎨",
     status: { variant: "quiet", label: "Quiet tonight" },
-    liked: false,
-    presenceLabel: "Active now",
     isVerified: true,
     lastActive: "Active today",
     lookingFor: "Creative soul & museum dates",
@@ -243,10 +220,7 @@ export const profiles: Profile[] = [
     age: 26,
     photo: u("photo-1524504388940-b1c1722653e1"),
     distanceKm: 1,
-    bioSnippet: "Books, tea, and honest convos 📚",
     status: { variant: "online", label: "Online" },
-    liked: false,
-    presenceLabel: "Active now",
     isVerified: false,
     lastActive: "Active today",
     lookingFor: "Thoughtful conversation",

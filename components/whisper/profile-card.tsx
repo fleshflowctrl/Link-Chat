@@ -2,13 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, User } from "lucide-react";
+import { ArrowRight, MapPin } from "lucide-react";
 import { type ReactNode } from "react";
 import type { Profile, ProfileStatusVariant } from "@/data/profiles";
 
 function statusChipClasses(variant: ProfileStatusVariant): string {
   const base =
-    "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold text-white backdrop-blur";
+    "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold text-white backdrop-blur";
   switch (variant) {
     case "active":
     case "online":
@@ -40,10 +40,10 @@ function StatusChip({ status }: { status: Profile["status"] }) {
   const showDot = variant === "active" || variant === "online";
 
   return (
-    <span className={`${statusChipClasses(variant)} max-w-full min-w-0`}>
+    <span className={statusChipClasses(variant)}>
       {showDot && dot}
       {prefix}
-      <span className="min-w-0 truncate">{label}</span>
+      <span>{label}</span>
     </span>
   );
 }
@@ -52,53 +52,51 @@ export function ProfileCard({ profile }: { profile: Profile }) {
   const profileHref = `/profile/${profile.id}`;
 
   return (
-    <article className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-md">
-      <Image
-        src={profile.photo}
-        alt=""
-        fill
-        sizes="(max-width: 430px) 50vw, 200px"
-        className="object-cover"
-        priority={profile.id === "maya" || profile.id === "marcus"}
-      />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+    <Link
+      href={profileHref}
+      className="block w-full overflow-hidden rounded-2xl bg-white shadow-sm outline-none ring-black/5 transition active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+      aria-label={`View ${profile.name}'s profile`}
+    >
+      <div className="relative aspect-[4/5] w-full overflow-hidden">
+        <Image
+          src={profile.photo}
+          alt=""
+          fill
+          sizes="(max-width: 430px) 50vw, 200px"
+          className="object-cover"
+          priority={profile.id === "maya" || profile.id === "marcus"}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent"
+          aria-hidden
+        />
 
-      <Link
-        href={profileHref}
-        tabIndex={-1}
-        className="absolute inset-0 z-[1] outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30"
-        aria-label={`View ${profile.name}'s profile`}
-      />
-
-      <div className="pointer-events-none absolute left-3 top-3 z-[2] max-w-[calc(100%-1rem)]">
-        <StatusChip status={profile.status} />
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 z-[2] flex flex-col p-3">
-        <div className="pointer-events-none min-w-0">
-          <div className="flex min-w-0 items-baseline gap-1.5">
-            <h2 className="min-w-0 truncate text-[18px] font-bold leading-tight text-white">
-              {profile.name}, {profile.age}
-            </h2>
-            <span className="inline-flex shrink-0 items-baseline gap-1 text-[11px] text-white/80">
-              <span aria-hidden>·</span>
-              <MapPin className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
-              <span>{profile.distanceKm} km</span>
-            </span>
-          </div>
-          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-white/85">
-            {profile.bioSnippet}
-          </p>
+        <div className="absolute left-3 top-3 z-[1] max-w-[calc(100%-1.5rem)]">
+          <StatusChip status={profile.status} />
         </div>
 
-        <Link
-          href={profileHref}
-          className="relative z-[3] mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full bg-white py-2 text-[12px] font-semibold text-gray-900 outline-none transition focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30 active:scale-[0.98]"
-        >
-          <User className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
-          View profile
-        </Link>
+        <div className="pointer-events-none absolute bottom-2 left-3 right-3 z-[1]">
+          <p className="text-[18px] font-extrabold leading-tight text-white">
+            {profile.name}, {profile.age}
+          </p>
+        </div>
       </div>
-    </article>
+
+      <div className="p-3">
+        <div className="flex items-center gap-1 text-[11px] text-gray-500">
+          <MapPin className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
+          <span>
+            {profile.distanceKm} km away
+          </span>
+        </div>
+        <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-gray-700">
+          {profile.bio}
+        </p>
+        <div className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-gray-900 py-2 text-[12px] font-bold text-white">
+          View profile
+          <ArrowRight className="size-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+        </div>
+      </div>
+    </Link>
   );
 }
