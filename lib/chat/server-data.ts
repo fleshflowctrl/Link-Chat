@@ -6,10 +6,10 @@ import {
   type ChatMessage,
   type MessageThread,
 } from "@/data/messages";
+import { getOnlineUsers, type OnlineUser } from "@/data/onlineUsers";
 import {
-  isoToThreadTimeLabel,
+  mergeProfileWithLatestUserMessage,
   messageRowToUi,
-  profileRowToThread,
   type ChatMessageRow,
   type ChatProfileRow,
 } from "@/lib/chat/map-rows";
@@ -24,12 +24,61 @@ export type ThreadMeta = {
   onlineNow: boolean;
 };
 
-export async function fetchThreadListServer(): Promise<MessageThread[]> {
-  if (hasServerDevBypassCookie()) {
-    return messageThreads;
+export type ConversationPageData = {
+  messages: ChatMessage[];
+  meta: ThreadMeta;
+  useSupabase: boolean;
+  /** Valid peer missing from catalog — show 404. */
+  notFound?: boolean;
+};
+
+function mockOnlineRail(): OnlineUser[] {
+  return getOnlineUsers();
+}
+
+/** “Online now” personas for the Messages screen (catalog `online_now`). */
+export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
+  if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
+    return mockOnlineRail();
   }
 
-  if (!isSupabaseConfigured()) {
+  let supabase: ReturnType<typeof createClient>;
+  try {
+    supabase = createClient();
+  } catch {
+    return mockOnlineRail();
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: rows, error } = await supabase
+    .from("chat_profiles")
+    .select("id, display_name, avatar_url, online_now")
+    .eq("online_now", true)
+    .order("display_name", { ascending: true })
+    .limit(24);
+
+  if (error || !rows?.length) {
+    return [];
+  }
+
+  return rows.map((r) => ({
+    id: r.id as string,
+    name: r.display_name as string,
+    avatar: r.avatar_url as string,
+    isOnline: true,
+  }));
+}
+
+/**
+ * Threads for the signed-in user: one row per peer they have actually messaged.
+ * No mock catalog filler when Supabase is active.
+ */
+export async function fetchThreadListServer(): Promise<MessageThread[]> {
+  if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     return messageThreads;
   }
 
@@ -38,7 +87,7 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
     supabase = createClient();
   } catch (e) {
     console.error("[fetchThreadListServer] createClient", e);
-    return messageThreads;
+    return [];
   }
 
   const {
@@ -47,68 +96,74 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
   if (!user) redirect("/login");
 
   try {
+    const { data: allMsgs, error: me } = await supabase
+      .from("chat_messages")
+      .select("peer_id, body, created_at, kind, image_url, reaction_emoji")
+      .eq("owner_user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (me) {
+      console.error("[fetchThreadListServer] messages", me);
+      return [];
+    }
+
+    const latestByPeer = new Map<
+      string,
+      Pick<
+        ChatMessageRow,
+        "body" | "created_at" | "kind" | "image_url" | "reaction_emoji"
+      >
+    >();
+    const peerOrder: string[] = [];
+
+    for (const row of allMsgs ?? []) {
+      const pid = row.peer_id as string;
+      if (!pid || latestByPeer.has(pid)) continue;
+      latestByPeer.set(pid, {
+        body: row.body as string | null,
+        created_at: row.created_at as string,
+        kind: (row.kind as string) || "text",
+        image_url: row.image_url as string | null,
+        reaction_emoji: row.reaction_emoji as string | null,
+      });
+      peerOrder.push(pid);
+    }
+
+    if (peerOrder.length === 0) {
+      return [];
+    }
+
     const { data: profiles, error: pe } = await supabase
       .from("chat_profiles")
       .select("*")
-      .order("display_name", { ascending: true });
+      .in("id", peerOrder);
 
-    if (pe || !profiles?.length) return messageThreads;
-
-    const profileRows = profiles as ChatProfileRow[];
-
-    const { data: previews } = await supabase
-      .from("chat_messages")
-      .select("peer_id, body, created_at")
-      .eq("owner_user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(500);
-
-    const latestByPeer = new Map<string, { body: string; created_at: string }>();
-    for (const row of previews ?? []) {
-      if (
-        row.peer_id &&
-        typeof row.body === "string" &&
-        !latestByPeer.has(row.peer_id)
-      ) {
-        latestByPeer.set(row.peer_id, {
-          body: row.body,
-          created_at: row.created_at as string,
-        });
-      }
+    if (pe || !profiles?.length) {
+      console.error("[fetchThreadListServer] profiles", pe);
+      return [];
     }
 
-    const decorated = profileRows.map((row) => ({
-      row,
-      sortAt:
-        latestByPeer.get(row.id)?.created_at ??
-        row.last_message_at ??
-        "1970-01-01T00:00:00.000Z",
-    }));
-    decorated.sort(
-      (a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime(),
+    const byId = new Map(
+      (profiles as ChatProfileRow[]).map((p) => [p.id, p] as const),
     );
 
-    return decorated.map(({ row }) => {
-      const base = profileRowToThread(row);
-      const hit = latestByPeer.get(row.id);
-      if (!hit) return base;
-      return {
-        ...base,
-        lastMessage: hit.body,
-        timestampLabel: isoToThreadTimeLabel(hit.created_at),
-      };
-    });
+    return peerOrder
+      .map((id) => {
+        const row = byId.get(id);
+        const latest = latestByPeer.get(id);
+        if (!row || !latest) return null;
+        return mergeProfileWithLatestUserMessage(row, latest);
+      })
+      .filter((t): t is MessageThread => t != null);
   } catch (e) {
     console.error("[fetchThreadListServer]", e);
-    return messageThreads;
+    return [];
   }
 }
 
-export async function fetchConversationServer(peerId: string): Promise<{
-  messages: ChatMessage[];
-  meta: ThreadMeta;
-  useSupabase: boolean;
-}> {
+export async function fetchConversationServer(
+  peerId: string,
+): Promise<ConversationPageData> {
   if (hasServerDevBypassCookie()) {
     return {
       messages: getSeedMessages(peerId),
@@ -151,9 +206,10 @@ export async function fetchConversationServer(peerId: string): Promise<{
 
   if (profileError || !profile) {
     return {
-      messages: getSeedMessages(peerId),
+      messages: [],
       meta: fallbackMeta,
-      useSupabase: false,
+      useSupabase: true,
+      notFound: true,
     };
   }
 

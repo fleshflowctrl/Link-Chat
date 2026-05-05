@@ -17,7 +17,8 @@ import {
   type MessageThread,
   type MessagePreviewType,
 } from "@/data/messages";
-import { homeUnreadNotificationCount, meProfile } from "@/data/me";
+import { homeUnreadNotificationCount } from "@/data/me";
+import type { OnlineUser } from "@/data/onlineUsers";
 import {
   getThreadPreviewsSnapshot,
   subscribeThreadPreviews,
@@ -56,8 +57,7 @@ function TypingDots() {
   );
 }
 
-function MessagesHeaderActions() {
-  const credits = meProfile.stats.credits.value;
+function MessagesHeaderActions({ credits }: { credits: number }) {
   const unread = homeUnreadNotificationCount;
 
   return (
@@ -318,12 +318,16 @@ function ConversationRow({
 
 export function MessagesView({
   initialThreads,
+  onlineRailUsers,
+  headerCredits,
 }: {
   initialThreads?: MessageThread[];
+  onlineRailUsers: OnlineUser[];
+  headerCredits: number;
 }) {
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
 
-  const source = initialThreads ?? messageThreads;
+  const source = initialThreads !== undefined ? initialThreads : messageThreads;
   const previews = useSyncExternalStore(
     subscribeThreadPreviews,
     getThreadPreviewsSnapshot,
@@ -362,10 +366,10 @@ export function MessagesView({
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
           Messages
         </h1>
-        <MessagesHeaderActions />
+        <MessagesHeaderActions credits={headerCredits} />
       </header>
 
-      <OnlineNowRail compact className="pt-3" />
+      <OnlineNowRail compact className="pt-3" users={onlineRailUsers} />
 
       <PinnedSection threads={pinnedThreads} />
 
@@ -380,17 +384,35 @@ export function MessagesView({
         </div>
 
         <div className="overflow-hidden border-y border-black/[0.06] bg-white shadow-sm">
-          <ul className="divide-y divide-gray-100">
-            {sorted.map((thread) => (
-              <li key={thread.id}>
-                <ConversationRow
-                  thread={thread}
-                  revealedLocked={revealedLocked}
-                  onUnlock={unlock}
-                />
-              </li>
-            ))}
-          </ul>
+          {sorted.length === 0 ? (
+            <div className="px-5 py-14 text-center">
+              <p className="text-[15px] font-semibold text-ink">
+                No conversations yet
+              </p>
+              <p className="mt-2 text-[13px] leading-relaxed text-inkMuted">
+                Open someone&apos;s profile from the home grid and send a message
+                — your chats will show up here.
+              </p>
+              <Link
+                href="/"
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-6 py-2.5 text-[14px] font-bold text-white shadow-pill transition active:scale-[0.99]"
+              >
+                Browse profiles
+              </Link>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {sorted.map((thread) => (
+                <li key={thread.id}>
+                  <ConversationRow
+                    thread={thread}
+                    revealedLocked={revealedLocked}
+                    onUnlock={unlock}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
     </div>

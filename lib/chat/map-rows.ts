@@ -75,6 +75,49 @@ export function profileRowToThread(row: ChatProfileRow): MessageThread {
   };
 }
 
+/** Build list preview from the latest message the user has with this peer (real chats). */
+export function mergeProfileWithLatestUserMessage(
+  row: ChatProfileRow,
+  latest: Pick<
+    ChatMessageRow,
+    "body" | "created_at" | "kind" | "image_url" | "reaction_emoji"
+  >,
+): MessageThread {
+  const base = profileRowToThread(row);
+  const ts = isoToThreadTimeLabel(latest.created_at);
+  const at = latest.created_at;
+
+  if (latest.kind === "image") {
+    return {
+      ...base,
+      lastMessage: "Photo",
+      messageType: "photo",
+      previewImage: latest.image_url ?? undefined,
+      timestampLabel: ts,
+      lastActivityAt: at,
+    };
+  }
+
+  if (latest.reaction_emoji) {
+    return {
+      ...base,
+      messageType: "reaction",
+      reactionEmoji: latest.reaction_emoji,
+      lastMessage: "Reacted to your message",
+      timestampLabel: ts,
+      lastActivityAt: at,
+    };
+  }
+
+  return {
+    ...base,
+    messageType: "text",
+    lastMessage: (latest.body ?? "").trim() || "Message",
+    timestampLabel: ts,
+    lastActivityAt: at,
+  };
+}
+
 export function messageRowToUi(row: ChatMessageRow): ChatMessage {
   const d = new Date(row.created_at);
   const timeLabel = d.toLocaleTimeString("en-US", {

@@ -9,10 +9,15 @@ type OnlineNowRailProps = {
   className?: string;
   /** Narrower columns + slightly smaller avatars (Messages). */
   compact?: boolean;
+  /**
+   * When set (e.g. from Supabase catalog), replaces mock `getOnlineUsers()`.
+   * Pass `[]` if no one is online — rail still renders with a zero count.
+   */
+  users?: ReturnType<typeof getOnlineUsers>;
 };
 
-export function OnlineNowRail({ className, compact }: OnlineNowRailProps) {
-  const users = getOnlineUsers();
+export function OnlineNowRail({ className, compact, users: usersProp }: OnlineNowRailProps) {
+  const users = usersProp ?? getOnlineUsers();
   const count = users.length;
   const col = compact ? "w-[64px]" : "w-[72px]";
   const inner = compact ? "h-[52px] w-[52px]" : "h-14 w-14";
@@ -31,6 +36,11 @@ export function OnlineNowRail({ className, compact }: OnlineNowRailProps) {
       </div>
 
       <div className="scrollbar-hide flex gap-3 overflow-x-auto px-5 pb-1">
+        {count === 0 && (
+          <p className="px-1 pb-2 text-[13px] text-inkMuted">
+            No one online right now — check back later.
+          </p>
+        )}
         {users.map((user) => (
           <Link
             key={user.id}

@@ -172,6 +172,19 @@ export async function fetchUserCreditsServer(): Promise<number> {
   }
 }
 
+export async function countDistinctChatPeersForUser(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("peer_id")
+    .eq("owner_user_id", userId);
+
+  if (error || !data?.length) return 0;
+  return new Set(data.map((r) => r.peer_id as string)).size;
+}
+
 export type MeProfileStats = {
   chats: number;
   links: number;
@@ -220,6 +233,7 @@ export async function fetchUserEditProfileServer(): Promise<{
   if (!user) redirect("/login");
 
   const showVerified = Boolean(user.email_confirmed_at);
+  const chatPeerCount = await countDistinctChatPeersForUser(supabase, user.id);
 
   const { data: row, error } = await supabase
     .from("user_profiles")
@@ -234,7 +248,11 @@ export async function fetchUserEditProfileServer(): Promise<{
       profile,
       syncToken: "error",
       credits: defaultCredits(),
-      stats: emptyStats,
+      stats: {
+        chats: chatPeerCount,
+        links: 0,
+        likes: 0,
+      },
       showVerified,
     };
   }
@@ -245,7 +263,11 @@ export async function fetchUserEditProfileServer(): Promise<{
       profile,
       syncToken: "no-row",
       credits: defaultCredits(),
-      stats: emptyStats,
+      stats: {
+        chats: chatPeerCount,
+        links: 0,
+        likes: 0,
+      },
       showVerified,
     };
   }
@@ -256,7 +278,7 @@ export async function fetchUserEditProfileServer(): Promise<{
   const credits =
     typeof r.credits === "number" && r.credits >= 0 ? r.credits : defaultCredits();
   const stats: MeProfileStats = {
-    chats: typeof r.stat_chats === "number" && r.stat_chats >= 0 ? r.stat_chats : 0,
+    chats: chatPeerCount,
     links: typeof r.stat_links === "number" && r.stat_links >= 0 ? r.stat_links : 0,
     likes: typeof r.stat_likes === "number" && r.stat_likes >= 0 ? r.stat_likes : 0,
   };
