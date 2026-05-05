@@ -23,6 +23,7 @@ import {
   FUNNEL_STARTER_MESSAGES,
   FUNNEL_VIBES,
   ONBOARDED_KEY,
+  type FunnelLookingFor,
   type WhisperUserLocal,
   WHISPER_USER_KEY,
 } from "@/data/funnel";
@@ -43,7 +44,7 @@ const MSG_MAX = 240;
 
 type FunnelPersist = {
   step: number;
-  lookingForId: string | null;
+  lookingFor: FunnelLookingFor | null;
   vibes: string[];
   ageMin: number;
   ageMax: number;
@@ -54,9 +55,19 @@ type FunnelPersist = {
   firstMessage: string;
 };
 
+const FUNNEL_LOOKING_IDS = new Set(FUNNEL_LOOKING_FOR.map((o) => o.id));
+
+function normalizeLookingFor(raw: unknown): FunnelLookingFor | null {
+  if (raw === "not_sure") return "notsure";
+  if (typeof raw !== "string") return null;
+  return FUNNEL_LOOKING_IDS.has(raw as FunnelLookingFor)
+    ? (raw as FunnelLookingFor)
+    : null;
+}
+
 const defaultPersist = (): FunnelPersist => ({
   step: 1,
-  lookingForId: null,
+  lookingFor: null,
   vibes: ["caring", "warm", "listener"],
   ageMin: 18,
   ageMax: 35,
@@ -72,8 +83,18 @@ function loadSession(): FunnelPersist | null {
   try {
     const raw = sessionStorage.getItem(FUNNEL_SESSION_KEY);
     if (!raw) return null;
-    const p = JSON.parse(raw) as Partial<FunnelPersist>;
-    return { ...defaultPersist(), ...p, step: Math.min(STEP_TOTAL, Math.max(1, Number(p.step) || 1)) };
+    const p = JSON.parse(raw) as Partial<FunnelPersist> & {
+      lookingForId?: string;
+    };
+    const lf =
+      normalizeLookingFor(p.lookingFor) ??
+      normalizeLookingFor(p.lookingForId);
+    return {
+      ...defaultPersist(),
+      ...p,
+      lookingFor: lf,
+      step: Math.min(STEP_TOTAL, Math.max(1, Number(p.step) || 1)),
+    };
   } catch {
     return null;
   }
@@ -92,7 +113,7 @@ export function OnboardingFunnel() {
   const persistRef = useRef<FunnelPersist>(defaultPersist());
   const step2Timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [lookingForId, setLookingForId] = useState<string | null>(null);
+  const [lookingFor, setLookingFor] = useState<FunnelLookingFor | null>(null);
   const [vibes, setVibes] = useState<string[]>(() => defaultPersist().vibes);
   const [ageMin, setAgeMin] = useState(18);
   const [ageMax, setAgeMax] = useState(35);
@@ -122,7 +143,7 @@ export function OnboardingFunnel() {
     if (saved) {
       persistRef.current = saved;
       setStep(saved.step);
-      setLookingForId(saved.lookingForId);
+      setLookingFor(saved.lookingFor);
       setVibes(saved.vibes);
       setAgeMin(saved.ageMin);
       setAgeMax(saved.ageMax);
@@ -138,7 +159,7 @@ export function OnboardingFunnel() {
   const persistNow = useCallback(() => {
     const p: FunnelPersist = {
       step,
-      lookingForId,
+      lookingFor,
       vibes,
       ageMin,
       ageMax,
@@ -152,7 +173,7 @@ export function OnboardingFunnel() {
     saveSession(p);
   }, [
     step,
-    lookingForId,
+    lookingFor,
     vibes,
     ageMin,
     ageMax,
@@ -193,7 +214,7 @@ export function OnboardingFunnel() {
         vibe: vibes,
         ageMin,
         ageMax,
-        lookingForId: lookingForId ?? FUNNEL_LOOKING_FOR[0].id,
+        lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
         pickedMatchId,
         firstMessage: firstMessage.trim(),
       };
@@ -228,7 +249,7 @@ export function OnboardingFunnel() {
       ageMin,
       firstMessage,
       location,
-      lookingForId,
+      lookingFor,
       name,
       pickedMatch,
       pickedMatchId,
@@ -255,20 +276,22 @@ export function OnboardingFunnel() {
     <div className="relative flex min-h-[100dvh] justify-center overflow-hidden bg-[#E4DFD4]">
       <div className="relative flex min-h-[100dvh] w-full max-w-[430px] flex-col bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]">
         {step > 1 && (
-          <header className="sticky top-0 z-20 flex h-10 shrink-0 items-center gap-2 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-3 pt-[max(4px,env(safe-area-inset-top))] backdrop-blur-sm">
-            <div className="flex w-9 shrink-0 justify-start">
-              {step < 8 && (
+          <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
+            <div className="flex w-8 shrink-0 items-center justify-center">
+              {step < 8 ? (
                 <button
                   type="button"
                   onClick={goBack}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 transition active:scale-95"
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95"
                   aria-label="Back"
                 >
-                  <ChevronLeft className="h-5 w-5" strokeWidth={2.2} />
+                  <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.2} />
                 </button>
+              ) : (
+                <span className="h-8 w-8 shrink-0" aria-hidden />
               )}
             </div>
-            <div className="min-w-0 flex-1 px-1">
+            <div className="min-w-0 flex-1">
               <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
                 <motion.div
                   className="h-full rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
@@ -278,8 +301,8 @@ export function OnboardingFunnel() {
                 />
               </div>
             </div>
-            <div className="w-14 shrink-0 text-right text-[10px] font-medium text-gray-500">
-              Step {step} / {STEP_TOTAL}
+            <div className="w-9 shrink-0 text-right text-[10px] font-medium text-gray-500">
+              {step} / {STEP_TOTAL}
             </div>
           </header>
         )}
@@ -299,9 +322,9 @@ export function OnboardingFunnel() {
               {step === 1 && <StepWelcome onStart={goNext} />}
               {step === 2 && (
                 <StepLookingFor
-                  selected={lookingForId}
+                  selected={lookingFor}
                   onSelect={(id) => {
-                    setLookingForId(id);
+                    setLookingFor(id);
                     if (step2Timer.current) clearTimeout(step2Timer.current);
                     step2Timer.current = setTimeout(() => goNext(), 300);
                   }}
@@ -588,16 +611,17 @@ function StepLookingFor({
   selected,
   onSelect,
 }: {
-  selected: string | null;
-  onSelect: (id: string) => void;
+  selected: FunnelLookingFor | null;
+  onSelect: (id: FunnelLookingFor) => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5">
-      <h2 className="text-[28px] font-extrabold leading-tight text-gray-900">
-        What brings you here?
+    <div className="flex flex-1 flex-col px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 font-sans">
+      <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+        <span className="block">What brings</span>
+        <span className="block">you here?</span>
       </h2>
       <p className="mt-1 text-[14px] text-gray-600">We&apos;ll personalize your feed.</p>
-      <ul className="mt-8 flex flex-col gap-3">
+      <ul className="mt-6 flex flex-col space-y-2.5">
         {FUNNEL_LOOKING_FOR.map((opt) => {
           const isSel = selected === opt.id;
           return (
@@ -605,23 +629,37 @@ function StepLookingFor({
               <button
                 type="button"
                 onClick={() => onSelect(opt.id)}
-                className={`flex w-full items-start gap-3 rounded-2xl bg-white p-4 text-left shadow-sm ring-2 transition active:scale-[0.98] ${
-                  isSel ? "ring-[#7C5CFF]" : "ring-transparent"
+                className={`flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] ${opt.cardBg} ${
+                  isSel
+                    ? "border-2 border-[#7C5CFF] ring-2 ring-[#7C5CFF]/30"
+                    : `border ${opt.cardBorder}`
                 }`}
               >
-                <span className="text-2xl" aria-hidden>
+                <span
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl ${opt.tileBg}`}
+                  aria-hidden
+                >
                   {opt.emoji}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="text-[16px] font-bold text-gray-900">{opt.label}</span>
+                  <span className="block font-bold text-[15px] text-gray-900">{opt.label}</span>
+                  <span className="mt-0.5 block text-[12px] text-gray-600">{opt.description}</span>
+                </span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+                  <AnimatePresence mode="wait">
                     {isSel && (
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-white">
-                        <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                      </span>
+                      <motion.span
+                        key="check"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7C5CFF] text-[11px] font-bold text-white"
+                      >
+                        ✓
+                      </motion.span>
                     )}
-                  </span>
-                  <span className="mt-0.5 block text-[13px] text-gray-500">{opt.description}</span>
+                  </AnimatePresence>
                 </span>
               </button>
             </li>

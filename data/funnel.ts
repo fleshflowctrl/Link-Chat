@@ -1,10 +1,20 @@
 /** Onboarding funnel copy + option lists (English UI per product spec). */
 
+export type FunnelLookingFor =
+  | "chatting"
+  | "friends"
+  | "meaningful"
+  | "casual"
+  | "notsure";
+
 export type LookingForOption = {
-  id: string;
+  id: FunnelLookingFor;
   emoji: string;
   label: string;
   description: string;
+  cardBg: string;
+  cardBorder: string;
+  tileBg: string;
 };
 
 export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
@@ -13,30 +23,45 @@ export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
     emoji: "💬",
     label: "Just chatting",
     description: "Light banter, no pressure",
+    cardBg: "bg-blue-50",
+    cardBorder: "border-blue-100",
+    tileBg: "bg-blue-200/70",
   },
   {
     id: "friends",
     emoji: "🤝",
     label: "New friends",
     description: "Meet people in your area",
+    cardBg: "bg-yellow-50",
+    cardBorder: "border-yellow-100",
+    tileBg: "bg-yellow-200/70",
   },
   {
     id: "meaningful",
     emoji: "💜",
     label: "Meaningful connection",
     description: "Slow, real conversations",
+    cardBg: "bg-purple-50",
+    cardBorder: "border-purple-100",
+    tileBg: "bg-purple-200/70",
   },
   {
     id: "casual",
     emoji: "🌶️",
     label: "Something casual",
     description: "Keep it fun and easy",
+    cardBg: "bg-pink-50",
+    cardBorder: "border-pink-100",
+    tileBg: "bg-pink-200/70",
   },
   {
-    id: "not_sure",
+    id: "notsure",
     emoji: "🤷",
     label: "Not sure yet",
-    description: "We'll show you a mix — you can refine later",
+    description: "We'll show you a mix",
+    cardBg: "bg-gray-50",
+    cardBorder: "border-gray-200",
+    tileBg: "bg-gray-200/70",
   },
 ];
 
@@ -168,7 +193,7 @@ export type WhisperUserLocal = {
   vibe: string[];
   ageMin: number;
   ageMax: number;
-  lookingForId: string;
+  lookingFor: FunnelLookingFor;
   pickedMatchId: string;
   firstMessage: string;
 };
