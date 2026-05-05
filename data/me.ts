@@ -6,6 +6,42 @@ export type MeSettingsIconKey =
   | "gift"
   | "help";
 
+/** Display order for the 2×2 stat grid. */
+export const meStatGridOrder = ["chats", "links", "likes", "credits"] as const;
+export type MeStatKey = (typeof meStatGridOrder)[number];
+
+/** Labels and styling for Me stat cards — numeric values come from the database. */
+export const meStatCardLayout: Record<
+  MeStatKey,
+  { label: string; subtitle: string; emoji: string; cardBg: string }
+> = {
+  chats: {
+    label: "Chats",
+    subtitle: "Open conversations",
+    emoji: "💬",
+    cardBg: "bg-purple-100",
+  },
+  links: {
+    label: "Linked",
+    subtitle: "You're linked",
+    emoji: "🔗",
+    cardBg: "bg-pink-100",
+  },
+  likes: {
+    label: "Likes",
+    subtitle: "People who liked you",
+    emoji: "❤️",
+    cardBg: "bg-rose-100",
+  },
+  credits: {
+    label: "Credits",
+    subtitle: "Top up to chat more",
+    emoji: "💰",
+    cardBg: "bg-amber-100",
+  },
+};
+
+/** Legacy demo aggregate for screens not yet wired to Supabase (messages strip, credits page). */
 export const meProfile = {
   firstName: "Emily",
   age: 28,
@@ -16,40 +52,12 @@ export const meProfile = {
     "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=720&q=80&auto=format&fit=crop",
   verified: true,
   stats: {
-    chats: {
-      value: 12,
-      label: "Chats",
-      subtitle: "Open conversations",
-      emoji: "💬",
-      cardBg: "bg-purple-100",
-    },
-    links: {
-      value: 3,
-      label: "Linked",
-      subtitle: "You’re linked",
-      emoji: "🔗",
-      cardBg: "bg-pink-100",
-    },
-    likes: {
-      value: 46,
-      label: "Likes",
-      subtitle: "People who liked you",
-      emoji: "❤️",
-      cardBg: "bg-rose-100",
-    },
-    credits: {
-      value: 125,
-      label: "Credits",
-      subtitle: "Top up to chat more",
-      emoji: "💰",
-      cardBg: "bg-amber-100",
-    },
+    chats: { ...meStatCardLayout.chats, value: 12 },
+    links: { ...meStatCardLayout.links, value: 3 },
+    likes: { ...meStatCardLayout.likes, value: 46 },
+    credits: { ...meStatCardLayout.credits, value: 125 },
   },
 };
-
-/** Display order for the 2×2 stat grid. */
-export const meStatGridOrder = ["chats", "links", "likes", "credits"] as const;
-export type MeStatKey = (typeof meStatGridOrder)[number];
 
 /** Home header bell — set to `0` to hide the unread badge. */
 export const homeUnreadNotificationCount = 3;

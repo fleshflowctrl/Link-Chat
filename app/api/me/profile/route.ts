@@ -84,7 +84,7 @@ export async function PATCH(request: Request) {
 
   const { data: existing } = await supabase
     .from("user_profiles")
-    .select("credits")
+    .select("credits, stat_chats, stat_links, stat_likes")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -92,6 +92,19 @@ export async function PATCH(request: Request) {
     typeof existing?.credits === "number" && existing.credits >= 0
       ? existing.credits
       : 125;
+
+  const statChatsKeep =
+    typeof existing?.stat_chats === "number" && existing.stat_chats >= 0
+      ? existing.stat_chats
+      : 0;
+  const statLinksKeep =
+    typeof existing?.stat_links === "number" && existing.stat_links >= 0
+      ? existing.stat_links
+      : 0;
+  const statLikesKeep =
+    typeof existing?.stat_likes === "number" && existing.stat_likes >= 0
+      ? existing.stat_likes
+      : 0;
 
   const upsert = editStateToUserProfileUpsert(user.id, body);
 
@@ -113,6 +126,9 @@ export async function PATCH(request: Request) {
         preferences: upsert.preferences,
         updated_at: upsert.updated_at,
         credits: creditsKeep,
+        stat_chats: statChatsKeep,
+        stat_links: statLinksKeep,
+        stat_likes: statLikesKeep,
       },
       { onConflict: "user_id" },
     )

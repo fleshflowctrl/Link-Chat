@@ -3,7 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
   Camera,
@@ -13,19 +14,22 @@ import {
   HelpCircle,
   History,
   Lock,
-  LogOut,
   Settings,
   ShieldCheck,
+  User,
 } from "lucide-react";
 import { StatusBarMock } from "@/components/messages/status-bar-mock";
+import { SignOutButton } from "@/components/me/sign-out-button";
 import {
-  meProfile,
   meSettingsSections,
+  meStatCardLayout,
   meStatGridOrder,
   type MeSettingsIconKey,
   type MeStatKey,
 } from "@/data/me";
 import type { EditProfileState } from "@/data/me-edit";
+import { uploadProfileImage } from "@/lib/me/client-storage-upload";
+import type { MeProfileStats } from "@/lib/me/server-profile";
 import {
   getMeProfileSnapshot,
   setMeProfileSnapshot,
@@ -41,19 +45,38 @@ const settingsIcons: Record<MeSettingsIconKey, typeof ShieldCheck> = {
   help: HelpCircle,
 };
 
+function formatAgeLocation(age: number | null, location: string): string | null {
+  const loc = location.trim();
+  const parts: string[] = [];
+  if (age != null) parts.push(String(age));
+  if (loc) parts.push(loc);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 type MeProfileViewProps = {
   initialProfile: EditProfileState;
   syncToken: string;
   credits: number;
+  stats: MeProfileStats;
+  showVerified: boolean;
 };
 
 export function MeProfileView({
   initialProfile,
   syncToken,
   credits,
+  stats,
+  showVerified,
 }: MeProfileViewProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2800);
+  }, []);
 
   useEffect(() => {
     setMeProfileSnapshot(initialProfile);
@@ -67,23 +90,45 @@ export function MeProfileView({
   const bioParts = live.bio.split("\n");
   const bioLine1 = bioParts[0]?.trim() ?? "";
   const bioLine2 = bioParts.slice(1).join("\n").trim();
+  const hasPhoto = live.mainPhotoUrl.trim().length > 0;
+  const displayName = live.firstName.trim() || "Your profile";
+  const ageLoc = formatAgeLocation(live.age, live.location);
 
   function openPhotoPicker() {
     fileInputRef.current?.click();
   }
 
-  function onPhotoSelected() {
-    console.log("[me] Photo placeholder — no upload wired yet.");
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
+  async function onPhotoSelected() {
+    const input = fileInputRef.current;
+    const f = input?.files?.[0];
+    if (input) input.value = "";
+    if (!f || photoBusy) return;
 
-  function onLogout() {
-    if (
-      typeof window !== "undefined" &&
-      window.confirm("Log out of whisper?")
-    ) {
-      console.log("[me] Log out confirmed (placeholder).");
-      router.push("/");
+    setPhotoBusy(true);
+    try {
+      const r = await uploadProfileImage(f);
+      if (!r.ok) {
+        showToast(r.error);
+        return;
+      }
+      const snap = getMeProfileSnapshot();
+      const res = await fetch("/api/me/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...snap, mainPhotoUrl: r.publicUrl }),
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        showToast(err.error ?? "Could not save photo");
+        return;
+      }
+      const data = (await res.json()) as { profile: EditProfileState };
+      setMeProfileSnapshot(data.profile);
+      showToast("Profile photo updated");
+      router.refresh();
+    } finally {
+      setPhotoBusy(false);
     }
   }
 
@@ -122,7 +167,7 @@ export function MeProfileView({
           accept="image/*"
           className="hidden"
           aria-hidden
-          onChange={onPhotoSelected}
+          onChange={() => void onPhotoSelected()}
         />
 
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#7C5CFF] to-[#9B7BFF] p-5 text-white shadow-md">
@@ -138,20 +183,30 @@ export function MeProfileView({
           <div className="relative flex gap-4">
             <div className="relative shrink-0">
               <div className="relative h-20 w-20 overflow-hidden rounded-full bg-white/20 ring-4 ring-white/30">
-                <Image
-                  src={live.mainPhotoUrl}
-                  alt=""
-                  fill
-                  sizes="80px"
-                  className="object-cover"
-                  priority
-                  unoptimized={live.mainPhotoUrl.startsWith("blob:")}
-                />
+                {hasPhoto ? (
+                  <Image
+                    src={live.mainPhotoUrl}
+                    alt=""
+                    fill
+                    sizes="80px"
+                    className="object-cover"
+                    priority
+                    unoptimized={live.mainPhotoUrl.startsWith("blob:")}
+                  />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center bg-white/15 text-white/90"
+                    aria-hidden
+                  >
+                    <User className="h-9 w-9" strokeWidth={1.75} />
+                  </div>
+                )}
               </div>
               <button
                 type="button"
                 onClick={openPhotoPicker}
-                className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-primary shadow-md ring-2 ring-white/40 transition active:scale-95"
+                disabled={photoBusy}
+                className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-primary shadow-md ring-2 ring-white/40 transition enabled:active:scale-95 disabled:opacity-50"
                 aria-label="Change profile photo"
               >
                 <Camera className="h-4 w-4" strokeWidth={2.25} />
@@ -161,22 +216,31 @@ export function MeProfileView({
             <div className="min-w-0 flex-1 pt-0.5">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-2xl font-bold leading-tight">
-                  {live.firstName}
+                  {displayName}
                 </span>
-                {meProfile.verified && (
+                {showVerified && (
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/95 text-primary shadow-sm ring-1 ring-white/50">
                     <BadgeCheck className="h-4 w-4" strokeWidth={2.5} aria-label="Verified" />
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-xs text-white/90">
-                {live.age} · {live.location}
-              </p>
+              {ageLoc ? (
+                <p className="mt-1 text-xs text-white/90">{ageLoc}</p>
+              ) : (
+                <p className="mt-1 text-xs text-white/75">
+                  Add age &amp; location in edit
+                </p>
+              )}
               {bioLine1 && (
                 <p className="mt-1 text-xs text-white/90">{bioLine1}</p>
               )}
               {bioLine2 && (
                 <p className="mt-0.5 text-xs text-white/90">{bioLine2}</p>
+              )}
+              {!bioLine1 && !bioLine2 && (
+                <p className="mt-1 text-xs text-white/75">
+                  Add a short bio in edit — tell people what you&apos;re into.
+                </p>
               )}
               <Link
                 href="/me/edit"
@@ -191,22 +255,29 @@ export function MeProfileView({
 
       <div className="grid grid-cols-2 gap-2.5 px-5 pb-6">
         {meStatGridOrder.map((key) => {
-          const s = meProfile.stats[key as MeStatKey];
-          const value = key === "credits" ? credits : s.value;
+          const layout = meStatCardLayout[key as MeStatKey];
+          const value =
+            key === "credits"
+              ? credits
+              : key === "chats"
+                ? stats.chats
+                : key === "links"
+                  ? stats.links
+                  : stats.likes;
           return (
             <div
               key={key}
               className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/[0.04]"
             >
               <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${s.cardBg}`}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${layout.cardBg}`}
                 aria-hidden
               >
-                {s.emoji}
+                {layout.emoji}
               </span>
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                  {s.label}
+                  {layout.label}
                 </p>
                 <p className="text-lg font-extrabold tabular-nums text-ink">
                   {value}
@@ -261,15 +332,21 @@ export function MeProfileView({
       </div>
 
       <div className="flex justify-center px-5 pb-8">
-        <button
-          type="button"
-          onClick={onLogout}
-          className="inline-flex min-h-[48px] items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-red-600 transition active:opacity-70"
-        >
-          <LogOut className="h-5 w-5" strokeWidth={2} />
-          Log out
-        </button>
+        <SignOutButton />
       </div>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="fixed bottom-24 left-1/2 z-[400] max-w-[min(90vw,360px)] -translate-x-1/2 rounded-full bg-ink px-5 py-3 text-center text-sm font-semibold text-white shadow-lg"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,6 +1,6 @@
-import { createInitialEditable, type EditProfileState } from "@/data/me-edit";
+import { emptyEditProfileState, type EditProfileState } from "@/data/me-edit";
 
-let saved: EditProfileState = createInitialEditable();
+let saved: EditProfileState = emptyEditProfileState();
 const listeners = new Set<() => void>();
 
 function emit() {

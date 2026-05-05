@@ -20,10 +20,10 @@ import {
   MapPin,
   Plus,
   Trash2,
+  User,
   X,
 } from "lucide-react";
 import {
-  createInitialEditable,
   INTEREST_LIBRARY,
   LOOKING_FOR_OPTIONS,
   PRONOUN_OPTIONS,
@@ -78,6 +78,8 @@ export function EditProfileView({
 
   const bioLen = state.bio.length;
   const bioOver = bioLen > BIO_MAX;
+  const ageInvalid =
+    state.age != null && (state.age < 18 || state.age > 120);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -213,7 +215,7 @@ export function EditProfileView({
     });
   }
 
-  const saveDisabled = !dirty || bioOver || saving;
+  const saveDisabled = !dirty || bioOver || saving || ageInvalid;
 
   return (
     <div className="pb-36">
@@ -245,14 +247,20 @@ export function EditProfileView({
         <div className="relative">
           <div className="rounded-full bg-gradient-to-br from-primary via-primarySoft to-accentPink p-[3px] shadow-card">
             <div className="relative h-40 w-40 overflow-hidden rounded-full bg-canvas ring-2 ring-white">
-              <Image
-                src={state.mainPhotoUrl}
-                alt=""
-                width={320}
-                height={320}
-                className="h-full w-full object-cover"
-                unoptimized={state.mainPhotoUrl.startsWith("blob:")}
-              />
+              {state.mainPhotoUrl ? (
+                <Image
+                  src={state.mainPhotoUrl}
+                  alt=""
+                  width={320}
+                  height={320}
+                  className="h-full w-full object-cover"
+                  unoptimized={state.mainPhotoUrl.startsWith("blob:")}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-lavender/40 to-canvas text-ink/25">
+                  <User className="h-16 w-16" strokeWidth={1.5} aria-hidden />
+                </div>
+              )}
             </div>
           </div>
           <button
@@ -280,7 +288,7 @@ export function EditProfileView({
           onClick={() => mainInputRef.current?.click()}
           className="mt-3 text-[13px] font-semibold text-primary"
         >
-          Change main photo
+          {state.mainPhotoUrl ? "Change main photo" : "Add main photo"}
         </button>
       </div>
 
@@ -353,14 +361,19 @@ export function EditProfileView({
               type="number"
               min={18}
               max={120}
-              className="w-full border-0 bg-transparent py-1 text-lg font-semibold text-ink outline-none"
-              value={state.age}
-              onChange={(e) =>
-                setState((s) => ({
-                  ...s,
-                  age: Number(e.target.value) || s.age,
-                }))
-              }
+              placeholder="Add age"
+              className="w-full border-0 bg-transparent py-1 text-lg font-semibold text-ink outline-none placeholder:text-ink/30"
+              value={state.age ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "") {
+                  setState((s) => ({ ...s, age: null }));
+                  return;
+                }
+                const n = Number(v);
+                if (!Number.isFinite(n)) return;
+                setState((s) => ({ ...s, age: n }));
+              }}
             />
           </FieldRow>
           <div className="mx-4 h-px bg-black/[0.06]" />
@@ -453,7 +466,7 @@ export function EditProfileView({
               Looking for
             </p>
             <p className="truncate text-[15px] font-bold text-ink">
-              {state.lookingFor}
+              {state.lookingFor || "Choose what you’re looking for"}
             </p>
           </div>
           <ChevronRight className="h-5 w-5 shrink-0 text-ink/30" />
@@ -613,6 +626,20 @@ export function EditProfileView({
       <Sheet open={lookingOpen} onClose={() => setLookingOpen(false)}>
         <h3 className="mb-3 text-lg font-bold text-ink">Looking for</h3>
         <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setState((s) => ({ ...s, lookingFor: "" }));
+              setLookingOpen(false);
+            }}
+            className={`rounded-xl px-4 py-3 text-left text-[15px] font-semibold transition ${
+              state.lookingFor === ""
+                ? "bg-primary/12 text-primary ring-1 ring-primary/25"
+                : "text-ink hover:bg-black/[0.03]"
+            }`}
+          >
+            Not set yet
+          </button>
           {LOOKING_FOR_OPTIONS.map((opt) => (
             <button
               key={opt}

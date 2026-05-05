@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { meProfile } from "@/data/me";
 import {
   createDefaultEditableForNewUser,
   createInitialEditable,
@@ -16,7 +15,7 @@ import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 export type UserProfileRow = {
   user_id: string;
   first_name: string;
-  age: number;
+  age: number | null;
   location: string;
   pronouns: string;
   custom_pronouns: string;
@@ -28,6 +27,9 @@ export type UserProfileRow = {
   preferences: unknown;
   updated_at: string;
   credits?: number | null;
+  stat_chats?: number | null;
+  stat_links?: number | null;
+  stat_likes?: number | null;
 };
 
 const DEFAULT_PREFS: EditProfilePreferences = {
@@ -36,6 +38,8 @@ const DEFAULT_PREFS: EditProfilePreferences = {
   allowNewChatRequests: true,
   pushNotifications: true,
 };
+
+const DEFAULT_CREDITS = 125;
 
 export function formatProfileLastUpdatedLabel(
   iso: string | null | undefined,
@@ -89,21 +93,24 @@ function parsePreferences(raw: unknown): EditProfilePreferences {
 
 export function userProfileRowToEditState(row: UserProfileRow): EditProfileState {
   const interests = Array.isArray(row.interests) ? row.interests : [];
-  const fallbackPhoto = createDefaultEditableForNewUser().mainPhotoUrl;
+  const ageVal = row.age;
+  const age: number | null =
+    ageVal === null || ageVal === undefined
+      ? null
+      : typeof ageVal === "number" && ageVal >= 18 && ageVal <= 120
+        ? ageVal
+        : null;
 
   return {
     firstName: row.first_name ?? "",
-    age:
-      typeof row.age === "number" && row.age >= 18 && row.age <= 120
-        ? row.age
-        : 25,
+    age,
     location: row.location ?? "",
     pronouns: parsePronouns(row.pronouns ?? "they/them"),
     customPronouns: row.custom_pronouns ?? "",
     bio: row.bio ?? "",
     lookingFor: row.looking_for ?? "",
     interests,
-    mainPhotoUrl: row.main_photo_url?.trim() || fallbackPhoto,
+    mainPhotoUrl: row.main_photo_url?.trim() ?? "",
     gallery: parseGallery(row.gallery),
     preferences: parsePreferences(row.preferences),
     lastUpdatedLabel: formatProfileLastUpdatedLabel(row.updated_at),
@@ -114,10 +121,15 @@ export function editStateToUserProfileUpsert(
   userId: string,
   state: EditProfileState,
 ): UserProfileRow {
+  const ageUpsert: number | null =
+    state.age == null
+      ? null
+      : Math.min(120, Math.max(18, Math.round(state.age)));
+
   return {
     user_id: userId,
     first_name: state.firstName.trim(),
-    age: Math.min(120, Math.max(18, Math.round(state.age))),
+    age: ageUpsert,
     location: state.location.trim(),
     pronouns: state.pronouns,
     custom_pronouns: state.customPronouns.trim(),
@@ -132,7 +144,7 @@ export function editStateToUserProfileUpsert(
 }
 
 function defaultCredits(): number {
-  return meProfile.stats.credits.value;
+  return DEFAULT_CREDITS;
 }
 
 export async function fetchUserCreditsServer(): Promise<number> {
@@ -160,15 +172,32 @@ export async function fetchUserCreditsServer(): Promise<number> {
   }
 }
 
+export type MeProfileStats = {
+  chats: number;
+  links: number;
+  likes: number;
+};
+
 export async function fetchUserEditProfileServer(): Promise<{
   profile: EditProfileState;
   /** Pass to client as effect dependency when hydrating the in-memory store. */
   syncToken: string;
   credits: number;
+  stats: MeProfileStats;
+  /** Email confirmed at signup / confirmation flow. */
+  showVerified: boolean;
 }> {
+  const emptyStats: MeProfileStats = { chats: 0, links: 0, likes: 0 };
+
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     const profile = createInitialEditable();
-    return { profile, syncToken: "mock", credits: defaultCredits() };
+    return {
+      profile,
+      syncToken: "mock",
+      credits: defaultCredits(),
+      stats: emptyStats,
+      showVerified: false,
+    };
   }
 
   let supabase: ReturnType<typeof createClient>;
@@ -176,13 +205,21 @@ export async function fetchUserEditProfileServer(): Promise<{
     supabase = createClient();
   } catch {
     const profile = createInitialEditable();
-    return { profile, syncToken: "mock", credits: defaultCredits() };
+    return {
+      profile,
+      syncToken: "mock",
+      credits: defaultCredits(),
+      stats: emptyStats,
+      showVerified: false,
+    };
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  const showVerified = Boolean(user.email_confirmed_at);
 
   const { data: row, error } = await supabase
     .from("user_profiles")
@@ -193,12 +230,24 @@ export async function fetchUserEditProfileServer(): Promise<{
   if (error) {
     console.error("[fetchUserEditProfileServer]", error);
     const profile = createDefaultEditableForNewUser();
-    return { profile, syncToken: "error", credits: defaultCredits() };
+    return {
+      profile,
+      syncToken: "error",
+      credits: defaultCredits(),
+      stats: emptyStats,
+      showVerified,
+    };
   }
 
   if (!row) {
     const profile = createDefaultEditableForNewUser();
-    return { profile, syncToken: "no-row", credits: defaultCredits() };
+    return {
+      profile,
+      syncToken: "no-row",
+      credits: defaultCredits(),
+      stats: emptyStats,
+      showVerified,
+    };
   }
 
   const r = row as UserProfileRow;
@@ -206,5 +255,16 @@ export async function fetchUserEditProfileServer(): Promise<{
   const updated = r.updated_at;
   const credits =
     typeof r.credits === "number" && r.credits >= 0 ? r.credits : defaultCredits();
-  return { profile, syncToken: updated ?? "unknown", credits };
+  const stats: MeProfileStats = {
+    chats: typeof r.stat_chats === "number" && r.stat_chats >= 0 ? r.stat_chats : 0,
+    links: typeof r.stat_links === "number" && r.stat_links >= 0 ? r.stat_links : 0,
+    likes: typeof r.stat_likes === "number" && r.stat_likes >= 0 ? r.stat_likes : 0,
+  };
+  return {
+    profile,
+    syncToken: updated ?? "unknown",
+    credits,
+    stats,
+    showVerified,
+  };
 }
