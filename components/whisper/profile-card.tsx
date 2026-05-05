@@ -64,11 +64,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
           fill
           sizes="(max-width: 430px) 50vw, 200px"
           className="object-cover"
-          priority={
-            profile.id === "maya" ||
-            profile.id === "janifer" ||
-            profile.id === "marcus"
-          }
+          priority={profile.id === "maya" || profile.id === "marcus"}
         />
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent"
