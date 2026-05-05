@@ -5,7 +5,7 @@ import {
   type ChatMessage,
   type MessageThread,
 } from "@/data/messages";
-import type { OnlineUser } from "@/data/onlineUsers";
+import { getOnlineUsers, type OnlineUser } from "@/data/onlineUsers";
 import {
   mergeProfileWithLatestUserMessage,
   messageRowToUi,
@@ -31,17 +31,22 @@ export type ConversationPageData = {
   notFound?: boolean;
 };
 
-/** “Online now” on Messages — only real catalog data (no mock strip that looks like inbox). */
+/**
+ * “Online now” on Messages — catalog personas with `online_now`, same as home’s
+ * mock rail when Supabase is off / bypass / no matches (strip stays visible).
+ */
 export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
+  const mockRail = () => getOnlineUsers();
+
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
-    return [];
+    return mockRail();
   }
 
   let supabase: ReturnType<typeof createClient>;
   try {
     supabase = createClient();
   } catch {
-    return [];
+    return mockRail();
   }
 
   const {
@@ -57,7 +62,7 @@ export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
     .limit(24);
 
   if (error || !rows?.length) {
-    return [];
+    return mockRail();
   }
 
   return rows.map((r) => ({
