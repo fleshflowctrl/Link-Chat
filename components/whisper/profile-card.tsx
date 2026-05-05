@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Heart } from "lucide-react";
+import { Heart, MapPin } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Profile, ProfileStatusVariant } from "@/data/profiles";
 
@@ -44,10 +44,10 @@ function StatusChip({ status }: { status: Profile["status"] }) {
   const showDot = variant === "active" || variant === "online";
 
   return (
-    <span className={statusChipClasses(variant)}>
+    <span className={`${statusChipClasses(variant)} max-w-full min-w-0`}>
       {showDot && dot}
       {prefix}
-      <span>{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </span>
   );
 }
@@ -88,20 +88,25 @@ export function ProfileCard({
         aria-label={`View ${profile.name}'s profile`}
       />
 
-      <div className="pointer-events-none absolute left-3 top-3 z-[2] max-w-[calc(100%-5rem)]">
+      <div className="pointer-events-none absolute left-3 top-3 z-[2] max-w-[calc(100%-1rem)]">
         <StatusChip status={profile.status} />
       </div>
 
-      <div className="pointer-events-none absolute right-3 top-3 z-[2] rounded-full bg-black/40 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur">
-        {profile.distanceKm} km
-      </div>
-
       <div className="absolute bottom-0 left-0 right-0 z-[2] flex flex-col p-3">
-        <div className="pointer-events-none">
+        <div className="pointer-events-none min-w-0">
           <h2 className="text-[18px] font-bold leading-tight text-white">
             {profile.name}, {profile.age}
           </h2>
-          <p className="mt-0.5 text-[11px] text-white/85">{profile.bioSnippet}</p>
+          <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-white/85">
+            <MapPin
+              className="size-3 shrink-0 text-white/80"
+              strokeWidth={2.25}
+              aria-hidden
+            />
+            <span className="min-w-0 truncate">
+              {profile.distanceKm} km · {profile.bioSnippet}
+            </span>
+          </p>
         </div>
 
         <div className="mt-2.5 flex items-center gap-1.5">
