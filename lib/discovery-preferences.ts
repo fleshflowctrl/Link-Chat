@@ -1,6 +1,6 @@
 /**
- * Voorkeuren uit de onboarding-funnel — nu in localStorage;
- * later kun je dezelfde shape naar Supabase syncen.
+ * Optionele discovery-voorkeuren in localStorage (bijv. later via instellingen);
+ * dezelfde shape kan naar Supabase gesynchroniseerd worden.
  */
 
 export const DISCOVERY_PREFS_STORAGE_KEY = "whisper_discovery_prefs_v1";
