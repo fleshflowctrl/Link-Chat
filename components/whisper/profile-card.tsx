@@ -85,9 +85,7 @@ export function ProfileCard({ profile }: { profile: Profile }) {
       <div className="p-3">
         <div className="flex items-center gap-1 text-[11px] text-gray-500">
           <MapPin className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
-          <span>
-            {profile.distanceKm} km verderop
-          </span>
+          <span>{profile.city}</span>
         </div>
         <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-gray-700">
           {profile.bio}

@@ -145,7 +145,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
           </div>
           <p className="mt-2 flex items-center gap-1.5 text-[15px] font-medium text-white/95 drop-shadow">
             <MapPin className="h-4 w-4 shrink-0 text-white" strokeWidth={2.25} />
-            {profile.distanceKm} km verderop
+            {profile.city}
           </p>
           <span className="mt-3 inline-flex rounded-full bg-primary px-3 py-1.5 text-[12px] font-bold text-white shadow-lg ring-2 ring-white/25">
             {profile.lastActive}

@@ -18,6 +18,7 @@ export type ChatProfileRow = {
   last_message_at: string | null;
   age?: number | null;
   distance_km?: number | null;
+  city?: string | null;
   gallery_urls?: string[] | null;
   interests?: unknown;
   looking_for?: string | null;

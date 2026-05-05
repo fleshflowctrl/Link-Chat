@@ -73,10 +73,10 @@ export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
     name: row.display_name,
     age: typeof row.age === "number" && row.age > 0 ? row.age : 25,
     photo: row.avatar_url,
-    distanceKm:
-      typeof row.distance_km === "number" && row.distance_km >= 0
-        ? row.distance_km
-        : 4,
+    city:
+      typeof row.city === "string" && row.city.trim()
+        ? row.city.trim()
+        : "Amsterdam",
     status,
     bio: row.bio ?? "",
     gallery: galleryForRow(row),

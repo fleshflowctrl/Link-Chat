@@ -24,7 +24,8 @@ export interface Profile {
   age: number;
   /** Hero image for cards & previews (Unsplash). */
   photo: string;
-  distanceKm: number;
+  /** Shown on cards and profile hero (e.g. Amsterdam). */
+  city: string;
   status: {
     variant: ProfileStatusVariant;
     label: string;
@@ -49,12 +50,13 @@ function newHereProfiles(): Profile[] {
     id: string,
     name: string,
     photoId: string,
+    city: string,
   ): Profile => ({
     id,
     name,
     age: 25,
     photo: u(photoId),
-    distanceKm: 4,
+    city,
     status: { variant: "new", label: "Nieuw" },
     isVerified: false,
     lastActive: "Zojuist",
@@ -67,13 +69,13 @@ function newHereProfiles(): Profile[] {
     ],
   });
   return [
-    row("sophie", "Sophie", "photo-1544005313-94ddf0286df2"),
-    row("lena", "Lena", "photo-1494790108377-be9c29b29330"),
-    row("mia", "Mia", "photo-1534528741775-53994a69daeb"),
-    row("ava", "Ava", "photo-1438761681033-6461ffad8d80"),
-    row("zoe", "Zoe", "photo-1529626455594-4ff0802cfb7e"),
-    row("iris", "Iris", "photo-1531746020798-e6953c6e8e04"),
-    row("nora", "Nora", "photo-1517841905240-472988babdf9"),
+    row("sophie", "Sophie", "photo-1544005313-94ddf0286df2", "Haarlem"),
+    row("lena", "Lena", "photo-1494790108377-be9c29b29330", "Maastricht"),
+    row("mia", "Mia", "photo-1534528741775-53994a69daeb", "Leiden"),
+    row("ava", "Ava", "photo-1438761681033-6461ffad8d80", "Zwolle"),
+    row("zoe", "Zoe", "photo-1529626455594-4ff0802cfb7e", "Amersfoort"),
+    row("iris", "Iris", "photo-1531746020798-e6953c6e8e04", "Delft"),
+    row("nora", "Nora", "photo-1517841905240-472988babdf9", "Alkmaar"),
   ];
 }
 
@@ -84,7 +86,7 @@ export const profiles: Profile[] = [
     name: "Maya",
     age: 26,
     photo: u("photo-1534528741775-53994a69daeb"),
-    distanceKm: 2,
+    city: "Amsterdam",
     status: { variant: "active", label: "Nu actief" },
     isVerified: true,
     lastActive: "Vandaag actief",
@@ -113,7 +115,7 @@ export const profiles: Profile[] = [
     name: "Marcus",
     age: 29,
     photo: u("photo-1506794778202-cad84cf45f1d"),
-    distanceKm: 5,
+    city: "Rotterdam",
     status: { variant: "replied", label: "Antwoordde 10s geleden" },
     isVerified: false,
     lastActive: "Vandaag actief",
@@ -140,7 +142,7 @@ export const profiles: Profile[] = [
     name: "Thomas",
     age: 27,
     photo: u("photo-1507003211169-0a1dd7228f2d"),
-    distanceKm: 8,
+    city: "Utrecht",
     status: { variant: "new", label: "Nieuw" },
     isVerified: true,
     lastActive: "Vandaag actief",
@@ -166,7 +168,7 @@ export const profiles: Profile[] = [
     name: "Oliver",
     age: 38,
     photo: u("photo-1472099645785-5658abf4ff4e"),
-    distanceKm: 12,
+    city: "Den Haag",
     status: { variant: "popular", label: "Populair" },
     isVerified: false,
     lastActive: "Vandaag actief",
@@ -193,7 +195,7 @@ export const profiles: Profile[] = [
     name: "Victoria",
     age: 29,
     photo: u("photo-1529626455594-4ff0802cfb7e"),
-    distanceKm: 3,
+    city: "Eindhoven",
     status: { variant: "quiet", label: "Rustig vanavond" },
     isVerified: true,
     lastActive: "Vandaag actief",
@@ -219,7 +221,7 @@ export const profiles: Profile[] = [
     name: "Clara",
     age: 26,
     photo: u("photo-1524504388940-b1c1722653e1"),
-    distanceKm: 1,
+    city: "Groningen",
     status: { variant: "online", label: "Online" },
     isVerified: false,
     lastActive: "Vandaag actief",
