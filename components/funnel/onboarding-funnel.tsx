@@ -285,6 +285,27 @@ export function OnboardingFunnel() {
     setHydrated(true);
   }, [router]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const html = document.documentElement;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyTouch = document.body.style.touchAction;
+    const prevBodyOverscroll = document.body.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    document.body.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      html.style.overflow = prevHtmlOverflow;
+      document.body.style.touchAction = prevBodyTouch;
+      document.body.style.overscrollBehavior = prevBodyOverscroll;
+    };
+  }, []);
+
   const persistNow = useCallback(() => {
     const p: FunnelPersist = {
       step,
@@ -410,8 +431,8 @@ export function OnboardingFunnel() {
   }
 
   return (
-    <div className="relative flex h-[100dvh] max-h-[100dvh] justify-center overflow-hidden bg-[#E4DFD4]">
-      <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-[430px] flex-col overflow-hidden bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]">
+    <div className="relative flex h-[100dvh] max-h-[100dvh] h-screen max-h-screen justify-center overflow-hidden overscroll-none bg-[#E4DFD4] touch-none">
+      <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)] touch-none">
         {step > 1 && (
           <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
             {step < 8 ? (
@@ -453,8 +474,8 @@ export function OnboardingFunnel() {
               exit="exit"
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
               className={
-                step === 1
-                  ? "absolute inset-0 flex min-h-0 flex-col overflow-hidden"
+                step === 1 || step === 2
+                  ? "absolute inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none"
                   : "absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain"
               }
             >
@@ -758,35 +779,44 @@ function StepLookingFor({
   onSelect: (id: FunnelLookingFor) => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-1 font-sans">
-      <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
-        <span className="block">What brings</span>
-        <span className="block">you here?</span>
-      </h2>
-      <p className="mt-1 text-[14px] text-gray-600">We&apos;ll personalize your feed.</p>
-      <ul className="mt-6 flex flex-col space-y-2.5">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
+      <div className="shrink-0">
+        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+          <span className="block">What brings</span>
+          <span className="block">you here?</span>
+        </h2>
+        <p className="mt-1 text-[13px] leading-snug text-gray-600">
+          We&apos;ll personalize your feed.
+        </p>
+      </div>
+
+      <ul className="mt-2 flex min-h-0 flex-1 flex-col justify-center gap-[clamp(4px,1.4vmin,10px)] py-1">
         {FUNNEL_LOOKING_FOR.map((opt) => {
           const isSel = selected === opt.id;
           return (
-            <li key={opt.id}>
+            <li key={opt.id} className="min-h-0 shrink">
               <button
                 type="button"
                 onClick={() => onSelect(opt.id)}
-                className={`flex w-full items-center gap-3 rounded-2xl p-4 text-left transition active:scale-[0.98] ${opt.cardBg} ${
+                className={`flex w-full min-h-0 items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left transition active:scale-[0.98] ${opt.cardBg} ${
                   isSel
                     ? "border-2 border-[#7C5CFF] ring-2 ring-[#7C5CFF]/30"
                     : `border ${opt.cardBorder}`
                 }`}
               >
                 <span
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-2xl ${opt.tileBg}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${opt.tileBg}`}
                   aria-hidden
                 >
                   {opt.emoji}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-bold text-[15px] text-gray-900">{opt.label}</span>
-                  <span className="mt-0.5 block text-[12px] text-gray-600">{opt.description}</span>
+                  <span className="block font-bold text-[14px] leading-snug text-gray-900">
+                    {opt.label}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-gray-600">
+                    {opt.description}
+                  </span>
                 </span>
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center">
                   <AnimatePresence mode="wait">
