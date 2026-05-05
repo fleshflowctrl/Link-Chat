@@ -4,7 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+  animate,
+  AnimatePresence,
+  motion,
+  useMotionValue,
+} from "framer-motion";
 import {
   ArrowRight,
   Check,
@@ -25,7 +30,7 @@ import {
   appendOnboardingOutboundToMockThread,
   getThreadMeta,
 } from "@/data/messages";
-import { likesPreviewAvatarUrls } from "@/data/profiles";
+import { getProfileById, likesPreviewAvatarUrls } from "@/data/profiles";
 import {
   pickFunnelMatchProfiles,
   sharedVibeEmojis,
@@ -249,33 +254,35 @@ export function OnboardingFunnel() {
   return (
     <div className="relative flex min-h-[100dvh] justify-center overflow-hidden bg-[#E4DFD4]">
       <div className="relative flex min-h-[100dvh] w-full max-w-[430px] flex-col bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]">
-        <header className="sticky top-0 z-20 flex h-10 shrink-0 items-center gap-2 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-3 pt-[max(4px,env(safe-area-inset-top))] backdrop-blur-sm">
-          <div className="flex w-9 shrink-0 justify-start">
-            {step > 1 && step < 8 && (
-              <button
-                type="button"
-                onClick={goBack}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 transition active:scale-95"
-                aria-label="Back"
-              >
-                <ChevronLeft className="h-5 w-5" strokeWidth={2.2} />
-              </button>
-            )}
-          </div>
-          <div className="min-w-0 flex-1 px-1">
-            <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
-              <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
-                initial={false}
-                animate={{ width: `${progress}%` }}
-                transition={{ type: "tween", duration: 0.25 }}
-              />
+        {step > 1 && (
+          <header className="sticky top-0 z-20 flex h-10 shrink-0 items-center gap-2 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-3 pt-[max(4px,env(safe-area-inset-top))] backdrop-blur-sm">
+            <div className="flex w-9 shrink-0 justify-start">
+              {step < 8 && (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 transition active:scale-95"
+                  aria-label="Back"
+                >
+                  <ChevronLeft className="h-5 w-5" strokeWidth={2.2} />
+                </button>
+              )}
             </div>
-          </div>
-          <div className="w-14 shrink-0 text-right text-[10px] font-medium text-gray-500">
-            Step {step} / {STEP_TOTAL}
-          </div>
-        </header>
+            <div className="min-w-0 flex-1 px-1">
+              <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+                <motion.div
+                  className="h-full rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
+                  initial={false}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ type: "tween", duration: 0.25 }}
+                />
+              </div>
+            </div>
+            <div className="w-14 shrink-0 text-right text-[10px] font-medium text-gray-500">
+              Step {step} / {STEP_TOTAL}
+            </div>
+          </header>
+        )}
 
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <AnimatePresence initial={false} custom={navDir} mode="wait">
@@ -289,9 +296,7 @@ export function OnboardingFunnel() {
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
               className="absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain"
             >
-              {step === 1 && (
-                <StepWelcome onStart={goNext} />
-              )}
+              {step === 1 && <StepWelcome onStart={goNext} />}
               {step === 2 && (
                 <StepLookingFor
                   selected={lookingForId}
@@ -357,90 +362,224 @@ export function OnboardingFunnel() {
   );
 }
 
+const HERO_FLOAT = {
+  repeat: Infinity,
+  repeatType: "mirror" as const,
+  ease: "easeInOut" as const,
+};
+
 function StepWelcome({ onStart }: { onStart: () => void }) {
-  const [count, setCount] = useState(12_380);
+  const countMv = useMotionValue(0);
+  const [countLabel, setCountLabel] = useState("0");
+
   useEffect(() => {
-    const target = 12_453;
-    const start = performance.now();
-    const dur = 1600;
-    let raf = 0;
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / dur);
-      const eased = 1 - (1 - p) ** 2;
-      setCount(Math.round(12_380 + (target - 12_380) * eased));
-      if (p < 1) raf = requestAnimationFrame(tick);
+    const unsub = countMv.on("change", (v) => {
+      setCountLabel(Math.round(v).toLocaleString());
+    });
+    const ctrl = animate(countMv, 12_453, { duration: 1.2, ease: "easeOut" });
+    return () => {
+      unsub();
+      ctrl.stop();
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [countMv]);
+
+  const maya = getProfileById("maya");
+  const marcus = getProfileById("marcus");
+  const clara = getProfileById("clara");
 
   return (
-    <div className="relative flex flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-6">
-      <FloatingBlobs />
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center">
-        <h1 className="font-display text-[40px] font-semibold lowercase leading-none tracking-tight text-ink">
+    <div className="relative min-h-[100dvh] min-h-screen w-full overflow-hidden bg-[#F5F3EE] font-sans">
+      <div
+        className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#9B7BFF]/30 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-20 -left-20 h-72 w-72 rounded-full bg-pink-300/40 blur-3xl"
+        aria-hidden
+      />
+
+      <div className="sticky top-3 z-30 flex items-center gap-3 pl-5 pr-5 pt-[max(4px,env(safe-area-inset-top))]">
+        <div className="min-w-0 flex-1">
+          <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full w-[12.5%] rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
+              aria-hidden
+            />
+          </div>
+        </div>
+        <span className="shrink-0 text-[10px] font-medium text-gray-500">1 / 8</span>
+      </div>
+
+      <div
+        className="pointer-events-none absolute inset-x-0 top-[52px] z-10 h-[min(52vh,420px)] max-[375px]:h-[48vh]"
+        aria-hidden
+      >
+        {maya && (
+          <motion.div
+            className="absolute left-[2%] top-[2%] w-[30%] max-w-[118px] min-[376px]:top-[3%]"
+            animate={{
+              y: [0, -8, 0],
+              rotate: [-6, -4, -6],
+            }}
+            transition={{ ...HERO_FLOAT, duration: 4.8 }}
+          >
+            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
+              <Image
+                src={maya.photo}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="120px"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
+              <span className="absolute left-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                Online
+              </span>
+              <div className="absolute bottom-0 left-0 right-0 p-2.5 pt-8">
+                <p className="text-[13px] font-bold leading-tight text-white">
+                  {maya.name}, {maya.age}
+                </p>
+                <p className="mt-0.5 text-[11px] font-medium text-white/85">2 km</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {marcus && (
+          <motion.div
+            className="absolute right-[1%] top-0 w-[31%] max-w-[120px] min-[376px]:-top-[1%]"
+            animate={{
+              y: [0, -6, 0],
+              rotate: [5, 7, 5],
+            }}
+            transition={{ ...HERO_FLOAT, duration: 5.2 }}
+          >
+            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
+              <Image
+                src={marcus.photo}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="120px"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
+              <span className="absolute left-2 top-2 rounded-full bg-pink-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                NEW
+              </span>
+              <div className="absolute bottom-0 left-0 right-0 p-2.5 pt-8">
+                <p className="text-[13px] font-bold leading-tight text-white">
+                  {marcus.name}, {marcus.age}
+                </p>
+                <p className="mt-0.5 text-[11px] font-medium text-white/85">5 km</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {clara && (
+          <motion.div
+            className="absolute bottom-[8%] right-[4%] w-[28%] max-w-[112px] max-[375px]:bottom-[6%]"
+            animate={{
+              y: [0, -10, 0],
+              rotate: [-3, -1, -3],
+            }}
+            transition={{ ...HERO_FLOAT, duration: 4.5 }}
+          >
+            <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-xl">
+              <Image
+                src={clara.photo}
+                alt=""
+                fill
+                className="object-cover"
+                sizes="112px"
+                priority
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-2.5 pt-8">
+                <p className="text-[13px] font-bold leading-tight text-white">
+                  {clara.name}, 24
+                </p>
+                <p className="mt-0.5 text-[11px] font-medium text-white/85">1.1 km</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[12] h-[min(52vh,400px)] bg-gradient-to-t from-[#F5F3EE] from-20% via-[#F5F3EE]/95 via-55% to-transparent"
+        aria-hidden
+      />
+
+      <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-20 px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-16">
+        <h1 className="font-display text-5xl font-semibold lowercase leading-none tracking-tight text-ink">
           whisper
         </h1>
-        <p className="mt-4 text-[22px] font-extrabold leading-snug text-gray-900">
-          <span className="block">Real conversations.</span>
-          <span className="text-[#7C5CFF]">Your pace.</span>
+
+        <h2 className="mt-3 max-w-[20ch] text-balance text-3xl font-extrabold leading-tight tracking-tight text-gray-900">
+          <span className="block">Find your</span>
+          <span className="block">kind of people.</span>
+        </h2>
+
+        <p className="mt-3 text-[15px] leading-snug">
+          <span className="text-gray-600">Real conversations. </span>
+          <span className="font-bold text-[#7C5CFF]">At your pace.</span>
         </p>
-        <div className="mt-8 flex flex-col items-center gap-2">
-          <div className="flex items-center pl-2">
-            {likesPreviewAvatarUrls.map((url, i) => (
-              <span
-                key={url}
-                className="-ml-2 relative h-10 w-10 overflow-hidden rounded-full border-2 border-[#F5F3EE] bg-gray-200 ring-1 ring-black/[0.06]"
-                style={{ zIndex: 3 - i }}
-              >
-                <Image src={url} alt="" width={80} height={80} className="h-full w-full object-cover" />
-              </span>
-            ))}
+
+        <div className="mt-4 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-2">
+          <div className="flex min-w-0 max-w-[72%] items-center gap-2">
+            <div className="flex shrink-0 -space-x-2 pl-1">
+              {likesPreviewAvatarUrls.map((url, i) => (
+                <span
+                  key={url}
+                  className="relative h-7 w-7 overflow-hidden rounded-full ring-2 ring-[#F5F3EE]"
+                  style={{ zIndex: 3 - i }}
+                >
+                  <Image
+                    src={url}
+                    alt=""
+                    width={56}
+                    height={56}
+                    className="h-full w-full object-cover"
+                  />
+                </span>
+              ))}
+            </div>
+            <p className="min-w-0 text-[12px] leading-snug text-gray-700">
+              <span className="font-bold tabular-nums text-gray-900">{countLabel}</span>{" "}
+              connecting right now
+            </p>
           </div>
-          <p className="text-[13px] font-medium text-gray-600">
-            <span className="tabular-nums font-semibold text-gray-900">{count.toLocaleString()}</span>{" "}
-            people connecting right now
-          </p>
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 shadow-sm ring-1 ring-black/[0.06]">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+            </span>
+            <span className="text-[11px] font-semibold text-green-600">Live</span>
+          </div>
         </div>
-      </div>
-      <div className="relative z-10 mt-auto flex w-full flex-col items-center gap-3 pt-8">
+
         <button
           type="button"
           onClick={onStart}
-          className="flex w-full max-w-sm items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-4 text-[16px] font-bold text-white shadow-pill transition active:scale-95"
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-4 text-[16px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
           Get started
-          <ArrowRight className="h-5 w-5" strokeWidth={2.5} />
+          <ArrowRight className="h-5 w-5 shrink-0" strokeWidth={2.5} />
         </button>
-        <p className="text-center text-[12px] text-gray-500">
+
+        <p className="mt-3 text-center text-[12px] text-gray-500">
           Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-[#7C5CFF] underline-offset-2 hover:underline">
+          <Link
+            href="/login"
+            className="font-bold text-[#7C5CFF] underline-offset-2 hover:underline"
+          >
             Log in
           </Link>
         </p>
       </div>
-    </div>
-  );
-}
-
-function FloatingBlobs() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-      <motion.div
-        className="absolute -left-16 top-24 h-48 w-48 rounded-full bg-[#7C5CFF]/10 blur-3xl"
-        animate={{ y: [0, -12, 0], x: [0, 8, 0] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute -right-20 bottom-40 h-56 w-56 rounded-full bg-pink-300/15 blur-3xl"
-        animate={{ y: [0, 14, 0], x: [0, -10, 0] }}
-        transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="absolute left-1/3 top-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-[#9B7BFF]/12 blur-2xl"
-        animate={{ opacity: [0.4, 0.7, 0.4] }}
-        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-      />
     </div>
   );
 }
