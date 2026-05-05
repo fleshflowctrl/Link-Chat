@@ -21,6 +21,7 @@ import {
   useMotionValue,
 } from "framer-motion";
 import {
+  Apple,
   ArrowRight,
   Camera,
   ChevronLeft,
@@ -330,6 +331,20 @@ export function OnboardingFunnel() {
       const nameTrim = firstWordName(basics.name) || basics.name.trim();
       if (!nameTrim || ageNum === null || !Number.isFinite(ageNum) || ageNum < 18) return;
 
+      let prevCredits = 0;
+      try {
+        const prevRaw = localStorage.getItem(WHISPER_USER_KEY);
+        if (prevRaw) {
+          const prev = JSON.parse(prevRaw) as { credits?: unknown };
+          if (typeof prev.credits === "number" && prev.credits >= 0) {
+            prevCredits = prev.credits;
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      const credits = prevCredits + 15;
+
       const payload: WhisperUserLocal = {
         name: nameTrim,
         age: ageNum,
@@ -340,6 +355,7 @@ export function OnboardingFunnel() {
         lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
         pickedMatchId: pid,
         firstMessage: firstMessage.trim(),
+        credits,
       };
 
       appendOnboardingOutboundToMockThread(pid, firstMessage.trim());
@@ -397,8 +413,8 @@ export function OnboardingFunnel() {
       <div className="relative flex min-h-[100dvh] w-full max-w-[430px] flex-col bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]">
         {step > 1 && (
           <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
-            <div className="flex w-8 shrink-0 items-center justify-center">
-              {step < 8 ? (
+            {step < 8 ? (
+              <div className="flex w-8 shrink-0 items-center justify-center">
                 <button
                   type="button"
                   onClick={goBack}
@@ -407,10 +423,8 @@ export function OnboardingFunnel() {
                 >
                   <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.2} />
                 </button>
-              ) : (
-                <span className="h-8 w-8 shrink-0" aria-hidden />
-              )}
-            </div>
+              </div>
+            ) : null}
             <div className="min-w-0 flex-1">
               <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
                 <motion.div
@@ -485,7 +499,11 @@ export function OnboardingFunnel() {
                 />
               )}
               {step === 8 && (
-                <StepCreateAccount peer={pickedMatch} onComplete={completeFunnel} />
+                <StepCreateAccount
+                  peer={pickedMatch}
+                  firstMessage={firstMessage}
+                  onComplete={completeFunnel}
+                />
               )}
             </motion.div>
           </AnimatePresence>
@@ -1478,112 +1496,185 @@ function GoogleMark() {
   );
 }
 
-function AppleMark() {
-  return (
-    <svg className="h-5 w-5 shrink-0 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2 .91-3.67.91-1.48 0-2.37-1.29-3.42-2.67-1.75-2.37-1.86-4.79-1.86-5.85 0-2.87 1.85-5.44 2.92-6.42 1.1-1.03 2.58-1.59 3.74-1.59 1.48 0 2.06.57 3.71.57 1.7 0 2.22-.57 3.73-.57 1.06 0 2.49.42 3.67 1.65-3.24 1.76-2.72 6.34.48 8.42z" />
-    </svg>
-  );
+function isValidEmail(s: string): boolean {
+  const t = s.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
 }
 
 function StepCreateAccount({
   peer,
+  firstMessage,
   onComplete,
 }: {
   peer: FunnelMatchPick | null;
+  firstMessage: string;
   onComplete: (via: "google" | "apple" | "email") => void;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const emailOk = email.includes("@") && email.length > 4;
-  const passOk = password.length >= 6;
+  const emailOk = isValidEmail(email);
+  const passOk = password.length >= 8;
+  const formOk = emailOk && passOk;
+
+  const preview = firstMessage.trim();
+  const quoted =
+    preview.length > 0
+      ? preview.length > 120
+        ? `\u201c${preview.slice(0, 117)}\u2026\u201d`
+        : `\u201c${preview}\u201d`
+      : "\u201c\u2026\u201d";
 
   return (
-    <div className="flex flex-1 flex-col px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5">
-      <h2 className="text-[28px] font-extrabold leading-tight text-gray-900">Almost there ✨</h2>
-      <p className="mt-1 text-[14px] text-gray-600">
-        Save your profile and your first chat with {peer?.name ?? "them"}.
-      </p>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden font-sans">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pt-1">
+        <h2 className="text-3xl font-extrabold leading-tight text-gray-900">
+          Almost there <span className="text-amber-400">✨</span>
+        </h2>
+        <p className="mt-1 text-[14px] text-gray-600">
+          Save your profile + send your first message.
+        </p>
 
-      {peer && (
-        <div className="mt-6 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.06]">
-          <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-gray-100">
-            <Image src={peer.photo} alt="" width={112} height={112} className="h-full w-full object-cover" />
-          </span>
-          <p className="min-w-0 flex-1 text-[14px] font-semibold leading-snug text-gray-800">
-            Your message is ready to send to {peer.name}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-8 flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={() => onComplete("google")}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 text-[15px] font-bold text-gray-900 shadow-sm ring-1 ring-black/[0.08] transition active:scale-95"
-        >
-          <GoogleMark />
-          Continue with Google
-        </button>
-        <button
-          type="button"
-          onClick={() => onComplete("apple")}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black py-3.5 text-[15px] font-bold text-white shadow-sm transition active:scale-95"
-        >
-          <AppleMark />
-          Continue with Apple
-        </button>
-
-        <div className="relative my-2 py-2 text-center">
-          <span className="relative z-10 bg-[#F5F3EE] px-3 text-[12px] font-semibold text-gray-500">or</span>
-          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-gray-200" aria-hidden />
-        </div>
-
-        <label className="block">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Email</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[15px] outline-none focus:ring-2 focus:ring-[#7C5CFF]/30"
-            autoComplete="email"
+        <div className="relative mt-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#EDE7FF] via-[#FDE4F0] to-[#EDE7FF] p-4 shadow-sm">
+          <div
+            className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/40 blur-2xl"
+            aria-hidden
           />
-        </label>
-        <label className="block">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[15px] outline-none focus:ring-2 focus:ring-[#7C5CFF]/30"
-            autoComplete="new-password"
-          />
-        </label>
-        <button
-          type="button"
-          disabled={!emailOk || !passOk}
-          onClick={() => onComplete("email")}
-          className={`mt-1 flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-bold transition active:scale-95 ${
-            emailOk && passOk
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-pill"
-              : "cursor-not-allowed bg-gray-200 text-gray-500"
-          }`}
-        >
-          Create account →
-        </button>
+
+          <div className="relative flex items-center gap-3">
+            <div className="relative h-12 w-12 shrink-0">
+              <span className="block h-12 w-12 overflow-hidden rounded-full bg-white ring-2 ring-white">
+                {peer ? (
+                  <Image
+                    src={peer.photo}
+                    alt=""
+                    width={96}
+                    height={96}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center bg-gray-200 text-[10px] font-bold text-gray-500">
+                    ?
+                  </span>
+                )}
+              </span>
+              <span
+                className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"
+                aria-hidden
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7C5CFF]">
+                READY TO SEND
+              </p>
+              <p className="mt-0.5 truncate text-[13px] font-semibold text-gray-900">{quoted}</p>
+              <p className="mt-0.5 text-[10px] text-gray-500">
+                → to {peer?.name ?? "…"} · online now
+              </p>
+            </div>
+          </div>
+
+          <div className="relative my-3 border-t border-white/60" />
+
+          <div className="relative space-y-1.5">
+            <div className="flex items-center gap-2 text-[12px] text-gray-800">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[10px] text-white">
+                ✓
+              </span>
+              <span>Send your first message instantly</span>
+            </div>
+            <div className="flex items-center gap-2 text-[12px] text-gray-800">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[10px] text-white">
+                ✓
+              </span>
+              <span>
+                <b className="text-amber-700">15 free credits</b> on us 💰
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <button
+            type="button"
+            onClick={() => onComplete("google")}
+            className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white py-3 text-[14px] font-bold text-gray-900 shadow-sm transition active:scale-[0.99]"
+          >
+            <GoogleMark />
+            Continue with Google
+          </button>
+          <button
+            type="button"
+            onClick={() => onComplete("apple")}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-black py-3 text-[14px] font-bold text-white shadow-sm transition active:scale-[0.99]"
+          >
+            <Apple className="h-5 w-5 shrink-0 text-white" strokeWidth={2} aria-hidden />
+            Continue with Apple
+          </button>
+        </div>
+
+        <div className="my-4 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-200" aria-hidden />
+          <span className="shrink-0 text-[11px] text-gray-400">or use email</span>
+          <div className="h-px flex-1 bg-gray-200" aria-hidden />
+        </div>
+
+        <div className="space-y-2 pb-2">
+          <div className="rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm">
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                Email
+              </span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-0.5 w-full border-0 bg-transparent text-[15px] font-bold text-gray-900 outline-none ring-0"
+                autoComplete="email"
+              />
+            </label>
+          </div>
+          <div className="rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm">
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                Password
+              </span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-0.5 w-full border-0 bg-transparent text-[15px] font-bold text-gray-900 outline-none ring-0"
+                autoComplete="new-password"
+              />
+            </label>
+          </div>
+        </div>
       </div>
 
-      <p className="mt-6 text-center text-[10px] leading-relaxed text-gray-500">
-        By continuing you agree to our{" "}
-        <Link href="/me/help" className="text-[#7C5CFF] underline-offset-2 hover:underline">
-          Terms
-        </Link>{" "}
-        ·{" "}
-        <Link href="/me/privacy" className="text-[#7C5CFF] underline-offset-2 hover:underline">
-          Privacy
-        </Link>
-      </p>
+      <div className="sticky bottom-0 z-20 shrink-0 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <button
+          type="button"
+          disabled={!formOk}
+          onClick={() => onComplete("email")}
+          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
+            formOk
+              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
+              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
+          }`}
+        >
+          Create account & send →
+        </button>
+        <p className="mt-2 text-center text-[11px] leading-snug text-gray-500">
+          By continuing you agree to our{" "}
+          <Link href="/me/help" className="font-bold text-[#7C5CFF] hover:underline">
+            Terms
+          </Link>{" "}
+          ·{" "}
+          <Link href="/me/privacy" className="font-bold text-[#7C5CFF] hover:underline">
+            Privacy
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

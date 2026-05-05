@@ -1,4 +1,8 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
+import { WHISPER_USER_KEY } from "@/data/funnel";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { Profile } from "@/data/profiles";
 import { ActivityStrip } from "./activity-strip";
@@ -16,9 +20,28 @@ type Props = {
 export function HomeScreen({
   gridProfiles,
   activityUsers,
-  credits,
+  credits: serverCredits,
   catalogDegraded,
 }: Props) {
+  const [credits, setCredits] = useState(serverCredits);
+
+  useEffect(() => {
+    setCredits(serverCredits);
+  }, [serverCredits]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(WHISPER_USER_KEY);
+      if (!raw) return;
+      const o = JSON.parse(raw) as { credits?: unknown };
+      if (typeof o.credits === "number" && o.credits >= 0) {
+        setCredits(o.credits);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   return (
     <>
       <HomeHeader credits={credits} />

@@ -243,6 +243,8 @@ export type WhisperUserLocal = {
   lookingFor: FunnelLookingFor;
   pickedMatchId: string;
   firstMessage: string;
+  /** Set after onboarding; merged on repeat completions. */
+  credits?: number;
 };
 
 export function vibeLabel(id: string): string {
