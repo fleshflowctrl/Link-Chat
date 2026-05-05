@@ -47,7 +47,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       if (!res.ok) {
         setStatus("error");
         setMessage(
-          "Test bypass is off for this host. On Vercel Production set ALLOW_TEST_BYPASS=1 or NEXT_PUBLIC_ALLOW_TEST_BYPASS=true, then redeploy.",
+          "Test bypass is off for this host. If you use a custom domain, set ALLOW_TEST_BYPASS=1 or NEXT_PUBLIC_ALLOW_TEST_BYPASS=true, then redeploy.",
         );
         return;
       }
@@ -268,7 +268,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       {supabaseConfigured && (
         <div className="mt-5 rounded-2xl border border-dashed border-amber-400/60 bg-amber-50/80 px-4 py-3">
           <p className="text-center text-[11px] font-medium text-amber-900/80">
-            Skip sign-in for UI testing (localhost, preview, or when enabled in env)
+            Skip sign-in for UI testing (localhost, *.vercel.app, or set ALLOW_TEST_BYPASS on a custom domain)
           </p>
           <button
             type="button"
