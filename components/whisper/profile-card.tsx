@@ -2,13 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Heart, MapPin } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { MapPin, User } from "lucide-react";
+import { type ReactNode } from "react";
 import type { Profile, ProfileStatusVariant } from "@/data/profiles";
-
-const SAY_HI_NAV_MS = 650;
 
 function statusChipClasses(variant: ProfileStatusVariant): string {
   const base =
@@ -52,23 +48,8 @@ function StatusChip({ status }: { status: Profile["status"] }) {
   );
 }
 
-export function ProfileCard({
-  profile,
-  onToast,
-}: {
-  profile: Profile;
-  onToast: (message: string) => void;
-}) {
-  const router = useRouter();
-  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [hiSent, setHiSent] = useState(profile.sayHiSent);
-  const [liked, setLiked] = useState(profile.liked);
-
-  useEffect(() => {
-    return () => {
-      if (navTimerRef.current) clearTimeout(navTimerRef.current);
-    };
-  }, []);
+export function ProfileCard({ profile }: { profile: Profile }) {
+  const profileHref = `/profile/${profile.id}`;
 
   return (
     <article className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-md">
@@ -83,7 +64,8 @@ export function ProfileCard({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
 
       <Link
-        href={`/profile/${profile.id}`}
+        href={profileHref}
+        tabIndex={-1}
         className="absolute inset-0 z-[1] outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30"
         aria-label={`View ${profile.name}'s profile`}
       />
@@ -94,68 +76,28 @@ export function ProfileCard({
 
       <div className="absolute bottom-0 left-0 right-0 z-[2] flex flex-col p-3">
         <div className="pointer-events-none min-w-0">
-          <h2 className="text-[18px] font-bold leading-tight text-white">
-            {profile.name}, {profile.age}
-          </h2>
-          <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-white/85">
-            <MapPin
-              className="size-3 shrink-0 text-white/80"
-              strokeWidth={2.25}
-              aria-hidden
-            />
-            <span className="min-w-0 truncate">
-              {profile.distanceKm} km · {profile.bioSnippet}
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            <h2 className="min-w-0 truncate text-[18px] font-bold leading-tight text-white">
+              {profile.name}, {profile.age}
+            </h2>
+            <span className="inline-flex shrink-0 items-baseline gap-1 text-[11px] text-white/80">
+              <span aria-hidden>·</span>
+              <MapPin className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
+              <span>{profile.distanceKm} km</span>
             </span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-white/85">
+            {profile.bioSnippet}
           </p>
         </div>
 
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <button
-            type="button"
-            disabled={hiSent}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (hiSent) return;
-              setHiSent(true);
-              onToast("Said hi 👋.");
-              if (navTimerRef.current) clearTimeout(navTimerRef.current);
-              navTimerRef.current = setTimeout(() => {
-                navTimerRef.current = null;
-                router.push(`/messages/${profile.id}`);
-              }, SAY_HI_NAV_MS);
-            }}
-            className={`flex flex-1 items-center justify-center gap-1 rounded-full py-2 text-[12px] font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100 ${
-              hiSent
-                ? "bg-white/85 text-gray-400"
-                : "bg-white text-gray-900"
-            }`}
-          >
-            <span aria-hidden>💬</span>
-            {hiSent ? "Sent ✓" : "Say hi"}
-          </button>
-
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.88 }}
-            transition={{ type: "spring", stiffness: 520, damping: 28 }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setLiked((v) => !v);
-            }}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/20 backdrop-blur transition-colors hover:bg-white/25"
-            aria-label={liked ? "Unlike" : "Like"}
-            aria-pressed={liked}
-          >
-            <Heart
-              className={`h-[18px] w-[18px] text-white ${
-                liked ? "fill-white" : "fill-transparent"
-              }`}
-              strokeWidth={2.4}
-            />
-          </motion.button>
-        </div>
+        <Link
+          href={profileHref}
+          className="relative z-[3] mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-full bg-white py-2 text-[12px] font-semibold text-gray-900 outline-none transition focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black/30 active:scale-[0.98]"
+        >
+          <User className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden />
+          View profile
+        </Link>
       </div>
     </article>
   );

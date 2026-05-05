@@ -31,8 +31,6 @@ export interface Profile {
     variant: ProfileStatusVariant;
     label: string;
   };
-  /** Initial “say hi” state for home grid (client may override). */
-  sayHiSent: boolean;
   /** Initial like state for home grid (client may override). */
   liked: boolean;
   presenceLabel: string;
@@ -64,7 +62,6 @@ function newHereProfiles(): Profile[] {
     distanceKm: 4,
     bioSnippet: "New on whisper ✨",
     status: { variant: "new", label: "New" },
-    sayHiSent: false,
     liked: false,
     presenceLabel: "Just joined",
     isVerified: false,
@@ -98,7 +95,6 @@ export const profiles: Profile[] = [
     distanceKm: 2,
     bioSnippet: "Loves coffee & deep talks ☕",
     status: { variant: "active", label: "Active now" },
-    sayHiSent: false,
     liked: false,
     presenceLabel: "Active now",
     isVerified: true,
@@ -131,7 +127,6 @@ export const profiles: Profile[] = [
     distanceKm: 5,
     bioSnippet: "Night runs & good playlists 🎧",
     status: { variant: "replied", label: "Replied 10s ago" },
-    sayHiSent: false,
     liked: false,
     presenceLabel: "Active now",
     isVerified: false,
@@ -162,7 +157,6 @@ export const profiles: Profile[] = [
     distanceKm: 8,
     bioSnippet: "Film nerd · always down to chat 🎬",
     status: { variant: "new", label: "New" },
-    sayHiSent: false,
     liked: false,
     presenceLabel: "Active now",
     isVerified: true,
@@ -192,7 +186,6 @@ export const profiles: Profile[] = [
     distanceKm: 12,
     bioSnippet: "Cooking Sundays & slow mornings 🍳",
     status: { variant: "popular", label: "Popular" },
-    sayHiSent: false,
     liked: false,
     presenceLabel: "Active now",
     isVerified: false,
@@ -223,7 +216,6 @@ export const profiles: Profile[] = [
     distanceKm: 3,
     bioSnippet: "Art galleries & vinyl finds 🎨",
     status: { variant: "quiet", label: "Quiet tonight" },
-    sayHiSent: false,
     liked: false,
     presenceLabel: "Active now",
     isVerified: true,
@@ -253,7 +245,6 @@ export const profiles: Profile[] = [
     distanceKm: 1,
     bioSnippet: "Books, tea, and honest convos 📚",
     status: { variant: "online", label: "Online" },
-    sayHiSent: false,
     liked: false,
     presenceLabel: "Active now",
     isVerified: false,
