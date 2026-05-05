@@ -623,7 +623,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.92, y: 8 }}
                   transition={{
-                    duration: 0.5,
+                    duration: 0.8,
                     ease: "easeInOut",
                     delay: slotIndex * 0.05,
                   }}
