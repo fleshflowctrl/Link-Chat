@@ -76,12 +76,6 @@ export function LoginForm() {
       <p className="mt-2 text-center text-sm text-inkMuted">
         We&apos;ll email you a magic link — no password to remember.
       </p>
-      <p className="mt-3 rounded-2xl bg-black/[0.04] px-3 py-2.5 text-center text-[11px] leading-snug text-inkMuted ring-1 ring-black/[0.06]">
-        Open the link in <span className="font-semibold text-ink">this same browser</span>{" "}
-        and the same address you see above (including the port, e.g.{" "}
-        <span className="font-mono text-ink/80">:3001</span>). Add that exact URL in
-        Supabase → Authentication → URL configuration → Redirect URLs.
-      </p>
 
       {errorParam && (
         <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">
