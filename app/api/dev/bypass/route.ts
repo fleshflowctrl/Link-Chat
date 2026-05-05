@@ -2,15 +2,16 @@ import { NextResponse } from "next/server";
 import {
   DEV_BYPASS_COOKIE,
   DEV_BYPASS_VALUE,
-  isDevBypassFeatureEnabled,
+  canUseDevBypassForHost,
 } from "@/lib/dev-bypass-config";
 
 function forbidden() {
   return NextResponse.json({ ok: false, error: "Not available" }, { status: 404 });
 }
 
-export async function POST() {
-  if (!isDevBypassFeatureEnabled()) return forbidden();
+export async function POST(request: Request) {
+  const host = request.headers.get("host");
+  if (!canUseDevBypassForHost(host)) return forbidden();
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(DEV_BYPASS_COOKIE, DEV_BYPASS_VALUE, {
@@ -23,8 +24,9 @@ export async function POST() {
   return res;
 }
 
-export async function DELETE() {
-  if (!isDevBypassFeatureEnabled()) return forbidden();
+export async function DELETE(request: Request) {
+  const host = request.headers.get("host");
+  if (!canUseDevBypassForHost(host)) return forbidden();
 
   const res = NextResponse.json({ ok: true });
   res.cookies.set(DEV_BYPASS_COOKIE, "", {

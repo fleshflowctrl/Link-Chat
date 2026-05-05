@@ -39,10 +39,6 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
     process.env.NEXT_PUBLIC_SUPABASE_URL?.length,
   );
 
-  const showTestBypassButton =
-    process.env.NODE_ENV === "development" ||
-    process.env.NEXT_PUBLIC_ALLOW_TEST_BYPASS === "true";
-
   async function continueWithoutLogin() {
     setMessage(null);
     setTestBypassLoading(true);
@@ -50,7 +46,9 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       const res = await fetch("/api/dev/bypass", { method: "POST" });
       if (!res.ok) {
         setStatus("error");
-        setMessage("Test bypass is not enabled on this deployment.");
+        setMessage(
+          "Test bypass is off for this host. On Vercel Production set ALLOW_TEST_BYPASS=1 or NEXT_PUBLIC_ALLOW_TEST_BYPASS=true, then redeploy.",
+        );
         return;
       }
       router.replace(nextPath);
@@ -267,10 +265,10 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
         </form>
       )}
 
-      {showTestBypassButton && supabaseConfigured && (
+      {supabaseConfigured && (
         <div className="mt-5 rounded-2xl border border-dashed border-amber-400/60 bg-amber-50/80 px-4 py-3">
           <p className="text-center text-[11px] font-medium text-amber-900/80">
-            Temporary: skip auth for UI testing
+            Skip sign-in for UI testing (localhost, preview, or when enabled in env)
           </p>
           <button
             type="button"

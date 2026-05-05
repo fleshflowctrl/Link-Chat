@@ -2,13 +2,15 @@ import { type NextRequest, NextResponse } from "next/server";
 import {
   DEV_BYPASS_COOKIE,
   DEV_BYPASS_VALUE,
-  isDevBypassFeatureEnabled,
+  canUseDevBypassForHost,
 } from "@/lib/dev-bypass-config";
 import { updateSession } from "@/utils/supabase/middleware";
 
 function hasDevBypassCookie(request: NextRequest): boolean {
-  if (!isDevBypassFeatureEnabled()) return false;
-  return request.cookies.get(DEV_BYPASS_COOKIE)?.value === DEV_BYPASS_VALUE;
+  if (request.cookies.get(DEV_BYPASS_COOKIE)?.value !== DEV_BYPASS_VALUE) {
+    return false;
+  }
+  return canUseDevBypassForHost(request.headers.get("host"));
 }
 
 function isPublicPath(pathname: string): boolean {
