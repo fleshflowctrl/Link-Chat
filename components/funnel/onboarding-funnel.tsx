@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
   type Dispatch,
   type PointerEvent as ReactPointerEvent,
   type SetStateAction,
@@ -21,9 +22,10 @@ import {
 } from "framer-motion";
 import {
   ArrowRight,
+  Camera,
   Check,
   ChevronLeft,
-  MapPin,
+  Lock,
   Sparkles,
 } from "lucide-react";
 import {
@@ -33,6 +35,7 @@ import {
   FUNNEL_VIBES,
   ONBOARDED_KEY,
   type FunnelAgeRange,
+  type FunnelBasics,
   type FunnelLookingFor,
   type WhisperUserLocal,
   WHISPER_USER_KEY,
@@ -57,9 +60,7 @@ type FunnelPersist = {
   lookingFor: FunnelLookingFor | null;
   vibes: string[];
   ageRange: FunnelAgeRange;
-  name: string;
-  age: string;
-  location: string;
+  basics: FunnelBasics;
   pickedMatchId: string | null;
   firstMessage: string;
 };
@@ -112,14 +113,70 @@ function normalizeAgeRange(
   };
 }
 
+const DEFAULT_BASICS: FunnelBasics = {
+  name: "",
+  age: null,
+  location: "London, UK",
+  photo: null,
+};
+
+function normalizeBasics(
+  p: Partial<FunnelPersist> & {
+    name?: string;
+    age?: string | number;
+    location?: string;
+  },
+): FunnelBasics {
+  if (p.basics && typeof p.basics === "object") {
+    const b = p.basics as Record<string, unknown>;
+    let age: number | null = null;
+    const rawAge = b.age;
+    if (typeof rawAge === "number" && Number.isFinite(rawAge)) {
+      age = Math.round(rawAge);
+    } else if (typeof rawAge === "string" && rawAge.trim()) {
+      const n = parseInt(rawAge, 10);
+      age = Number.isFinite(n) ? n : null;
+    }
+    return {
+      name: typeof b.name === "string" ? b.name : DEFAULT_BASICS.name,
+      age,
+      location:
+        typeof b.location === "string" && b.location.trim()
+          ? b.location
+          : DEFAULT_BASICS.location,
+      photo: typeof b.photo === "string" && b.photo.length > 0 ? b.photo : null,
+    };
+  }
+  const ageStr =
+    typeof p.age === "number" && Number.isFinite(p.age)
+      ? String(Math.round(p.age))
+      : typeof p.age === "string"
+        ? p.age
+        : "";
+  const parsed = parseInt(ageStr, 10);
+  return {
+    name: typeof p.name === "string" ? p.name : DEFAULT_BASICS.name,
+    age: Number.isFinite(parsed) ? parsed : null,
+    location:
+      typeof p.location === "string" && p.location.trim()
+        ? p.location
+        : DEFAULT_BASICS.location,
+    photo: null,
+  };
+}
+
+function firstWordName(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  return t.split(/\s+/)[0] ?? "";
+}
+
 const defaultPersist = (): FunnelPersist => ({
   step: 1,
   lookingFor: null,
   vibes: ["caring", "warm", "listener"],
   ageRange: { ...DEFAULT_AGE_RANGE },
-  name: "",
-  age: "",
-  location: "London, UK",
+  basics: { ...DEFAULT_BASICS },
   pickedMatchId: null,
   firstMessage: "",
 });
@@ -136,11 +193,13 @@ function loadSession(): FunnelPersist | null {
       normalizeLookingFor(p.lookingFor) ??
       normalizeLookingFor(p.lookingForId);
     const ageRange = normalizeAgeRange(p);
+    const basics = normalizeBasics(p);
     return {
       ...defaultPersist(),
       ...p,
       lookingFor: lf,
       ageRange,
+      basics,
       step: Math.min(STEP_TOTAL, Math.max(1, Number(p.step) || 1)),
     };
   } catch {
@@ -166,9 +225,7 @@ export function OnboardingFunnel() {
   const [ageRange, setAgeRange] = useState<FunnelAgeRange>(() => ({
     ...DEFAULT_AGE_RANGE,
   }));
-  const [name, setName] = useState("");
-  const [age, setAge] = useState("");
-  const [location, setLocation] = useState("London, UK");
+  const [basics, setBasics] = useState<FunnelBasics>(() => ({ ...DEFAULT_BASICS }));
   const [pickedMatchId, setPickedMatchId] = useState<string | null>(null);
   const [firstMessage, setFirstMessage] = useState("");
 
@@ -198,9 +255,7 @@ export function OnboardingFunnel() {
       setLookingFor(saved.lookingFor);
       setVibes(saved.vibes);
       setAgeRange(saved.ageRange);
-      setName(saved.name);
-      setAge(saved.age);
-      setLocation(saved.location);
+      setBasics(saved.basics);
       setPickedMatchId(saved.pickedMatchId);
       setFirstMessage(saved.firstMessage);
     }
@@ -213,9 +268,7 @@ export function OnboardingFunnel() {
       lookingFor,
       vibes,
       ageRange,
-      name,
-      age,
-      location,
+      basics,
       pickedMatchId,
       firstMessage,
     };
@@ -226,9 +279,7 @@ export function OnboardingFunnel() {
     lookingFor,
     vibes,
     ageRange,
-    name,
-    age,
-    location,
+    basics,
     pickedMatchId,
     firstMessage,
   ]);
@@ -253,13 +304,15 @@ export function OnboardingFunnel() {
   const completeFunnel = useCallback(
     (via: "google" | "apple" | "email") => {
       if (!pickedMatchId || !pickedMatch) return;
-      const ageNum = parseInt(age, 10);
-      if (!name.trim() || !Number.isFinite(ageNum)) return;
+      const ageNum = basics.age;
+      const nameTrim = firstWordName(basics.name) || basics.name.trim();
+      if (!nameTrim || ageNum === null || !Number.isFinite(ageNum) || ageNum < 18) return;
 
       const payload: WhisperUserLocal = {
-        name: name.trim(),
+        name: nameTrim,
         age: ageNum,
-        location: location.trim() || "London, UK",
+        location: basics.location.trim() || "London, UK",
+        ...(basics.photo ? { photo: basics.photo } : {}),
         vibe: vibes,
         ageRange,
         lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
@@ -292,12 +345,10 @@ export function OnboardingFunnel() {
       router.push("/discover");
     },
     [
-      age,
+      basics,
       ageRange,
       firstMessage,
-      location,
       lookingFor,
-      name,
       pickedMatch,
       pickedMatchId,
       router,
@@ -392,15 +443,7 @@ export function OnboardingFunnel() {
                 />
               )}
               {step === 5 && (
-                <StepBasics
-                  name={name}
-                  setName={setName}
-                  age={age}
-                  setAge={setAge}
-                  location={location}
-                  setLocation={setLocation}
-                  onContinue={goNext}
-                />
+                <StepBasics basics={basics} setBasics={setBasics} onContinue={goNext} />
               )}
               {step === 6 && (
                 <StepPickMatch
@@ -1024,82 +1067,153 @@ function StepAgeRange({
 }
 
 function StepBasics({
-  name,
-  setName,
-  age,
-  setAge,
-  location,
-  setLocation,
+  basics,
+  setBasics,
   onContinue,
 }: {
-  name: string;
-  setName: (s: string) => void;
-  age: string;
-  setAge: (s: string) => void;
-  location: string;
-  setLocation: (s: string) => void;
+  basics: FunnelBasics;
+  setBasics: Dispatch<SetStateAction<FunnelBasics>>;
   onContinue: () => void;
 }) {
-  const ok = name.trim().length > 0 && age.trim().length > 0 && !Number.isNaN(parseInt(age, 10));
+  const fileRef = useRef<HTMLInputElement>(null);
+  const openPicker = () => fileRef.current?.click();
+
+  const nameOk = (firstWordName(basics.name) || basics.name.trim()).length > 0;
+  const ageOk =
+    basics.age !== null && Number.isFinite(basics.age) && basics.age >= 18;
+  const ok = nameOk && ageOk;
+
+  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f || !f.type.startsWith("image/")) return;
+    setBasics((b) => {
+      if (b.photo?.startsWith("blob:")) URL.revokeObjectURL(b.photo);
+      return { ...b, photo: URL.createObjectURL(f) };
+    });
+  };
 
   return (
     <>
-      <div className="flex flex-1 flex-col px-5 pb-28 pt-5">
-        <h2 className="text-[28px] font-extrabold leading-tight text-gray-900">A bit about you</h2>
-        <p className="mt-1 text-[14px] text-gray-600">Just the essentials.</p>
-        <div className="mt-8 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.06]">
-          <label className="block px-4 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Name</span>
+      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-1 font-sans">
+        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+          <span className="block">Tell us</span>
+          <span className="block">about you</span>
+        </h2>
+        <p className="mt-1 text-[14px] text-gray-600">Just a few quick things.</p>
+
+        <div className="mt-5 flex flex-col items-center">
+          <div className="relative h-24 w-24 shrink-0">
+            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0]">
+              {basics.photo ? (
+                <img src={basics.photo} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-4xl" aria-hidden>
+                  👋
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={openPicker}
+              className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-[#7C5CFF] text-white shadow-md transition active:scale-95"
+              aria-label="Add profile photo"
+            >
+              <Camera className="h-3.5 w-3.5" strokeWidth={2.2} />
+            </button>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onFileChange}
+          />
+          <button
+            type="button"
+            onClick={openPicker}
+            className="mt-2 text-center text-[12px] leading-snug"
+          >
+            <span className="font-bold text-[#7C5CFF]">Add a photo</span>{" "}
+            <span className="font-medium text-gray-500">(optional)</span>
+          </button>
+        </div>
+
+        <div className="mt-7 space-y-5 text-[18px] leading-relaxed text-gray-900">
+          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-2">
+            <span>I&apos;m</span>
             <input
               autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full border-0 bg-transparent text-[16px] font-semibold text-gray-900 outline-none ring-0 placeholder:text-gray-400"
-              placeholder="Your first name"
               autoComplete="given-name"
+              value={basics.name}
+              onChange={(e) =>
+                setBasics((b) => ({ ...b, name: e.target.value }))
+              }
+              onBlur={() =>
+                setBasics((b) => ({ ...b, name: firstWordName(b.name) }))
+              }
+              placeholder="Emily"
+              className="inline-block w-[140px] rounded-full border-2 border-gray-200 bg-white px-3 py-1.5 text-[16px] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30"
             />
-          </label>
-          <div className="h-px bg-gray-100" />
-          <label className="block px-4 py-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Age</span>
+          </p>
+          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-2">
+            <span>I&apos;m</span>
             <input
               type="number"
               inputMode="numeric"
+              pattern="[0-9]*"
               min={18}
               max={99}
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              className="mt-1 block w-full border-0 bg-transparent text-[16px] font-semibold text-gray-900 outline-none"
-              placeholder="e.g. 26"
+              value={basics.age === null ? "" : String(basics.age)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  setBasics((b) => ({ ...b, age: null }));
+                  return;
+                }
+                const n = parseInt(raw, 10);
+                setBasics((b) => ({
+                  ...b,
+                  age: Number.isFinite(n) ? n : null,
+                }));
+              }}
+              placeholder="28"
+              className="inline-block w-[80px] rounded-full border-2 border-gray-200 bg-white px-3 py-1.5 text-center text-[16px] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30"
             />
-          </label>
-          <div className="h-px bg-gray-100" />
-          <label className="flex items-start gap-2 px-4 py-3">
-            <MapPin className="mt-2 h-4 w-4 shrink-0 text-gray-400" strokeWidth={2} />
-            <span className="min-w-0 flex-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Location</span>
-              <input
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="mt-1 block w-full border-0 bg-transparent text-[16px] font-semibold text-gray-900 outline-none"
-                placeholder="City"
-              />
-            </span>
-          </label>
+            <span>years old.</span>
+          </p>
+          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-2">
+            <span>I live in</span>
+            <input
+              autoComplete="address-level2"
+              value={basics.location}
+              onChange={(e) =>
+                setBasics((b) => ({ ...b, location: e.target.value }))
+              }
+              placeholder="London"
+              className="inline-block w-[160px] rounded-full border-2 border-gray-200 bg-white px-3 py-1.5 text-[16px] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30"
+            />
+          </p>
+        </div>
+
+        <div className="mt-6 flex items-center gap-2 px-2 text-[11px] text-gray-500">
+          <Lock className="h-3 w-3 shrink-0 text-gray-400" strokeWidth={2.5} aria-hidden />
+          <span>Your details stay private.</span>
         </div>
       </div>
-      <div className="sticky bottom-0 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+
+      <div className="sticky bottom-0 z-20 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
           disabled={!ok}
           onClick={onContinue}
-          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-bold transition active:scale-95 ${
+          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
             ok
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-pill"
-              : "cursor-not-allowed bg-gray-200 text-gray-500"
+              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
+              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
-          Continue
+          Continue →
         </button>
       </div>
     </>

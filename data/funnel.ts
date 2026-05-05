@@ -219,10 +219,20 @@ export type FunnelAgeRange = {
   anyAge: boolean;
 };
 
+/** Funnel Step 5 — profile basics (conversational form + optional local photo preview). */
+export type FunnelBasics = {
+  name: string;
+  age: number | null;
+  location: string;
+  photo: string | null;
+};
+
 export type WhisperUserLocal = {
   name: string;
   age: number;
   location: string;
+  /** Local object URL or remote URL from onboarding photo picker; optional for legacy saves. */
+  photo?: string | null;
   vibe: string[];
   ageRange: FunnelAgeRange;
   lookingFor: FunnelLookingFor;
