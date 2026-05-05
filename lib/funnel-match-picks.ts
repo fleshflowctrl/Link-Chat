@@ -8,51 +8,72 @@ function overlapCount(profile: Profile, userVibes: string[]): number {
 
 export type FunnelMatchPick = Profile & { matchPercent: number };
 
-const DISPLAY_BADGES = [92, 87, 81] as const;
+const FUNNEL_MATCH_COUNT = 10;
+
+/** Deterministic 0..~5 “random” so match % is stable per profile + vibe set. */
+function matchJitter(profileId: string, userVibesKey: string): number {
+  let h = 0;
+  const s = `${profileId}:${userVibesKey}`;
+  for (let i = 0; i < s.length; i++) {
+    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  }
+  return ((h >>> 0) % 1000) / 1000;
+}
 
 /**
- * Top 3 catalog profiles for onboarding Step 6 — age filter + vibe overlap,
- * fake match % (60 + shared * 8, capped), ordered for believable badges.
+ * Up to 10 catalog profiles for onboarding Step 6 — age filter + vibe overlap,
+ * match % = min(98, round(60 + shared*8 + jitter*5)), sorted by match % desc.
  */
 export function pickFunnelMatchProfiles(
   userVibes: string[],
   ageMin: number,
   ageMax: number,
 ): FunnelMatchPick[] {
+  const userVibesKey = [...userVibes].sort().join(",");
+
   const inRange = profiles.filter(
     (p) => p.age >= ageMin && p.age <= ageMax && p.gallery?.length,
   );
-  const pool = inRange.length ? inRange : profiles;
+  const pool = inRange.length ? inRange : profiles.filter((p) => p.gallery?.length);
 
-  const scored = pool.map((p) => ({
-    p,
-    shared: overlapCount(p, userVibes),
-  }));
+  const scored = pool.map((p) => {
+    const shared = overlapCount(p, userVibes);
+    const jitter = matchJitter(p.id, userVibesKey) * 5;
+    const matchPercent = Math.min(
+      98,
+      Math.round(60 + shared * 8 + jitter),
+    );
+    return { p, shared, matchPercent };
+  });
 
   scored.sort((a, b) => {
+    if (b.matchPercent !== a.matchPercent) return b.matchPercent - a.matchPercent;
     if (b.shared !== a.shared) return b.shared - a.shared;
     return a.p.name.localeCompare(b.p.name);
   });
 
-  const top = scored.slice(0, 3).map((s, i) => ({
+  const top = scored.slice(0, FUNNEL_MATCH_COUNT).map((s) => ({
     ...s.p,
-    matchPercent: DISPLAY_BADGES[i] ?? Math.min(95, 60 + s.shared * 8),
+    matchPercent: s.matchPercent,
   }));
 
-  if (top.length >= 3) return top;
+  if (top.length >= FUNNEL_MATCH_COUNT) return top;
 
   const seen = new Set(top.map((t) => t.id));
-  for (const p of profiles) {
-    if (seen.has(p.id)) continue;
+  const rest = profiles.filter((p) => !seen.has(p.id) && p.gallery?.length);
+  for (const p of rest) {
+    if (top.length >= FUNNEL_MATCH_COUNT) break;
+    const shared = overlapCount(p, userVibes);
+    const jitter = matchJitter(p.id, userVibesKey) * 5;
+    const matchPercent = Math.min(
+      98,
+      Math.round(60 + shared * 8 + jitter),
+    );
+    top.push({ ...p, matchPercent });
     seen.add(p.id);
-    top.push({
-      ...p,
-      matchPercent: DISPLAY_BADGES[top.length] ?? 78,
-    });
-    if (top.length >= 3) break;
   }
 
-  return top.slice(0, 3);
+  return top.slice(0, FUNNEL_MATCH_COUNT);
 }
 
 export function sharedVibeEmojis(

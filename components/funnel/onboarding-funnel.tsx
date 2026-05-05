@@ -23,10 +23,8 @@ import {
 import {
   ArrowRight,
   Camera,
-  Check,
   ChevronLeft,
   Lock,
-  Sparkles,
 } from "lucide-react";
 import {
   FUNNEL_LOOKING_FOR,
@@ -36,6 +34,7 @@ import {
   ONBOARDED_KEY,
   type FunnelAgeRange,
   type FunnelBasics,
+  type FunnelFirstContact,
   type FunnelLookingFor,
   type WhisperUserLocal,
   WHISPER_USER_KEY,
@@ -61,7 +60,7 @@ type FunnelPersist = {
   vibes: string[];
   ageRange: FunnelAgeRange;
   basics: FunnelBasics;
-  pickedMatchId: string | null;
+  firstContact: FunnelFirstContact;
   firstMessage: string;
 };
 
@@ -171,13 +170,29 @@ function firstWordName(raw: string): string {
   return t.split(/\s+/)[0] ?? "";
 }
 
+function normalizeFirstContact(
+  p: Partial<FunnelPersist> & { pickedMatchId?: string | null },
+): FunnelFirstContact {
+  if (p.firstContact && typeof p.firstContact === "object") {
+    const fc = p.firstContact as Record<string, unknown>;
+    const id = fc.profileId;
+    return {
+      profileId: typeof id === "string" && id.length > 0 ? id : null,
+    };
+  }
+  if (typeof p.pickedMatchId === "string" && p.pickedMatchId.length > 0) {
+    return { profileId: p.pickedMatchId };
+  }
+  return { profileId: null };
+}
+
 const defaultPersist = (): FunnelPersist => ({
   step: 1,
   lookingFor: null,
   vibes: ["caring", "warm", "listener"],
   ageRange: { ...DEFAULT_AGE_RANGE },
   basics: { ...DEFAULT_BASICS },
-  pickedMatchId: null,
+  firstContact: { profileId: null },
   firstMessage: "",
 });
 
@@ -194,12 +209,16 @@ function loadSession(): FunnelPersist | null {
       normalizeLookingFor(p.lookingForId);
     const ageRange = normalizeAgeRange(p);
     const basics = normalizeBasics(p);
+    const firstContact = normalizeFirstContact(
+      p as Partial<FunnelPersist> & { pickedMatchId?: string | null },
+    );
     return {
       ...defaultPersist(),
       ...p,
       lookingFor: lf,
       ageRange,
       basics,
+      firstContact,
       step: Math.min(STEP_TOTAL, Math.max(1, Number(p.step) || 1)),
     };
   } catch {
@@ -226,7 +245,9 @@ export function OnboardingFunnel() {
     ...DEFAULT_AGE_RANGE,
   }));
   const [basics, setBasics] = useState<FunnelBasics>(() => ({ ...DEFAULT_BASICS }));
-  const [pickedMatchId, setPickedMatchId] = useState<string | null>(null);
+  const [firstContact, setFirstContact] = useState<FunnelFirstContact>({
+    profileId: null,
+  });
   const [firstMessage, setFirstMessage] = useState("");
 
   const matchAgeMin = ageRange.anyAge ? 18 : ageRange.min;
@@ -238,8 +259,8 @@ export function OnboardingFunnel() {
   );
 
   const pickedMatch = useMemo(
-    () => matches.find((m) => m.id === pickedMatchId) ?? null,
-    [matches, pickedMatchId],
+    () => matches.find((m) => m.id === firstContact.profileId) ?? null,
+    [matches, firstContact.profileId],
   );
 
   useEffect(() => {
@@ -256,7 +277,7 @@ export function OnboardingFunnel() {
       setVibes(saved.vibes);
       setAgeRange(saved.ageRange);
       setBasics(saved.basics);
-      setPickedMatchId(saved.pickedMatchId);
+      setFirstContact(saved.firstContact);
       setFirstMessage(saved.firstMessage);
     }
     setHydrated(true);
@@ -269,7 +290,7 @@ export function OnboardingFunnel() {
       vibes,
       ageRange,
       basics,
-      pickedMatchId,
+      firstContact,
       firstMessage,
     };
     persistRef.current = p;
@@ -280,7 +301,7 @@ export function OnboardingFunnel() {
     vibes,
     ageRange,
     basics,
-    pickedMatchId,
+    firstContact,
     firstMessage,
   ]);
 
@@ -303,7 +324,8 @@ export function OnboardingFunnel() {
 
   const completeFunnel = useCallback(
     (via: "google" | "apple" | "email") => {
-      if (!pickedMatchId || !pickedMatch) return;
+      const pid = firstContact.profileId;
+      if (!pid || !pickedMatch) return;
       const ageNum = basics.age;
       const nameTrim = firstWordName(basics.name) || basics.name.trim();
       if (!nameTrim || ageNum === null || !Number.isFinite(ageNum) || ageNum < 18) return;
@@ -316,15 +338,15 @@ export function OnboardingFunnel() {
         vibe: vibes,
         ageRange,
         lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
-        pickedMatchId,
+        pickedMatchId: pid,
         firstMessage: firstMessage.trim(),
       };
 
-      appendOnboardingOutboundToMockThread(pickedMatchId, firstMessage.trim());
+      appendOnboardingOutboundToMockThread(pid, firstMessage.trim());
 
-      const meta = getThreadMeta(pickedMatchId);
+      const meta = getThreadMeta(pid);
       const sentAt = new Date().toISOString();
-      setThreadPreview(pickedMatchId, {
+      setThreadPreview(pid, {
         lastMessage: firstMessage.trim(),
         timestampLabel: "now",
         lastActivityAt: sentAt,
@@ -347,10 +369,10 @@ export function OnboardingFunnel() {
     [
       basics,
       ageRange,
+      firstContact.profileId,
       firstMessage,
       lookingFor,
       pickedMatch,
-      pickedMatchId,
       router,
       vibes,
     ],
@@ -449,8 +471,8 @@ export function OnboardingFunnel() {
                 <StepPickMatch
                   matches={matches}
                   userVibes={vibes}
-                  selectedId={pickedMatchId}
-                  onSelect={setPickedMatchId}
+                  selectedId={firstContact.profileId}
+                  onSelect={(id) => setFirstContact({ profileId: id })}
                   onContinue={goNext}
                 />
               )}
@@ -1220,6 +1242,26 @@ function StepBasics({
   );
 }
 
+function formatKm(km: number): string {
+  const r = Math.round(km * 10) / 10;
+  if (Math.abs(Math.round(r) - r) < 0.05) return `${Math.round(r)} km`;
+  return `${r} km`;
+}
+
+function cardFooterEmojis(
+  profile: FunnelMatchPick,
+  userVibes: string[],
+): [string, string] {
+  const ov = sharedVibeEmojis(profile, userVibes, 4);
+  if (ov.length >= 2) return [ov[0]!, ov[1]!];
+  if (ov.length === 1) {
+    const second =
+      profile.topEmojis.find((e) => e !== ov[0]) ?? profile.topEmojis[1];
+    return [ov[0]!, second];
+  }
+  return profile.topEmojis;
+}
+
 function StepPickMatch({
   matches,
   userVibes,
@@ -1234,76 +1276,105 @@ function StepPickMatch({
   onContinue: () => void;
 }) {
   const ok = Boolean(selectedId);
-  const distances = ["1.2 km away", "2.4 km away", "3.1 km away"];
+  const n = matches.length;
 
   return (
     <>
-      <div className="flex flex-1 flex-col px-5 pb-32 pt-5">
-        <h2 className="text-[28px] font-extrabold leading-tight text-gray-900">Your first link</h2>
-        <p className="mt-1 text-[14px] text-gray-600">
-          <span className="font-bold text-pink-500">3 people are online</span> and look like a great fit for you.
+      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-1 font-sans">
+        <h2 className="text-2xl font-extrabold leading-tight text-gray-900">
+          Your first link.
+        </h2>
+        <p className="mt-1 text-[13px] text-gray-600">
+          <span className="font-bold text-pink-500">{n} people</span>{" "}
+          <span>online and matched to you. Pick one.</span>
         </p>
-        <div className="mt-6 flex flex-col gap-4">
-          {matches.map((p, idx) => {
-            const em = sharedVibeEmojis(p, userVibes, 2);
-            const vibeLine =
-              em.length >= 2
-                ? `You both love ${em[0]} + ${em[1]}`
-                : em.length === 1
-                  ? `You both love ${em[0]}`
-                  : "You share a similar vibe";
-            const sel = selectedId === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onSelect(p.id)}
-                className={`relative w-full overflow-hidden rounded-2xl text-left shadow-md ring-4 transition active:scale-[0.99] ${
-                  sel ? "ring-[#7C5CFF]" : "ring-transparent ring-offset-0"
-                }`}
-              >
-                <div className="relative aspect-[3/4] w-full bg-gray-200">
-                  <Image src={p.photo} alt="" fill className="object-cover" sizes="(max-width:430px) 100vw, 430px" />
-                  <span className="absolute left-3 top-3 rounded-full bg-emerald-500/95 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
-                    Online now
-                  </span>
-                  <span className="absolute right-3 top-3 inline-flex items-center gap-0.5 rounded-full bg-pink-500/95 px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
-                    <Sparkles className="h-3 w-3" strokeWidth={2.5} />
-                    Match {p.matchPercent}%
-                  </span>
-                  {sel && (
-                    <span className="absolute right-3 bottom-24 flex h-7 w-7 items-center justify-center rounded-full bg-[#7C5CFF] text-white shadow-md">
-                      <Check className="h-4 w-4" strokeWidth={3} />
-                    </span>
+
+        <div className="mt-4 max-h-[540px] min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+          <div className="grid grid-cols-2 gap-2 pb-1">
+            {matches.map((p) => {
+              const sel = selectedId === p.id;
+              const [e1, e2] = cardFooterEmojis(p, userVibes);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  aria-pressed={sel}
+                  onClick={() => onSelect(p.id)}
+                  className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl text-left shadow-sm ring-2 transition active:scale-[0.98] ${
+                    sel ? "ring-[#7C5CFF]" : "ring-transparent"
+                  }`}
+                >
+                  <div className="absolute inset-0 bg-gray-200">
+                    <Image
+                      src={p.photo}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 430px) 45vw, 200px"
+                    />
+                  </div>
+
+                  {sel ? (
+                    <div className="absolute inset-0 z-[15] bg-[#7C5CFF]/35" />
+                  ) : (
+                    <div className="absolute inset-0 z-[15] bg-gradient-to-t from-black/85 to-transparent" />
                   )}
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-4 pb-4 pt-16 text-white">
-                    <p className="text-[20px] font-extrabold leading-tight">
+
+                  <span className="absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-extrabold text-pink-600 backdrop-blur-sm">
+                    ✨{p.matchPercent}%
+                  </span>
+                  <span
+                    className="absolute right-2 top-2 z-20 h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-white"
+                    aria-hidden
+                  />
+
+                  <div className="absolute inset-x-0 bottom-0 z-30 px-2.5 pb-2.5 pt-10 text-white">
+                    <p className="text-[13px] font-extrabold leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
                       {p.name}, {p.age}
                     </p>
-                    <p className="mt-0.5 text-[13px] font-medium text-white/90">{distances[idx] ?? "Nearby"}</p>
-                    <p className="mt-1 text-[13px] font-medium text-white/85">{vibeLine}</p>
+                    <p className="mt-0.5 text-[10px] font-medium leading-tight text-white/90 opacity-90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]">
+                      {formatKm(p.distanceKm)} · {e1} {e2}
+                    </p>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+
+                  <AnimatePresence>
+                    {sel && (
+                      <motion.div
+                        key={`med-${p.id}`}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="absolute inset-0 z-[40] flex items-center justify-center"
+                      >
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl font-extrabold text-[#7C5CFF] shadow-xl">
+                          ✓
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
-      <div className="sticky bottom-0 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+
+      <div className="sticky bottom-0 z-20 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
           disabled={!ok}
           onClick={onContinue}
-          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-bold transition active:scale-95 ${
+          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
             ok
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-pill"
-              : "cursor-not-allowed bg-gray-200 text-gray-500"
+              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
+              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
           Send first message →
         </button>
         <p className="mt-2 text-center text-[11px] text-gray-500">
-          Don&apos;t worry, you can browse everyone after.
+          Don&apos;t worry — you can browse everyone after.
         </p>
       </div>
     </>

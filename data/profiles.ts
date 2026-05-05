@@ -37,6 +37,10 @@ export interface Profile {
   interests: ProfileInterest[];
   /** Funnel / onboarding vibe ids — overlap with user picks drives match %. */
   vibe: string[];
+  /** km — funnel Step 6 card subtitle. */
+  distanceKm: number;
+  /** Two glyphs for card footer (fallback when shared-vibe emojis are fewer than 2). */
+  topEmojis: [string, string];
   lookingFor: string;
   lastActive: string;
   isVerified: boolean;
@@ -53,6 +57,8 @@ function newHereProfiles(): Profile[] {
     name: string,
     photoId: string,
     city: string,
+    distanceKm: number,
+    topEmojis: [string, string],
   ): Profile => ({
     id,
     name,
@@ -70,15 +76,17 @@ function newHereProfiles(): Profile[] {
       { label: "Vriendelijk", icon: "warm" },
     ],
     vibe: ["warm", "listener", "playful", "chill"],
+    distanceKm,
+    topEmojis,
   });
   return [
-    row("sophie", "Sophie", "photo-1544005313-94ddf0286df2", "Haarlem"),
-    row("lena", "Lena", "photo-1494790108377-be9c29b29330", "Maastricht"),
-    row("mia", "Mia", "photo-1534528741775-53994a69daeb", "Leiden"),
-    row("ava", "Ava", "photo-1438761681033-6461ffad8d80", "Zwolle"),
-    row("zoe", "Zoe", "photo-1529626455594-4ff0802cfb7e", "Amersfoort"),
-    row("iris", "Iris", "photo-1531746020798-e6953c6e8e04", "Delft"),
-    row("nora", "Nora", "photo-1517841905240-472988babdf9", "Alkmaar"),
+    row("sophie", "Sophie", "photo-1544005313-94ddf0286df2", "Haarlem", 2.1, ["☕", "🙂"]),
+    row("lena", "Lena", "photo-1494790108377-be9c29b29330", "Maastricht", 1.8, ["💜", "☕"]),
+    row("mia", "Mia", "photo-1534528741775-53994a69daeb", "Leiden", 3.2, ["✈️", "🎬"]),
+    row("ava", "Ava", "photo-1438761681033-6461ffad8d80", "Zwolle", 2.4, ["🌿", "☕"]),
+    row("zoe", "Zoe", "photo-1529626455594-4ff0802cfb7e", "Amersfoort", 1.5, ["🙂", "💗"]),
+    row("iris", "Iris", "photo-1531746020798-e6953c6e8e04", "Delft", 2.9, ["🎧", "📚"]),
+    row("nora", "Nora", "photo-1517841905240-472988babdf9", "Alkmaar", 3.6, ["💗", "🌿"]),
   ];
 }
 
@@ -113,6 +121,8 @@ export const profiles: Profile[] = [
       { label: "Goede luisteraar", icon: "listener" },
     ],
     vibe: ["caring", "romantic", "playful", "warm", "listener", "coffee", "travel", "chill"],
+    distanceKm: 2,
+    topEmojis: ["☕", "🎬"],
   },
   {
     id: "marcus",
@@ -141,6 +151,8 @@ export const profiles: Profile[] = [
       { label: "Nachtuil", icon: "romantic" },
     ],
     vibe: ["gym", "listener", "playful", "romantic", "witty", "coffee", "travel"],
+    distanceKm: 2.4,
+    topEmojis: ["💪", "🎧"],
   },
   {
     id: "thomas",
@@ -168,6 +180,8 @@ export const profiles: Profile[] = [
       { label: "Warm gezelschap", icon: "warm" },
     ],
     vibe: ["movies", "romantic", "playful", "warm", "art", "coffee", "reading"],
+    distanceKm: 3.1,
+    topEmojis: ["🎬", "📚"],
   },
   {
     id: "oliver",
@@ -196,6 +210,8 @@ export const profiles: Profile[] = [
       { label: "Goede luisteraar", icon: "listener" },
     ],
     vibe: ["warm", "romantic", "caring", "listener", "coffee", "chill", "reading"],
+    distanceKm: 4.2,
+    topEmojis: ["🍳", "☕"],
   },
   {
     id: "victoria",
@@ -223,6 +239,8 @@ export const profiles: Profile[] = [
       { label: "Warm gezelschap", icon: "warm" },
     ],
     vibe: ["art", "romantic", "listener", "playful", "warm", "travel", "movies"],
+    distanceKm: 1.6,
+    topEmojis: ["🎨", "✈️"],
   },
   {
     id: "clara",
@@ -252,6 +270,8 @@ export const profiles: Profile[] = [
       { label: "Goede luisteraar", icon: "listener" },
     ],
     vibe: ["reading", "listener", "caring", "romantic", "coffee", "warm", "chill"],
+    distanceKm: 2.2,
+    topEmojis: ["📚", "☕"],
   },
   ...newHereProfiles(),
 ];

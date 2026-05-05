@@ -97,6 +97,8 @@ export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
     gallery: galleryForRow(row),
     interests,
     vibe: vibesFromInterests(interests),
+    distanceKm: 2.5,
+    topEmojis: ["✨", "✨"],
     lookingFor:
       typeof row.looking_for === "string" && row.looking_for.trim()
         ? row.looking_for.trim()

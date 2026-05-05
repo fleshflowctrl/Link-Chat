@@ -227,6 +227,11 @@ export type FunnelBasics = {
   photo: string | null;
 };
 
+/** Funnel Step 6 — chosen first-contact profile from the grid. */
+export type FunnelFirstContact = {
+  profileId: string | null;
+};
+
 export type WhisperUserLocal = {
   name: string;
   age: number;
