@@ -291,12 +291,14 @@ export function OnboardingFunnel() {
     const prevBodyOverflow = document.body.style.overflow;
     const prevHtmlOverflow = html.style.overflow;
     const prevBodyTouch = document.body.style.touchAction;
+    const prevHtmlTouch = html.style.touchAction;
     const prevBodyOverscroll = document.body.style.overscrollBehavior;
     const prevHtmlOverscroll = html.style.overscrollBehavior;
 
     document.body.style.overflow = "hidden";
     html.style.overflow = "hidden";
     document.body.style.touchAction = "manipulation";
+    html.style.touchAction = "manipulation";
     document.body.style.overscrollBehavior = "none";
     html.style.overscrollBehavior = "none";
 
@@ -304,6 +306,7 @@ export function OnboardingFunnel() {
       document.body.style.overflow = prevBodyOverflow;
       html.style.overflow = prevHtmlOverflow;
       document.body.style.touchAction = prevBodyTouch;
+      html.style.touchAction = prevHtmlTouch;
       document.body.style.overscrollBehavior = prevBodyOverscroll;
       html.style.overscrollBehavior = prevHtmlOverscroll;
     };
@@ -427,7 +430,7 @@ export function OnboardingFunnel() {
 
   if (!hydrated) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[#F5F3EE]">
+      <div className="flex h-[100dvh] max-h-[100dvh] h-screen max-h-screen items-center justify-center overflow-hidden overscroll-none bg-[#F5F3EE] touch-manipulation">
         <span className="text-sm text-gray-500">Loading…</span>
       </div>
     );
@@ -437,7 +440,7 @@ export function OnboardingFunnel() {
     <div className="relative flex h-[100dvh] max-h-[100dvh] h-screen max-h-screen justify-center overflow-hidden overscroll-none bg-[#E4DFD4] touch-manipulation">
       <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)] touch-manipulation">
         {step > 1 && (
-          <header className="sticky top-0 z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
+          <header className="z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
             {step < 8 ? (
               <div className="flex w-8 shrink-0 items-center justify-center">
                 <button
@@ -476,11 +479,7 @@ export function OnboardingFunnel() {
               animate="animate"
               exit="exit"
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-              className={
-                step === 1 || step === 2 || step === 3 || step === 4
-                  ? "absolute inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none"
-                  : "absolute inset-0 flex flex-col overflow-y-auto overscroll-y-contain"
-              }
+              className="absolute inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none"
             >
               {step === 1 && <StepWelcome onStart={goNext} />}
               {step === 2 && (
@@ -611,7 +610,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
         aria-hidden
       />
 
-      <div className="pointer-events-none absolute left-0 right-0 top-0 z-40 flex items-center gap-3 px-5 pt-[max(8px,env(safe-area-inset-top))]">
+      <div className="pointer-events-none z-40 flex shrink-0 items-center gap-3 px-5 pt-[max(8px,env(safe-area-inset-top))] pb-1">
         <div className="min-w-0 flex-1">
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
             <div
@@ -624,7 +623,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
       </div>
 
       <div
-        className="absolute inset-0 z-10 pt-[40px]"
+        className="relative z-10 h-full min-h-0 w-full flex-1 touch-manipulation"
         onPointerDownCapture={touchCards}
       >
         {WELCOME_CARD_SLOTS.map((slot, slotIndex) => {
@@ -705,22 +704,22 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
         })}
       </div>
 
-      <div className="pointer-events-auto absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-[#F5F3EE] via-[#F5F3EE]/95 via-50% to-transparent px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-12">
-        <h1 className="font-display text-5xl font-semibold lowercase leading-none tracking-tight text-ink">
+      <div className="pointer-events-auto z-20 shrink-0 border-t border-black/[0.04] bg-gradient-to-t from-[#F5F3EE] via-[#F5F3EE] to-[#F5F3EE]/92 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[clamp(0.75rem,2.5vmin,1.25rem)] shadow-[0_-10px_28px_-14px_rgba(60,40,20,0.08)]">
+        <h1 className="font-display text-[clamp(2.25rem,9vmin,3rem)] font-semibold lowercase leading-none tracking-tight text-ink">
           whisper
         </h1>
 
-        <h2 className="mt-3 max-w-[20ch] text-balance text-3xl font-extrabold leading-tight tracking-tight text-gray-900">
+        <h2 className="mt-2 max-w-[20ch] text-balance text-[clamp(1.35rem,5.2vmin,1.875rem)] font-extrabold leading-tight tracking-tight text-gray-900">
           <span className="block">Find your</span>
           <span className="block">kind of people.</span>
         </h2>
 
-        <p className="mt-3 text-[14px] leading-snug">
+        <p className="mt-2 text-[clamp(12px,3.2vmin,14px)] leading-snug">
           <span className="text-gray-600">Real conversations. </span>
           <span className="font-bold text-[#7C5CFF]">At your pace.</span>
         </p>
 
-        <div className="mt-3 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+        <div className="mt-2 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <div className="flex min-w-0 max-w-[70%] items-center gap-1.5">
             <div className="flex shrink-0 -space-x-1.5 pl-0.5">
               {likesPreviewAvatarUrls.map((url, i) => (
@@ -755,12 +754,12 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
         <button
           type="button"
           onClick={onStart}
-          className="mt-4 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
+          className="mt-3 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
           Get started →
         </button>
 
-        <p className="mt-2 text-center text-[11px] text-gray-500">
+        <p className="mt-1.5 text-center text-[11px] text-gray-500">
           Already have an account?{" "}
           <Link
             href="/login"
@@ -1195,21 +1194,25 @@ function StepBasics({
   };
 
   return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-1 font-sans">
-        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
+      <div className="shrink-0 px-5 pt-1">
+        <h2 className="text-balance text-[clamp(1.5rem,5.5vmin,1.875rem)] font-extrabold leading-tight text-gray-900">
           <span className="block">Tell us</span>
           <span className="block">about you</span>
         </h2>
-        <p className="mt-1 text-[14px] text-gray-600">Just a few quick things.</p>
+        <p className="mt-1 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
+          Just a few quick things.
+        </p>
+      </div>
 
-        <div className="mt-5 flex flex-col items-center">
-          <div className="relative h-24 w-24 shrink-0">
-            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0]">
+      <div className="flex min-h-0 flex-1 flex-col justify-center gap-y-[clamp(0.5rem,2vmin,1.25rem)] overflow-hidden px-5 py-1">
+        <div className="flex shrink-0 flex-col items-center">
+          <div className="relative h-[clamp(4.5rem,18vmin,6rem)] w-[clamp(4.5rem,18vmin,6rem)] shrink-0">
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0]">
               {basics.photo ? (
                 <img src={basics.photo} alt="" className="h-full w-full object-cover" />
               ) : (
-                <span className="text-4xl" aria-hidden>
+                <span className="text-[clamp(1.75rem,7vmin,2.25rem)]" aria-hidden>
                   👋
                 </span>
               )}
@@ -1217,7 +1220,7 @@ function StepBasics({
             <button
               type="button"
               onClick={openPicker}
-              className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-[#7C5CFF] text-white shadow-md transition active:scale-95"
+              className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-[#7C5CFF] text-white shadow-md transition active:scale-95 sm:h-9 sm:w-9"
               aria-label="Add profile photo"
             >
               <Camera className="h-3.5 w-3.5" strokeWidth={2.2} />
@@ -1233,15 +1236,15 @@ function StepBasics({
           <button
             type="button"
             onClick={openPicker}
-            className="mt-2 text-center text-[12px] leading-snug"
+            className="mt-1.5 text-center text-[clamp(11px,2.8vmin,12px)] leading-snug"
           >
             <span className="font-bold text-[#7C5CFF]">Add a photo</span>{" "}
             <span className="font-medium text-gray-500">(optional)</span>
           </button>
         </div>
 
-        <div className="mt-7 space-y-5 text-[18px] leading-relaxed text-gray-900">
-          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-2">
+        <div className="min-h-0 w-full space-y-[clamp(0.75rem,2.5vmin,1.25rem)] text-[clamp(15px,3.8vmin,18px)] leading-relaxed text-gray-900">
+          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
             <span>I&apos;m</span>
             <input
               autoFocus
@@ -1254,10 +1257,10 @@ function StepBasics({
                 setBasics((b) => ({ ...b, name: firstWordName(b.name) }))
               }
               placeholder="Emily"
-              className="inline-block w-[140px] rounded-full border-2 border-gray-200 bg-white px-3 py-1.5 text-[16px] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30"
+              className="inline-block w-[min(140px,42vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
             />
           </p>
-          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-2">
+          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
             <span>I&apos;m</span>
             <input
               type="number"
@@ -1279,11 +1282,11 @@ function StepBasics({
                 }));
               }}
               placeholder="28"
-              className="inline-block w-[80px] rounded-full border-2 border-gray-200 bg-white px-3 py-1.5 text-center text-[16px] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30"
+              className="inline-block w-[min(80px,22vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-center text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
             />
             <span>years old.</span>
           </p>
-          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-2">
+          <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
             <span>I live in</span>
             <input
               autoComplete="address-level2"
@@ -1292,18 +1295,18 @@ function StepBasics({
                 setBasics((b) => ({ ...b, location: e.target.value }))
               }
               placeholder="London"
-              className="inline-block w-[160px] rounded-full border-2 border-gray-200 bg-white px-3 py-1.5 text-[16px] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30"
+              className="inline-block w-[min(160px,48vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
             />
           </p>
         </div>
 
-        <div className="mt-6 flex items-center gap-2 px-2 text-[11px] text-gray-500">
+        <div className="flex shrink-0 items-center gap-2 px-1 text-[10px] text-gray-500 sm:text-[11px]">
           <Lock className="h-3 w-3 shrink-0 text-gray-400" strokeWidth={2.5} aria-hidden />
           <span>Your details stay private.</span>
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-20 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
         <button
           type="button"
           disabled={!ok}
@@ -1317,7 +1320,7 @@ function StepBasics({
           Continue →
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1358,88 +1361,88 @@ function StepPickMatch({
   const n = matches.length;
 
   return (
-    <>
-      <div className="flex min-h-0 flex-1 flex-col px-5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-1 font-sans">
-        <h2 className="text-2xl font-extrabold leading-tight text-gray-900">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
+      <div className="shrink-0 px-5 pt-1">
+        <h2 className="text-[clamp(1.15rem,4.2vmin,1.5rem)] font-extrabold leading-tight text-gray-900">
           Your first link.
         </h2>
-        <p className="mt-1 text-[13px] text-gray-600">
+        <p className="mt-0.5 text-[clamp(11px,2.9vmin,13px)] text-gray-600">
           <span className="font-bold text-pink-500">{n} people</span>{" "}
           <span>online and matched to you. Pick one.</span>
         </p>
+      </div>
 
-        <div className="mt-4 max-h-[540px] min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
-          <div className="grid grid-cols-2 gap-2 pb-1">
-            {matches.map((p) => {
-              const sel = selectedId === p.id;
-              const [e1, e2] = cardFooterEmojis(p, userVibes);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  aria-pressed={sel}
-                  onClick={() => onSelect(p.id)}
-                  className={`relative aspect-[3/4] w-full overflow-hidden rounded-2xl text-left shadow-sm ring-2 transition active:scale-[0.98] ${
-                    sel ? "ring-[#7C5CFF]" : "ring-transparent"
-                  }`}
-                >
-                  <div className="absolute inset-0 bg-gray-200">
-                    <Image
-                      src={p.photo}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 430px) 45vw, 200px"
-                    />
-                  </div>
-
-                  {sel ? (
-                    <div className="absolute inset-0 z-[15] bg-[#7C5CFF]/35" />
-                  ) : (
-                    <div className="absolute inset-0 z-[15] bg-gradient-to-t from-black/85 to-transparent" />
-                  )}
-
-                  <span className="absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-full bg-white/90 px-1.5 py-0.5 text-[10px] font-extrabold text-pink-600 backdrop-blur-sm">
-                    ✨{p.matchPercent}%
-                  </span>
-                  <span
-                    className="absolute right-2 top-2 z-20 h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-white"
-                    aria-hidden
+      <div className="min-h-0 flex-1 px-5 pb-1 pt-2">
+        <div className="grid h-full min-h-0 w-full grid-cols-2 grid-rows-5 gap-[clamp(3px,1vmin,8px)]">
+          {matches.map((p) => {
+            const sel = selectedId === p.id;
+            const [e1, e2] = cardFooterEmojis(p, userVibes);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={sel}
+                onClick={() => onSelect(p.id)}
+                className={`relative min-h-0 w-full min-w-0 overflow-hidden rounded-2xl text-left shadow-sm ring-2 transition active:scale-[0.98] ${
+                  sel ? "ring-[#7C5CFF]" : "ring-transparent"
+                }`}
+              >
+                <div className="absolute inset-0 bg-gray-200">
+                  <Image
+                    src={p.photo}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 430px) 45vw, 200px"
                   />
+                </div>
 
-                  <div className="absolute inset-x-0 bottom-0 z-30 px-2.5 pb-2.5 pt-10 text-white">
-                    <p className="text-[13px] font-extrabold leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
-                      {p.name}, {p.age}
-                    </p>
-                    <p className="mt-0.5 text-[10px] font-medium leading-tight text-white/90 opacity-90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]">
-                      {formatKm(p.distanceKm)} · {e1} {e2}
-                    </p>
-                  </div>
+                {sel ? (
+                  <div className="absolute inset-0 z-[15] bg-[#7C5CFF]/35" />
+                ) : (
+                  <div className="absolute inset-0 z-[15] bg-gradient-to-t from-black/85 to-transparent" />
+                )}
 
-                  <AnimatePresence>
-                    {sel && (
-                      <motion.div
-                        key={`med-${p.id}`}
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="absolute inset-0 z-[40] flex items-center justify-center"
-                      >
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-xl font-extrabold text-[#7C5CFF] shadow-xl">
-                          ✓
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </button>
-              );
-            })}
-          </div>
+                <span className="absolute left-1.5 top-1.5 z-20 flex items-center gap-0.5 rounded-full bg-white/90 px-1 py-0.5 text-[9px] font-extrabold text-pink-600 backdrop-blur-sm sm:left-2 sm:top-2 sm:px-1.5 sm:py-0.5 sm:text-[10px]">
+                  ✨{p.matchPercent}%
+                </span>
+                <span
+                  className="absolute right-1.5 top-1.5 z-20 h-2 w-2 rounded-full bg-green-400 ring-2 ring-white sm:right-2 sm:top-2 sm:h-2.5 sm:w-2.5"
+                  aria-hidden
+                />
+
+                <div className="absolute inset-x-0 bottom-0 z-30 px-1.5 pb-1.5 pt-6 text-white sm:px-2.5 sm:pb-2.5 sm:pt-10">
+                  <p className="truncate text-[clamp(10px,2.8vmin,13px)] font-extrabold leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
+                    {p.name}, {p.age}
+                  </p>
+                  <p className="mt-0.5 truncate text-[clamp(8px,2.2vmin,10px)] font-medium leading-tight text-white/90 opacity-90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]">
+                    {formatKm(p.distanceKm)} · {e1} {e2}
+                  </p>
+                </div>
+
+                <AnimatePresence>
+                  {sel && (
+                    <motion.div
+                      key={`med-${p.id}`}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="absolute inset-0 z-[40] flex items-center justify-center"
+                    >
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-extrabold text-[#7C5CFF] shadow-xl sm:h-12 sm:w-12 sm:text-xl">
+                        ✓
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-20 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <button
           type="button"
           disabled={!ok}
@@ -1452,11 +1455,11 @@ function StepPickMatch({
         >
           Send first message →
         </button>
-        <p className="mt-2 text-center text-[11px] text-gray-500">
+        <p className="mt-1.5 text-center text-[10px] text-gray-500 sm:text-[11px]">
           Don&apos;t worry — you can browse everyone after.
         </p>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1475,48 +1478,50 @@ function StepFirstMessage({
   const len = value.length;
 
   return (
-    <>
-      <div className="flex flex-1 flex-col px-5 pb-32 pt-5">
-        <div className="flex items-center gap-3">
-          {peer && (
-            <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white shadow-sm">
-              <Image src={peer.photo} alt="" width={88} height={88} className="h-full w-full object-cover" />
-            </span>
-          )}
-          <div className="min-w-0">
-            <h2 className="text-[28px] font-extrabold leading-tight text-gray-900">
-              Say hi to {peer?.name ?? "…"}
-            </h2>
-          </div>
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
+      <div className="flex shrink-0 items-center gap-2.5 px-5 pt-3">
+        {peer && (
+          <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white shadow-sm sm:h-11 sm:w-11">
+            <Image src={peer.photo} alt="" width={88} height={88} className="h-full w-full object-cover" />
+          </span>
+        )}
+        <div className="min-w-0">
+          <h2 className="text-[clamp(1.15rem,4.5vmin,1.75rem)] font-extrabold leading-tight text-gray-900">
+            Say hi to {peer?.name ?? "…"}
+          </h2>
         </div>
-        <p className="mt-2 text-[14px] text-gray-600">A great first message asks a question.</p>
-        <div className="mt-4 flex flex-wrap gap-2">
+      </div>
+      <p className="shrink-0 px-5 pt-1 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
+        A great first message asks a question.
+      </p>
+      <div className="flex min-h-0 flex-1 flex-col gap-y-2 overflow-hidden px-5 pb-2 pt-2">
+        <div className="flex max-h-[32%] min-h-0 shrink-0 flex-wrap content-start gap-1.5 overflow-hidden">
           {FUNNEL_STARTER_MESSAGES.map((chip) => (
             <button
               key={chip}
               type="button"
               onClick={() => onChange(chip)}
-              className="rounded-full bg-white px-3 py-2 text-[12px] font-semibold text-gray-800 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95"
+              className="rounded-full bg-white px-2.5 py-1.5 text-[clamp(10px,2.7vmin,12px)] font-semibold text-gray-800 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95 sm:px-3 sm:py-2"
             >
               {chip}
             </button>
           ))}
         </div>
-        <div className="mt-4">
+        <div className="flex min-h-0 flex-1 flex-col">
           <textarea
             autoFocus
             value={value}
             onChange={(e) => onChange(e.target.value.slice(0, MSG_MAX))}
-            rows={5}
-            className="w-full resize-none rounded-2xl border-0 bg-white p-4 text-[15px] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[#7C5CFF]/40"
+            className="min-h-0 w-full flex-1 resize-none rounded-2xl border-0 bg-white p-3 text-[clamp(13px,3.4vmin,15px)] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[#7C5CFF]/40 sm:p-4"
             placeholder="Write something kind…"
           />
-          <p className="mt-2 text-right text-[12px] font-medium text-gray-500">
+          <p className="mt-1 shrink-0 text-right text-[11px] font-medium text-gray-500 sm:text-[12px]">
             {len} / {MSG_MAX}
           </p>
         </div>
       </div>
-      <div className="sticky bottom-0 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+
+      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
         <button
           type="button"
           disabled={!ok}
@@ -1530,7 +1535,7 @@ function StepFirstMessage({
           Send message →
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1587,132 +1592,136 @@ function StepCreateAccount({
       : "\u201c\u2026\u201d";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden font-sans">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pt-1">
-        <h2 className="text-3xl font-extrabold leading-tight text-gray-900">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-1">
+        <h2 className="shrink-0 text-[clamp(1.35rem,5vmin,1.875rem)] font-extrabold leading-tight text-gray-900">
           Almost there <span className="text-amber-400">✨</span>
         </h2>
-        <p className="mt-1 text-[14px] text-gray-600">
+        <p className="mt-0.5 shrink-0 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
           Save your profile + send your first message.
         </p>
 
-        <div className="relative mt-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#EDE7FF] via-[#FDE4F0] to-[#EDE7FF] p-4 shadow-sm">
-          <div
-            className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/40 blur-2xl"
-            aria-hidden
-          />
+        <div className="flex min-h-0 flex-1 flex-col justify-center gap-y-[clamp(0.35rem,1.5vmin,0.75rem)] overflow-hidden py-1">
+          <div className="relative shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#EDE7FF] via-[#FDE4F0] to-[#EDE7FF] p-3 shadow-sm sm:p-4">
+            <div
+              className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/40 blur-2xl"
+              aria-hidden
+            />
 
-          <div className="relative flex items-center gap-3">
-            <div className="relative h-12 w-12 shrink-0">
-              <span className="block h-12 w-12 overflow-hidden rounded-full bg-white ring-2 ring-white">
-                {peer ? (
-                  <Image
-                    src={peer.photo}
-                    alt=""
-                    width={96}
-                    height={96}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center bg-gray-200 text-[10px] font-bold text-gray-500">
-                    ?
-                  </span>
-                )}
-              </span>
-              <span
-                className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"
-                aria-hidden
-              />
+            <div className="relative flex items-center gap-2.5 sm:gap-3">
+              <div className="relative h-10 w-10 shrink-0 sm:h-12 sm:w-12">
+                <span className="block h-full w-full overflow-hidden rounded-full bg-white ring-2 ring-white">
+                  {peer ? (
+                    <Image
+                      src={peer.photo}
+                      alt=""
+                      width={96}
+                      height={96}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center bg-gray-200 text-[10px] font-bold text-gray-500">
+                      ?
+                    </span>
+                  )}
+                </span>
+                <span
+                  className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 sm:h-3 sm:w-3"
+                  aria-hidden
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-[#7C5CFF] sm:text-[10px]">
+                  READY TO SEND
+                </p>
+                <p className="mt-0.5 truncate text-[clamp(11px,3vmin,13px)] font-semibold text-gray-900">
+                  {quoted}
+                </p>
+                <p className="mt-0.5 text-[9px] text-gray-500 sm:text-[10px]">
+                  → to {peer?.name ?? "…"} · online now
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7C5CFF]">
-                READY TO SEND
-              </p>
-              <p className="mt-0.5 truncate text-[13px] font-semibold text-gray-900">{quoted}</p>
-              <p className="mt-0.5 text-[10px] text-gray-500">
-                → to {peer?.name ?? "…"} · online now
-              </p>
+
+            <div className="relative my-2 border-t border-white/60 sm:my-3" />
+
+            <div className="relative space-y-1 sm:space-y-1.5">
+              <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                  ✓
+                </span>
+                <span>Send your first message instantly</span>
+              </div>
+              <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                  ✓
+                </span>
+                <span>
+                  <b className="text-amber-700">15 free credits</b> on us 💰
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="relative my-3 border-t border-white/60" />
-
-          <div className="relative space-y-1.5">
-            <div className="flex items-center gap-2 text-[12px] text-gray-800">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[10px] text-white">
-                ✓
-              </span>
-              <span>Send your first message instantly</span>
-            </div>
-            <div className="flex items-center gap-2 text-[12px] text-gray-800">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[10px] text-white">
-                ✓
-              </span>
-              <span>
-                <b className="text-amber-700">15 free credits</b> on us 💰
-              </span>
-            </div>
+          <div className="shrink-0 space-y-1.5 sm:space-y-2">
+            <button
+              type="button"
+              onClick={() => onComplete("google")}
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white py-2.5 text-[clamp(12px,3.2vmin,14px)] font-bold text-gray-900 shadow-sm transition active:scale-[0.99] sm:py-3"
+            >
+              <GoogleMark />
+              Continue with Google
+            </button>
+            <button
+              type="button"
+              onClick={() => onComplete("apple")}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-black py-2.5 text-[clamp(12px,3.2vmin,14px)] font-bold text-white shadow-sm transition active:scale-[0.99] sm:py-3"
+            >
+              <Apple className="h-5 w-5 shrink-0 text-white" strokeWidth={2} aria-hidden />
+              Continue with Apple
+            </button>
           </div>
-        </div>
 
-        <div className="mt-4 space-y-2">
-          <button
-            type="button"
-            onClick={() => onComplete("google")}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white py-3 text-[14px] font-bold text-gray-900 shadow-sm transition active:scale-[0.99]"
-          >
-            <GoogleMark />
-            Continue with Google
-          </button>
-          <button
-            type="button"
-            onClick={() => onComplete("apple")}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-black py-3 text-[14px] font-bold text-white shadow-sm transition active:scale-[0.99]"
-          >
-            <Apple className="h-5 w-5 shrink-0 text-white" strokeWidth={2} aria-hidden />
-            Continue with Apple
-          </button>
-        </div>
-
-        <div className="my-4 flex items-center gap-3">
-          <div className="h-px flex-1 bg-gray-200" aria-hidden />
-          <span className="shrink-0 text-[11px] text-gray-400">or use email</span>
-          <div className="h-px flex-1 bg-gray-200" aria-hidden />
-        </div>
-
-        <div className="space-y-2 pb-2">
-          <div className="rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm">
-            <label className="block">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                Email
-              </span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-0.5 w-full border-0 bg-transparent text-[15px] font-bold text-gray-900 outline-none ring-0"
-                autoComplete="email"
-              />
-            </label>
+          <div className="flex shrink-0 items-center gap-2 py-0.5 sm:gap-3 sm:py-1">
+            <div className="h-px flex-1 bg-gray-200" aria-hidden />
+            <span className="shrink-0 text-[10px] text-gray-400 sm:text-[11px]">or use email</span>
+            <div className="h-px flex-1 bg-gray-200" aria-hidden />
           </div>
-          <div className="rounded-2xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm">
-            <label className="block">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                Password
-              </span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-0.5 w-full border-0 bg-transparent text-[15px] font-bold text-gray-900 outline-none ring-0"
-                autoComplete="new-password"
-              />
-            </label>
+
+          <div className="shrink-0 space-y-1.5 sm:space-y-2">
+            <div className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  Email
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-0.5 w-full border-0 bg-transparent text-[clamp(14px,3.5vmin,15px)] font-bold text-gray-900 outline-none ring-0"
+                  autoComplete="email"
+                />
+              </label>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  Password
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-0.5 w-full border-0 bg-transparent text-[clamp(14px,3.5vmin,15px)] font-bold text-gray-900 outline-none ring-0"
+                  autoComplete="new-password"
+                />
+              </label>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-20 shrink-0 border-t border-black/[0.04] bg-[#F5F3EE]/95 px-5 py-3 backdrop-blur-sm pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <div className="z-20 shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:py-3">
         <button
           type="button"
           disabled={!formOk}
