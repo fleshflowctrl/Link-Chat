@@ -285,33 +285,6 @@ export function OnboardingFunnel() {
     setHydrated(true);
   }, [router]);
 
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const html = document.documentElement;
-    const prevBodyOverflow = document.body.style.overflow;
-    const prevHtmlOverflow = html.style.overflow;
-    const prevBodyTouch = document.body.style.touchAction;
-    const prevHtmlTouch = html.style.touchAction;
-    const prevBodyOverscroll = document.body.style.overscrollBehavior;
-    const prevHtmlOverscroll = html.style.overscrollBehavior;
-
-    document.body.style.overflow = "hidden";
-    html.style.overflow = "hidden";
-    document.body.style.touchAction = "manipulation";
-    html.style.touchAction = "manipulation";
-    document.body.style.overscrollBehavior = "none";
-    html.style.overscrollBehavior = "none";
-
-    return () => {
-      document.body.style.overflow = prevBodyOverflow;
-      html.style.overflow = prevHtmlOverflow;
-      document.body.style.touchAction = prevBodyTouch;
-      html.style.touchAction = prevHtmlTouch;
-      document.body.style.overscrollBehavior = prevBodyOverscroll;
-      html.style.overscrollBehavior = prevHtmlOverscroll;
-    };
-  }, []);
-
   const persistNow = useCallback(() => {
     const p: FunnelPersist = {
       step,
@@ -430,15 +403,15 @@ export function OnboardingFunnel() {
 
   if (!hydrated) {
     return (
-      <div className="flex h-[100dvh] max-h-[100dvh] h-screen max-h-screen items-center justify-center overflow-hidden overscroll-none bg-[#F5F3EE] touch-manipulation">
+      <div className="fixed inset-0 z-10 flex items-center justify-center overflow-hidden overscroll-none bg-[#F5F3EE] touch-manipulation">
         <span className="text-sm text-gray-500">Loading…</span>
       </div>
     );
   }
 
   return (
-    <div className="relative flex h-[100dvh] max-h-[100dvh] h-screen max-h-screen justify-center overflow-hidden overscroll-none bg-[#E4DFD4] touch-manipulation">
-      <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)] touch-manipulation">
+    <div className="fixed inset-0 z-10 flex justify-center overflow-hidden overscroll-none bg-[#E4DFD4] touch-manipulation">
+      <div className="relative flex h-full min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)] touch-manipulation">
         {step > 1 && (
           <header className="z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
             {step < 8 ? (
