@@ -45,7 +45,7 @@ import {
   getThreadMeta,
 } from "@/data/messages";
 import { funnelSets } from "@/data/funnelProfiles";
-import { likesPreviewAvatarUrls } from "@/data/profiles";
+import { likesPreviewAvatarUrls, profiles as staticCatalogProfiles, type Profile } from "@/data/profiles";
 import {
   pickFunnelMatchProfiles,
   sharedVibeEmojis,
@@ -233,7 +233,7 @@ function saveSession(p: FunnelPersist) {
   sessionStorage.setItem(FUNNEL_SESSION_KEY, JSON.stringify(p));
 }
 
-export function OnboardingFunnel() {
+export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[] }) {
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(1);
@@ -255,9 +255,15 @@ export function OnboardingFunnel() {
   const matchAgeMin = ageRange.anyAge ? 18 : ageRange.min;
   const matchAgeMax = ageRange.anyAge ? 70 : ageRange.max;
 
+  const funnelCatalog = useMemo(
+    () =>
+      initialCatalog && initialCatalog.length > 0 ? initialCatalog : staticCatalogProfiles,
+    [initialCatalog],
+  );
+
   const matches = useMemo(
-    () => pickFunnelMatchProfiles(vibes, matchAgeMin, matchAgeMax),
-    [vibes, matchAgeMin, matchAgeMax],
+    () => pickFunnelMatchProfiles(funnelCatalog, vibes, matchAgeMin, matchAgeMax),
+    [funnelCatalog, vibes, matchAgeMin, matchAgeMax],
   );
 
   const pickedMatch = useMemo(

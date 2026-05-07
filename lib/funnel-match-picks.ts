@@ -1,5 +1,5 @@
 import type { Profile } from "@/data/profiles";
-import { profiles } from "@/data/profiles";
+import { profiles as staticCatalogProfiles } from "@/data/profiles";
 
 function overlapCount(profile: Profile, userVibes: string[]): number {
   const set = new Set(profile.vibe ?? []);
@@ -23,18 +23,22 @@ function matchJitter(profileId: string, userVibesKey: string): number {
 /**
  * Up to 10 catalog profiles for onboarding Step 6 — age filter + vibe overlap,
  * match % = min(98, round(60 + shared*8 + jitter*5)), sorted by match % desc.
+ *
+ * @param catalog — Prefer `chat_profiles` via `fetchFunnelCatalogProfilesServer()`; falls back to bundled static list when empty.
  */
 export function pickFunnelMatchProfiles(
+  catalog: Profile[],
   userVibes: string[],
   ageMin: number,
   ageMax: number,
 ): FunnelMatchPick[] {
+  const base = catalog.length > 0 ? catalog : staticCatalogProfiles;
   const userVibesKey = [...userVibes].sort().join(",");
 
-  const inRange = profiles.filter(
+  const inRange = base.filter(
     (p) => p.age >= ageMin && p.age <= ageMax && p.gallery?.length,
   );
-  const pool = inRange.length ? inRange : profiles.filter((p) => p.gallery?.length);
+  const pool = inRange.length ? inRange : base.filter((p) => p.gallery?.length);
 
   const scored = pool.map((p) => {
     const shared = overlapCount(p, userVibes);
@@ -60,7 +64,7 @@ export function pickFunnelMatchProfiles(
   if (top.length >= FUNNEL_MATCH_COUNT) return top;
 
   const seen = new Set(top.map((t) => t.id));
-  const rest = profiles.filter((p) => !seen.has(p.id) && p.gallery?.length);
+  const rest = base.filter((p) => !seen.has(p.id) && p.gallery?.length);
   for (const p of rest) {
     if (top.length >= FUNNEL_MATCH_COUNT) break;
     const shared = overlapCount(p, userVibes);

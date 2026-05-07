@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import {
   getProfileById,
   homeGridProfiles,
+  profiles,
   type Profile,
 } from "@/data/profiles";
 import type { NewWhisperUser } from "@/data/newUsers";
@@ -89,6 +90,51 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     gridProfiles,
     activityUsers,
     catalogDegraded: gridDegraded,
+  };
+}
+
+/**
+ * Full AI catalog for onboarding step 6 (vibe + age matching).
+ * Anonymous users get the bundled static list (RLS requires auth for `chat_profiles`).
+ */
+export async function fetchFunnelCatalogProfilesServer(): Promise<{
+  profiles: Profile[];
+  catalogDegraded: boolean;
+}> {
+  if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
+    return { profiles, catalogDegraded: false };
+  }
+
+  let supabase: ReturnType<typeof createClient>;
+  try {
+    supabase = createClient();
+  } catch {
+    return { profiles, catalogDegraded: true };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { profiles, catalogDegraded: false };
+  }
+
+  const { data: rows, error } = await supabase
+    .from("chat_profiles")
+    .select("*")
+    .eq("is_ai", true)
+    .order("home_sort", { ascending: true })
+    .order("display_name", { ascending: true })
+    .limit(250);
+
+  if (error || !rows?.length) {
+    if (error) console.error("[fetchFunnelCatalogProfilesServer]", error.message);
+    return { profiles, catalogDegraded: true };
+  }
+
+  return {
+    profiles: (rows as ChatProfileRow[]).map(chatProfileRowToProfile),
+    catalogDegraded: false,
   };
 }
 
