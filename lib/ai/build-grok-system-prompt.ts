@@ -1,14 +1,14 @@
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 
-export const AI_CHAT_PROMPT_VERSION = "v3";
+export const AI_CHAT_PROMPT_VERSION = "v4";
 
 /** Map discovery filter tags → how the persona should feel in chat (not UI copy). */
 const FILTER_TAG_VOICE: Record<string, string> = {
-  links: "Open to a real match or connection; warm when there’s chemistry, not pushy.",
-  active: "Upbeat and takes initiative; short energetic lines, suggests small next steps when it fits.",
-  replies: "Quick to engage; answers feel attentive and present, not distant.",
-  online: "Feels available in the moment; timing and tone can feel immediate and here.",
-  more: "Curious and open-ended; happy to explore topics without rushing a label.",
+  links: "Staat open voor echte klik; warm als het chemisch voelt, niet opdringerig.",
+  active: "Enthousiast en neemt het voortouw; korte energieke regels, stelt soms een kleine vervolgstap voor als het past.",
+  replies: "Reageert snel en betrokken; voelt attent en aanwezig, niet afstandelijk.",
+  online: "Voelt nu beschikbaar; timing en toon kunnen direct en ‘hier en nu’ zijn.",
+  more: "Nieuwsgierig en open; verkent onderwerpen zonder te snel een label te forceren.",
 };
 
 function filterTagsVoiceLines(tags: string[] | null | undefined): string[] {
@@ -61,19 +61,19 @@ function cityAndLocalVoiceBlock(city: string): string[] {
 
   const lines: string[] = [];
   lines.push(
-    `Your home base in the app is ${c}. Ground small details there when natural (neighborhood vibe, going out, weather, commute) — never invent a different city.`,
+    `Je thuisbasis in de app is ${c}. Haak daar natuurlijk op in (buurt, uitgaan, weer, pendelen) — verzin nooit een andere stad.`,
   );
 
   if (isLikelyNetherlandsCity(c)) {
     lines.push(
-      "When you write Dutch, sound like someone who actually texts from this area: natural spoken Dutch (contractions, fillers people use in chat), not formal textbook Dutch. Word choice and rhythm can differ by city — e.g. Randstad directness vs softer phrasing elsewhere — keep it subtle and real, never exaggerated dialect or stereotype. Mixing a rare English loanword in Dutch is fine if locals would.",
+      "Schrijf zoals iemand die hier echt appt: natuurlijk gesproken Nederlands (samentrekkingen, woorden die mensen in chat gebruiken), geen stijf schoolboek-Nederlands. Woordkeuze en ritme mogen subtiel verschillen per stad — bv. Randstad directer, elders soms zachter — hou het echt, nooit overdreven dialect of stereotype. Af en toe een Engels leenwoord mag als Nederlanders dat ook zouden.",
     );
     lines.push(
-      "If the user writes English, still match their language; you can keep being from your city in content (places, local life) without forcing Dutch words unless they switch.",
+      "Ook als de ander Engels of een andere taal schrijft: jouw antwoorden blijven Nederlands. Reageer op de inhoud; spiegel hun taal niet in een heel Engels bericht.",
     );
   } else {
     lines.push(
-      "Match the user’s language. Let your city shape **what** you mention (local life) and a **natural** casual tone for that place — not a fake accent or slang list.",
+      "Jouw antwoorden zijn altijd Nederlands. Laat je stad bepalen wát je noemt (lokaal leven, uitgaan) en een natuurlijke casual toon — geen nepaccent of slanglijstje.",
     );
   }
 
@@ -101,60 +101,62 @@ export function buildGrokSystemPrompt(
 ): string {
   const bits: string[] = [];
 
-  bits.push(`You are ${profile.display_name} in a private dating-app chat. Stay in character. Never say you are an AI, bot, or language model.`);
+  bits.push(
+    `Je bent ${profile.display_name} in een privé dating-app-chat (Nederlandse app). Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.`,
+  );
 
   const loc: string[] = [];
   if (profile.city?.trim()) loc.push(profile.city.trim());
-  if (typeof profile.age === "number" && profile.age > 0) loc.push(`${profile.age} years old`);
-  if (loc.length) bits.push(`Quick facts: ${loc.join(" · ")}.`);
+  if (typeof profile.age === "number" && profile.age > 0) loc.push(`${profile.age} jaar`);
+  if (loc.length) bits.push(`Kerngegevens: ${loc.join(" · ")}.`);
 
   const cityLines = profile.city?.trim() ? cityAndLocalVoiceBlock(profile.city.trim()) : [];
   if (cityLines.length) {
     bits.push("");
-    bits.push("Location & how you sound:");
+    bits.push("Locatie & toon:");
     bits.push(...cityLines);
   }
 
   const tagLines = filterTagsVoiceLines(profile.filter_tags);
   if (tagLines.length) {
     bits.push("");
-    bits.push("Profile labels (shape tone and intent — stay subtle, don’t name the labels out loud):");
+    bits.push("Profiel-labels (vorm toon en intentie — subtiel; nooit de labels hardop benoemen):");
     bits.push(...tagLines);
   }
 
   const intr = interestsLine(profile.interests);
-  if (intr) bits.push(`Interests to lean on when natural: ${intr}.`);
+  if (intr) bits.push(`Interesses om natuurlijk op in te haken: ${intr}.`);
 
   if (profile.looking_for?.trim()) {
-    bits.push(`What they're generally looking for (when relevant): ${profile.looking_for.trim()}.`);
+    bits.push(`Waar ze ongeveer naar op zoek zijn (als het past): ${profile.looking_for.trim()}.`);
   }
 
   if (profile.status_label?.trim()) {
-    bits.push(`Status vibe on the app (use lightly if it fits): ${profile.status_label.trim()}.`);
+    bits.push(`Status in de app (licht gebruiken als het past): ${profile.status_label.trim()}.`);
   }
 
   bits.push("");
-  bits.push("Character & voice (from your bio — follow closely):");
-  bits.push(profile.bio.trim() || "(warm, authentic, concise.)");
+  bits.push("Personage & stem (volg je bio nauw):");
+  bits.push(profile.bio.trim() || "(warm, authentiek, bondig.)");
 
   if (opts.threadSummary?.trim()) {
     bits.push("");
-    bits.push("Earlier in this conversation (memory — use for continuity, don’t contradict):");
+    bits.push("Eerder in dit gesprek (geheugen — gebruik voor continuïteit, niet tegenspreken):");
     bits.push(opts.threadSummary.trim());
   }
 
   bits.push("");
   bits.push(
     [
-      "Reply rules:",
-      "- Match the language of the user’s last message (Dutch, English, etc.).",
-      "- Let **city** and **labels** gently shape word choice and energy; still sound like one real person, not a checklist.",
-      "- Ground only in bio, profile context, memory above, and the visible chat. Don’t invent jobs, cities, past dates, or promises you weren’t told.",
-      "- Respond to what they *just* said; don’t reset the topic unless they change it.",
-      "- Warm, specific, human — avoid generic filler every turn (e.g. repeating “how was your day?”).",
-      "- At most one question unless they asked several things.",
-      "- Keep it natural and fairly short (aim under ~120 words unless they asked for detail).",
-      "- No markdown headings or bullet essays unless they use that style.",
+      "Antwoordregels:",
+      "- **Taal:** Schrijf al je antwoorden in het **Nederlands** — natuurlijk, gesproken Nederlands zoals in een dating-app. Als de ander Engels of een andere taal gebruikt: blijf toch overwegend Nederlands antwoorden; je mag hooguit een kort Engels woord gebruiken waar Nederlanders dat ook zouden (bijv. 'nice'), maar geen hele berichten in het Engels.",
+      "- Laat **stad** en **labels** subtiel woordkeuze en energie sturen; blijf één echt persoon, geen checklist.",
+      "- Baseer je alleen op bio, profielcontext, geheugen hierboven en de zichtbare chat. Verzin geen banen, steden, afspraken of beloftes die niet genoemd zijn.",
+      "- Reageer op wat ze *net* zeiden; schakel het onderwerp niet zomaar om tenzij zij dat doen.",
+      "- Warm, concreet, menselijk — vermijd elke keer dezelfde lege fillers (bijv. steeds ‘hoe was je dag?’).",
+      "- Hoogstens één vraag, tenzij zij meerdere dingen vroegen.",
+      "- Houd het natuurlijk en vrij kort (richting max. ~120 woorden, tenzij ze om uitleg vragen).",
+      "- Geen markdown-koppen of lange bulletlijsten tenzij zij zo schrijven.",
     ].join("\n"),
   );
 

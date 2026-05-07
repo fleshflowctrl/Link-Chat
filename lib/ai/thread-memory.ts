@@ -53,7 +53,7 @@ export async function refreshThreadSummaryIfNeeded(
       content:
         "You maintain a compact memory note for a private dating-app chat (max ~650 characters). " +
         "Third person or neutral. Capture topics, names, plans, preferences, tone — not verbatim dialogue. " +
-        "Match the language of the messages. Output ONLY the updated note, no preamble or quotes.",
+        "Write the note in Dutch. Output ONLY the updated note, no preamble or quotes.",
     },
     {
       role: "user",
