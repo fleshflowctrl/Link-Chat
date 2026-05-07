@@ -18,20 +18,37 @@ function xaiFetchSignal(): AbortSignal {
   return AbortSignal.timeout(XAI_FETCH_TIMEOUT_MS);
 }
 
+export type GrokCompleteOptions = {
+  /** Chat completions + some Responses models; default 0.62 */
+  temperature?: number;
+  maxOutputTokens?: number;
+};
+
 /** Prefer `instructions` for system text; dialogue uses user/assistant only (xAI Responses API). */
-function buildResponsesPayload(model: string, input: GrokInputMessage[]) {
+function buildResponsesPayload(
+  model: string,
+  input: GrokInputMessage[],
+  opts: GrokCompleteOptions,
+) {
   const systemChunks = input
     .filter((m) => m.role === "system")
     .map((m) => m.content.trim())
     .filter(Boolean);
   const dialogue = input.filter((m) => m.role !== "system");
+  const maxOut = Math.min(
+    Math.max(opts.maxOutputTokens ?? 1024, 64),
+    8192,
+  );
   const payload: Record<string, unknown> = {
     model,
-    max_output_tokens: 1024,
+    max_output_tokens: maxOut,
     input: dialogue.length > 0 ? dialogue : input,
   };
   if (systemChunks.length > 0) {
     payload.instructions = systemChunks.join("\n\n");
+  }
+  if (typeof opts.temperature === "number") {
+    payload.temperature = Math.min(2, Math.max(0, opts.temperature));
   }
   return payload;
 }
@@ -40,6 +57,7 @@ async function grokViaResponses(
   key: string,
   model: string,
   input: GrokInputMessage[],
+  opts: GrokCompleteOptions,
 ): Promise<
   | { ok: true; text: string; model: string }
   | { ok: false; error: string; httpStatus?: number }
@@ -50,7 +68,7 @@ async function grokViaResponses(
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
     },
-    body: JSON.stringify(buildResponsesPayload(model, input)),
+    body: JSON.stringify(buildResponsesPayload(model, input, opts)),
     signal: xaiFetchSignal(),
   });
 
@@ -95,6 +113,7 @@ async function grokViaChatCompletions(
   key: string,
   model: string,
   input: GrokInputMessage[],
+  opts: GrokCompleteOptions,
 ): Promise<
   | { ok: true; text: string; model: string }
   | { ok: false; error: string; httpStatus?: number }
@@ -108,7 +127,11 @@ async function grokViaChatCompletions(
     body: JSON.stringify({
       model,
       messages: input,
-      temperature: 0.7,
+      temperature:
+        typeof opts.temperature === "number"
+          ? Math.min(2, Math.max(0, opts.temperature))
+          : 0.62,
+      max_tokens: Math.min(Math.max(opts.maxOutputTokens ?? 1024, 64), 8192),
     }),
     signal: xaiFetchSignal(),
   });
@@ -154,8 +177,16 @@ async function grokViaChatCompletions(
  * Complete a chat turn via xAI. Tries Responses API first, then `/v1/chat/completions`
  * if the first call errors or returns no visible text (common when keys only allow one path).
  */
+function defaultChatTemperature(): number {
+  const raw = process.env.XAI_CHAT_TEMPERATURE?.trim();
+  if (raw === undefined || raw === "") return 0.62;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.min(2, Math.max(0, n)) : 0.62;
+}
+
 export async function grokResponsesComplete(
   input: GrokInputMessage[],
+  options?: GrokCompleteOptions,
 ): Promise<{ ok: true; text: string; model: string } | { ok: false; error: string }> {
   const key = process.env.XAI_API_KEY?.trim();
   if (!key) {
@@ -163,10 +194,15 @@ export async function grokResponsesComplete(
   }
   const model = process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
 
-  const first = await grokViaResponses(key, model, input);
+  const opts: GrokCompleteOptions = {
+    temperature: options?.temperature ?? defaultChatTemperature(),
+    maxOutputTokens: options?.maxOutputTokens,
+  };
+
+  const first = await grokViaResponses(key, model, input, opts);
   if (first.ok) return first;
 
-  const second = await grokViaChatCompletions(key, model, input);
+  const second = await grokViaChatCompletions(key, model, input, opts);
   if (second.ok) return second;
 
   return {

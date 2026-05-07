@@ -5,6 +5,16 @@ import {
   type ChatMessageRow,
   type ChatProfileRow,
 } from "@/lib/chat/map-rows";
+import {
+  AI_CHAT_PROMPT_VERSION,
+  buildGrokSystemPrompt,
+} from "@/lib/ai/build-grok-system-prompt";
+import {
+  RECENT_MESSAGE_COUNT,
+  refreshThreadSummaryIfNeeded,
+  sliceRecentDialogue,
+  type ThreadMemoryRow,
+} from "@/lib/ai/thread-memory";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import { createClient } from "@/utils/supabase/server";
@@ -138,11 +148,57 @@ export async function POST(
   let warning: string | undefined;
 
   if (p.is_ai) {
-    const system = `${p.bio}
+    const t0 = Date.now();
+    let resolvedModel: string | null =
+      process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
 
-Keep replies natural and fairly short (under ~100 words). You are ${p.display_name} in a private dating-app chat.`;
+    const { data: memRow, error: memErr } = await supabase
+      .from("chat_ai_thread_memory")
+      .select("summary, prefix_messages_count")
+      .eq("peer_id", peerId)
+      .eq("owner_user_id", user.id)
+      .maybeSingle();
 
-    const tail = history.slice(-24);
+    if (memErr) {
+      console.warn("[conversations/messages] thread memory select", peerId, memErr.message);
+    }
+
+    const m = memRow as
+      | { summary: string; prefix_messages_count: number }
+      | null
+      | undefined;
+    const prevMemory: ThreadMemoryRow | null =
+      m &&
+      typeof m.summary === "string" &&
+      typeof m.prefix_messages_count === "number"
+        ? { summary: m.summary, prefix_messages_count: m.prefix_messages_count }
+        : null;
+
+    const memory = await refreshThreadSummaryIfNeeded(history, prevMemory);
+
+    const { error: memUpsertErr } = await supabase.from("chat_ai_thread_memory").upsert(
+      {
+        owner_user_id: user.id,
+        peer_id: peerId,
+        summary: memory.summary,
+        prefix_messages_count: memory.prefix_messages_count,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "owner_user_id,peer_id" },
+    );
+
+    if (memUpsertErr) {
+      console.warn("[conversations/messages] thread memory upsert", peerId, memUpsertErr.message);
+    }
+
+    const threadSummaryForPrompt =
+      history.length > RECENT_MESSAGE_COUNT && memory.summary.trim()
+        ? memory.summary.trim()
+        : undefined;
+
+    const system = buildGrokSystemPrompt(p, { threadSummary: threadSummaryForPrompt });
+
+    const tail = sliceRecentDialogue(history);
     const input: GrokInputMessage[] = [
       { role: "system", content: system },
       ...tail.map((r) => ({
@@ -163,9 +219,15 @@ Keep replies natural and fairly short (under ~100 words). You are ${p.display_na
       grok = { ok: false as const, error: msg };
     }
 
+    if (grok.ok) {
+      resolvedModel = grok.model;
+    }
+
     if (!grok.ok) {
       console.error("[conversations/messages] grok failed", peerId, grok.error);
     }
+
+    let assistantRow: ChatMessageRow | null = null;
 
     if (grok.ok) {
       const { data: insertedPeer, error: peIns } = await supabase
@@ -181,12 +243,30 @@ Keep replies natural and fairly short (under ~100 words). You are ${p.display_na
         .single();
 
       if (!peIns && insertedPeer) {
-        peerMessage = messageRowToUi(insertedPeer as ChatMessageRow);
+        assistantRow = insertedPeer as ChatMessageRow;
+        peerMessage = messageRowToUi(assistantRow);
       } else if (peIns) {
         warning = peIns.message;
       }
     } else {
       warning = grok.error;
+    }
+
+    const latencyMs = Date.now() - t0;
+    const { error: logErr } = await supabase.from("ai_chat_turn_logs").insert({
+      owner_user_id: user.id,
+      peer_id: peerId,
+      user_message_id: insertedUser.id,
+      assistant_message_id: assistantRow?.id ?? null,
+      model: resolvedModel,
+      ok: grok.ok,
+      error: grok.ok ? null : grok.error,
+      latency_ms: latencyMs,
+      prompt_version: AI_CHAT_PROMPT_VERSION,
+    });
+
+    if (logErr) {
+      console.warn("[conversations/messages] ai turn log insert", peerId, logErr.message);
     }
   }
 
