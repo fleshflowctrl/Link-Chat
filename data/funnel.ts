@@ -153,6 +153,10 @@ export const FUNNEL_VIBES: VibeOption[] = [
   },
 ];
 
+/** Canonical ids for funnel step 3 + `chat_profiles.vibe_tags` + overlap matching. */
+export const FUNNEL_VIBE_IDS: readonly string[] = FUNNEL_VIBES.map((v) => v.id);
+export const FUNNEL_VIBE_ID_SET = new Set<string>(FUNNEL_VIBE_IDS);
+
 export const FUNNEL_STARTER_MESSAGES: string[] = [
   "Hey 👋",
   "That photo is amazing — where was it taken?",

@@ -5,6 +5,7 @@ import type {
   ProfileStatusVariant,
 } from "@/data/profiles";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
+import { normalizeFunnelVibeTags } from "@/lib/catalog/normalize-funnel-vibe-tags";
 
 const STATUS_VARIANTS = new Set<ProfileStatusVariant>([
   "active",
@@ -82,6 +83,13 @@ export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
   };
 
   const interests = parseInterests(row.interests);
+  const fromDb = (row.vibe_tags ?? []).filter(
+    (t): t is string => typeof t === "string" && t.trim().length > 0,
+  );
+  const vibe =
+    fromDb.length > 0
+      ? normalizeFunnelVibeTags(fromDb)
+      : normalizeFunnelVibeTags(vibesFromInterests(interests));
 
   return {
     id: row.id,
@@ -96,7 +104,7 @@ export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
     bio: row.bio ?? "",
     gallery: galleryForRow(row),
     interests,
-    vibe: vibesFromInterests(interests),
+    vibe,
     distanceKm: 2.5,
     topEmojis: ["✨", "✨"],
     lookingFor:

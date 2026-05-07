@@ -27,6 +27,8 @@ export type ChatProfileRow = {
   status_label?: string | null;
   joined_at?: string | null;
   home_sort?: number | null;
+  /** Funnel step-3 vibe ids; subset of `FUNNEL_VIBES` in `data/funnel.ts`. */
+  vibe_tags?: string[] | null;
 };
 
 export type ChatMessageRow = {
