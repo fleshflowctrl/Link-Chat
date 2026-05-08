@@ -94,8 +94,8 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
 }
 
 /**
- * Full AI catalog for onboarding step 6 (vibe + age matching).
- * Anonymous users get the bundled static list (RLS requires auth for `chat_profiles`).
+ * Full AI catalog for onboarding step 6 (vibe + age + intent matching).
+ * Uses anon session when not signed in; RLS allows `SELECT` on `is_ai` rows only.
  */
 export async function fetchFunnelCatalogProfilesServer(): Promise<{
   profiles: Profile[];
@@ -110,13 +110,6 @@ export async function fetchFunnelCatalogProfilesServer(): Promise<{
     supabase = createClient();
   } catch {
     return { profiles, catalogDegraded: true };
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { profiles, catalogDegraded: false };
   }
 
   const { data: rows, error } = await supabase

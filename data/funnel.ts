@@ -65,6 +65,11 @@ export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
   },
 ];
 
+export const FUNNEL_LOOKING_IDS: readonly FunnelLookingFor[] = FUNNEL_LOOKING_FOR.map(
+  (o) => o.id,
+);
+export const FUNNEL_LOOKING_ID_SET = new Set<string>(FUNNEL_LOOKING_IDS);
+
 export type VibeCategory = "vibes" | "hobbies" | "style";
 
 export type VibeOption = {

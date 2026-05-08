@@ -5,6 +5,7 @@ import type {
   ProfileStatusVariant,
 } from "@/data/profiles";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
+import { normalizeFunnelIntentIds } from "@/lib/catalog/normalize-funnel-intent-ids";
 import { normalizeFunnelVibeTags } from "@/lib/catalog/normalize-funnel-vibe-tags";
 
 const STATUS_VARIANTS = new Set<ProfileStatusVariant>([
@@ -90,6 +91,7 @@ export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
     fromDb.length > 0
       ? normalizeFunnelVibeTags(fromDb)
       : normalizeFunnelVibeTags(vibesFromInterests(interests));
+  const funnelIntentIds = normalizeFunnelIntentIds(row.funnel_intent_ids);
 
   return {
     id: row.id,
@@ -105,6 +107,7 @@ export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
     gallery: galleryForRow(row),
     interests,
     vibe,
+    ...(funnelIntentIds.length ? { funnelIntentIds } : {}),
     distanceKm: 2.5,
     topEmojis: ["✨", "✨"],
     lookingFor:

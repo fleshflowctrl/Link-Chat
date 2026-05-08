@@ -37,6 +37,8 @@ export interface Profile {
   interests: ProfileInterest[];
   /** Funnel / onboarding vibe ids — overlap with user picks drives match %. */
   vibe: string[];
+  /** Funnel step-2 "looking for" ids from catalog — overlap boosts Step 6 match %. */
+  funnelIntentIds?: string[];
   /** km — funnel Step 6 card subtitle. */
   distanceKm: number;
   /** Two glyphs for card footer (fallback when shared-vibe emojis are fewer than 2). */

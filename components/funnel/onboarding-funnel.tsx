@@ -262,8 +262,15 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
   );
 
   const matches = useMemo(
-    () => pickFunnelMatchProfiles(funnelCatalog, vibes, matchAgeMin, matchAgeMax),
-    [funnelCatalog, vibes, matchAgeMin, matchAgeMax],
+    () =>
+      pickFunnelMatchProfiles(
+        funnelCatalog,
+        vibes,
+        lookingFor,
+        matchAgeMin,
+        matchAgeMax,
+      ),
+    [funnelCatalog, vibes, lookingFor, matchAgeMin, matchAgeMax],
   );
 
   const pickedMatch = useMemo(
