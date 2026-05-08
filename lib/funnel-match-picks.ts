@@ -25,9 +25,12 @@ function intentBonus(
   p: Profile,
   userLookingFor: FunnelLookingFor | null,
 ): number {
-  if (!userLookingFor || userLookingFor === "notsure") return 0;
+  if (!userLookingFor) return 0;
   const ids = p.funnelIntentIds;
   if (!ids?.length) return 0;
+  if (userLookingFor === "notsure") {
+    return ids.includes("notsure") ? 5 : 0;
+  }
   return ids.includes(userLookingFor) ? 5 : 0;
 }
 
@@ -46,7 +49,8 @@ function scoreProfile(
 
 /**
  * Up to 10 catalog profiles for onboarding Step 6 — age filter + vibe overlap +
- * small boost when the user’s “looking for” overlaps `funnelIntentIds` on the row.
+ * small boost when the user’s “looking for” overlaps `funnelIntentIds` on the row
+ * (including `notsure` ↔ `notsure` when the persona lists it).
  *
  * @param catalog — Prefer `chat_profiles` via `fetchFunnelCatalogProfilesServer()`; falls back to bundled static list when empty.
  */

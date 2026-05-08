@@ -32,17 +32,19 @@ function parseStatusVariant(raw: string | null | undefined): ProfileStatusVarian
   return "active";
 }
 
+/** Maps interest pill icons to `FUNNEL_VIBES` ids (warm/listener are UI-only). */
 const ICON_TO_VIBE: Record<ProfileInterestIcon, string> = {
   caring: "caring",
   romantic: "romantic",
   playful: "playful",
-  warm: "warm",
-  listener: "listener",
+  warm: "chill",
+  listener: "caring",
 };
 
 function vibesFromInterests(interests: ProfileInterest[]): string[] {
   const ids = interests.map((i) => ICON_TO_VIBE[i.icon]).filter(Boolean);
-  return Array.from(new Set(ids.length ? ids : ["warm", "listener"]));
+  const raw = ids.length ? ids : (["chill", "playful"] as const);
+  return Array.from(new Set(raw));
 }
 
 function parseInterests(raw: unknown): ProfileInterest[] {
