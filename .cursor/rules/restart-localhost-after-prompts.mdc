@@ -1,0 +1,14 @@
+---
+description: Herstart Next dev server na afgeronde taken of op verzoek
+alwaysApply: true
+---
+
+# Localhost (Next dev) herstarten
+
+Aan het **einde van een beantwoorde prompt** waarbij je code of projectconfig hebt aangepast, of wanneer de gebruiker expliciet localhost / dev server noemt:
+
+1. Beëindig wat op poort **3000** draait: `lsof -ti:3000 | xargs kill -9` (negeer fouten als poort leeg is).
+2. Start opnieuw vanaf de projectroot: `npm run dev` (achtergrond / `block_until_ms: 0`), met netwerkrechten indien nodig.
+3. Bevestig kort dat **http://localhost:3000** weer draait (eventueel `Ready` uit de terminaloutput).
+
+**Uitzondering:** bij een puur informatief antwoord **zonder** bestands- of terminalwijzigingen hoeft de server niet opnieuw gestart.
