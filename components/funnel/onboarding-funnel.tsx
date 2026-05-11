@@ -31,6 +31,7 @@ import {
   FUNNEL_LOOKING_FOR,
   FUNNEL_SESSION_KEY,
   FUNNEL_STARTER_MESSAGES,
+  FUNNEL_VIBE_ID_SET,
   FUNNEL_VIBES,
   ONBOARDED_KEY,
   type FunnelAgeRange,
@@ -198,6 +199,24 @@ const defaultPersist = (): FunnelPersist => ({
   firstMessage: "",
 });
 
+/** Funnel step 3 — min / max vibe selections. */
+const FUNNEL_VIBES_MIN = 1;
+const FUNNEL_VIBES_MAX = 5;
+
+function normalizeVibesFromSession(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of raw) {
+    if (typeof id !== "string" || !FUNNEL_VIBE_ID_SET.has(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= FUNNEL_VIBES_MAX) break;
+  }
+  return out;
+}
+
 function loadSession(): FunnelPersist | null {
   if (typeof window === "undefined") return null;
   try {
@@ -221,6 +240,7 @@ function loadSession(): FunnelPersist | null {
       ageRange,
       basics,
       firstContact,
+      vibes: normalizeVibesFromSession(p.vibes),
       step: Math.min(STEP_TOTAL, Math.max(1, Number(p.step) || 1)),
     };
   } catch {
@@ -869,16 +889,17 @@ function StepVibes({
   const toggle = (id: string) => {
     setVibes((prev) => {
       const adding = !prev.includes(id);
-      const next = adding ? [...prev, id] : prev.filter((x) => x !== id);
-      if (adding && next.length === 8) {
+      if (!adding) return prev.filter((x) => x !== id);
+      if (prev.length >= FUNNEL_VIBES_MAX) {
         if (toastTimer.current != null) window.clearTimeout(toastTimer.current);
-        setToast("Up to 8 keeps your matches sharp");
+        setToast(`You can pick up to ${FUNNEL_VIBES_MAX} vibes`);
         toastTimer.current = window.setTimeout(() => {
           setToast(null);
           toastTimer.current = null;
         }, 2600);
+        return prev;
       }
-      return next;
+      return [...prev, id];
     });
   };
 
@@ -889,7 +910,7 @@ function StepVibes({
   }, []);
 
   const n = vibes.length;
-  const ok = n >= 3;
+  const ok = n >= FUNNEL_VIBES_MIN && n <= FUNNEL_VIBES_MAX;
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
@@ -899,7 +920,7 @@ function StepVibes({
           <span className="block">vibe?</span>
         </h2>
         <p className="mt-1 text-[13px] leading-snug text-gray-600">
-          Pick the ones that feel like you.
+          Pick {FUNNEL_VIBES_MIN}–{FUNNEL_VIBES_MAX} that feel like you.
         </p>
       </div>
 
@@ -960,7 +981,7 @@ function StepVibes({
               : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
-          Continue · {n} picked
+          Continue{n > 0 ? ` · ${n} picked` : ""}
         </button>
       </div>
 
