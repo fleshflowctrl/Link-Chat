@@ -1481,9 +1481,6 @@ function StepPickMatch({
         >
           Send first message →
         </button>
-        <p className="mt-1.5 text-center text-[10px] text-gray-500 sm:text-[11px]">
-          Don&apos;t worry — you can browse everyone after.
-        </p>
         <button
           type="button"
           onClick={onSkip}
