@@ -164,10 +164,10 @@ export const FUNNEL_VIBE_ID_SET = new Set<string>(FUNNEL_VIBE_IDS);
 
 /** Generic fallbacks (each ≥10 chars for first-message step validation). */
 export const FUNNEL_STARTER_MESSAGES: string[] = [
-  "That photo caught my eye — what were you up to when it was taken?",
-  "What does a perfect slow Sunday look like for you?",
-  "Coffee shop or long walk — which would you pick for a first hangout?",
-  "What's something small that's been making you happy lately?",
+  "Hey! Your photo made me smile — what's the story behind it?",
+  "Hi :) what's something small that's been good about your week?",
+  "Random one: are you more sunrise energy or sunset energy?",
+  "Hey — if we grabbed a drink, what would you want to talk about first?",
 ];
 
 const STARTER_LINE_MIN = 10;
@@ -177,46 +177,46 @@ const LOOKING_FOR_STARTERS: Record<
   readonly [string, string]
 > = {
   chatting: [
-    "What's been the highlight of your week, even if it was something tiny?",
-    "I'm curious — what's a fun rabbit hole you've gone down on the internet lately?",
+    "Hey! What kind of mood are you in for chatting today — silly, deep, or a mix?",
+    "Hi :) what's something tiny that's made you laugh lately?",
   ],
   friends: [
-    "If we grabbed a coffee in your neighborhood, what's one thing you'd want to talk about first?",
-    "What's your favorite low-pressure way to get to know someone new?",
+    "Hey! I'd love to get to know you — what's been filling your evenings lately?",
+    "Hi — what's something you're into that you'd actually want to talk about with someone new?",
   ],
   meaningful: [
-    "What helps you feel genuinely heard when you're opening up to someone?",
-    "What's something you're into lately that you'd love to go a little deeper on?",
+    "Hey :) I like real conversation — what's something you're into lately that you'd want to share?",
+    "Hi! What's been on your mind lately, good or weird?",
   ],
   casual: [
-    "What's your ideal chill night in — snacks, a show, or something else entirely?",
-    "Silly but important: are you team sweet breakfast or savory breakfast?",
+    "Hey! What's your idea of a fun low-pressure hangout?",
+    "Hi — important first question: best snack for a lazy night in?",
   ],
   notsure: [
-    "What are you quietly hoping to find here — totally fine if you're still figuring it out!",
-    "What's one thing you're looking forward to in the next couple of weeks?",
+    "Hey! What brought you here — still figuring it out is totally fine btw.",
+    "Hi :) what would make chatting with someone new feel worth it for you?",
   ],
 };
 
 const VIBE_STARTERS: Record<string, string> = {
   caring:
-    "You seem warm — what's a small kindness someone showed you recently that stuck with you?",
+    "Hey — you give kind energy. How's your day been so far, honestly?",
   romantic:
-    "I'm a sucker for good stories — what's a moment from your life that still feels cinematic?",
+    "Hi :) what's a little romantic cliché you secretly love?",
   playful:
-    "Quick game: two truths and a lie — want to drop yours and I'll guess?",
+    "Okay I need this: two truths and a lie — you go first?",
   witty:
-    "What's a joke, meme, or hot take that's been living in your head rent-free lately?",
+    "Hit me with a tiny hot take — something you defend way too hard?",
   chill:
-    "How do you like to reset after a busy day — music, a walk, or full couch mode?",
+    "Hey! More walks-and-music chill or blanket-and-show chill?",
   coffee:
-    "Oat latte, flat white, or something else — and what's your go-to café order ritual?",
+    "Hey — what's your coffee order? I need to know where we stand.",
   travel:
-    "What's the last place you visited that you'd go back to in a heartbeat, and why?",
+    "Hi! Last trip you loved, or a dream trip if you're between travels?",
   movies:
-    "What movie do you put on when you need comfort food for the soul?",
+    "Hey — comfort rewatch you put on when you need a soft reset?",
   gym:
-    "Morning workout or evening gym — which camp are you in, and what keeps you consistent?",
+    "Hi! Morning gym or after work — and do you love it or just get it done?",
 };
 
 /**
