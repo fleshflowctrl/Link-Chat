@@ -332,25 +332,30 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
 
   const goBack = useCallback(() => {
     setNavDir(-1);
-    setStep((s) => Math.max(1, s - 1));
-  }, []);
+    setStep((s) => {
+      if (s === 8 && !firstContact.profileId) {
+        return 6;
+      }
+      return Math.max(1, s - 1);
+    });
+  }, [firstContact.profileId]);
 
   const progress = (step / STEP_TOTAL) * 100;
 
-  const skipOnboarding = useCallback(() => {
-    try {
-      localStorage.setItem(ONBOARDED_KEY, "true");
-      sessionStorage.removeItem(FUNNEL_SESSION_KEY);
-    } catch {
-      /* ignore */
-    }
-    router.replace("/discover");
-  }, [router]);
+  const skipFirstLink = useCallback(() => {
+    setNavDir(1);
+    setFirstContact({ profileId: null });
+    setFirstMessage("");
+    setStep(8);
+  }, []);
 
   const completeFunnel = useCallback(
     (via: "google" | "apple" | "email") => {
       const pid = firstContact.profileId;
-      if (!pid || !pickedMatch) return;
+      const msgTrim = firstMessage.trim();
+      const didFirstMessage = Boolean(
+        pid && pickedMatch && msgTrim.length >= 10,
+      );
       const ageNum = basics.age;
       const nameTrim = firstWordName(basics.name) || basics.name.trim();
       if (!nameTrim || ageNum === null || !Number.isFinite(ageNum) || ageNum < 18) return;
@@ -369,7 +374,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       }
       const credits = prevCredits + 15;
 
-      const payload: WhisperUserLocal = {
+      const basePayload = {
         name: nameTrim,
         age: ageNum,
         location: basics.location.trim() || "London, UK",
@@ -377,31 +382,40 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         vibe: vibes,
         ageRange,
         lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
-        pickedMatchId: pid,
-        firstMessage: firstMessage.trim(),
         credits,
-      };
+      } satisfies Omit<WhisperUserLocal, "pickedMatchId" | "firstMessage">;
 
-      appendOnboardingOutboundToMockThread(pid, firstMessage.trim());
+      const payload: WhisperUserLocal = didFirstMessage
+        ? {
+            ...basePayload,
+            pickedMatchId: pid!,
+            firstMessage: msgTrim,
+          }
+        : { ...basePayload };
 
-      const meta = getThreadMeta(pid);
-      const sentAt = new Date().toISOString();
-      setThreadPreview(pid, {
-        lastMessage: firstMessage.trim(),
-        timestampLabel: "now",
-        lastActivityAt: sentAt,
-        name: meta.name,
-        avatarUrl: meta.avatarUrl,
-        verified: meta.verified,
-        showOnlineDot: meta.onlineNow,
-        unreadCount: 1,
-      });
+      if (didFirstMessage && pid && pickedMatch) {
+        appendOnboardingOutboundToMockThread(pid, msgTrim);
+        const meta = getThreadMeta(pid);
+        const sentAt = new Date().toISOString();
+        setThreadPreview(pid, {
+          lastMessage: msgTrim,
+          timestampLabel: "now",
+          lastActivityAt: sentAt,
+          name: meta.name,
+          avatarUrl: meta.avatarUrl,
+          verified: meta.verified,
+          showOnlineDot: meta.onlineNow,
+          unreadCount: 1,
+        });
+      }
 
       localStorage.setItem(WHISPER_USER_KEY, JSON.stringify({ ...payload, signupVia: via }));
       localStorage.setItem(ONBOARDED_KEY, "true");
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
 
-      const toast = `Message sent to ${pickedMatch.name} ✨`;
+      const toast = didFirstMessage
+        ? `Message sent to ${pickedMatch!.name} ✨`
+        : "You're in — welcome to whisper ✨";
       sessionStorage.setItem("whisper_discover_toast", toast);
 
       router.push("/discover");
@@ -457,17 +471,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                 />
               </div>
             </div>
-            <div className="flex w-[4.5rem] shrink-0 flex-col items-end gap-0.5 text-right">
-              <button
-                type="button"
-                onClick={skipOnboarding}
-                className="text-[10px] font-semibold text-[#7C5CFF] underline-offset-2 transition hover:underline active:scale-95"
-              >
-                Skip
-              </button>
-              <span className="text-[10px] font-medium text-gray-500">
-                {step} / {STEP_TOTAL}
-              </span>
+            <div className="w-9 shrink-0 text-right text-[10px] font-medium text-gray-500">
+              {step} / {STEP_TOTAL}
             </div>
           </header>
         )}
@@ -484,9 +489,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
               className="absolute inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none"
             >
-              {step === 1 && (
-                <StepWelcome onStart={goNext} onSkip={skipOnboarding} />
-              )}
+              {step === 1 && <StepWelcome onStart={goNext} />}
               {step === 2 && (
                 <StepLookingFor
                   selected={lookingFor}
@@ -521,6 +524,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                   selectedId={firstContact.profileId}
                   onSelect={(id) => setFirstContact({ profileId: id })}
                   onContinue={goNext}
+                  onSkip={skipFirstLink}
                 />
               )}
               {step === 7 && (
@@ -573,13 +577,7 @@ const WELCOME_CARD_SLOTS = [
   },
 ] as const;
 
-function StepWelcome({
-  onStart,
-  onSkip,
-}: {
-  onStart: () => void;
-  onSkip: () => void;
-}) {
+function StepWelcome({ onStart }: { onStart: () => void }) {
   const countMv = useMotionValue(0);
   const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
@@ -778,16 +776,6 @@ function StepWelcome({
           >
             Log in
           </Link>
-        </p>
-
-        <p className="mt-1 text-center">
-          <button
-            type="button"
-            onClick={onSkip}
-            className="text-[11px] font-medium text-gray-500 underline-offset-2 transition hover:text-gray-700 hover:underline active:scale-95"
-          >
-            Skip for now — go to Discover
-          </button>
         </p>
       </div>
     </div>
@@ -1371,12 +1359,14 @@ function StepPickMatch({
   selectedId,
   onSelect,
   onContinue,
+  onSkip,
 }: {
   matches: FunnelMatchPick[];
   userVibes: string[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onContinue: () => void;
+  onSkip: () => void;
 }) {
   const ok = Boolean(selectedId);
   const n = matches.length;
@@ -1494,6 +1484,13 @@ function StepPickMatch({
         <p className="mt-1.5 text-center text-[10px] text-gray-500 sm:text-[11px]">
           Don&apos;t worry — you can browse everyone after.
         </p>
+        <button
+          type="button"
+          onClick={onSkip}
+          className="mt-2 w-full py-2 text-center text-[13px] font-semibold text-[#7C5CFF] transition active:scale-[0.98] active:opacity-80"
+        >
+          Skip — I&apos;ll message later
+        </button>
       </div>
     </div>
   );
@@ -1620,6 +1617,7 @@ function StepCreateAccount({
   const formOk = emailOk && passOk;
 
   const preview = firstMessage.trim();
+  const hasOutreach = Boolean(peer && preview.length > 0);
   const quoted =
     preview.length > 0
       ? preview.length > 120
@@ -1634,7 +1632,9 @@ function StepCreateAccount({
           Almost there <span className="text-amber-400">✨</span>
         </h2>
         <p className="mt-0.5 shrink-0 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
-          Save your profile + send your first message.
+          {hasOutreach
+            ? "Save your profile + send your first message."
+            : "Save your profile — you can message anyone from Discover."}
         </p>
 
         <div className="flex min-h-0 flex-1 flex-col justify-center gap-y-[clamp(0.35rem,1.5vmin,0.75rem)] overflow-hidden py-1">
@@ -1656,25 +1656,29 @@ function StepCreateAccount({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-gray-200 text-[10px] font-bold text-gray-500">
-                      ?
+                    <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#7C5CFF]/20 to-[#9B7BFF]/30 text-lg" aria-hidden>
+                      ✨
                     </span>
                   )}
                 </span>
-                <span
-                  className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 sm:h-3 sm:w-3"
-                  aria-hidden
-                />
+                {peer ? (
+                  <span
+                    className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 sm:h-3 sm:w-3"
+                    aria-hidden
+                  />
+                ) : null}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-bold uppercase tracking-wider text-[#7C5CFF] sm:text-[10px]">
-                  READY TO SEND
+                  {hasOutreach ? "READY TO SEND" : "YOUR PROFILE"}
                 </p>
                 <p className="mt-0.5 truncate text-[clamp(11px,3vmin,13px)] font-semibold text-gray-900">
-                  {quoted}
+                  {hasOutreach ? quoted : "Browse profiles and start a chat when you’re ready."}
                 </p>
                 <p className="mt-0.5 text-[9px] text-gray-500 sm:text-[10px]">
-                  → to {peer?.name ?? "…"} · online now
+                  {hasOutreach && peer
+                    ? `→ to ${peer.name} · online now`
+                    : "No first message queued — totally fine."}
                 </p>
               </div>
             </div>
@@ -1682,12 +1686,21 @@ function StepCreateAccount({
             <div className="relative my-2 border-t border-white/60 sm:my-3" />
 
             <div className="relative space-y-1 sm:space-y-1.5">
-              <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
-                  ✓
-                </span>
-                <span>Send your first message instantly</span>
-              </div>
+              {hasOutreach ? (
+                <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                    ✓
+                  </span>
+                  <span>Send your first message instantly</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                    ✓
+                  </span>
+                  <span>Discover people matched to your vibe</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
                   ✓
@@ -1768,7 +1781,7 @@ function StepCreateAccount({
               : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
-          Create account & send →
+          {hasOutreach ? "Create account & send →" : "Create account →"}
         </button>
         <p className="mt-2 text-center text-[11px] leading-snug text-gray-500">
           By continuing you agree to our{" "}

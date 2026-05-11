@@ -202,8 +202,9 @@ export type WhisperUserLocal = {
   vibe: string[];
   ageRange: FunnelAgeRange;
   lookingFor: FunnelLookingFor;
-  pickedMatchId: string;
-  firstMessage: string;
+  /** Present when the user completed the “first link” path; omitted if they skipped step 6–7. */
+  pickedMatchId?: string | null;
+  firstMessage?: string;
   /** Set after onboarding; merged on repeat completions. */
   credits?: number;
 };
