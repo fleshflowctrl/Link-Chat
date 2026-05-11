@@ -30,9 +30,9 @@ import {
 import {
   FUNNEL_LOOKING_FOR,
   FUNNEL_SESSION_KEY,
-  FUNNEL_STARTER_MESSAGES,
   FUNNEL_VIBE_ID_SET,
   FUNNEL_VIBES,
+  getPersonalizedFirstMessageStarters,
   ONBOARDED_KEY,
   type FunnelAgeRange,
   type FunnelBasics,
@@ -550,6 +550,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
               {step === 7 && (
                 <StepFirstMessage
                   peer={pickedMatch}
+                  lookingFor={lookingFor}
+                  vibes={vibes}
                   value={firstMessage}
                   onChange={setFirstMessage}
                   onContinue={goNext}
@@ -1516,17 +1518,26 @@ function StepPickMatch({
 
 function StepFirstMessage({
   peer,
+  lookingFor,
+  vibes,
   value,
   onChange,
   onContinue,
 }: {
   peer: FunnelMatchPick | null;
+  lookingFor: FunnelLookingFor | null;
+  vibes: string[];
   value: string;
   onChange: (s: string) => void;
   onContinue: () => void;
 }) {
   const ok = value.trim().length >= 10;
   const len = value.length;
+
+  const starterChips = useMemo(
+    () => getPersonalizedFirstMessageStarters(lookingFor, vibes),
+    [lookingFor, vibes],
+  );
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
@@ -1547,12 +1558,12 @@ function StepFirstMessage({
       </p>
       <div className="flex min-h-0 flex-1 flex-col gap-y-2 overflow-hidden px-5 pb-2 pt-2">
         <div className="flex max-h-[32%] min-h-0 shrink-0 flex-wrap content-start gap-1.5 overflow-hidden">
-          {FUNNEL_STARTER_MESSAGES.map((chip) => (
+          {starterChips.map((chip) => (
             <button
               key={chip}
               type="button"
               onClick={() => onChange(chip)}
-              className="rounded-full bg-white px-2.5 py-1.5 text-[clamp(10px,2.7vmin,12px)] font-semibold text-gray-800 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95 sm:px-3 sm:py-2"
+              className="rounded-full bg-white px-2.5 py-1.5 text-left text-[clamp(10px,2.7vmin,12px)] font-semibold leading-snug text-gray-800 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95 sm:px-3 sm:py-2"
             >
               {chip}
             </button>

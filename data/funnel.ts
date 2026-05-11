@@ -162,12 +162,101 @@ export const FUNNEL_VIBES: VibeOption[] = [
 export const FUNNEL_VIBE_IDS: readonly string[] = FUNNEL_VIBES.map((v) => v.id);
 export const FUNNEL_VIBE_ID_SET = new Set<string>(FUNNEL_VIBE_IDS);
 
+/** Generic fallbacks (each ≥10 chars for first-message step validation). */
 export const FUNNEL_STARTER_MESSAGES: string[] = [
-  "Hey 👋",
-  "That photo is amazing — where was it taken?",
-  "What's your perfect Sunday?",
-  "Coffee or tea? It matters.",
+  "That photo caught my eye — what were you up to when it was taken?",
+  "What does a perfect slow Sunday look like for you?",
+  "Coffee shop or long walk — which would you pick for a first hangout?",
+  "What's something small that's been making you happy lately?",
 ];
+
+const STARTER_LINE_MIN = 10;
+
+const LOOKING_FOR_STARTERS: Record<
+  FunnelLookingFor,
+  readonly [string, string]
+> = {
+  chatting: [
+    "What's been the highlight of your week, even if it was something tiny?",
+    "I'm curious — what's a fun rabbit hole you've gone down on the internet lately?",
+  ],
+  friends: [
+    "If we grabbed a coffee in your neighborhood, what's one thing you'd want to talk about first?",
+    "What's your favorite low-pressure way to get to know someone new?",
+  ],
+  meaningful: [
+    "What helps you feel genuinely heard when you're opening up to someone?",
+    "What's something you're into lately that you'd love to go a little deeper on?",
+  ],
+  casual: [
+    "What's your ideal chill night in — snacks, a show, or something else entirely?",
+    "Silly but important: are you team sweet breakfast or savory breakfast?",
+  ],
+  notsure: [
+    "What are you quietly hoping to find here — totally fine if you're still figuring it out!",
+    "What's one thing you're looking forward to in the next couple of weeks?",
+  ],
+};
+
+const VIBE_STARTERS: Record<string, string> = {
+  caring:
+    "You seem warm — what's a small kindness someone showed you recently that stuck with you?",
+  romantic:
+    "I'm a sucker for good stories — what's a moment from your life that still feels cinematic?",
+  playful:
+    "Quick game: two truths and a lie — want to drop yours and I'll guess?",
+  witty:
+    "What's a joke, meme, or hot take that's been living in your head rent-free lately?",
+  chill:
+    "How do you like to reset after a busy day — music, a walk, or full couch mode?",
+  coffee:
+    "Oat latte, flat white, or something else — and what's your go-to café order ritual?",
+  travel:
+    "What's the last place you visited that you'd go back to in a heartbeat, and why?",
+  movies:
+    "What movie do you put on when you need comfort food for the soul?",
+  gym:
+    "Morning workout or evening gym — which camp are you in, and what keeps you consistent?",
+};
+
+/**
+ * Four tappable first-message suggestions for funnel step 7, ordered from
+ * “what brings you here?” then selected vibes, then generic fallbacks.
+ */
+export function getPersonalizedFirstMessageStarters(
+  lookingFor: FunnelLookingFor | null,
+  vibeIds: string[],
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  const push = (raw: string) => {
+    const t = raw.trim();
+    if (t.length < STARTER_LINE_MIN || seen.has(t)) return;
+    seen.add(t);
+    out.push(t);
+  };
+
+  if (lookingFor && LOOKING_FOR_STARTERS[lookingFor]) {
+    for (const line of LOOKING_FOR_STARTERS[lookingFor]) {
+      push(line);
+      if (out.length >= 4) return out.slice(0, 4);
+    }
+  }
+
+  for (const id of vibeIds) {
+    const line = VIBE_STARTERS[id];
+    if (line) push(line);
+    if (out.length >= 4) return out.slice(0, 4);
+  }
+
+  for (const line of FUNNEL_STARTER_MESSAGES) {
+    push(line);
+    if (out.length >= 4) break;
+  }
+
+  return out.slice(0, 4);
+}
 
 export const FUNNEL_SESSION_KEY = "whisper_funnel_session";
 export const ONBOARDED_KEY = "whisper_onboarded";
