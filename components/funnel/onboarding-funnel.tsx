@@ -427,18 +427,16 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       <div className="relative flex h-full min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)] touch-manipulation">
         {step > 1 && (
           <header className="z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
-            {step < 8 ? (
-              <div className="flex w-8 shrink-0 items-center justify-center">
-                <button
-                  type="button"
-                  onClick={goBack}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95"
-                  aria-label="Back"
-                >
-                  <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.2} />
-                </button>
-              </div>
-            ) : null}
+            <div className="flex w-8 shrink-0 items-center justify-center">
+              <button
+                type="button"
+                onClick={goBack}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95"
+                aria-label="Back"
+              >
+                <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.2} />
+              </button>
+            </div>
             <div className="min-w-0 flex-1">
               <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
                 <motion.div

@@ -44,7 +44,14 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) {
+    const { getNewWhisperUsers } = await import("@/data/newUsers");
+    return {
+      gridProfiles: homeGridProfiles,
+      activityUsers: getNewWhisperUsers(),
+      catalogDegraded: false,
+    };
+  }
 
   const { data: rows, error: gridError } = await supabase
     .from("chat_profiles")
