@@ -337,6 +337,16 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
 
   const progress = (step / STEP_TOTAL) * 100;
 
+  const skipOnboarding = useCallback(() => {
+    try {
+      localStorage.setItem(ONBOARDED_KEY, "true");
+      sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+    router.replace("/discover");
+  }, [router]);
+
   const completeFunnel = useCallback(
     (via: "google" | "apple" | "email") => {
       const pid = firstContact.profileId;
@@ -447,8 +457,17 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                 />
               </div>
             </div>
-            <div className="w-9 shrink-0 text-right text-[10px] font-medium text-gray-500">
-              {step} / {STEP_TOTAL}
+            <div className="flex w-[4.5rem] shrink-0 flex-col items-end gap-0.5 text-right">
+              <button
+                type="button"
+                onClick={skipOnboarding}
+                className="text-[10px] font-semibold text-[#7C5CFF] underline-offset-2 transition hover:underline active:scale-95"
+              >
+                Skip
+              </button>
+              <span className="text-[10px] font-medium text-gray-500">
+                {step} / {STEP_TOTAL}
+              </span>
             </div>
           </header>
         )}
@@ -465,7 +484,9 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
               className="absolute inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none"
             >
-              {step === 1 && <StepWelcome onStart={goNext} />}
+              {step === 1 && (
+                <StepWelcome onStart={goNext} onSkip={skipOnboarding} />
+              )}
               {step === 2 && (
                 <StepLookingFor
                   selected={lookingFor}
@@ -552,7 +573,13 @@ const WELCOME_CARD_SLOTS = [
   },
 ] as const;
 
-function StepWelcome({ onStart }: { onStart: () => void }) {
+function StepWelcome({
+  onStart,
+  onSkip,
+}: {
+  onStart: () => void;
+  onSkip: () => void;
+}) {
   const countMv = useMotionValue(0);
   const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
@@ -751,6 +778,16 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
           >
             Log in
           </Link>
+        </p>
+
+        <p className="mt-1 text-center">
+          <button
+            type="button"
+            onClick={onSkip}
+            className="text-[11px] font-medium text-gray-500 underline-offset-2 transition hover:text-gray-700 hover:underline active:scale-95"
+          >
+            Skip for now — go to Discover
+          </button>
         </p>
       </div>
     </div>
