@@ -1356,8 +1356,8 @@ function StepPickMatch({
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 px-5 pb-1 pt-2">
-        <div className="grid h-full min-h-0 w-full grid-cols-2 grid-rows-5 gap-[clamp(3px,1vmin,8px)]">
+      <div className="min-h-0 flex-1 overflow-hidden px-5 pb-1 pt-2">
+        <div className="grid h-full min-h-0 auto-rows-min grid-cols-2 gap-2 overflow-y-auto overscroll-y-contain pb-1 [-webkit-overflow-scrolling:touch]">
           {matches.map((p) => {
             const sel = selectedId === p.id;
             const [e1, e2] = cardFooterEmojis(p, userVibes);
@@ -1367,8 +1367,10 @@ function StepPickMatch({
                 type="button"
                 aria-pressed={sel}
                 onClick={() => onSelect(p.id)}
-                className={`relative min-h-0 w-full min-w-0 overflow-hidden rounded-2xl text-left shadow-sm ring-2 transition active:scale-[0.98] ${
-                  sel ? "ring-[#7C5CFF]" : "ring-transparent"
+                className={`group relative aspect-[3/4] w-full min-w-0 overflow-hidden rounded-2xl text-left shadow-md ring-2 transition active:scale-[0.98] ${
+                  sel
+                    ? "ring-[#7C5CFF] ring-offset-2 ring-offset-[#F5F3EE]"
+                    : "ring-black/[0.06] ring-offset-0"
                 }`}
               >
                 <div className="absolute inset-0 bg-gray-200">
@@ -1376,30 +1378,43 @@ function StepPickMatch({
                     src={p.photo}
                     alt=""
                     fill
-                    className="object-cover"
-                    sizes="(max-width: 430px) 45vw, 200px"
+                    className="object-cover object-[center_22%]"
+                    sizes="(max-width: 430px) 46vw, 210px"
+                    quality={90}
                   />
                 </div>
 
-                {sel ? (
-                  <div className="absolute inset-0 z-[15] bg-[#7C5CFF]/35" />
-                ) : (
-                  <div className="absolute inset-0 z-[15] bg-gradient-to-t from-black/85 to-transparent" />
-                )}
-
-                <span className="absolute left-1.5 top-1.5 z-20 flex items-center gap-0.5 rounded-full bg-white/90 px-1 py-0.5 text-[9px] font-extrabold text-pink-600 backdrop-blur-sm sm:left-2 sm:top-2 sm:px-1.5 sm:py-0.5 sm:text-[10px]">
-                  ✨{p.matchPercent}%
-                </span>
-                <span
-                  className="absolute right-1.5 top-1.5 z-20 h-2 w-2 rounded-full bg-green-400 ring-2 ring-white sm:right-2 sm:top-2 sm:h-2.5 sm:w-2.5"
+                {/* Light top vignette so badges read; keep face area clear */}
+                <div
+                  className="pointer-events-none absolute inset-0 z-[10] bg-gradient-to-b from-black/25 via-transparent to-transparent"
+                  aria-hidden
+                />
+                {/* Strong scrim only in lower third for name line */}
+                <div
+                  className="pointer-events-none absolute inset-x-0 bottom-0 top-[52%] z-[12] bg-gradient-to-t from-black/78 via-black/35 to-transparent"
                   aria-hidden
                 />
 
-                <div className="absolute inset-x-0 bottom-0 z-30 px-1.5 pb-1.5 pt-6 text-white sm:px-2.5 sm:pb-2.5 sm:pt-10">
-                  <p className="truncate text-[clamp(10px,2.8vmin,13px)] font-extrabold leading-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
+                {sel ? (
+                  <div
+                    className="pointer-events-none absolute inset-0 z-[14] ring-2 ring-inset ring-[#7C5CFF]/90"
+                    aria-hidden
+                  />
+                ) : null}
+
+                <span className="absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-full bg-white/95 px-1.5 py-0.5 text-[10px] font-extrabold text-pink-600 shadow-sm ring-1 ring-black/[0.06] backdrop-blur-sm sm:text-[11px]">
+                  ✨{p.matchPercent}%
+                </span>
+                <span
+                  className="absolute right-2 top-2 z-20 h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-sm ring-2 ring-white"
+                  aria-hidden
+                />
+
+                <div className="absolute inset-x-0 bottom-0 z-30 px-2 pb-2 pt-4 text-white sm:px-2.5 sm:pb-2.5 sm:pt-5">
+                  <p className="truncate text-[11px] font-extrabold leading-tight drop-shadow-md sm:text-[12px]">
                     {p.name}, {p.age}
                   </p>
-                  <p className="mt-0.5 truncate text-[clamp(8px,2.2vmin,10px)] font-medium leading-tight text-white/90 opacity-90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.75)]">
+                  <p className="mt-0.5 truncate text-[9px] font-semibold leading-tight text-white/95 drop-shadow sm:text-[10px]">
                     {formatKm(p.distanceKm)} · {e1} {e2}
                   </p>
                 </div>
@@ -1412,9 +1427,9 @@ function StepPickMatch({
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{ duration: 0.2, ease: "easeOut" }}
-                      className="absolute inset-0 z-[40] flex items-center justify-center"
+                      className="absolute inset-0 z-[40] flex items-center justify-center bg-[#7C5CFF]/10"
                     >
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg font-extrabold text-[#7C5CFF] shadow-xl sm:h-12 sm:w-12 sm:text-xl">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-base font-extrabold text-[#7C5CFF] shadow-lg ring-2 ring-[#7C5CFF]/25 sm:h-11 sm:w-11 sm:text-lg">
                         ✓
                       </div>
                     </motion.div>
