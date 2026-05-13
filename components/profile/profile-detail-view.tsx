@@ -90,7 +90,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
             >
               <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
             </button>
-            <span className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+            <span className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white/25">
               {profile.lastActive}
             </span>
           </div>
@@ -115,7 +115,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
         </div>
 
         {/* bottom name / city overlay */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pb-6">
+        <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pb-14">
           <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
             <h1 className="min-w-0 text-[1.9rem] font-bold leading-tight tracking-tight text-white drop-shadow-md">
               {profile.name}, {profile.age}
@@ -135,7 +135,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
         </div>
       </div>
 
-      <div className="relative z-10 -mt-8 rounded-t-[1.5rem] bg-canvas px-4 pb-6 pt-5 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
+      <div className="relative z-10 -mt-5 rounded-t-[1.5rem] bg-canvas px-4 pb-6 pt-5 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
 
         <button
           type="button"
