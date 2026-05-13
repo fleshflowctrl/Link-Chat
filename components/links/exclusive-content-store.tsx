@@ -361,16 +361,18 @@ export function ExclusiveContentStore() {
     : contentSets.filter((s) => s.category === activeFilter);
 
   return (
-    <section className="px-5 pb-8 pt-2">
-      {/* header */}
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <section className="px-5 pb-8 pt-1">
+      {/* page header */}
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-[18px] font-extrabold text-gray-900">Exclusieve content</h2>
-          <p className="text-[12px] text-gray-500">Ontgrendel met sprankels</p>
+          <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
+            Exclusief
+          </h1>
+          <p className="mt-0.5 text-[13px] text-gray-500">Ontgrendel met sprankels</p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 shadow-sm ring-1 ring-black/[0.06]">
+        <div className="mt-1 flex items-center gap-1.5 rounded-full bg-white px-3 py-2 shadow-sm ring-1 ring-black/[0.06]">
           <Sparkles className="h-3.5 w-3.5 text-[#7C5CFF]" strokeWidth={2} />
-          <span className="text-[13px] font-bold text-gray-900">{balance}</span>
+          <span className="text-[14px] font-bold text-gray-900">{balance}</span>
         </div>
       </div>
 
