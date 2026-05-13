@@ -87,9 +87,9 @@ export const seedLinkRequests: LinkRequest[] = [
 /** Core profiles for the grid (ids exist in `data/profiles.ts`). */
 const linkedCore: LinkedUser[] = [
   { id: "maya", name: "Maya", photo: u("photo-1534528741775-53994a69daeb"), isOnline: true },
-  { id: "marcus", name: "Marcus", photo: u("photo-1506794778202-cad84cf45f1d"), isOnline: true },
-  { id: "thomas", name: "Thomas", photo: u("photo-1507003211169-0a1dd7228f2d"), isOnline: false },
-  { id: "oliver", name: "Oliver", photo: u("photo-1472099645785-5658abf4ff4e"), isOnline: true },
+  { id: "femke", name: "Femke", photo: u("photo-1487412720507-e7ab37603c6f"), isOnline: true },
+  { id: "tara", name: "Tara", photo: u("photo-1580489944761-15a19d654956"), isOnline: false },
+  { id: "olivia", name: "Olivia", photo: u("photo-1573496359142-b8d87734a5a2"), isOnline: true },
   { id: "victoria", name: "Victoria", photo: u("photo-1529626455594-4ff0802cfb7e"), isOnline: false },
   { id: "clara", name: "Clara", photo: u("photo-1524504388940-b1c1722653e1"), isOnline: true },
   { id: "lena", name: "Lena", photo: u("photo-1494790108377-be9c29b29330"), isOnline: false },
