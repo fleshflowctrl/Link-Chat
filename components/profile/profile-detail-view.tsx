@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import {
   BadgeCheck,
   ChevronLeft,
@@ -67,7 +66,6 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
   const router = useRouter();
   const gallery = profile.gallery;
   const [heroIndex, setHeroIndex] = useState(0);
-  const [liked, setLiked] = useState(false);
 
   const heroSrc = gallery[heroIndex] ?? profile.photo;
 
@@ -86,7 +84,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
 
   return (
     <div className="pb-4">
-      <div className="relative h-[70vh] min-h-[340px] w-full overflow-hidden bg-ink/10">
+      <div className="relative h-[62vh] min-h-[320px] max-h-[520px] w-full overflow-hidden bg-ink/10">
         <Image
           src={heroSrc}
           alt=""
@@ -126,34 +124,34 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 z-10 p-5 pb-28">
-          <div className="inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[12px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-md">
+        <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pb-6">
+          <div className="inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-md">
             <span className="h-2 w-2 rounded-full bg-accentGreen shadow-[0_0_0_2px_rgba(255,255,255,0.35)]" />
             Nu online
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-md">
+          <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
+            <h1 className="min-w-0 text-[1.9rem] font-bold leading-tight tracking-tight text-white drop-shadow-md">
               {profile.name}, {profile.age}
             </h1>
             {profile.isVerified && (
               <BadgeCheck
-                className="h-8 w-8 shrink-0 text-primary drop-shadow-md"
+                className="h-7 w-7 shrink-0 text-primary drop-shadow-md"
                 strokeWidth={2}
                 aria-label="Geverifieerd"
               />
             )}
           </div>
-          <p className="mt-2 flex items-center gap-1.5 text-[15px] font-medium text-white/95 drop-shadow">
-            <MapPin className="h-4 w-4 shrink-0 text-white" strokeWidth={2.25} />
+          <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-white/95 drop-shadow">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-white" strokeWidth={2.25} />
             {profile.city}
           </p>
-          <span className="mt-3 inline-flex rounded-full bg-primary px-3 py-1.5 text-[12px] font-bold text-white shadow-lg ring-2 ring-white/25">
+          <span className="mt-2.5 inline-flex rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white shadow-lg ring-2 ring-white/25">
             {profile.lastActive}
           </span>
         </div>
       </div>
 
-      <div className="relative z-10 -mt-10 rounded-t-[1.75rem] bg-canvas px-5 pb-6 pt-4 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
+      <div className="relative z-10 -mt-8 rounded-t-[1.5rem] bg-canvas px-4 pb-6 pt-4 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
         <div className="scrollbar-hide -mx-1 flex gap-2 overflow-x-auto pb-2 pt-1">
           {thumbSlots.map((slot) => {
             const active = heroIndex === slot.index;
@@ -162,19 +160,19 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
                 key={slot.index}
                 type="button"
                 onClick={() => setHeroIndex(slot.index)}
-                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl ring-2 transition ${
-                  active ? "ring-primary ring-offset-2 ring-offset-canvas" : "ring-transparent"
+                className={`relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl ring-2 transition active:scale-95 ${
+                  active ? "ring-primary ring-offset-2 ring-offset-canvas" : "ring-transparent opacity-75"
                 }`}
               >
                 <Image
                   src={slot.src}
                   alt=""
-                  width={128}
-                  height={128}
+                  width={120}
+                  height={120}
                   className="h-full w-full object-cover"
                 />
                 {slot.overlay && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[13px] font-bold text-white">
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[12px] font-bold text-white">
                     {slot.overlay}
                   </span>
                 )}
@@ -202,15 +200,15 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
           <ChevronRight className="h-5 w-5 shrink-0 text-ink/30" strokeWidth={2} />
         </button>
 
-        <section className="mt-8">
-          <h2 className="text-lg font-bold text-ink">Over mij</h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-inkMuted">
+        <section className="mt-6">
+          <h2 className="text-[16px] font-bold text-ink">Over mij</h2>
+          <p className="mt-2 text-[14px] leading-relaxed text-inkMuted">
             {profile.bio}
           </p>
         </section>
 
-        <section className="mt-8">
-          <h2 className="text-lg font-bold text-ink">Interesses</h2>
+        <section className="mt-6">
+          <h2 className="text-[16px] font-bold text-ink">Interesses</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {profile.interests.map((item) => (
               <span
@@ -223,49 +221,20 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
                 {item.label}
               </span>
             ))}
-            <button
-              type="button"
-              onClick={() => console.log("[profile] Add more interests")}
-              className="inline-flex items-center rounded-full border-2 border-dashed border-primary/50 bg-transparent px-3 py-2 text-[13px] font-semibold text-primary transition active:bg-primary/5"
-            >
-              + Meer toevoegen
-            </button>
           </div>
         </section>
 
-        <div className="h-28" aria-hidden />
+        <div className="h-20" aria-hidden />
       </div>
 
-      <div className="sticky bottom-0 z-20 border-t border-black/[0.06] bg-canvas/95 px-5 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
-        <div className="mx-auto flex max-w-[430px] items-center gap-3">
-          <Link
-            href={`/messages/${profile.id}`}
-            className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99]"
-          >
-            <MessageCircle className="h-5 w-5" strokeWidth={2.25} />
-            Zeg hallo
-          </Link>
-          <motion.button
-            type="button"
-            aria-pressed={liked}
-            aria-label={liked ? "Vind-ik-leuk ongedaan" : "Vind ik leuk"}
-            onClick={() => setLiked((v) => !v)}
-            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full border-2 border-ink/10 bg-white text-ink shadow-card transition-colors"
-            whileTap={{ scale: 0.92 }}
-          >
-            <motion.span
-              key={liked ? "on" : "off"}
-              initial={{ scale: 0.9 }}
-              animate={{ scale: liked ? [1, 1.12, 1] : 1 }}
-              transition={{ duration: 0.35, ease: [0.34, 1.56, 0.64, 1] }}
-            >
-              <Heart
-                className={`h-6 w-6 ${liked ? "fill-accentPink text-accentPink" : "fill-transparent text-ink/70"}`}
-                strokeWidth={2}
-              />
-            </motion.span>
-          </motion.button>
-        </div>
+      <div className="sticky bottom-0 z-20 border-t border-black/[0.06] bg-canvas/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
+        <Link
+          href={`/messages/${profile.id}`}
+          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-ink px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99]"
+        >
+          <MessageCircle className="h-5 w-5" strokeWidth={2.25} />
+          Zeg hallo
+        </Link>
       </div>
     </div>
   );
