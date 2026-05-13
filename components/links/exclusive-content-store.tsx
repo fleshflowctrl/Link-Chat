@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Lock, Sparkles, X } from "lucide-react";
+import { Lock, MessageCircle, Sparkles, X } from "lucide-react";
 import {
   CATEGORY_LABELS,
   contentSets,
@@ -177,14 +178,24 @@ function PhotoViewer({
         <span className="text-[13px] font-semibold text-white/70">
           {idx + 1} / {set.photos.length}
         </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition active:scale-95"
-          aria-label="Sluiten"
-        >
-          <X className="h-5 w-5" strokeWidth={2.2} />
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/messages/${set.creatorId}`}
+            onClick={onClose}
+            className="flex items-center gap-1.5 rounded-full bg-[#7C5CFF] px-3 py-1.5 text-[12px] font-bold text-white transition active:scale-95"
+          >
+            <MessageCircle className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+            Chat
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition active:scale-95"
+            aria-label="Sluiten"
+          >
+            <X className="h-5 w-5" strokeWidth={2.2} />
+          </button>
+        </div>
       </div>
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -234,71 +245,87 @@ function ContentCard({
   onTap: (set: ContentSet) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onTap(set)}
-      className="group relative flex w-full flex-col overflow-hidden rounded-2xl bg-white text-left shadow-sm ring-1 ring-black/[0.05] transition active:scale-[0.98]"
-    >
-      {/* cover */}
-      <div className="relative aspect-[3/4] w-full overflow-hidden">
-        {isUnlocked ? (
-          <Image
-            src={set.coverPhoto}
-            alt=""
-            fill
-            className="object-cover transition-transform duration-300 group-active:scale-[1.02]"
-            sizes="(max-width: 430px) 45vw, 200px"
-            quality={85}
-          />
-        ) : (
-          <BlurredCover src={set.coverPhoto} alt={set.title} />
-        )}
-
-        {/* badges */}
-        <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
-          {set.isNew && (
-            <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
-              Nieuw
-            </span>
+    <div className="flex w-full flex-col overflow-hidden rounded-2xl bg-white text-left shadow-sm ring-1 ring-black/[0.05]">
+      {/* tappable area */}
+      <button
+        type="button"
+        onClick={() => onTap(set)}
+        className="flex w-full flex-col text-left transition active:scale-[0.98]"
+      >
+        {/* cover */}
+        <div className="relative aspect-[3/4] w-full overflow-hidden">
+          {isUnlocked ? (
+            <Image
+              src={set.coverPhoto}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="(max-width: 430px) 45vw, 200px"
+              quality={85}
+            />
+          ) : (
+            <BlurredCover src={set.coverPhoto} alt={set.title} />
           )}
-          {set.isHot && (
-            <span className="rounded-full bg-pink-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
-              🔥 Hot
-            </span>
-          )}
-        </div>
 
-        {isUnlocked && (
-          <div className="absolute right-1.5 top-1.5 rounded-full bg-[#7C5CFF] px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
-            ✓ Ontgrendeld
+          {/* badges */}
+          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
+            {set.isNew && (
+              <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                Nieuw
+              </span>
+            )}
+            {set.isHot && (
+              <span className="rounded-full bg-pink-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                🔥 Hot
+              </span>
+            )}
           </div>
-        )}
 
-        {/* photo count bottom-right */}
-        <span className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm">
-          🖼 {set.photos.length}
-        </span>
-      </div>
+          {isUnlocked && (
+            <div className="absolute right-1.5 top-1.5 rounded-full bg-[#7C5CFF] px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
+              ✓ Ontgrendeld
+            </div>
+          )}
 
-      {/* info */}
-      <div className="p-2.5">
-        <div className="flex items-center gap-1.5">
-          <span className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full bg-gray-100">
-            <Image src={set.creatorAvatar} alt="" fill className="object-cover" sizes="20px" />
-          </span>
-          <span className="truncate text-[11px] font-semibold text-gray-500">
-            {set.creatorName}, {set.creatorAge}
+          <span className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 rounded-full bg-black/50 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm">
+            🖼 {set.photos.length}
           </span>
         </div>
-        <p className="mt-1 truncate text-[13px] font-bold text-gray-900">{set.title}</p>
-        {!isUnlocked && (
-          <div className="mt-1.5 flex items-center gap-1 text-[12px] font-extrabold text-[#7C5CFF]">
-            <Sparkles className="h-3 w-3 shrink-0" strokeWidth={2} />
-            {set.credits} sprankels
+
+        {/* info */}
+        <div className="p-2.5">
+          <div className="flex items-center gap-1.5">
+            <span className="relative h-5 w-5 shrink-0 overflow-hidden rounded-full bg-gray-100">
+              <Image src={set.creatorAvatar} alt="" fill className="object-cover" sizes="20px" />
+            </span>
+            <span className="truncate text-[11px] font-semibold text-gray-500">
+              {set.creatorName}, {set.creatorAge}
+            </span>
           </div>
-        )}
-      </div>
-    </button>
+          <p className="mt-1 truncate text-[13px] font-bold text-gray-900">{set.title}</p>
+          {!isUnlocked && (
+            <div className="mt-1.5 flex items-center gap-1 text-[12px] font-extrabold text-[#7C5CFF]">
+              <Sparkles className="h-3 w-3 shrink-0" strokeWidth={2} />
+              {set.credits} sprankels
+            </div>
+          )}
+        </div>
+      </button>
+
+      {/* chat knop — alleen zichtbaar als ontgrendeld */}
+      {isUnlocked && (
+        <div className="px-2.5 pb-2.5">
+          <Link
+            href={`/messages/${set.creatorId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex w-full items-center justify-center gap-1.5 rounded-full bg-[#7C5CFF] py-1.5 text-[11px] font-bold text-white transition active:scale-95"
+          >
+            <MessageCircle className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+            Chat met {set.creatorName}
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
 
