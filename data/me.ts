@@ -7,7 +7,7 @@ export type MeSettingsIconKey =
   | "help";
 
 /** Display order for the stat grid. */
-export const meStatGridOrder = ["chats", "messages", "credits"] as const;
+export const meStatGridOrder = ["chats", "credits"] as const;
 export type MeStatKey = (typeof meStatGridOrder)[number];
 
 /** Labels and styling for Me stat cards — numeric values come from the database. */

@@ -268,12 +268,7 @@ export function MeProfileView({
       <div className="grid grid-cols-2 gap-2.5 px-5 pb-6">
         {meStatGridOrder.map((key) => {
           const layout = meStatCardLayout[key as MeStatKey];
-          const value =
-            key === "credits"
-              ? credits
-              : key === "chats"
-                ? stats.chats
-                : stats.messages;
+          const value = key === "credits" ? credits : stats.chats;
           return (
             <div
               key={key}
