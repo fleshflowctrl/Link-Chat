@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { StatusBarMock } from "@/components/messages/status-bar-mock";
+import { ExclusiveContentStore } from "@/components/links/exclusive-content-store";
 import {
   formatLinkRequestSentLabel,
   initialLinkStats,
@@ -229,6 +230,11 @@ export function LinksPageView() {
           ))}
         </div>
       </section>
+
+      {/* divider */}
+      <div className="mx-5 mb-4 h-px bg-black/[0.06]" />
+
+      <ExclusiveContentStore />
     </div>
   );
 }
