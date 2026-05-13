@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Lock, MessageCircle, Sparkles, X } from "lucide-react";
+import { Lock, MessageCircle, X } from "lucide-react";
+import { CreditsPill } from "@/components/ui/credits-pill";
 import {
   contentSets,
   type ContentSet,
@@ -384,10 +385,7 @@ export function ExclusiveContentStore() {
           </h1>
           <p className="mt-0.5 text-[13px] text-gray-500">Ontgrendel met credits</p>
         </div>
-        <div className="mt-1 flex items-center gap-1.5 rounded-full bg-white px-3 py-2 shadow-sm ring-1 ring-black/[0.06]">
-          <Sparkles className="h-3.5 w-3.5 text-[#7C5CFF]" strokeWidth={2} />
-          <span className="text-[14px] font-bold text-gray-900">{balance}</span>
-        </div>
+        <CreditsPill />
       </div>
 
 
