@@ -28,7 +28,6 @@ import {
 import {
   FUNNEL_LOOKING_FOR,
   FUNNEL_SESSION_KEY,
-  getPersonalizedFirstMessageStarters,
   ONBOARDED_KEY,
   type FunnelAgeRange,
   type FunnelBasics,
@@ -549,7 +548,6 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
               {step === 7 && (
                 <StepFirstMessage
                   peer={pickedMatch}
-                  lookingFor={lookingFor}
                   value={firstMessage}
                   onChange={setFirstMessage}
                   onContinue={goNext}
@@ -1474,13 +1472,11 @@ function StepPickMatch({
 
 function StepFirstMessage({
   peer,
-  lookingFor,
   value,
   onChange,
   onContinue,
 }: {
   peer: FunnelMatchPick | null;
-  lookingFor: FunnelLookingFor | null;
   value: string;
   onChange: (s: string) => void;
   onContinue: () => void;
@@ -1488,10 +1484,12 @@ function StepFirstMessage({
   const ok = value.trim().length >= 10;
   const len = value.length;
 
-  const starterChips = useMemo(
-    () => getPersonalizedFirstMessageStarters(lookingFor, []),
-    [lookingFor],
-  );
+  const name = peer?.name ?? "you";
+  const starterChips = useMemo(() => [
+    `Hey ${name}! What do you usually do on weekends?`,
+    `${name}, I have to say — your profile caught my eye 👀 what are you looking for on here?`,
+    `Okay ${name}, I'll be honest… I'd love to take you out sometime 😏 too forward?`,
+  ], [name]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
