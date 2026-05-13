@@ -1,5 +1,9 @@
 import { MessagesView } from "@/components/messages/messages-view";
+import { fetchThreadListServer } from "@/lib/chat/server-data";
 
-export default function MessagesPage() {
-  return <MessagesView />;
+export const dynamic = "force-dynamic";
+
+export default async function MessagesPage() {
+  const initialThreads = await fetchThreadListServer();
+  return <MessagesView initialThreads={initialThreads} />;
 }
