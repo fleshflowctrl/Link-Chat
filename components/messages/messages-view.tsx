@@ -14,6 +14,7 @@ import {
 import { OnlineNowRail } from "@/components/OnlineNowRail";
 import {
   getThreadMeta,
+  messageThreads,
   sortThreadsByRecency,
   type MessageThread,
   type MessagePreviewType,
@@ -22,6 +23,7 @@ import { homeUnreadNotificationCount } from "@/data/me";
 import type { OnlineUser } from "@/data/onlineUsers";
 import {
   getThreadPreviewsSnapshot,
+  setThreadPreview,
   subscribeThreadPreviews,
 } from "@/lib/thread-preview-store";
 import { CreditsPill } from "@/components/ui/credits-pill";
@@ -332,6 +334,31 @@ export function MessagesView({
   useEffect(() => {
     router.refresh();
   }, [router]);
+
+  /** Clear all unread badges when the inbox is opened. */
+  useEffect(() => {
+    const { byId } = getThreadPreviewsSnapshot();
+    for (const t of messageThreads) {
+      const o = byId[t.id];
+      setThreadPreview(t.id, {
+        lastMessage: o?.lastMessage ?? t.lastMessage ?? "",
+        timestampLabel: o?.timestampLabel ?? t.timestampLabel ?? "",
+        lastActivityAt: o?.lastActivityAt ?? t.lastActivityAt,
+        name: o?.name ?? t.name,
+        avatarUrl: o?.avatarUrl ?? t.avatarUrl,
+        verified: o?.verified ?? t.verified,
+        showOnlineDot: o?.showOnlineDot,
+        unreadCount: 0,
+      });
+    }
+    for (const id of Object.keys(byId)) {
+      if (messageThreads.some((t) => t.id === id)) continue;
+      const o = byId[id]!;
+      setThreadPreview(id, { ...o, unreadCount: 0 });
+    }
+  // runs once on mount (inbox open)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Server is the source of truth; never show legacy mock threads in the inbox. */
   const source = initialThreads ?? [];

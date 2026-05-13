@@ -137,6 +137,22 @@ export function ChatConversationView({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+    /** Clear unread badge as soon as this conversation is opened. */
+  useEffect(() => {
+    const o = getThreadPreviewOverride(chatId);
+    setThreadPreview(chatId, {
+      lastMessage: o?.lastMessage ?? "",
+      timestampLabel: o?.timestampLabel ?? "",
+      lastActivityAt: o?.lastActivityAt,
+      name: o?.name ?? meta.name,
+      avatarUrl: o?.avatarUrl ?? meta.avatarUrl,
+      verified: o?.verified ?? meta.verified,
+      showOnlineDot: o?.showOnlineDot ?? meta.onlineNow,
+      unreadCount: 0,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
+
   /** Clear funnel “unread” bump once the thread is opened. */
   useEffect(() => {
     try {
