@@ -17,7 +17,7 @@ import {
   type MessageThread,
   type MessagePreviewType,
 } from "@/data/messages";
-import type { OnlineUser } from "@/data/onlineUsers";
+import { getOnlineUsers, type OnlineUser } from "@/data/onlineUsers";
 import {
   getThreadPreviewsSnapshot,
   setThreadPreview,
@@ -297,10 +297,10 @@ function ConversationRow({
 
 export function MessagesView({
   initialThreads,
-  onlineRailUsers,
+  onlineRailUsers = getOnlineUsers(),
 }: {
   initialThreads?: MessageThread[];
-  onlineRailUsers: OnlineUser[];
+  onlineRailUsers?: OnlineUser[];
 }) {
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
 
