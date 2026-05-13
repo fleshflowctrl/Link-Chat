@@ -1024,7 +1024,9 @@ function formatMaxLabel(max: number): string {
 }
 
 function fakePeopleCount(min: number, max: number): number {
-  return Math.min(13_780, Math.round((max - min) * 700 + 200));
+  const totalSpan = AGE_HI - AGE_LO; // 52 years
+  const selectedSpan = Math.max(0, max - min);
+  return Math.round((selectedSpan / totalSpan) * 13_780);
 }
 
 function StepAgeRange({
