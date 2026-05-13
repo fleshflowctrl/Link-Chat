@@ -40,6 +40,11 @@ import {
   setMeProfileSnapshot,
   subscribeMeProfile,
 } from "@/lib/me-profile-store";
+import {
+  getCreditsSnapshot,
+  initCreditsStore,
+  subscribeCredits,
+} from "@/lib/credits-store";
 
 const settingsIcons: Record<MeSettingsIconKey, typeof ShieldCheck> = {
   shield: ShieldCheck,
@@ -61,7 +66,7 @@ function formatAgeLocation(age: number | null, location: string): string | null 
 type MeProfileViewProps = {
   initialProfile: EditProfileState;
   syncToken: string;
-  credits: number;
+  credits?: number;
   stats: MeProfileStats;
   showVerified: boolean;
 };
@@ -69,7 +74,6 @@ type MeProfileViewProps = {
 export function MeProfileView({
   initialProfile,
   syncToken,
-  credits,
   stats,
   showVerified,
 }: MeProfileViewProps) {
@@ -77,6 +81,9 @@ export function MeProfileView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
+
+  useEffect(() => { initCreditsStore(); }, []);
+  const credits = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);

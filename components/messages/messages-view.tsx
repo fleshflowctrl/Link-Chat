@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, useCallback } from "react";
 import {
   BadgeCheck,
   Bell,
@@ -24,6 +24,11 @@ import {
   getThreadPreviewsSnapshot,
   subscribeThreadPreviews,
 } from "@/lib/thread-preview-store";
+import {
+  getCreditsSnapshot,
+  initCreditsStore,
+  subscribeCredits,
+} from "@/lib/credits-store";
 
 function normalizeThread(t: MessageThread): MessageThread {
   return {
@@ -66,7 +71,9 @@ function TypingDots() {
   );
 }
 
-function MessagesHeaderActions({ credits }: { credits: number }) {
+function MessagesHeaderActions() {
+  useEffect(() => { initCreditsStore(); }, []);
+  const balance = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
   const unread = homeUnreadNotificationCount;
 
   return (
@@ -78,7 +85,7 @@ function MessagesHeaderActions({ credits }: { credits: number }) {
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-[11px] font-bold text-white">
           $
         </span>
-        <span className="text-[14px] font-bold text-gray-900">{credits}</span>
+        <span className="text-[14px] font-bold text-gray-900">{balance}</span>
       </Link>
 
       <Link
@@ -328,11 +335,9 @@ function ConversationRow({
 export function MessagesView({
   initialThreads,
   onlineRailUsers,
-  headerCredits,
 }: {
   initialThreads?: MessageThread[];
   onlineRailUsers: OnlineUser[];
-  headerCredits: number;
 }) {
   const router = useRouter();
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
@@ -417,7 +422,7 @@ export function MessagesView({
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
           Berichten
         </h1>
-        <MessagesHeaderActions credits={headerCredits} />
+        <MessagesHeaderActions />
       </header>
 
       <OnlineNowRail compact className="pt-3" users={onlineRailUsers} />
