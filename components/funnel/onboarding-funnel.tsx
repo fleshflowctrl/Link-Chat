@@ -9,7 +9,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
   type Dispatch,
   type PointerEvent as ReactPointerEvent,
   type SetStateAction,
@@ -23,7 +22,6 @@ import {
 import {
   Apple,
   ArrowRight,
-  Camera,
   ChevronLeft,
   Lock,
 } from "lucide-react";
@@ -1225,23 +1223,10 @@ function StepBasics({
   setBasics: Dispatch<SetStateAction<FunnelBasics>>;
   onContinue: () => void;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const openPicker = () => fileRef.current?.click();
-
   const nameOk = (firstWordName(basics.name) || basics.name.trim()).length > 0;
   const ageOk =
     basics.age !== null && Number.isFinite(basics.age) && basics.age >= 18;
   const ok = nameOk && ageOk;
-
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f || !f.type.startsWith("image/")) return;
-    setBasics((b) => {
-      if (b.photo?.startsWith("blob:")) URL.revokeObjectURL(b.photo);
-      return { ...b, photo: URL.createObjectURL(f) };
-    });
-  };
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
@@ -1256,43 +1241,6 @@ function StepBasics({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center gap-y-[clamp(0.5rem,2vmin,1.25rem)] overflow-hidden px-5 py-1">
-        <div className="flex shrink-0 flex-col items-center">
-          <div className="relative h-[clamp(4.5rem,18vmin,6rem)] w-[clamp(4.5rem,18vmin,6rem)] shrink-0">
-            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0]">
-              {basics.photo ? (
-                <img src={basics.photo} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-[clamp(1.75rem,7vmin,2.25rem)]" aria-hidden>
-                  👋
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={openPicker}
-              className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-[#7C5CFF] text-white shadow-md transition active:scale-95 sm:h-9 sm:w-9"
-              aria-label="Add profile photo"
-            >
-              <Camera className="h-3.5 w-3.5" strokeWidth={2.2} />
-            </button>
-          </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={onFileChange}
-          />
-          <button
-            type="button"
-            onClick={openPicker}
-            className="mt-1.5 text-center text-[clamp(11px,2.8vmin,12px)] leading-snug"
-          >
-            <span className="font-bold text-[#7C5CFF]">Add a photo</span>{" "}
-            <span className="font-medium text-gray-500">(optional)</span>
-          </button>
-        </div>
-
         <div className="min-h-0 w-full space-y-[clamp(0.75rem,2.5vmin,1.25rem)] text-[clamp(15px,3.8vmin,18px)] leading-relaxed text-gray-900">
           <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
             <span>I&apos;m</span>
