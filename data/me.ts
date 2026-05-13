@@ -21,12 +21,6 @@ export const meStatCardLayout: Record<
     emoji: "💬",
     cardBg: "bg-purple-100",
   },
-  messages: {
-    label: "Berichten",
-    subtitle: "Verstuurde berichten",
-    emoji: "✉️",
-    cardBg: "bg-blue-100",
-  },
   credits: {
     label: "Credits",
     subtitle: "Opwaarderen voor meer chat",
@@ -47,7 +41,6 @@ export const meProfile = {
   verified: true,
   stats: {
     chats: { ...meStatCardLayout.chats, value: 12 },
-    messages: { ...meStatCardLayout.messages, value: 84 },
     credits: { ...meStatCardLayout.credits, value: 125 },
   },
 };

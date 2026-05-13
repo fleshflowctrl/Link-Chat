@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Clock } from "lucide-react";
 import { StatusBarMock } from "@/components/messages/status-bar-mock";
+import { CreditsPill } from "@/components/ui/credits-pill";
 import {
   offerCountdownInitialSeconds,
   packages,
@@ -10,9 +11,7 @@ import {
 } from "@/data/credits";
 import {
   addCredits,
-  getCreditsSnapshot,
   initCreditsStore,
-  subscribeCredits,
 } from "@/lib/credits-store";
 
 function formatMoney(n: number): string {
@@ -124,8 +123,6 @@ function PackageCard({
 }
 
 export function CreditsView() {
-  const balance = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
-
   useEffect(() => { initCreditsStore(); }, []);
 
   const defaultId =
@@ -163,7 +160,7 @@ export function CreditsView() {
     <div className="bg-[#F5F3EE] pb-8">
       <StatusBarMock />
 
-      <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-1">
+      <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-1">
         <div>
           <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
             Credits
@@ -172,20 +169,7 @@ export function CreditsView() {
             Stuur berichten en koppel met mensen
           </p>
         </div>
-
-        <div className="shrink-0 rounded-2xl bg-gradient-to-br from-[#7C5CFF] to-[#9B7BFF] px-3 py-2 text-center text-white shadow-sm">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-white/80">
-            Saldo
-          </p>
-          <div className="mt-1 flex items-center justify-center gap-1.5">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-[10px] font-bold text-white">
-              $
-            </span>
-            <span className="text-lg font-bold tabular-nums leading-none">
-              {balance}
-            </span>
-          </div>
-        </div>
+        <CreditsPill />
       </header>
 
       <div className="px-5 pb-5">

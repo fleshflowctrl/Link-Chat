@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore, useCallback } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   BadgeCheck,
   Bell,
@@ -24,11 +24,7 @@ import {
   getThreadPreviewsSnapshot,
   subscribeThreadPreviews,
 } from "@/lib/thread-preview-store";
-import {
-  getCreditsSnapshot,
-  initCreditsStore,
-  subscribeCredits,
-} from "@/lib/credits-store";
+import { CreditsPill } from "@/components/ui/credits-pill";
 
 function normalizeThread(t: MessageThread): MessageThread {
   return {
@@ -72,21 +68,11 @@ function TypingDots() {
 }
 
 function MessagesHeaderActions() {
-  useEffect(() => { initCreditsStore(); }, []);
-  const balance = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
   const unread = homeUnreadNotificationCount;
 
   return (
     <div className="mt-0.5 flex shrink-0 items-center gap-2">
-      <Link
-        href="/credits"
-        className="inline-flex items-center gap-2 rounded-full border border-gray-100 bg-white py-1.5 pl-2 pr-3 shadow-sm transition active:scale-95"
-      >
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-[11px] font-bold text-white">
-          $
-        </span>
-        <span className="text-[14px] font-bold text-gray-900">{balance}</span>
-      </Link>
+      <CreditsPill />
 
       <Link
         href="/notifications"
