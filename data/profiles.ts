@@ -32,7 +32,7 @@ export interface Profile {
   };
   /** Shown on home cards (line-clamped) and profile detail. */
   bio: string;
-  /** Gallery photos — first is default hero; use ≥6 for thumbnail rail + extras */
+  /** Gallery photos — index 0 is the hero; remaining are extra shots in the strip. */
   gallery: string[];
   interests: ProfileInterest[];
   /** Funnel / onboarding vibe ids — overlap with user picks drives match %. */
@@ -51,9 +51,49 @@ export interface Profile {
 const u = (id: string, w = 800) =>
   `https://images.unsplash.com/${id}?w=${w}&q=80&auto=format&fit=crop`;
 
+/** Extra female portrait IDs used as additional gallery shots across profiles. */
+const EXTRA: Record<string, string[]> = {
+  maya: [
+    u("photo-1508214751196-bcfd4ca60f91", 1200),
+    u("photo-1542596768-5d1d21f1cf98", 1200),
+    u("photo-1488716820095-cbe80883c496", 1200),
+    u("photo-1502685104226-ee32379fefbe", 1200),
+  ],
+  femke: [
+    u("photo-1517841905240-472988babdf9", 1200),
+    u("photo-1531746020798-e6953c6e8e04", 1200),
+    u("photo-1544005313-94ddf0286df2", 1200),
+  ],
+  tara: [
+    u("photo-1488716820095-cbe80883c496", 1200),
+    u("photo-1508214751196-bcfd4ca60f91", 1200),
+    u("photo-1542596768-5d1d21f1cf98", 1200),
+    u("photo-1502685104226-ee32379fefbe", 1200),
+  ],
+  olivia: [
+    u("photo-1494790108377-be9c29b29330", 1200),
+    u("photo-1531746020798-e6953c6e8e04", 1200),
+    u("photo-1488716820095-cbe80883c496", 1200),
+  ],
+  victoria: [
+    u("photo-1542596768-5d1d21f1cf98", 1200),
+    u("photo-1502685104226-ee32379fefbe", 1200),
+    u("photo-1508214751196-bcfd4ca60f91", 1200),
+    u("photo-1488716820095-cbe80883c496", 1200),
+  ],
+  clara: [
+    u("photo-1494790108377-be9c29b29330", 1200),
+    u("photo-1438761681033-6461ffad8d80", 1200),
+    u("photo-1531746020798-e6953c6e8e04", 1200),
+  ],
+};
+
 function newHereProfiles(): Profile[] {
-  const g = (photo: string) =>
-    [1200, 1200, 1200, 1200, 1200, 1200].map((w) => u(photo, w));
+  const extras = [
+    u("photo-1542596768-5d1d21f1cf98", 1200),
+    u("photo-1508214751196-bcfd4ca60f91", 1200),
+    u("photo-1488716820095-cbe80883c496", 1200),
+  ];
   const row = (
     id: string,
     name: string,
@@ -72,7 +112,7 @@ function newHereProfiles(): Profile[] {
     lastActive: "Zojuist",
     lookingFor: "Leuke gesprekken",
     bio: `${name} is net lid geworden van whisper.`,
-    gallery: g(photoId),
+    gallery: [u(photoId, 1200), ...extras],
     interests: [
       { label: "Nieuw hier", icon: "listener" },
       { label: "Vriendelijk", icon: "warm" },
@@ -92,7 +132,7 @@ function newHereProfiles(): Profile[] {
   ];
 }
 
-/** Seed profiles — extend `gallery`, `bio`, and `interests` as you grow the app. */
+/** Seed profiles. */
 export const profiles: Profile[] = [
   {
     id: "maya",
@@ -105,7 +145,7 @@ export const profiles: Profile[] = [
     lastActive: "Vandaag actief",
     lookingFor: "Betekenisvolle connectie",
     bio: "Houd van goede koffie, roadtrips en echte gesprekken. Zacht & warm — geen spelletjes. Laten we kijken waar het schip strandt 🌿",
-    gallery: [u("photo-1534528741775-53994a69daeb", 1200)],
+    gallery: [u("photo-1534528741775-53994a69daeb", 1200), ...EXTRA.maya],
     interests: [
       { label: "Zorgzaam", icon: "caring" },
       { label: "Romantisch", icon: "romantic" },
@@ -128,7 +168,7 @@ export const profiles: Profile[] = [
     lastActive: "Vandaag actief",
     lookingFor: "Sportmaatje & late-night gesprekken",
     bio: "Hardloopster, festival-fan en zoeker van de beste ramen in elke stad. Eerlijke gesprekken boven alles.",
-    gallery: [u("photo-1487412720507-e7ab37603c6f", 1200)],
+    gallery: [u("photo-1487412720507-e7ab37603c6f", 1200), ...EXTRA.femke],
     interests: [
       { label: "Fitness", icon: "caring" },
       { label: "Muziek", icon: "listener" },
@@ -151,7 +191,7 @@ export const profiles: Profile[] = [
     lastActive: "Vandaag actief",
     lookingFor: "Bioscoopdates & diepe gesprekken",
     bio: "Filmfanaat en verhalenverteller. Altijd in voor een goede einddiscussie en iemand die de aftiteling leest.",
-    gallery: [u("photo-1580489944761-15a19d654956", 1200)],
+    gallery: [u("photo-1580489944761-15a19d654956", 1200), ...EXTRA.tara],
     interests: [
       { label: "Films", icon: "listener" },
       { label: "Verhalen", icon: "romantic" },
@@ -173,7 +213,7 @@ export const profiles: Profile[] = [
     lastActive: "Vandaag actief",
     lookingFor: "Rustige ochtenden & lekker eten",
     bio: "Thuiskok, weekendfietser en kookboekenverzamelaars. Van markten, luie zondagen en goede gesprekken.",
-    gallery: [u("photo-1573496359142-b8d87734a5a2", 1200)],
+    gallery: [u("photo-1573496359142-b8d87734a5a2", 1200), ...EXTRA.olivia],
     interests: [
       { label: "Koken", icon: "warm" },
       { label: "Romantisch", icon: "romantic" },
@@ -195,7 +235,7 @@ export const profiles: Profile[] = [
     lastActive: "Vandaag actief",
     lookingFor: "Creatieve ziel & museumdates",
     bio: "In opleiding tot curator. Houd van openingsfeesten, vintage winkels en lange wandelingen met koffie. Ruilen we playlists?",
-    gallery: [u("photo-1529626455594-4ff0802cfb7e", 1200)],
+    gallery: [u("photo-1529626455594-4ff0802cfb7e", 1200), ...EXTRA.victoria],
     interests: [
       { label: "Kunst", icon: "romantic" },
       { label: "Muziek", icon: "listener" },
@@ -218,7 +258,7 @@ export const profiles: Profile[] = [
     lastActive: "Vandaag actief",
     lookingFor: "Doordachte gesprekken",
     bio: "Lezer, theedrinker en hobbybakker. Ik waardeer vriendelijkheid, nieuwsgierigheid en mensen die goede vervolgvragen stellen.",
-    gallery: [u("photo-1524504388940-b1c1722653e1", 1200)],
+    gallery: [u("photo-1524504388940-b1c1722653e1", 1200), ...EXTRA.clara],
     interests: [
       { label: "Boeken", icon: "listener" },
       { label: "Zorgzaam", icon: "caring" },

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import {
   BadgeCheck,
   ChevronLeft,
@@ -63,8 +64,20 @@ function interestIconColor(icon: ProfileInterestIcon): string {
 
 export function ProfileDetailView({ profile }: { profile: Profile }) {
   const router = useRouter();
+  const gallery = profile.gallery.length > 0 ? profile.gallery : [profile.photo];
+  const [heroIndex, setHeroIndex] = useState(0);
 
-  const heroSrc = profile.photo;
+  const heroSrc = gallery[heroIndex] ?? profile.photo;
+
+  const thumbSlots = useMemo(
+    () =>
+      gallery.slice(0, 6).map((src, i) => ({
+        src,
+        index: i,
+        overlay: i === 5 && gallery.length > 6 ? `+${gallery.length - 6}` : undefined,
+      })),
+    [gallery],
+  );
 
   return (
     <div className="pb-4">
@@ -135,7 +148,40 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
         </div>
       </div>
 
-      <div className="relative z-10 -mt-5 rounded-t-[1.5rem] bg-canvas px-4 pb-6 pt-5 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
+      <div className="relative z-10 -mt-5 rounded-t-[1.5rem] bg-canvas px-4 pb-6 pt-4 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
+        {/* thumbnail strip */}
+        {thumbSlots.length > 1 && (
+          <div className="scrollbar-hide -mx-1 mb-4 flex gap-2 overflow-x-auto pb-1 pt-1">
+            {thumbSlots.map((slot) => {
+              const active = heroIndex === slot.index;
+              return (
+                <button
+                  key={slot.index}
+                  type="button"
+                  onClick={() => setHeroIndex(slot.index)}
+                  className={`relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl ring-2 transition active:scale-95 ${
+                    active
+                      ? "ring-primary ring-offset-2 ring-offset-canvas"
+                      : "opacity-65 ring-transparent"
+                  }`}
+                >
+                  <Image
+                    src={slot.src}
+                    alt=""
+                    width={120}
+                    height={120}
+                    className="h-full w-full object-cover"
+                  />
+                  {slot.overlay && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[12px] font-bold text-white">
+                      {slot.overlay}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <button
           type="button"
