@@ -1161,35 +1161,41 @@ function StepAgeRange({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm">
-            <div className="min-w-0 flex-1">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={anyAge}
+            onClick={() => {
+              setAgeRange((prev) => {
+                if (prev.anyAge) {
+                  return { ...beforeAnyRef.current, anyAge: false };
+                }
+                beforeAnyRef.current = { min: prev.min, max: prev.max };
+                return { min: AGE_LO, max: AGE_HI, anyAge: true };
+              });
+            }}
+            className="flex w-full items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm transition active:scale-[0.99]"
+          >
+            <div className="min-w-0 text-left">
               <p className="text-[14px] font-bold text-gray-900">Open to any age</p>
               <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
                 Show me everyone — I&apos;ll filter later
               </p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={anyAge}
-              onClick={() => {
-                setAgeRange((prev) => {
-                  if (prev.anyAge) {
-                    return { ...beforeAnyRef.current, anyAge: false };
-                  }
-                  beforeAnyRef.current = { min: prev.min, max: prev.max };
-                  return { min: AGE_LO, max: AGE_HI, anyAge: true };
-                });
+            <div
+              className="relative shrink-0 rounded-full transition-colors duration-200"
+              style={{
+                width: 48,
+                height: 28,
+                backgroundColor: anyAge ? "#7C5CFF" : "#D1D5DB",
               }}
-              style={{ backgroundColor: anyAge ? "#7C5CFF" : "#D1D5DB" }}
-              className="relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200"
             >
-              <span
-                className="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"
-                style={{ transform: anyAge ? "translateX(22px)" : "translateX(4px)" }}
+              <div
+                className="absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow-md transition-transform duration-200"
+                style={{ transform: anyAge ? "translateX(23px)" : "translateX(3px)" }}
               />
-            </button>
-          </div>
+            </div>
+          </button>
         </div>
       </div>
 
