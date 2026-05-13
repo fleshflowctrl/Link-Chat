@@ -97,9 +97,6 @@ function PackageCard({
               +{pkg.bonus} extra
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
-            ≈ {formatMoney(pkg.perCredit)} / credit · 20% korting
-          </p>
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2 pr-0.5">
