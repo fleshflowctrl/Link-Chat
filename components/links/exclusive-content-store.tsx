@@ -391,17 +391,49 @@ export function ExclusiveContentStore() {
       </div>
 
 
-      {/* grid */}
-      <div className="grid grid-cols-2 gap-3">
-        {contentSets.map((set) => (
-          <ContentCard
-            key={set.id}
-            set={set}
-            isUnlocked={unlockedIds.has(set.id)}
-            onTap={handleCardTap}
-          />
-        ))}
-      </div>
+      {/* ontgrendelde sets — eigen sectie bovenaan */}
+      {contentSets.some((s) => unlockedIds.has(s.id)) && (
+        <div className="mb-6">
+          <p className="mb-2.5 text-[12px] font-bold uppercase tracking-wider text-[#7C5CFF]">
+            Jouw content
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {contentSets
+              .filter((s) => unlockedIds.has(s.id))
+              .map((set) => (
+                <ContentCard
+                  key={set.id}
+                  set={set}
+                  isUnlocked={true}
+                  onTap={handleCardTap}
+                />
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* vergrendelde sets */}
+      {contentSets.some((s) => !unlockedIds.has(s.id)) && (
+        <div>
+          {contentSets.some((s) => unlockedIds.has(s.id)) && (
+            <p className="mb-2.5 text-[12px] font-bold uppercase tracking-wider text-gray-400">
+              Ontdek meer
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            {contentSets
+              .filter((s) => !unlockedIds.has(s.id))
+              .map((set) => (
+                <ContentCard
+                  key={set.id}
+                  set={set}
+                  isUnlocked={false}
+                  onTap={handleCardTap}
+                />
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* toast */}
       <AnimatePresence>
