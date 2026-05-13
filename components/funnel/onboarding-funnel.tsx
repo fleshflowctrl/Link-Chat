@@ -385,7 +385,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       } catch {
         /* ignore */
       }
-      const credits = prevCredits + 15;
+      const credits = prevCredits + 25;
 
       const basePayload = {
         name: "User",
@@ -1619,7 +1619,7 @@ function StepCreateAccount({
             : "Save your profile — you can message anyone from Discover."}
         </p>
 
-        <div className="flex min-h-0 flex-1 flex-col justify-center gap-y-[clamp(0.35rem,1.5vmin,0.75rem)] overflow-hidden py-1">
+        <div className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-y-3 overflow-hidden">
           <div className="relative shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#EDE7FF] via-[#FDE4F0] to-[#EDE7FF] p-3 shadow-sm sm:p-4">
             <div
               className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/40 blur-2xl"
@@ -1688,7 +1688,7 @@ function StepCreateAccount({
                   ✓
                 </span>
                 <span>
-                  <b className="text-amber-700">15 free credits</b> on us 💰
+                  <b className="text-amber-700">25 free credits</b> on us 💰
                 </span>
               </div>
             </div>
