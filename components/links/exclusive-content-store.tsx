@@ -274,7 +274,7 @@ function ContentCard({
           )}
 
           {isUnlocked && (
-            <div className="absolute right-1.5 top-1.5 rounded-full bg-[#7C5CFF] px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
+            <div className="absolute left-1.5 top-1.5 rounded-full bg-[#7C5CFF] px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
               ✓ Ontgrendeld
             </div>
           )}
