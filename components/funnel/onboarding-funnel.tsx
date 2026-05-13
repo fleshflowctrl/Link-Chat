@@ -50,7 +50,7 @@ import {
 } from "@/lib/funnel-match-picks";
 import { setThreadPreview } from "@/lib/thread-preview-store";
 
-const STEP_TOTAL = 9;
+const STEP_TOTAL = 8;
 const MSG_MAX = 240;
 
 type FunnelGender = "man" | "woman";
@@ -351,8 +351,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
   const goBack = useCallback(() => {
     setNavDir(-1);
     setStep((s) => {
-      if (s === 9 && !firstContact.profileId) {
-        return 7;
+      if (s === 8 && !firstContact.profileId) {
+        return 6;
       }
       return Math.max(1, s - 1);
     });
@@ -364,7 +364,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
     setNavDir(1);
     setFirstContact({ profileId: null });
     setFirstMessage("");
-    setStep(9);
+    setStep(8);
   }, []);
 
   const completeFunnel = useCallback(
@@ -374,10 +374,6 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       const didFirstMessage = Boolean(
         pid && pickedMatch && msgTrim.length >= 10,
       );
-      const ageNum = basics.age;
-      const nameTrim = firstWordName(basics.name) || basics.name.trim();
-      if (!nameTrim || ageNum === null || !Number.isFinite(ageNum) || ageNum < 18) return;
-
       let prevCredits = 0;
       try {
         const prevRaw = localStorage.getItem(WHISPER_USER_KEY);
@@ -393,10 +389,9 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       const credits = prevCredits + 15;
 
       const basePayload = {
-        name: nameTrim,
-        age: ageNum,
-        location: basics.location.trim() || "London, UK",
-        ...(basics.photo ? { photo: basics.photo } : {}),
+        name: "User",
+        age: 25,
+        location: "London, UK",
         vibe: [],
         ageRange,
         lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
@@ -534,9 +529,6 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                 />
               )}
               {step === 5 && (
-                <StepBasics basics={basics} setBasics={setBasics} onContinue={goNext} />
-              )}
-              {step === 6 && (
                 <StepSeekingGender
                   selected={seekingGender}
                   onSelect={(g) => {
@@ -545,7 +537,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                   }}
                 />
               )}
-              {step === 7 && (
+              {step === 6 && (
                 <StepPickMatch
                   matches={matches}
                   selectedId={firstContact.profileId}
@@ -554,7 +546,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                   onSkip={skipFirstLink}
                 />
               )}
-              {step === 8 && (
+              {step === 7 && (
                 <StepFirstMessage
                   peer={pickedMatch}
                   lookingFor={lookingFor}
@@ -563,7 +555,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                   onContinue={goNext}
                 />
               )}
-              {step === 9 && (
+              {step === 8 && (
                 <StepCreateAccount
                   peer={pickedMatch}
                   firstMessage={firstMessage}
@@ -651,12 +643,12 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
         <div className="min-w-0 flex-1">
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
             <div
-              className="h-full w-[11%] rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
+              className="h-full w-[12.5%] rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
               aria-hidden
             />
           </div>
         </div>
-        <span className="shrink-0 text-[10px] font-medium text-gray-500">1 / 9</span>
+        <span className="shrink-0 text-[10px] font-medium text-gray-500">1 / 8</span>
       </div>
 
       <div
