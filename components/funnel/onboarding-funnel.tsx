@@ -599,23 +599,39 @@ const WELCOME_CARD_SLOTS = [
   },
 ] as const;
 
+function VideoIntro({ onDone }: { onDone: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    videoRef.current?.play().catch(() => {});
+  }, []);
+
+  return (
+    <div className="absolute inset-0 z-50 flex flex-col bg-black">
+      <video
+        ref={videoRef}
+        src="/assets/F38A5C30-7B03-4C83-A70A-D7E5400D404F.mov"
+        className="h-full w-full object-cover"
+        playsInline
+        onEnded={onDone}
+      />
+      <button
+        type="button"
+        onClick={onDone}
+        className="absolute right-4 top-[max(1.25rem,env(safe-area-inset-top))] rounded-full bg-black/50 px-4 py-1.5 text-[13px] font-bold text-white backdrop-blur-sm transition active:scale-95"
+      >
+        Overslaan →
+      </button>
+    </div>
+  );
+}
+
 function StepWelcome({ onStart }: { onStart: () => void }) {
+  const [showVideo, setShowVideo] = useState(false);
   const countMv = useMotionValue(0);
   const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
   const lastInteractRef = useRef(0);
-  const [showVideo, setShowVideo] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  const handleGetStarted = useCallback(() => {
-    setShowVideo(true);
-    setTimeout(() => videoRef.current?.play(), 50);
-  }, []);
-
-  const handleSkipVideo = useCallback(() => {
-    setShowVideo(false);
-    onStart();
-  }, [onStart]);
 
   const touchCards = useCallback(() => {
     lastInteractRef.current = Date.now();
@@ -644,6 +660,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F5F3EE] font-sans">
+      {showVideo && <VideoIntro onDone={onStart} />}
       <div
         className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#9B7BFF]/30 blur-3xl"
         aria-hidden
@@ -796,7 +813,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
 
         <button
           type="button"
-          onClick={handleGetStarted}
+          onClick={() => setShowVideo(true)}
           className="mt-3 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
           Get started →
@@ -812,27 +829,6 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
           </Link>
         </p>
       </div>
-
-      {/* Video overlay */}
-      {showVideo && (
-        <div className="absolute inset-0 z-50 flex flex-col bg-black">
-          <video
-            ref={videoRef}
-            src="/assets/Untitled_Videoggg.mp4"
-            className="h-full w-full object-cover"
-            playsInline
-            autoPlay
-            onEnded={handleSkipVideo}
-          />
-          <button
-            type="button"
-            onClick={handleSkipVideo}
-            className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] right-5 rounded-full bg-white/20 px-5 py-2.5 text-[14px] font-bold text-white backdrop-blur-sm transition active:scale-95"
-          >
-            Overslaan →
-          </button>
-        </div>
-      )}
     </div>
   );
 }
