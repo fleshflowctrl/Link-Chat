@@ -36,10 +36,7 @@ import {
   type WhisperUserLocal,
   WHISPER_USER_KEY,
 } from "@/data/funnel";
-import {
-  appendOnboardingOutboundToMockThread,
-  getThreadMeta,
-} from "@/data/messages";
+import { getThreadMeta } from "@/data/messages";
 import { funnelSets } from "@/data/funnelProfiles";
 import { likesPreviewAvatarUrls, profiles as staticCatalogProfiles, type Profile } from "@/data/profiles";
 import {
@@ -378,6 +375,12 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
     }): Promise<{ ok: true } | { ok: false; error: string }> => {
       const SIGNUP_CREDITS = 25;
 
+      const pid = firstContact.profileId;
+      const msgTrim = firstMessage.trim();
+      const didFirstMessage = Boolean(
+        pid && pickedMatch && msgTrim.length >= 10,
+      );
+
       const signupResult = await saveFunnelAccount({
         email,
         password,
@@ -387,17 +390,12 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         ageRange,
         startingCredits: SIGNUP_CREDITS,
         pickedMatchId: firstContact.profileId,
+        firstMessage: didFirstMessage ? msgTrim : null,
       });
 
       if (!signupResult.ok) {
         return { ok: false, error: signupResult.error };
       }
-
-      const pid = firstContact.profileId;
-      const msgTrim = firstMessage.trim();
-      const didFirstMessage = Boolean(
-        pid && pickedMatch && msgTrim.length >= 10,
-      );
 
       const credits = SIGNUP_CREDITS;
 
@@ -420,7 +418,6 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         : { ...basePayload };
 
       if (didFirstMessage && pid && pickedMatch) {
-        appendOnboardingOutboundToMockThread(pid, msgTrim);
         const meta = getThreadMeta(pid);
         const sentAt = new Date().toISOString();
         setThreadPreview(pid, {
@@ -431,7 +428,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
           avatarUrl: meta.avatarUrl,
           verified: meta.verified,
           showOnlineDot: meta.onlineNow,
-          unreadCount: 1,
+          unreadCount: 0,
         });
       }
 

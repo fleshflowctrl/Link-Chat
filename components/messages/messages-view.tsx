@@ -12,7 +12,6 @@ import {
 import { OnlineNowRail } from "@/components/OnlineNowRail";
 import {
   getThreadMeta,
-  messageThreads,
   sortThreadsByRecency,
   type MessageThread,
   type MessagePreviewType,
@@ -303,34 +302,56 @@ export function MessagesView({
   onlineRailUsers?: OnlineUser[];
 }) {
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
+  const [serverThreads, setServerThreads] = useState<MessageThread[] | null>(
+    initialThreads ?? null,
+  );
 
-  /** Clear all unread badges when the inbox is opened. */
+  /** Pull this user's real threads from the backend. */
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/me/threads", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (json: { ok?: boolean; threads?: MessageThread[] } | null) => {
+          if (cancelled || !json?.ok) return;
+          setServerThreads(json.threads ?? []);
+        },
+      )
+      .catch(() => {
+        /* keep whatever we already have */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Clear unread badges for all threads we know about when the inbox opens. */
   useEffect(() => {
     const { byId } = getThreadPreviewsSnapshot();
-    for (const t of messageThreads) {
-      const o = byId[t.id];
-      setThreadPreview(t.id, {
-        lastMessage: o?.lastMessage ?? t.lastMessage ?? "",
-        timestampLabel: o?.timestampLabel ?? t.timestampLabel ?? "",
-        lastActivityAt: o?.lastActivityAt ?? t.lastActivityAt,
-        name: o?.name ?? t.name,
-        avatarUrl: o?.avatarUrl ?? t.avatarUrl,
-        verified: o?.verified ?? t.verified,
+    const idSet = new Set<string>();
+    for (const t of serverThreads ?? []) idSet.add(t.id);
+    for (const id of Object.keys(byId)) idSet.add(id);
+    const ids = Array.from(idSet);
+    for (const id of ids) {
+      const o = byId[id];
+      const t = serverThreads?.find((x) => x.id === id);
+      setThreadPreview(id, {
+        lastMessage: o?.lastMessage ?? t?.lastMessage ?? "",
+        timestampLabel: o?.timestampLabel ?? t?.timestampLabel ?? "",
+        lastActivityAt: o?.lastActivityAt ?? t?.lastActivityAt,
+        name: o?.name ?? t?.name,
+        avatarUrl: o?.avatarUrl ?? t?.avatarUrl,
+        verified: o?.verified ?? t?.verified,
         showOnlineDot: o?.showOnlineDot,
         unreadCount: 0,
       });
     }
-    for (const id of Object.keys(byId)) {
-      if (messageThreads.some((t) => t.id === id)) continue;
-      const o = byId[id]!;
-      setThreadPreview(id, { ...o, unreadCount: 0 });
-    }
-  // runs once on mount (inbox open)
+  // runs whenever the server thread list changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [serverThreads]);
 
   /** Server is the source of truth; never show legacy mock threads in the inbox. */
-  const source = initialThreads ?? [];
+  const source = serverThreads ?? [];
   const previews = useSyncExternalStore(
     subscribeThreadPreviews,
     getThreadPreviewsSnapshot,

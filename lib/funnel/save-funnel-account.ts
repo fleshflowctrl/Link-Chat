@@ -19,6 +19,8 @@ export type FunnelSignupInput = {
   ageRange: FunnelAgeRange;
   startingCredits: number;
   pickedMatchId?: string | null;
+  /** First chat message the user composed in the funnel, persisted so their inbox is non-empty. */
+  firstMessage?: string | null;
 };
 
 export type FunnelSignupResult =
@@ -110,6 +112,22 @@ export async function saveFunnelAccount(
       needsEmailConfirm: false,
       userId,
     };
+  }
+
+  // Persist the funnel's first chat message so the new account has a real
+  // thread in their inbox (RLS allows authenticated users to insert their own
+  // rows). AI never auto-replies here — the peer responds the next time the
+  // user actually opens the chat and sends something.
+  const firstMessage = (input.firstMessage ?? "").trim();
+  const peerId = (input.pickedMatchId ?? "").trim();
+  if (firstMessage && peerId) {
+    await supabase.from("chat_messages").insert({
+      peer_id: peerId,
+      sender: "me",
+      kind: "text",
+      body: firstMessage,
+      owner_user_id: userId,
+    });
   }
 
   return { ok: true, needsEmailConfirm: false, userId };
