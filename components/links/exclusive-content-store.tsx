@@ -257,19 +257,21 @@ function ContentCard({
             <BlurredCover src={set.coverPhoto} alt={set.title} />
           )}
 
-          {/* badges */}
-          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
-            {set.isNew && (
-              <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
-                Nieuw
-              </span>
-            )}
-            {set.isHot && (
-              <span className="rounded-full bg-pink-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
-                🔥 Hot
-              </span>
-            )}
-          </div>
+          {/* badges — alleen zichtbaar als nog niet ontgrendeld */}
+          {!isUnlocked && (
+            <div className="absolute left-1.5 top-1.5 flex flex-col gap-1">
+              {set.isNew && (
+                <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                  Nieuw
+                </span>
+              )}
+              {set.isHot && (
+                <span className="rounded-full bg-pink-500 px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                  🔥 Hot
+                </span>
+              )}
+            </div>
+          )}
 
           {isUnlocked && (
             <div className="absolute right-1.5 top-1.5 rounded-full bg-[#7C5CFF] px-2 py-0.5 text-[9px] font-bold text-white shadow-sm">
