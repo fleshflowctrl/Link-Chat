@@ -9,7 +9,7 @@ import { formatJoinedAgo, showNewJoinBadge } from "@/data/newUsers";
 export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
 
   return (
-    <div className="px-5 pt-6">
+    <div className="px-4 pt-5">
       <div className="rounded-2xl bg-[#EDE7FF] p-3">
         <div className="mb-2 flex min-w-0 items-center gap-1.5">
           <Sparkles

@@ -75,24 +75,24 @@ export function ProfileCard({ profile }: { profile: Profile }) {
           <StatusChip status={profile.status} />
         </div>
 
-        <div className="pointer-events-none absolute bottom-2 left-3 right-3 z-[1]">
-          <p className="text-[18px] font-extrabold leading-tight text-white">
+        <div className="pointer-events-none absolute bottom-2 left-2.5 right-2.5 z-[1]">
+          <p className="truncate text-[15px] font-extrabold leading-tight text-white">
             {profile.name}, {profile.age}
           </p>
         </div>
       </div>
 
-      <div className="p-3">
+      <div className="p-2.5">
         <div className="flex items-center gap-1 text-[11px] text-gray-500">
           <MapPin className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
-          <span>{profile.city}</span>
+          <span className="truncate">{profile.city}</span>
         </div>
-        <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-gray-700">
+        <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-gray-700">
           {profile.bio}
         </p>
-        <div className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-gray-900 py-2 text-[12px] font-bold text-white">
-          Profiel bekijken
-          <ArrowRight className="size-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+        <div className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-full bg-gray-900 py-1.5 text-[11px] font-bold text-white">
+          Bekijken
+          <ArrowRight className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
         </div>
       </div>
     </Link>

@@ -48,7 +48,7 @@ export function HomeScreen({
       <CatalogFallbackBanner show={catalogDegraded} />
       <ActivityStrip users={activityUsers} />
       <section
-        className="px-5 pt-5"
+        className="px-4 pt-4"
         aria-labelledby="home-for-you-heading"
       >
         <div className="flex items-start gap-2.5">
