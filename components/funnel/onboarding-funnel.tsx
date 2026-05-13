@@ -1488,7 +1488,7 @@ function StepFirstMessage({
   const starterChips = useMemo(() => [
     `Hey ${name}! What do you usually do on weekends?`,
     `${name}, I have to say — your profile caught my eye 👀 what are you looking for on here?`,
-    `Okay ${name}, I'll be honest… I'd love to take you out sometime 😏 too forward?`,
+    `Not gonna lie ${name}, you're exactly my type 🔥 what would be your idea of a perfect first date?`,
   ], [name]);
 
   return (
