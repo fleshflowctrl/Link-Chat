@@ -1508,28 +1508,29 @@ function StepFirstMessage({
       <p className="shrink-0 px-5 pt-1 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
         A great first message asks a question.
       </p>
-      <div className="flex min-h-0 flex-1 flex-col gap-y-2 overflow-hidden px-5 pb-2 pt-2">
-        <div className="flex max-h-[32%] min-h-0 shrink-0 flex-wrap content-start gap-1.5 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-2 pt-2 [-webkit-overflow-scrolling:touch]">
+        <div className="flex flex-col gap-2">
           {starterChips.map((chip) => (
             <button
               key={chip}
               type="button"
               onClick={() => onChange(chip)}
-              className="rounded-full bg-white px-2.5 py-1.5 text-left text-[clamp(10px,2.7vmin,12px)] font-semibold leading-snug text-gray-800 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95 sm:px-3 sm:py-2"
+              className="w-full rounded-2xl bg-white px-3 py-2.5 text-left text-[clamp(11px,2.9vmin,13px)] font-semibold leading-snug text-gray-800 shadow-sm ring-1 ring-black/[0.06] transition active:scale-[0.98]"
             >
               {chip}
             </button>
           ))}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="mt-3 flex flex-col">
           <textarea
             autoFocus
             value={value}
             onChange={(e) => onChange(e.target.value.slice(0, MSG_MAX))}
-            className="min-h-0 w-full flex-1 resize-none rounded-2xl border-0 bg-white p-3 text-[clamp(13px,3.4vmin,15px)] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[#7C5CFF]/40 sm:p-4"
+            rows={4}
+            className="w-full resize-none rounded-2xl border-0 bg-white p-3 text-[clamp(13px,3.4vmin,15px)] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[#7C5CFF]/40 sm:p-4"
             placeholder="Write something kind…"
           />
-          <p className="mt-1 shrink-0 text-right text-[11px] font-medium text-gray-500 sm:text-[12px]">
+          <p className="mt-1 text-right text-[11px] font-medium text-gray-500">
             {len} / {MSG_MAX}
           </p>
         </div>
