@@ -8,10 +8,10 @@ import {
   subscribeMessagesTabBadge,
 } from "@/lib/messages-tab-badge";
 import {
-  Link2,
   MessageCircle,
   Search,
   Sparkles,
+  Star,
   User,
 } from "lucide-react";
 
@@ -26,7 +26,7 @@ const tabs = [
     Icon: MessageCircle,
     badge: null as string | null,
   },
-  { href: "/links", label: "Koppelingen", Icon: Link2, badge: null },
+  { href: "/links", label: "Exclusief", Icon: Star, badge: null },
   { href: "/credits", label: "Sprankels", Icon: Sparkles, badge: null },
   { href: "/me", label: "Profiel", Icon: User, badge: null },
 ] as const;
