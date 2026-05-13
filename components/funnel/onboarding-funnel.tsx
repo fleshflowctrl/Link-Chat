@@ -1024,7 +1024,7 @@ function formatMaxLabel(max: number): string {
 }
 
 function fakePeopleCount(min: number, max: number): number {
-  return Math.min(15_000, Math.round((max - min) * 700 + 200));
+  return Math.min(13_780, Math.round((max - min) * 700 + 200));
 }
 
 function StepAgeRange({
@@ -1104,7 +1104,7 @@ function StepAgeRange({
             </p>
             {anyAge ? (
               <p className="mt-1 text-balance text-4xl font-extrabold leading-tight text-gray-900 sm:text-5xl">
-                Any age · ~15,000 people
+                Any age · ~13,780 people
               </p>
             ) : (
               <>
@@ -1179,14 +1179,12 @@ function StepAgeRange({
                   return { min: AGE_LO, max: AGE_HI, anyAge: true };
                 });
               }}
-              className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${
-                anyAge ? "bg-[#7C5CFF]" : "bg-gray-200"
-              }`}
+              style={{ backgroundColor: anyAge ? "#7C5CFF" : "#D1D5DB" }}
+              className="relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200"
             >
               <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                  anyAge ? "translate-x-[18px]" : "translate-x-0.5"
-                }`}
+                className="absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200"
+                style={{ transform: anyAge ? "translateX(22px)" : "translateX(4px)" }}
               />
             </button>
           </div>
