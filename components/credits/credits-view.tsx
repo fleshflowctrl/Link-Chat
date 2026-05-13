@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Check, Clock } from "lucide-react";
 import { StatusBarMock } from "@/components/messages/status-bar-mock";
 import { CreditsPill } from "@/components/ui/credits-pill";
@@ -77,10 +78,14 @@ function PackageCard({
             : ""
         } ${reserveTopRibbon ? "mt-2" : ""}`}
       >
-        <div
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-lg shadow-inner ${pkg.tile}`}
-        >
-          <span aria-hidden>{pkg.icon}</span>
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl shadow-inner">
+          <Image
+            src={`/assets/credits_${pkg.credits}.png`}
+            alt={`${pkg.credits} credits`}
+            fill
+            className="object-cover"
+            sizes="48px"
+          />
         </div>
 
         <div className="min-w-0 flex-1">
