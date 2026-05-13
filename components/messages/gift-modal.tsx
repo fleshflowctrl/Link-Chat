@@ -178,18 +178,15 @@ export function GiftModal({
                 type="button"
                 onClick={() => void handleSend()}
                 disabled={submitting || insufficient}
-                className="flex flex-[1.4] items-center justify-center gap-1.5 rounded-2xl bg-gradient-primary py-3 text-sm font-bold text-white shadow-md transition active:scale-[0.98] disabled:opacity-50"
+                className="flex min-w-0 flex-[1.4] items-center justify-center rounded-2xl bg-gradient-primary px-3 py-3 text-[13px] font-bold leading-tight text-white shadow-md transition active:scale-[0.98] disabled:opacity-50"
               >
-                {submitting ? (
-                  "Versturen…"
-                ) : insufficient ? (
-                  "Te weinig credits"
-                ) : (
-                  <>
-                    <Gift className="h-4 w-4" strokeWidth={2.25} />
-                    Verstuur {amount} credits
-                  </>
-                )}
+                <span className="block w-full truncate">
+                  {submitting
+                    ? "Versturen…"
+                    : insufficient
+                      ? "Te weinig credits"
+                      : `Verstuur ${amount} credits`}
+                </span>
               </button>
             </div>
           </motion.div>
