@@ -1659,7 +1659,7 @@ function StepCreateAccount({
                 </p>
                 <p className="mt-0.5 text-[9px] text-gray-500 sm:text-[10px]">
                   {hasOutreach && peer
-                    ? `→ to ${peer.name} · online now`
+                    ? `→ to ${peer.name}`
                     : "No first message queued — totally fine."}
                 </p>
               </div>
@@ -1694,31 +1694,33 @@ function StepCreateAccount({
             </div>
           </div>
 
-          <div className="shrink-0 space-y-1.5 sm:space-y-2">
-            <div className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5">
-              <label className="block">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+          <div className="shrink-0 space-y-2">
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.08]">
+              <label className="block px-4 py-3">
+                <span className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">
                   Email
                 </span>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-0.5 w-full border-0 bg-transparent text-[clamp(14px,3.5vmin,15px)] font-bold text-gray-900 outline-none ring-0"
+                  placeholder="you@example.com"
+                  className="mt-1 w-full border-0 bg-transparent text-[15px] font-semibold text-gray-900 outline-none placeholder:text-gray-300"
                   autoComplete="email"
                 />
               </label>
             </div>
-            <div className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5">
-              <label className="block">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.08]">
+              <label className="block px-4 py-3">
+                <span className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">
                   Password
                 </span>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="mt-0.5 w-full border-0 bg-transparent text-[clamp(14px,3.5vmin,15px)] font-bold text-gray-900 outline-none ring-0"
+                  placeholder="Min. 8 characters"
+                  className="mt-1 w-full border-0 bg-transparent text-[15px] font-semibold text-gray-900 outline-none placeholder:text-gray-300"
                   autoComplete="new-password"
                 />
               </label>
