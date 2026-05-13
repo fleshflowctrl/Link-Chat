@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Check, Clock } from "lucide-react";
+import { Check } from "lucide-react";
 import { StatusBarMock } from "@/components/messages/status-bar-mock";
 import { CreditsPill } from "@/components/ui/credits-pill";
 import {
-  offerCountdownInitialSeconds,
   packages,
   type CreditPackage,
 } from "@/data/credits";
@@ -24,13 +23,6 @@ function formatMoney(n: number): string {
   });
 }
 
-function formatCountdown(totalSeconds: number): string {
-  const s = Math.max(0, totalSeconds);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return [h, m, sec].map((n) => String(n).padStart(2, "0")).join(":");
-}
 
 function PackageCard({
   pkg,
@@ -130,8 +122,6 @@ export function CreditsView() {
   const defaultId =
     packages.find((p) => p.defaultSelected)?.id ?? packages[0].id;
   const [selectedId, setSelectedId] = useState(defaultId);
-  const [secondsLeft, setSecondsLeft] = useState(offerCountdownInitialSeconds);
-
   const selected = useMemo(
     () => packages.find((p) => p.id === selectedId) ?? packages[0],
     [selectedId],
@@ -140,23 +130,6 @@ export function CreditsView() {
   const handlePurchase = useCallback(() => {
     addCredits(selected.credits + selected.bonus);
   }, [selected]);
-
-  const tick = useCallback(() => {
-    setSecondsLeft((prev) => {
-      if (prev <= 1) return offerCountdownInitialSeconds;
-      return prev - 1;
-    });
-  }, []);
-
-  useEffect(() => {
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [tick]);
-
-  const countdownLabel = useMemo(
-    () => formatCountdown(secondsLeft),
-    [secondsLeft],
-  );
 
   return (
     <div className="bg-[#F5F3EE] pb-8">
@@ -173,28 +146,6 @@ export function CreditsView() {
         </div>
         <CreditsPill />
       </header>
-
-      <div className="px-5 pb-5">
-        <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-pink-100 via-purple-100 to-indigo-100 p-4 shadow-md">
-          <span className="text-3xl" aria-hidden>
-            🎁
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-bold leading-tight text-ink">
-              Welkomstbonus
-            </p>
-            <p className="mt-0.5 text-[12px] font-medium leading-snug text-gray-600">
-              +20% extra op elk pakket
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-2 shadow-sm">
-            <Clock className="h-4 w-4 shrink-0 text-[#7C5CFF]" strokeWidth={2.25} />
-            <span className="font-mono text-[13px] font-bold tabular-nums tracking-tight text-[#7C5CFF]">
-              {countdownLabel}
-            </span>
-          </div>
-        </div>
-      </div>
 
       <div className="space-y-2.5 px-5 pb-4">
         {packages.map((pkg) => (
