@@ -522,19 +522,19 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                 />
               )}
               {step === 4 && (
-                <StepAgeRange
-                  ageRange={ageRange}
-                  setAgeRange={setAgeRange}
-                  onContinue={goNext}
-                />
-              )}
-              {step === 5 && (
                 <StepSeekingGender
                   selected={seekingGender}
                   onSelect={(g) => {
                     setSeekingGender(g);
                     setTimeout(() => goNext(), 300);
                   }}
+                />
+              )}
+              {step === 5 && (
+                <StepAgeRange
+                  ageRange={ageRange}
+                  setAgeRange={setAgeRange}
+                  onContinue={goNext}
                 />
               )}
               {step === 6 && (
