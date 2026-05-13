@@ -321,24 +321,26 @@ export function MeProfileView({
         ))}
       </div>
 
-      <div className="px-5 pb-3">
-        <button
-          type="button"
-          onClick={() => {
-            try {
-              localStorage.removeItem(ONBOARDED_KEY);
-              localStorage.removeItem(WHISPER_USER_KEY);
-              sessionStorage.removeItem(FUNNEL_SESSION_KEY);
-            } catch {
-              /* ignore */
-            }
-            router.push("/?testFunnel=1");
-          }}
-          className="flex w-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/90 py-3 text-[13px] font-semibold text-gray-600 shadow-sm transition active:scale-95"
-        >
-          Test onboarding funnel
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="px-5 pb-3">
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.removeItem(ONBOARDED_KEY);
+                localStorage.removeItem(WHISPER_USER_KEY);
+                sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+              } catch {
+                /* ignore */
+              }
+              router.push("/?testFunnel=1");
+            }}
+            className="flex w-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/90 py-3 text-[13px] font-semibold text-gray-600 shadow-sm transition active:scale-95"
+          >
+            Test onboarding funnel
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col items-center gap-2.5 px-5 pb-8">
         {isAdmin && (
