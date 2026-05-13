@@ -1104,18 +1104,12 @@ function StepAgeRange({
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#7C5CFF]">
               Looking for ages
             </p>
-            {anyAge ? (
-              <p className="mt-1 text-balance text-4xl font-extrabold leading-tight text-gray-900 sm:text-5xl">
-                Any age · ~13,780 people
-              </p>
-            ) : (
-              <>
-                <p className="mt-1 text-5xl font-extrabold tabular-nums text-gray-900">
-                  {min} – {formatMaxLabel(max)}
-                </p>
-                <p className="mt-1 text-[12px] text-gray-600">{countLabel}</p>
-              </>
-            )}
+            <p className="mt-1 text-5xl font-extrabold tabular-nums text-gray-900">
+              {anyAge ? "Any age" : `${min} – ${formatMaxLabel(max)}`}
+            </p>
+            <p className="mt-1 text-[12px] text-gray-600">
+              {anyAge ? "~13,780 people" : countLabel}
+            </p>
           </div>
 
           <div>
