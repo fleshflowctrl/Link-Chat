@@ -6,9 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Lock, MessageCircle, Sparkles, X } from "lucide-react";
 import {
-  CATEGORY_LABELS,
   contentSets,
-  type ContentCategory,
   type ContentSet,
 } from "@/data/exclusive-content";
 import {
@@ -17,14 +15,6 @@ import {
   spendCredits,
   subscribeCredits,
 } from "@/lib/credits-store";
-
-const CATEGORIES: ("all" | ContentCategory)[] = [
-  "all",
-  "exclusive",
-  "selfie",
-  "outdoor",
-];
-const CATEGORY_ALL_LABEL = "Alles";
 
 /* ─────────────────────────── helpers ────────────────────────────── */
 
@@ -332,7 +322,6 @@ function ContentCard({
 /* ─────────────────── main export ────────────────────────────────── */
 
 export function ExclusiveContentStore() {
-  const [activeFilter, setActiveFilter] = useState<"all" | ContentCategory>("all");
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => new Set());
   const [unlockTarget, setUnlockTarget] = useState<ContentSet | null>(null);
   const [viewTarget, setViewTarget] = useState<{ set: ContentSet; index: number } | null>(null);
@@ -383,10 +372,6 @@ export function ExclusiveContentStore() {
     setTimeout(() => setViewTarget({ set: opened, index: 0 }), 250);
   }
 
-  const filtered = activeFilter === "all"
-    ? contentSets
-    : contentSets.filter((s) => s.category === activeFilter);
-
   return (
     <section className="px-5 pb-8 pt-1">
       {/* page header */}
@@ -403,31 +388,10 @@ export function ExclusiveContentStore() {
         </div>
       </div>
 
-      {/* filter pills */}
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
-        {CATEGORIES.map((cat) => {
-          const label = cat === "all" ? CATEGORY_ALL_LABEL : CATEGORY_LABELS[cat];
-          const active = cat === activeFilter;
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setActiveFilter(cat)}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition active:scale-95 ${
-                active
-                  ? "bg-[#7C5CFF] text-white shadow-sm"
-                  : "bg-white text-gray-600 shadow-sm ring-1 ring-black/[0.06]"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
 
       {/* grid */}
       <div className="grid grid-cols-2 gap-3">
-        {filtered.map((set) => (
+        {contentSets.map((set) => (
           <ContentCard
             key={set.id}
             set={set}
