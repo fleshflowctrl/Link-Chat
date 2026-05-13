@@ -49,6 +49,7 @@ import {
 } from "@/lib/funnel-match-picks";
 import { setThreadPreview } from "@/lib/thread-preview-store";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
+import { resetCreditsForNewUser } from "@/lib/credits-store";
 
 const STEP_TOTAL = 8;
 const MSG_MAX = 240;
@@ -375,6 +376,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       email: string;
       password: string;
     }): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const SIGNUP_CREDITS = 25;
+
       const signupResult = await saveFunnelAccount({
         email,
         password,
@@ -382,6 +385,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         gender,
         seekingGender,
         ageRange,
+        startingCredits: SIGNUP_CREDITS,
         pickedMatchId: firstContact.profileId,
       });
 
@@ -395,19 +399,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         pid && pickedMatch && msgTrim.length >= 10,
       );
 
-      let prevCredits = 0;
-      try {
-        const prevRaw = localStorage.getItem(WHISPER_USER_KEY);
-        if (prevRaw) {
-          const prev = JSON.parse(prevRaw) as { credits?: unknown };
-          if (typeof prev.credits === "number" && prev.credits >= 0) {
-            prevCredits = prev.credits;
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-      const credits = prevCredits + 25;
+      const credits = SIGNUP_CREDITS;
 
       const basePayload = {
         name: "User",
@@ -456,6 +448,15 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       localStorage.setItem(WHISPER_USER_KEY, JSON.stringify(enriched));
       localStorage.setItem(ONBOARDED_KEY, "true");
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+
+      // Clear any legacy global credits balance from previous test sessions
+      // and seed the per-user balance for this fresh account.
+      try {
+        localStorage.removeItem("whisper_credits");
+      } catch {
+        /* ignore */
+      }
+      resetCreditsForNewUser(signupResult.userId, credits);
 
       const toast = signupResult.needsEmailConfirm
         ? "Account created — check your email to confirm ✨"

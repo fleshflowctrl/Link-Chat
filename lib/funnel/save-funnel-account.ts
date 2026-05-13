@@ -17,6 +17,7 @@ export type FunnelSignupInput = {
   gender: FunnelGender | null;
   seekingGender: FunnelSeekingGender | null;
   ageRange: FunnelAgeRange;
+  startingCredits: number;
   pickedMatchId?: string | null;
 };
 
@@ -90,6 +91,7 @@ export async function saveFunnelAccount(
     .upsert(
       {
         user_id: userId,
+        credits: Math.max(0, Math.floor(input.startingCredits)),
         looking_for: input.lookingFor ?? "",
         gender: input.gender ?? "",
         seeking_gender: input.seekingGender ?? "",
