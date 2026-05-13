@@ -1373,7 +1373,7 @@ function StepPickMatch({
                 type="button"
                 aria-pressed={sel}
                 onClick={() => onSelect(p.id)}
-                className={`group relative aspect-[3/4] w-full min-w-0 overflow-hidden rounded-2xl text-left shadow-md ring-2 transition active:scale-[0.98] ${
+                className={`group relative aspect-[3/4] w-full min-w-0 overflow-hidden rounded-2xl text-left shadow-md ring-2 transition active:scale-[0.98] [transform:translateZ(0)] [isolation:isolate] ${
                   sel
                     ? "ring-[#7C5CFF] ring-offset-2 ring-offset-[#F5F3EE]"
                     : "ring-black/[0.06] ring-offset-0"
@@ -1421,7 +1421,7 @@ function StepPickMatch({
                     {p.name}, {p.age}
                   </p>
                   <p className="mt-0.5 truncate text-[9px] font-semibold leading-tight text-white/95 drop-shadow sm:text-[10px]">
-                    {formatKm(p.distanceKm)} · {e1} {e2}
+                    {p.city}
                   </p>
                 </div>
 
