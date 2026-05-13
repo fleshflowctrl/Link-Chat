@@ -20,16 +20,47 @@ type MessageRow = {
 type ProfileRow = { id: string; display_name: string; avatar_url: string };
 type AuthUserRow = { id: string; email: string | null };
 
-async function loadThreads(): Promise<AdminThreadSummary[]> {
-  const service = getServiceSupabase();
-  if (!service) return [];
+type LoadResult = {
+  threads: AdminThreadSummary[];
+  diagnostics: {
+    serviceConfigured: boolean;
+    rawMessageCount: number;
+    error?: string;
+  };
+};
 
-  const { data: msgs } = await service
+async function loadThreads(): Promise<LoadResult> {
+  const service = getServiceSupabase();
+  if (!service) {
+    return {
+      threads: [],
+      diagnostics: {
+        serviceConfigured: false,
+        rawMessageCount: 0,
+        error:
+          "SUPABASE_SERVICE_ROLE_KEY ontbreekt — voeg hem toe aan je .env / Vercel env vars.",
+      },
+    };
+  }
+
+  const { data: msgs, error: msgsError } = await service
     .from("chat_messages")
     .select(
       "owner_user_id, peer_id, body, kind, reaction_emoji, sender, created_at",
     )
     .order("created_at", { ascending: false });
+
+  if (msgsError) {
+    console.error("[admin/messages] chat_messages select", msgsError);
+    return {
+      threads: [],
+      diagnostics: {
+        serviceConfigured: true,
+        rawMessageCount: 0,
+        error: `chat_messages select faalde: ${msgsError.message}`,
+      },
+    };
+  }
 
   const rows = (msgs ?? []) as MessageRow[];
   const counts = new Map<string, number>();
@@ -69,7 +100,7 @@ async function loadThreads(): Promise<AdminThreadSummary[]> {
     }
   }
 
-  return Array.from(latest.entries())
+  const threads = Array.from(latest.entries())
     .map(([key, m]) => {
       const profile = peerById.get(m.peer_id);
       const preview =
@@ -95,6 +126,14 @@ async function loadThreads(): Promise<AdminThreadSummary[]> {
         new Date(b.lastMessageAt).getTime() -
         new Date(a.lastMessageAt).getTime(),
     );
+
+  return {
+    threads,
+    diagnostics: {
+      serviceConfigured: true,
+      rawMessageCount: rows.length,
+    },
+  };
 }
 
 function formatDateTime(iso: string): string {
@@ -123,7 +162,7 @@ export default async function AdminMessagesPage() {
     );
   }
 
-  const threads = await loadThreads();
+  const { threads, diagnostics } = await loadThreads();
 
   return (
     <div>
@@ -132,12 +171,23 @@ export default async function AdminMessagesPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Berichten</h1>
           <p className="mt-1 text-sm text-gray-600">
             Alle gesprekken van alle gebruikers, met de meest recente bovenaan.
+            {diagnostics.serviceConfigured ? (
+              <span className="ml-1 text-gray-500">
+                ({diagnostics.rawMessageCount} berichten in totaal)
+              </span>
+            ) : null}
           </p>
         </div>
         <span className="text-xs text-gray-500">
           Ingelogd als {auth.email ?? auth.userId}
         </span>
       </div>
+
+      {diagnostics.error && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          {diagnostics.error}
+        </div>
+      )}
 
       {threads.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
