@@ -376,7 +376,7 @@ export function ExclusiveContentStore() {
   }
 
   return (
-    <section className="px-5 pb-8 pt-1">
+    <section className="px-5 pb-8 pt-[max(1rem,env(safe-area-inset-top))]">
       {/* page header */}
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>

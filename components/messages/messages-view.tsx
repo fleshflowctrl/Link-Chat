@@ -407,7 +407,7 @@ export function MessagesView({
 
   return (
     <div className="bg-[#F5F3EE] pb-6">
-      <header className="flex items-start justify-between gap-3 px-5 pb-1 pt-2">
+      <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
           Berichten
         </h1>
