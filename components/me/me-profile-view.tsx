@@ -147,20 +147,11 @@ export function MeProfileView({
     <div className="bg-[#F5F3EE] pb-8">
       <StatusBarMock />
 
-      <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-1">
+      <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
           Profiel
         </h1>
-        <div className="mt-0.5 flex shrink-0 items-center gap-2">
-          <CreditsPill />
-          <Link
-            href="/me/settings"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-100 bg-white text-gray-600 shadow-sm transition active:scale-95"
-            aria-label="Instellingen"
-          >
-            <Settings className="h-[18px] w-[18px]" strokeWidth={2} />
-          </Link>
-        </div>
+        <CreditsPill />
       </header>
 
       <div className="px-5 pb-5">
