@@ -66,13 +66,6 @@ function TypingDots() {
   );
 }
 
-function MessagesHeaderActions() {
-  return (
-    <div className="mt-0.5 flex shrink-0 items-center gap-2">
-      <CreditsPill />
-    </div>
-  );
-}
 
 function PinnedSection({ threads }: { threads: MessageThread[] }) {
   if (threads.length === 0) return null;
@@ -411,7 +404,7 @@ export function MessagesView({
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
           Berichten
         </h1>
-        <MessagesHeaderActions />
+        <CreditsPill />
       </header>
 
       <OnlineNowRail compact className="pt-3" users={onlineRailUsers} />
