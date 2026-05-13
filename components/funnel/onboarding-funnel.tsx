@@ -1353,18 +1353,17 @@ function StepPickMatch({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
-      <div className="shrink-0 px-5 pt-1">
-        <h2 className="text-[clamp(1.15rem,4.2vmin,1.5rem)] font-extrabold leading-tight text-gray-900">
-          Your first link.
-        </h2>
-        <p className="mt-0.5 text-[clamp(11px,2.9vmin,13px)] text-gray-600">
-          <span className="font-bold text-pink-500">{n} people</span>{" "}
-          <span>online and matched to you. Pick one.</span>
-        </p>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-hidden px-5 pb-1 pt-2">
-        <div className="grid h-full min-h-0 auto-rows-min grid-cols-2 gap-2 overflow-y-auto overscroll-y-contain pb-1 [-webkit-overflow-scrolling:touch]">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-1 pt-1 [-webkit-overflow-scrolling:touch]">
+        <div className="px-2 pb-1 pt-0">
+          <h2 className="text-[clamp(1.15rem,4.2vmin,1.5rem)] font-extrabold leading-tight text-gray-900">
+            Your first link.
+          </h2>
+          <p className="mt-0.5 text-[clamp(11px,2.9vmin,13px)] text-gray-600">
+            <span className="font-bold text-pink-500">{n} people</span>{" "}
+            <span>online and matched to you. Pick one.</span>
+          </p>
+        </div>
+        <div className="grid auto-rows-min grid-cols-2 gap-3 px-2 pb-2 pt-2">
           {matches.map((p) => {
             const sel = selectedId === p.id;
             const [e1, e2] = cardFooterEmojis(p, userVibes);
