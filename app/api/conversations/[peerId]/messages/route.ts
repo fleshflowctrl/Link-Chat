@@ -67,20 +67,26 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Ongeldige JSON" }, { status: 400 });
   }
 
-  const text =
-    typeof body === "object" &&
-    body !== null &&
-    "text" in body &&
-    typeof (body as { text: unknown }).text === "string"
-      ? (body as { text: string }).text.trim()
-      : "";
+  const obj = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const text = typeof obj.text === "string" ? obj.text.trim() : "";
+  const imageUrl = typeof obj.imageUrl === "string" ? obj.imageUrl.trim() : "";
+  const isImage = imageUrl.length > 0;
 
-  if (!text) {
-    return NextResponse.json({ ok: false, error: "Geen tekst" }, { status: 400 });
+  if (!isImage && !text) {
+    return NextResponse.json(
+      { ok: false, error: "Geen tekst of afbeelding" },
+      { status: 400 },
+    );
   }
   if (text.length > MAX_LEN) {
     return NextResponse.json(
       { ok: false, error: `Bericht te lang (max. ${MAX_LEN} tekens)` },
+      { status: 400 },
+    );
+  }
+  if (isImage && !/^https?:\/\//.test(imageUrl)) {
+    return NextResponse.json(
+      { ok: false, error: "Ongeldige afbeeldings-URL" },
       { status: 400 },
     );
   }
@@ -112,8 +118,9 @@ export async function POST(
     .insert({
       peer_id: peerId,
       sender: "me",
-      kind: "text",
-      body: text,
+      kind: isImage ? "image" : "text",
+      body: isImage ? null : text,
+      image_url: isImage ? imageUrl : null,
       owner_user_id: user.id,
     })
     .select("*")

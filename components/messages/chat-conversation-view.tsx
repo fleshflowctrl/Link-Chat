@@ -31,6 +31,8 @@ import {
   getThreadPreviewOverride,
   setThreadPreview,
 } from "@/lib/thread-preview-store";
+import { uploadChatImage } from "@/lib/chat/upload-chat-image";
+import { GiftModal } from "@/components/messages/gift-modal";
 
 const GROUP_GAP_MIN = 5;
 
@@ -77,6 +79,32 @@ function gid() {
 }
 
 const REACTION_PICK = ["❤️", "😂", "🔥", "😮"] as const;
+
+function GiftBubble({
+  credits,
+  mine,
+}: {
+  credits: number;
+  mine: boolean;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-[15px] font-bold shadow-md ring-1 ${
+        mine
+          ? "rounded-br-md bg-gradient-to-br from-amber-400 to-pink-500 text-white ring-white/30"
+          : "rounded-bl-md bg-gradient-to-br from-amber-50 to-pink-50 text-amber-800 ring-amber-200"
+      }`}
+    >
+      <Gift className="h-5 w-5 shrink-0" strokeWidth={2.25} />
+      <span className="flex flex-col leading-tight">
+        <span className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
+          {mine ? "Cadeau verstuurd" : "Cadeau ontvangen"}
+        </span>
+        <span className="text-[16px] tabular-nums">{credits} credits</span>
+      </span>
+    </span>
+  );
+}
 
 function ReadReceipt({ phase }: { phase: "single" | "double" }) {
   return (
@@ -126,6 +154,9 @@ export function ChatConversationView({
   const [assistantError, setAssistantError] = useState<string | null>(null);
   const [composerLift, setComposerLift] = useState(0);
   const longPressRef = useRef<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [giftOpen, setGiftOpen] = useState(false);
 
   const annotated = useMemo(() => annotateMessages(messages), [messages]);
 
@@ -417,6 +448,155 @@ export function ChatConversationView({
     [chatId, useSupabase, meta],
   );
 
+  const sendImage = useCallback(
+    async (publicUrl: string) => {
+      if (!publicUrl) return;
+      if (!useSupabase) {
+        const { timeLabel, minuteOfDay } = nowClock();
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: gid(),
+            sender: "me",
+            kind: "image",
+            imageUrl: publicUrl,
+            timeLabel,
+            minuteOfDay,
+          },
+        ]);
+        return;
+      }
+
+      const { timeLabel, minuteOfDay } = nowClock();
+      const tempId = `tmp-${gid()}`;
+      const optimistic: ChatMessage = {
+        id: tempId,
+        sender: "me",
+        kind: "image",
+        imageUrl: publicUrl,
+        timeLabel,
+        minuteOfDay,
+      };
+
+      setAssistantError(null);
+      setMessages((prev) => [...prev, optimistic]);
+      setThreadPreview(chatId, {
+        lastMessage: "Foto",
+        timestampLabel: timeLabel,
+        lastActivityAt: new Date().toISOString(),
+        name: meta.name,
+        avatarUrl: meta.avatarUrl,
+        verified: meta.verified,
+        showOnlineDot: meta.onlineNow,
+        unreadCount: 0,
+      });
+
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(chatId)}/messages`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageUrl: publicUrl }),
+          },
+        );
+        const data = (await res.json()) as {
+          ok?: boolean;
+          userMessage?: ChatMessage;
+          peerMessage?: ChatMessage | null;
+          warning?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.userMessage) {
+          setAssistantError(data.error ?? `Foto versturen mislukt (${res.status})`);
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
+          return;
+        }
+        setMessages((prev) => {
+          const replaced = prev.map((m) =>
+            m.id === tempId ? data.userMessage! : m,
+          );
+          return data.peerMessage ? [...replaced, data.peerMessage] : replaced;
+        });
+      } catch (e) {
+        console.error("[chat] send image failed", e);
+        setAssistantError(
+          e instanceof Error ? e.message : "Foto versturen mislukt",
+        );
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      }
+    },
+    [chatId, useSupabase, meta],
+  );
+
+  const sendGift = useCallback(
+    async (amount: number) => {
+      if (!Number.isFinite(amount) || amount <= 0) return { ok: false as const, error: "Ongeldig bedrag" };
+
+      const { timeLabel, minuteOfDay } = nowClock();
+      const tempId = `tmp-${gid()}`;
+      const optimistic: ChatMessage = {
+        id: tempId,
+        sender: "me",
+        kind: "text",
+        body: `🎁 Cadeau verstuurd: ${amount} credits`,
+        timeLabel,
+        minuteOfDay,
+      };
+
+      setAssistantError(null);
+      setMessages((prev) => [...prev, optimistic]);
+      setThreadPreview(chatId, {
+        lastMessage: `🎁 ${amount} credits`,
+        timestampLabel: timeLabel,
+        lastActivityAt: new Date().toISOString(),
+        name: meta.name,
+        avatarUrl: meta.avatarUrl,
+        verified: meta.verified,
+        showOnlineDot: meta.onlineNow,
+        unreadCount: 0,
+      });
+
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(chatId)}/gifts`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount }),
+          },
+        );
+        const data = (await res.json()) as {
+          ok?: boolean;
+          userMessage?: ChatMessage;
+          peerMessage?: ChatMessage | null;
+          newBalance?: number;
+          error?: string;
+        };
+        if (!res.ok || !data.ok || !data.userMessage) {
+          setAssistantError(data.error ?? `Cadeau versturen mislukt (${res.status})`);
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
+          return { ok: false as const, error: data.error ?? "Versturen mislukt" };
+        }
+        setMessages((prev) => {
+          const replaced = prev.map((m) =>
+            m.id === tempId ? data.userMessage! : m,
+          );
+          return data.peerMessage ? [...replaced, data.peerMessage] : replaced;
+        });
+        return { ok: true as const, newBalance: data.newBalance };
+      } catch (e) {
+        console.error("[chat] send gift failed", e);
+        setAssistantError(
+          e instanceof Error ? e.message : "Cadeau versturen mislukt",
+        );
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        return { ok: false as const, error: "Netwerkfout" };
+      }
+    },
+    [chatId, meta],
+  );
+
   function attachReactionTo(messageId: string, emoji: string) {
     setMessages((prev) =>
       prev.map((m) =>
@@ -633,7 +813,12 @@ export function ChatConversationView({
                       }}
                     >
                       <span className="relative inline-block max-w-full">
-                        {msg.kind === "text" ? (
+                        {msg.kind === "gift" ? (
+                          <GiftBubble
+                            credits={msg.giftCredits ?? 0}
+                            mine={false}
+                          />
+                        ) : msg.kind === "text" ? (
                           <span className="inline-block rounded-2xl rounded-bl-md bg-gray-100 px-4 py-2.5 text-[15px] leading-snug text-ink shadow-sm ring-1 ring-black/[0.04]">
                             {msg.body}
                           </span>
@@ -701,7 +886,12 @@ export function ChatConversationView({
                       }}
                     >
                       <span className="relative inline-block max-w-full">
-                        {msg.kind === "text" ? (
+                        {msg.kind === "gift" ? (
+                          <GiftBubble
+                            credits={msg.giftCredits ?? 0}
+                            mine={true}
+                          />
+                        ) : msg.kind === "text" ? (
                           <span className="inline-block rounded-2xl rounded-br-md bg-gradient-to-br from-primary to-primarySoft px-4 py-2.5 text-left text-[15px] leading-snug text-white shadow-sm">
                             {msg.body}
                           </span>
@@ -825,11 +1015,35 @@ export function ChatConversationView({
         }}
       >
         <div className="mx-auto flex max-w-[430px] items-end gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            aria-hidden
+            onChange={async (e) => {
+              const f = e.currentTarget.files?.[0];
+              if (e.currentTarget) e.currentTarget.value = "";
+              if (!f || imageBusy) return;
+              setImageBusy(true);
+              try {
+                const r = await uploadChatImage(f);
+                if (!r.ok) {
+                  setAssistantError(r.error);
+                  return;
+                }
+                await sendImage(r.publicUrl);
+              } finally {
+                setImageBusy(false);
+              }
+            }}
+          />
           <button
             type="button"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
-            aria-label="Bijlagen"
-            onClick={() => console.log("[chat] Attachments placeholder")}
+            disabled={imageBusy}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95 disabled:opacity-60"
+            aria-label="Foto sturen"
+            onClick={() => fileInputRef.current?.click()}
           >
             <Plus className="h-5 w-5" strokeWidth={2.5} />
           </button>
@@ -875,8 +1089,8 @@ export function ChatConversationView({
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
-              aria-label="Cadeaus"
-              onClick={() => console.log("[chat] Gifts placeholder")}
+              aria-label="Cadeau geven"
+              onClick={() => setGiftOpen(true)}
             >
               <Gift className="h-5 w-5" strokeWidth={2.25} />
               <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
@@ -884,6 +1098,14 @@ export function ChatConversationView({
           )}
         </div>
       </div>
+
+      <GiftModal
+        open={giftOpen}
+        onClose={() => setGiftOpen(false)}
+        peerName={meta.name}
+        peerAvatarUrl={meta.avatarUrl}
+        onSend={sendGift}
+      />
     </div>
   );
 }

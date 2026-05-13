@@ -199,7 +199,7 @@ export function sortThreadsByRecency(threads: MessageThread[]): MessageThread[] 
 
 export type ChatMessageSender = "peer" | "me";
 
-export type ChatMessageKind = "text" | "image";
+export type ChatMessageKind = "text" | "image" | "gift";
 
 export interface ChatMessage {
   id: string;
@@ -208,6 +208,8 @@ export interface ChatMessage {
   /** Body for text; caption optional for image */
   body?: string;
   imageUrl?: string;
+  /** When kind === "gift": the credits amount sent. */
+  giftCredits?: number;
   /** Shown under bubble when meta row visible, e.g. "10:32 AM" */
   timeLabel: string;
   /** Minutes from midnight for grouping (0–1440) */

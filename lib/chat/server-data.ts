@@ -97,7 +97,9 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
   try {
     const { data: allMsgs, error: me } = await supabase
       .from("chat_messages")
-      .select("peer_id, body, created_at, kind, image_url, reaction_emoji")
+      .select(
+        "peer_id, body, created_at, kind, image_url, reaction_emoji, gift_credits",
+      )
       .eq("owner_user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -111,7 +113,7 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
       Pick<
         ChatMessageRow,
         "body" | "created_at" | "kind" | "image_url" | "reaction_emoji"
-      >
+      > & { gift_credits: number | null }
     >();
     const peerOrder: string[] = [];
 
@@ -124,6 +126,7 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
         kind: (row.kind as string) || "text",
         image_url: row.image_url as string | null,
         reaction_emoji: row.reaction_emoji as string | null,
+        gift_credits: (row as { gift_credits?: number | null }).gift_credits ?? null,
       });
       peerOrder.push(pid);
     }

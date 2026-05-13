@@ -176,6 +176,16 @@ export function addCredits(amount: number) {
 }
 
 /**
+ * Sync the local snapshot to a balance the server just confirmed (e.g. after a
+ * gift). Skips the debounced PUT-back since the value is already authoritative.
+ */
+export function applyServerCreditsUpdate(balance: number) {
+  if (!Number.isFinite(balance) || balance < 0) return;
+  writeLocalBalance(snapshot.userKey, balance);
+  setSnapshot(balance, snapshot.userKey);
+}
+
+/**
  * Called by the funnel right after a successful signup so the new account
  * starts with a clean per-user balance, even if the previous test session
  * had purchases or other state in localStorage.

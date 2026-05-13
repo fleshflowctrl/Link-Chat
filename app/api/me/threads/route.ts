@@ -31,7 +31,9 @@ export async function GET() {
 
   const { data: msgs, error } = await supabase
     .from("chat_messages")
-    .select("peer_id, body, kind, image_url, reaction_emoji, created_at")
+    .select(
+      "peer_id, body, kind, image_url, reaction_emoji, gift_credits, created_at",
+    )
     .eq("owner_user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -45,7 +47,13 @@ export async function GET() {
   const rows = (msgs ?? []) as Array<
     Pick<
       ChatMessageRow,
-      "peer_id" | "body" | "kind" | "image_url" | "reaction_emoji" | "created_at"
+      | "peer_id"
+      | "body"
+      | "kind"
+      | "image_url"
+      | "reaction_emoji"
+      | "gift_credits"
+      | "created_at"
     >
   >;
 
@@ -53,7 +61,13 @@ export async function GET() {
     string,
     Pick<
       ChatMessageRow,
-      "peer_id" | "body" | "kind" | "image_url" | "reaction_emoji" | "created_at"
+      | "peer_id"
+      | "body"
+      | "kind"
+      | "image_url"
+      | "reaction_emoji"
+      | "gift_credits"
+      | "created_at"
     >
   >();
   for (const m of rows) {

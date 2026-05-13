@@ -41,6 +41,7 @@ export type ChatMessageRow = {
   body: string | null;
   image_url: string | null;
   reaction_emoji: string | null;
+  gift_credits: number | null;
   created_at: string;
 };
 
@@ -86,7 +87,7 @@ export function mergeProfileWithLatestUserMessage(
   latest: Pick<
     ChatMessageRow,
     "body" | "created_at" | "kind" | "image_url" | "reaction_emoji"
-  >,
+  > & { gift_credits?: number | null },
 ): MessageThread {
   const base = profileRowToThread(row);
   const ts = isoToThreadTimeLabel(latest.created_at);
@@ -98,6 +99,17 @@ export function mergeProfileWithLatestUserMessage(
       lastMessage: "Foto",
       messageType: "photo",
       previewImage: latest.image_url ?? undefined,
+      timestampLabel: ts,
+      lastActivityAt: at,
+    };
+  }
+
+  if (latest.kind === "gift") {
+    const amount = latest.gift_credits ?? 0;
+    return {
+      ...base,
+      messageType: "text",
+      lastMessage: amount > 0 ? `🎁 ${amount} credits` : "🎁 Cadeau verstuurd",
       timestampLabel: ts,
       lastActivityAt: at,
     };
@@ -137,7 +149,8 @@ export function messageRowToUi(row: ChatMessageRow): ChatMessage {
     d.getMilliseconds() / 60000;
 
   const sender: ChatMessageSender = row.sender === "me" ? "me" : "peer";
-  const kind = row.kind === "image" ? "image" : "text";
+  const kind: ChatMessage["kind"] =
+    row.kind === "image" ? "image" : row.kind === "gift" ? "gift" : "text";
 
   return {
     id: row.id,
@@ -145,6 +158,10 @@ export function messageRowToUi(row: ChatMessageRow): ChatMessage {
     kind,
     body: row.body ?? undefined,
     imageUrl: row.image_url ?? undefined,
+    giftCredits:
+      typeof row.gift_credits === "number" && row.gift_credits > 0
+        ? row.gift_credits
+        : undefined,
     timeLabel,
     minuteOfDay,
     reactionBadge: row.reaction_emoji ?? undefined,
