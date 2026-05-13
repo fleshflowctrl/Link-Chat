@@ -6,8 +6,8 @@ export type MeSettingsIconKey =
   | "gift"
   | "help";
 
-/** Display order for the 2×2 stat grid. */
-export const meStatGridOrder = ["chats", "links", "likes", "credits"] as const;
+/** Display order for the stat grid. */
+export const meStatGridOrder = ["chats", "messages", "credits"] as const;
 export type MeStatKey = (typeof meStatGridOrder)[number];
 
 /** Labels and styling for Me stat cards — numeric values come from the database. */
@@ -21,17 +21,11 @@ export const meStatCardLayout: Record<
     emoji: "💬",
     cardBg: "bg-purple-100",
   },
-  links: {
-    label: "Gekoppeld",
-    subtitle: "Jullie zijn gekoppeld",
-    emoji: "🔗",
-    cardBg: "bg-pink-100",
-  },
-  likes: {
-    label: "Likes",
-    subtitle: "Mensen die jou liketen",
-    emoji: "❤️",
-    cardBg: "bg-rose-100",
+  messages: {
+    label: "Berichten",
+    subtitle: "Verstuurde berichten",
+    emoji: "✉️",
+    cardBg: "bg-blue-100",
   },
   credits: {
     label: "Credits",
@@ -53,8 +47,7 @@ export const meProfile = {
   verified: true,
   stats: {
     chats: { ...meStatCardLayout.chats, value: 12 },
-    links: { ...meStatCardLayout.links, value: 3 },
-    likes: { ...meStatCardLayout.likes, value: 46 },
+    messages: { ...meStatCardLayout.messages, value: 84 },
     credits: { ...meStatCardLayout.credits, value: 125 },
   },
 };

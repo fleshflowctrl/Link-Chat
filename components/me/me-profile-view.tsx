@@ -273,9 +273,7 @@ export function MeProfileView({
               ? credits
               : key === "chats"
                 ? stats.chats
-                : key === "links"
-                  ? stats.links
-                  : stats.likes;
+                : stats.messages;
           return (
             <div
               key={key}

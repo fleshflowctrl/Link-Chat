@@ -187,8 +187,7 @@ export async function countDistinctChatPeersForUser(
 
 export type MeProfileStats = {
   chats: number;
-  links: number;
-  likes: number;
+  messages: number;
 };
 
 export async function fetchUserEditProfileServer(): Promise<{
@@ -200,7 +199,7 @@ export async function fetchUserEditProfileServer(): Promise<{
   /** Email confirmed at signup / confirmation flow. */
   showVerified: boolean;
 }> {
-  const emptyStats: MeProfileStats = { chats: 0, links: 0, likes: 0 };
+  const emptyStats: MeProfileStats = { chats: 0, messages: 0 };
 
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     const profile = createInitialEditable();
@@ -250,8 +249,7 @@ export async function fetchUserEditProfileServer(): Promise<{
       credits: defaultCredits(),
       stats: {
         chats: chatPeerCount,
-        links: 0,
-        likes: 0,
+        messages: 0,
       },
       showVerified,
     };
@@ -265,8 +263,7 @@ export async function fetchUserEditProfileServer(): Promise<{
       credits: defaultCredits(),
       stats: {
         chats: chatPeerCount,
-        links: 0,
-        likes: 0,
+        messages: 0,
       },
       showVerified,
     };
@@ -279,8 +276,7 @@ export async function fetchUserEditProfileServer(): Promise<{
     typeof r.credits === "number" && r.credits >= 0 ? r.credits : defaultCredits();
   const stats: MeProfileStats = {
     chats: chatPeerCount,
-    links: typeof r.stat_links === "number" && r.stat_links >= 0 ? r.stat_links : 0,
-    likes: typeof r.stat_likes === "number" && r.stat_likes >= 0 ? r.stat_likes : 0,
+    messages: 0,
   };
   return {
     profile,
