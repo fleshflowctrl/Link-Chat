@@ -1694,36 +1694,52 @@ function StepCreateAccount({
             </div>
           </div>
 
-          <div className="shrink-0 space-y-2">
-            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.08]">
-              <label className="block px-4 py-3">
-                <span className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  Email
-                </span>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="mt-1 w-full border-0 bg-transparent text-[15px] font-semibold text-gray-900 outline-none placeholder:text-gray-300"
-                  autoComplete="email"
-                />
-              </label>
+          <div className="shrink-0 space-y-2.5">
+            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition focus-within:border-[#7C5CFF] focus-within:ring-2 focus-within:ring-[#7C5CFF]/20">
+              <svg
+                className="h-4 w-4 shrink-0 text-gray-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m3 7 9 6 9-6" />
+              </svg>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address"
+                className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
+                autoComplete="email"
+              />
             </div>
-            <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.08]">
-              <label className="block px-4 py-3">
-                <span className="block text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                  Password
-                </span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
-                  className="mt-1 w-full border-0 bg-transparent text-[15px] font-semibold text-gray-900 outline-none placeholder:text-gray-300"
-                  autoComplete="new-password"
-                />
-              </label>
+            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition focus-within:border-[#7C5CFF] focus-within:ring-2 focus-within:ring-[#7C5CFF]/20">
+              <svg
+                className="h-4 w-4 shrink-0 text-gray-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <rect x="4" y="11" width="16" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
+                autoComplete="new-password"
+              />
             </div>
           </div>
         </div>
