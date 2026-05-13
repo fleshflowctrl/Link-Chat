@@ -1593,10 +1593,14 @@ function StepCreateAccount({
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const emailOk = isValidEmail(email);
   const passOk = password.length >= 8;
-  const formOk = emailOk && passOk;
+  const confirmOk = confirmPassword.length > 0 && confirmPassword === password;
+  const showMismatch =
+    confirmPassword.length > 0 && confirmPassword !== password;
+  const formOk = emailOk && passOk && confirmOk;
 
   const preview = firstMessage.trim();
   const hasOutreach = Boolean(peer && preview.length > 0);
@@ -1741,6 +1745,48 @@ function StepCreateAccount({
                 autoComplete="new-password"
               />
             </div>
+            <div
+              className={`flex items-center gap-3 rounded-2xl border bg-white px-4 shadow-sm transition focus-within:ring-2 ${
+                showMismatch
+                  ? "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/20"
+                  : "border-gray-200 focus-within:border-[#7C5CFF] focus-within:ring-[#7C5CFF]/20"
+              }`}
+            >
+              <svg
+                className={`h-4 w-4 shrink-0 ${showMismatch ? "text-red-400" : "text-gray-400"}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <rect x="4" y="11" width="16" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repeat password"
+                className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
+                autoComplete="new-password"
+              />
+              {confirmOk ? (
+                <span
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white"
+                  aria-label="Passwords match"
+                >
+                  ✓
+                </span>
+              ) : null}
+            </div>
+            {showMismatch ? (
+              <p className="px-1 text-[12px] font-medium text-red-500">
+                Passwords don&apos;t match
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
