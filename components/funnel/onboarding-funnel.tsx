@@ -582,15 +582,15 @@ const WELCOME_CARD_SLOTS = [
     rotate: 5,
   },
   {
-    top: "top-[24%]",
+    top: "top-[30%]",
     left: "left-[9%]",
-    width: 100,
+    width: 105,
     rotate: -3,
   },
   {
-    top: "top-[27%]",
+    top: "top-[34%]",
     right: "right-[8%]",
-    width: 110,
+    width: 115,
     rotate: 4,
   },
 ] as const;
@@ -731,7 +731,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
         })}
       </div>
 
-      <div className="pointer-events-auto z-20 shrink-0 bg-[#F5F3EE] px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[clamp(0.75rem,2.5vmin,1.25rem)] shadow-[0_-12px_28px_-14px_rgba(60,40,20,0.10)]">
+      <div className="pointer-events-auto z-20 shrink-0 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[clamp(0.75rem,2.5vmin,1.25rem)]">
         <h1 className="font-display text-[clamp(2.25rem,9vmin,3rem)] font-semibold lowercase leading-none tracking-tight text-ink">
           whisper
         </h1>
