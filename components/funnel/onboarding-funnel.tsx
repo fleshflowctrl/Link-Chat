@@ -570,25 +570,25 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
 
 const WELCOME_CARD_SLOTS = [
   {
-    top: "top-[8%]",
+    top: "top-[4%]",
     left: "left-[2%]",
     width: 108,
     rotate: -6,
   },
   {
-    top: "top-[16%]",
+    top: "top-[8%]",
     right: "right-[2%]",
     width: 116,
     rotate: 5,
   },
   {
-    top: "top-[24%]",
+    top: "top-[44%]",
     left: "left-[2%]",
     width: 96,
     rotate: -3,
   },
   {
-    top: "top-[38%]",
+    top: "top-[48%]",
     right: "right-[2%]",
     width: 104,
     rotate: 4,
