@@ -1605,76 +1605,129 @@ function StepCreateAccount({
       ? preview.length > 120
         ? `\u201c${preview.slice(0, 117)}\u2026\u201d`
         : `\u201c${preview}\u201d`
-      : null;
+      : "\u201c\u2026\u201d";
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-3 pt-2 [-webkit-overflow-scrolling:touch]">
-        <h2 className="text-[clamp(1.35rem,5vmin,1.875rem)] font-extrabold leading-tight text-gray-900">
-          Almost there <span className="text-amber-400">\u2728</span>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-1">
+        <h2 className="shrink-0 text-[clamp(1.35rem,5vmin,1.875rem)] font-extrabold leading-tight text-gray-900">
+          Almost there <span className="text-amber-400">✨</span>
         </h2>
-        <p className="mt-0.5 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
+        <p className="mt-0.5 shrink-0 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
           {hasOutreach
-            ? "Create your account to send your message."
-            : "Create your account to start connecting."}
+            ? "Save your profile + send your first message."
+            : "Save your profile — you can message anyone from Discover."}
         </p>
 
-        {hasOutreach && peer && quoted && (
-          <div className="mt-3 flex items-center gap-3 rounded-2xl bg-gradient-to-br from-[#EDE7FF] via-[#FDE4F0] to-[#EDE7FF] p-3 shadow-sm">
-            <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white shadow-sm">
-              <Image src={peer.photo} alt="" width={80} height={80} className="h-full w-full object-cover" />
-              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[#7C5CFF]">Ready to send</p>
-              <p className="mt-0.5 truncate text-[12px] font-semibold text-gray-900">{quoted}</p>
-              <p className="text-[10px] text-gray-500">\u2192 to {peer.name} \u00b7 online now</p>
+        <div className="flex min-h-0 flex-1 flex-col justify-center gap-y-[clamp(0.35rem,1.5vmin,0.75rem)] overflow-hidden py-1">
+          <div className="relative shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#EDE7FF] via-[#FDE4F0] to-[#EDE7FF] p-3 shadow-sm sm:p-4">
+            <div
+              className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/40 blur-2xl"
+              aria-hidden
+            />
+
+            <div className="relative flex items-center gap-2.5 sm:gap-3">
+              <div className="relative h-10 w-10 shrink-0 sm:h-12 sm:w-12">
+                <span className="block h-full w-full overflow-hidden rounded-full bg-white ring-2 ring-white">
+                  {peer ? (
+                    <Image
+                      src={peer.photo}
+                      alt=""
+                      width={96}
+                      height={96}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#7C5CFF]/20 to-[#9B7BFF]/30 text-lg" aria-hidden>
+                      ✨
+                    </span>
+                  )}
+                </span>
+                {peer ? (
+                  <span
+                    className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 sm:h-3 sm:w-3"
+                    aria-hidden
+                  />
+                ) : null}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-[#7C5CFF] sm:text-[10px]">
+                  {hasOutreach ? "READY TO SEND" : "YOUR PROFILE"}
+                </p>
+                <p className="mt-0.5 truncate text-[clamp(11px,3vmin,13px)] font-semibold text-gray-900">
+                  {hasOutreach ? quoted : "Browse profiles and start a chat when you’re ready."}
+                </p>
+                <p className="mt-0.5 text-[9px] text-gray-500 sm:text-[10px]">
+                  {hasOutreach && peer
+                    ? `→ to ${peer.name} · online now`
+                    : "No first message queued — totally fine."}
+                </p>
+              </div>
+            </div>
+
+            <div className="relative my-2 border-t border-white/60 sm:my-3" />
+
+            <div className="relative space-y-1 sm:space-y-1.5">
+              {hasOutreach ? (
+                <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                    ✓
+                  </span>
+                  <span>Send your first message instantly</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                    ✓
+                  </span>
+                  <span>Discover people matched to your vibe</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                  ✓
+                </span>
+                <span>
+                  <b className="text-amber-700">15 free credits</b> on us 💰
+                </span>
+              </div>
             </div>
           </div>
-        )}
 
-        <div className="mt-3 space-y-2">
-          <div className="flex items-center gap-2 text-[13px] text-gray-800">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[10px] text-white">\u2713</span>
-            <span>{hasOutreach ? "Send your first message instantly" : "Browse and message anyone"}</span>
-          </div>
-          <div className="flex items-center gap-2 text-[13px] text-gray-800">
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[10px] text-white">\u2713</span>
-            <span><b className="text-amber-700">15 free credits</b> on us \U0001f4b0</span>
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-2.5">
-          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-            <label className="block">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Email</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="mt-1 w-full border-0 bg-transparent text-[15px] font-semibold text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-300"
-                autoComplete="email"
-              />
-            </label>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-            <label className="block">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Password</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 8 characters"
-                className="mt-1 w-full border-0 bg-transparent text-[15px] font-semibold text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-300"
-                autoComplete="new-password"
-              />
-            </label>
+          <div className="shrink-0 space-y-1.5 sm:space-y-2">
+            <div className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  Email
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-0.5 w-full border-0 bg-transparent text-[clamp(14px,3.5vmin,15px)] font-bold text-gray-900 outline-none ring-0"
+                  autoComplete="email"
+                />
+              </label>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                  Password
+                </span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-0.5 w-full border-0 bg-transparent text-[clamp(14px,3.5vmin,15px)] font-bold text-gray-900 outline-none ring-0"
+                  autoComplete="new-password"
+                />
+              </label>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="z-20 shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:py-3">
         <button
           type="button"
           disabled={!formOk}
@@ -1682,16 +1735,20 @@ function StepCreateAccount({
           className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
             formOk
               ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
-              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50"
+              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
-          {hasOutreach ? "Create account & send \u2192" : "Create account \u2192"}
+          {hasOutreach ? "Create account & send →" : "Create account →"}
         </button>
-        <p className="mt-2 text-center text-[11px] leading-snug text-gray-400">
+        <p className="mt-2 text-center text-[11px] leading-snug text-gray-500">
           By continuing you agree to our{" "}
-          <Link href="/me/help" className="font-semibold text-[#7C5CFF]">Terms</Link>{" "}
-          &{" "}
-          <Link href="/me/privacy" className="font-semibold text-[#7C5CFF]">Privacy</Link>
+          <Link href="/me/help" className="font-bold text-[#7C5CFF] hover:underline">
+            Terms
+          </Link>{" "}
+          ·{" "}
+          <Link href="/me/privacy" className="font-bold text-[#7C5CFF] hover:underline">
+            Privacy
+          </Link>
         </p>
       </div>
     </div>
