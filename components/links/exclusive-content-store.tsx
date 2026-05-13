@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Lock, MessageCircle, X } from "lucide-react";
+import { Lock, MessageCircle, Sparkles, X } from "lucide-react";
 import { CreditsPill } from "@/components/ui/credits-pill";
 import {
   contentSets,

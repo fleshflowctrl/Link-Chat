@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   BadgeCheck,
@@ -327,13 +326,7 @@ export function MessagesView({
   initialThreads?: MessageThread[];
   onlineRailUsers: OnlineUser[];
 }) {
-  const router = useRouter();
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
-
-  /** Refetch inbox when opening this tab — avoids stale Router Cache after new chats. */
-  useEffect(() => {
-    router.refresh();
-  }, [router]);
 
   /** Clear all unread badges when the inbox is opened. */
   useEffect(() => {
