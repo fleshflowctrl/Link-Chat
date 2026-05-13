@@ -18,7 +18,6 @@ import {
   CheckCheck,
   ChevronLeft,
   Gift,
-  Lock,
   MoreHorizontal,
   Plus,
   Send,
@@ -727,17 +726,6 @@ export function ChatConversationView({
           </p>
         </div>
       ) : null}
-
-      <div className="shrink-0 px-4 py-2">
-        <p className="mx-auto max-w-[92%] rounded-full bg-lavender px-3 py-2 text-center text-[11px] font-medium leading-snug text-ink/80 ring-1 ring-primary/10">
-          <Lock
-            className="mr-1 inline-block h-3 w-3 -translate-y-px text-primary"
-            strokeWidth={2.25}
-            aria-hidden
-          />
-          Berichten zijn end-to-end versleuteld. Jullie chat blijft privé.
-        </p>
-      </div>
 
       <div
         ref={scrollRef}
