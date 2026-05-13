@@ -604,6 +604,18 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
   const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
   const lastInteractRef = useRef(0);
+  const [showVideo, setShowVideo] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handleGetStarted = useCallback(() => {
+    setShowVideo(true);
+    setTimeout(() => videoRef.current?.play(), 50);
+  }, []);
+
+  const handleSkipVideo = useCallback(() => {
+    setShowVideo(false);
+    onStart();
+  }, [onStart]);
 
   const touchCards = useCallback(() => {
     lastInteractRef.current = Date.now();
@@ -784,7 +796,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
 
         <button
           type="button"
-          onClick={onStart}
+          onClick={handleGetStarted}
           className="mt-3 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
           Get started →
@@ -800,6 +812,27 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
           </Link>
         </p>
       </div>
+
+      {/* Video overlay */}
+      {showVideo && (
+        <div className="absolute inset-0 z-50 flex flex-col bg-black">
+          <video
+            ref={videoRef}
+            src="/assets/Untitled_Videoggg.mp4"
+            className="h-full w-full object-cover"
+            playsInline
+            autoPlay
+            onEnded={handleSkipVideo}
+          />
+          <button
+            type="button"
+            onClick={handleSkipVideo}
+            className="absolute bottom-[max(2rem,env(safe-area-inset-bottom))] right-5 rounded-full bg-white/20 px-5 py-2.5 text-[14px] font-bold text-white backdrop-blur-sm transition active:scale-95"
+          >
+            Overslaan →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
