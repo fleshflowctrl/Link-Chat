@@ -48,6 +48,7 @@ import {
   type FunnelMatchPick,
 } from "@/lib/funnel-match-picks";
 import { setThreadPreview } from "@/lib/thread-preview-store";
+import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
 
 const STEP_TOTAL = 8;
 const MSG_MAX = 240;
@@ -367,12 +368,33 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
   }, []);
 
   const completeFunnel = useCallback(
-    (via: "google" | "apple" | "email") => {
+    async ({
+      email,
+      password,
+    }: {
+      email: string;
+      password: string;
+    }): Promise<{ ok: true } | { ok: false; error: string }> => {
+      const signupResult = await saveFunnelAccount({
+        email,
+        password,
+        lookingFor,
+        gender,
+        seekingGender,
+        ageRange,
+        pickedMatchId: firstContact.profileId,
+      });
+
+      if (!signupResult.ok) {
+        return { ok: false, error: signupResult.error };
+      }
+
       const pid = firstContact.profileId;
       const msgTrim = firstMessage.trim();
       const didFirstMessage = Boolean(
         pid && pickedMatch && msgTrim.length >= 10,
       );
+
       let prevCredits = 0;
       try {
         const prevRaw = localStorage.getItem(WHISPER_USER_KEY);
@@ -421,25 +443,39 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         });
       }
 
-      localStorage.setItem(WHISPER_USER_KEY, JSON.stringify({ ...payload, signupVia: via }));
+      const enriched = {
+        ...payload,
+        signupVia: "email" as const,
+        email,
+        gender,
+        seekingGender,
+        supabaseUserId: signupResult.userId,
+        needsEmailConfirm: signupResult.needsEmailConfirm,
+      };
+
+      localStorage.setItem(WHISPER_USER_KEY, JSON.stringify(enriched));
       localStorage.setItem(ONBOARDED_KEY, "true");
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
 
-      const toast = didFirstMessage
-        ? `Message sent to ${pickedMatch!.name} ✨`
-        : "You're in — welcome to whisper ✨";
+      const toast = signupResult.needsEmailConfirm
+        ? "Account created — check your email to confirm ✨"
+        : didFirstMessage
+          ? `Message sent to ${pickedMatch!.name} ✨`
+          : "You're in — welcome to whisper ✨";
       sessionStorage.setItem("whisper_discover_toast", toast);
 
       router.push("/discover");
+      return { ok: true };
     },
     [
-      basics,
       ageRange,
       firstContact.profileId,
       firstMessage,
+      gender,
       lookingFor,
       pickedMatch,
       router,
+      seekingGender,
     ],
   );
 
@@ -1589,18 +1625,35 @@ function StepCreateAccount({
 }: {
   peer: FunnelMatchPick | null;
   firstMessage: string;
-  onComplete: (via: "google" | "apple" | "email") => void;
+  onComplete: (input: {
+    email: string;
+    password: string;
+  }) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const emailOk = isValidEmail(email);
   const passOk = password.length >= 8;
   const confirmOk = confirmPassword.length > 0 && confirmPassword === password;
   const showMismatch =
     confirmPassword.length > 0 && confirmPassword !== password;
-  const formOk = emailOk && passOk && confirmOk;
+  const formOk = emailOk && passOk && confirmOk && !submitting;
+
+  const handleSubmit = async () => {
+    if (!formOk) return;
+    setErrorMsg(null);
+    setSubmitting(true);
+    const res = await onComplete({ email: email.trim(), password });
+    if (!res.ok) {
+      setErrorMsg(res.error);
+      setSubmitting(false);
+    }
+    // On success the parent navigates away; no need to reset state.
+  };
 
   const preview = firstMessage.trim();
   const hasOutreach = Boolean(peer && preview.length > 0);
@@ -1792,17 +1845,26 @@ function StepCreateAccount({
       </div>
 
       <div className="z-20 shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:py-3">
+        {errorMsg ? (
+          <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-center text-[12px] font-medium text-red-600 ring-1 ring-red-100">
+            {errorMsg}
+          </p>
+        ) : null}
         <button
           type="button"
           disabled={!formOk}
-          onClick={() => onComplete("email")}
+          onClick={handleSubmit}
           className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
             formOk
               ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
               : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
-          {hasOutreach ? "Create account & send →" : "Create account →"}
+          {submitting
+            ? "Creating account…"
+            : hasOutreach
+              ? "Create account & send →"
+              : "Create account →"}
         </button>
         <p className="mt-2 text-center text-[11px] leading-snug text-gray-500">
           By continuing you agree to our{" "}
