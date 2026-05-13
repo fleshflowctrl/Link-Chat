@@ -582,15 +582,15 @@ const WELCOME_CARD_SLOTS = [
     rotate: 5,
   },
   {
-    top: "top-[30%]",
+    top: "top-[24%]",
     left: "left-[9%]",
-    width: 105,
+    width: 100,
     rotate: -3,
   },
   {
-    top: "top-[34%]",
+    top: "top-[27%]",
     right: "right-[8%]",
-    width: 115,
+    width: 110,
     rotate: 4,
   },
 ] as const;
