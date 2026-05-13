@@ -1105,10 +1105,10 @@ function StepAgeRange({
               Looking for ages
             </p>
             <p className="mt-1 text-5xl font-extrabold tabular-nums text-gray-900">
-              {anyAge ? "~13,780 people" : `${min} – ${formatMaxLabel(max)}`}
+              {anyAge ? "~13,780" : `${min} – ${formatMaxLabel(max)}`}
             </p>
             <p className="mt-1 text-[12px] text-gray-600">
-              {anyAge ? "Any age" : countLabel}
+              {anyAge ? "people · any age" : countLabel}
             </p>
           </div>
 
