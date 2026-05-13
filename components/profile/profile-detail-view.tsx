@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
 import {
   BadgeCheck,
   ChevronLeft,
@@ -64,23 +63,8 @@ function interestIconColor(icon: ProfileInterestIcon): string {
 
 export function ProfileDetailView({ profile }: { profile: Profile }) {
   const router = useRouter();
-  const gallery = profile.gallery;
-  const [heroIndex, setHeroIndex] = useState(0);
 
-  const heroSrc = gallery[heroIndex] ?? profile.photo;
-
-  const thumbSlots = useMemo(
-    () =>
-      [0, 1, 2, 3, 4].map((i) => ({
-        src: gallery[i] ?? gallery[Math.min(i, Math.max(0, gallery.length - 1))],
-        index: i,
-        overlay:
-          i === 4 && gallery.length > 5
-            ? `+${gallery.length - 5}`
-            : undefined,
-      })),
-    [gallery],
-  );
+  const heroSrc = profile.photo;
 
   return (
     <div className="pb-4">
@@ -95,15 +79,21 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/50" />
 
-        <div className="absolute left-0 right-0 top-0 z-20 flex items-start justify-between p-4 pt-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
-            aria-label="Terug"
-          >
-            <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
-          </button>
+        {/* top bar: back + lastActive badge + actions */}
+        <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
+              aria-label="Terug"
+            >
+              <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
+            </button>
+            <span className="rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
+              {profile.lastActive}
+            </span>
+          </div>
           <div className="flex gap-2">
             <button
               type="button"
@@ -124,11 +114,8 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
           </div>
         </div>
 
+        {/* bottom name / city overlay */}
         <div className="absolute bottom-0 left-0 right-0 z-10 p-4 pb-6">
-          <div className="inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-md">
-            <span className="h-2 w-2 rounded-full bg-accentGreen shadow-[0_0_0_2px_rgba(255,255,255,0.35)]" />
-            Nu online
-          </div>
           <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-2">
             <h1 className="min-w-0 text-[1.9rem] font-bold leading-tight tracking-tight text-white drop-shadow-md">
               {profile.name}, {profile.age}
@@ -145,41 +132,10 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
             <MapPin className="h-3.5 w-3.5 shrink-0 text-white" strokeWidth={2.25} />
             {profile.city}
           </p>
-          <span className="mt-2.5 inline-flex rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white shadow-lg ring-2 ring-white/25">
-            {profile.lastActive}
-          </span>
         </div>
       </div>
 
-      <div className="relative z-10 -mt-8 rounded-t-[1.5rem] bg-canvas px-4 pb-6 pt-4 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
-        <div className="scrollbar-hide -mx-1 flex gap-2 overflow-x-auto pb-2 pt-1">
-          {thumbSlots.map((slot) => {
-            const active = heroIndex === slot.index;
-            return (
-              <button
-                key={slot.index}
-                type="button"
-                onClick={() => setHeroIndex(slot.index)}
-                className={`relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl ring-2 transition active:scale-95 ${
-                  active ? "ring-primary ring-offset-2 ring-offset-canvas" : "ring-transparent opacity-75"
-                }`}
-              >
-                <Image
-                  src={slot.src}
-                  alt=""
-                  width={120}
-                  height={120}
-                  className="h-full w-full object-cover"
-                />
-                {slot.overlay && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[12px] font-bold text-white">
-                    {slot.overlay}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+      <div className="relative z-10 -mt-8 rounded-t-[1.5rem] bg-canvas px-4 pb-6 pt-5 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
 
         <button
           type="button"
