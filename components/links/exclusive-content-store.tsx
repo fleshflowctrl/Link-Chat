@@ -109,14 +109,14 @@ function UnlockSheet({
         <span className="text-[13px] font-semibold text-gray-600">Prijs</span>
         <span className="flex items-center gap-1.5 text-[16px] font-extrabold text-gray-900">
           <Sparkles className="h-4 w-4 text-[#7C5CFF]" strokeWidth={2} />
-          {set.credits} sprankels
+          {set.credits} credits
         </span>
       </div>
 
       <div className="mb-5 flex items-center justify-between text-[12px] text-gray-500">
         <span>Jouw saldo</span>
         <span className={`font-bold ${canAfford ? "text-gray-900" : "text-red-500"}`}>
-          {balance} sprankels{!canAfford && " — te weinig"}
+          {balance} credits{!canAfford && " — te weinig"}
         </span>
       </div>
 
@@ -127,7 +127,7 @@ function UnlockSheet({
           className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
         >
           <Sparkles className="h-4 w-4" strokeWidth={2} />
-          Ontgrendel voor {set.credits} sprankels
+          Ontgrendel voor {set.credits} credits
         </button>
       ) : (
         <button
@@ -135,7 +135,7 @@ function UnlockSheet({
           onClick={onClose}
           className="flex w-full items-center justify-center rounded-full border border-[#7C5CFF] py-3.5 text-[15px] font-bold text-[#7C5CFF] transition active:scale-[0.98]"
         >
-          Koop meer sprankels
+          Koop meer credits
         </button>
       )}
     </motion.div>
@@ -298,7 +298,7 @@ function ContentCard({
           {!isUnlocked && (
             <div className="mt-1.5 flex items-center gap-1 text-[12px] font-extrabold text-[#7C5CFF]">
               <Sparkles className="h-3 w-3 shrink-0" strokeWidth={2} />
-              {set.credits} sprankels
+              {set.credits} credits
             </div>
           )}
         </div>
@@ -358,7 +358,7 @@ export function ExclusiveContentStore() {
     if (!unlockTarget) return;
     const ok = spendCredits(unlockTarget.credits);
     if (!ok) {
-      showToast("Niet genoeg sprankels — laad meer op");
+      showToast("Niet genoeg credits — laad meer op");
       setUnlockTarget(null);
       return;
     }
@@ -382,7 +382,7 @@ export function ExclusiveContentStore() {
           <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
             Exclusief
           </h1>
-          <p className="mt-0.5 text-[13px] text-gray-500">Ontgrendel met sprankels</p>
+          <p className="mt-0.5 text-[13px] text-gray-500">Ontgrendel met credits</p>
         </div>
         <div className="mt-1 flex items-center gap-1.5 rounded-full bg-white px-3 py-2 shadow-sm ring-1 ring-black/[0.06]">
           <Sparkles className="h-3.5 w-3.5 text-[#7C5CFF]" strokeWidth={2} />

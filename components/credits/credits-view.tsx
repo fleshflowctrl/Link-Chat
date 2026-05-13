@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Check, Clock } from "lucide-react";
 import { StatusBarMock } from "@/components/messages/status-bar-mock";
 import {
@@ -8,7 +8,12 @@ import {
   packages,
   type CreditPackage,
 } from "@/data/credits";
-import { meProfile } from "@/data/me";
+import {
+  addCredits,
+  getCreditsSnapshot,
+  initCreditsStore,
+  subscribeCredits,
+} from "@/lib/credits-store";
 
 function formatMoney(n: number): string {
   return n.toLocaleString("nl-NL", {
@@ -82,14 +87,14 @@ function PackageCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-base font-bold text-ink">
-              {pkg.credits} sprankels
+              {pkg.credits} credits
             </span>
             <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
               +{pkg.bonus} extra
             </span>
           </div>
           <p className="mt-0.5 text-[11px] leading-snug text-gray-500">
-            ≈ {formatMoney(pkg.perCredit)} / sprankel · 20% korting
+            ≈ {formatMoney(pkg.perCredit)} / credit · 20% korting
           </p>
         </div>
 
@@ -119,7 +124,10 @@ function PackageCard({
 }
 
 export function CreditsView() {
-  const balance = meProfile.stats.credits.value;
+  const balance = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
+
+  useEffect(() => { initCreditsStore(); }, []);
+
   const defaultId =
     packages.find((p) => p.defaultSelected)?.id ?? packages[0].id;
   const [selectedId, setSelectedId] = useState(defaultId);
@@ -129,6 +137,10 @@ export function CreditsView() {
     () => packages.find((p) => p.id === selectedId) ?? packages[0],
     [selectedId],
   );
+
+  const handlePurchase = useCallback(() => {
+    addCredits(selected.credits + selected.bonus);
+  }, [selected]);
 
   const tick = useCallback(() => {
     setSecondsLeft((prev) => {
@@ -154,7 +166,7 @@ export function CreditsView() {
       <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-1">
         <div>
           <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
-            Sprankels
+            Credits
           </h1>
           <p className="mt-1 text-[12px] text-gray-500">
             Stuur berichten en koppel met mensen
@@ -212,9 +224,7 @@ export function CreditsView() {
       <div className="flex flex-col gap-2 px-5 pt-2">
         <button
           type="button"
-          onClick={() =>
-            console.log("[credits] Apple Pay", selected.id, selected.price)
-          }
+          onClick={handlePurchase}
           className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-black px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99]"
         >
           <svg
@@ -229,9 +239,7 @@ export function CreditsView() {
         </button>
         <button
           type="button"
-          onClick={() =>
-            console.log("[credits] Card", selected.id, selected.price)
-          }
+          onClick={handlePurchase}
           className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-3 text-[15px] font-semibold text-ink shadow-sm transition active:scale-[0.99]"
         >
           <span aria-hidden>💳</span>

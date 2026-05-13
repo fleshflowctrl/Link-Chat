@@ -27,7 +27,7 @@ const tabs = [
     badge: null as string | null,
   },
   { href: "/links", label: "Exclusief", Icon: Star, badge: null },
-  { href: "/credits", label: "Sprankels", Icon: Sparkles, badge: null },
+  { href: "/credits", label: "Credits", Icon: Sparkles, badge: null },
   { href: "/me", label: "Profiel", Icon: User, badge: null },
 ] as const;
 

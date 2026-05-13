@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
-import { WHISPER_USER_KEY } from "@/data/funnel";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { Profile } from "@/data/profiles";
 import { ActivityStrip } from "./activity-strip";
@@ -13,38 +11,18 @@ import { PersonalizedProfileGrid } from "./personalized-profile-grid";
 type Props = {
   gridProfiles: Profile[];
   activityUsers: NewWhisperUser[];
-  credits: number;
+  credits?: number;
   catalogDegraded: boolean;
 };
 
 export function HomeScreen({
   gridProfiles,
   activityUsers,
-  credits: serverCredits,
   catalogDegraded,
 }: Props) {
-  const [credits, setCredits] = useState(serverCredits);
-
-  useEffect(() => {
-    setCredits(serverCredits);
-  }, [serverCredits]);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(WHISPER_USER_KEY);
-      if (!raw) return;
-      const o = JSON.parse(raw) as { credits?: unknown };
-      if (typeof o.credits === "number" && o.credits >= 0) {
-        setCredits(o.credits);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
   return (
     <>
-      <HomeHeader credits={credits} />
+      <HomeHeader />
       <CatalogFallbackBanner show={catalogDegraded} />
       <ActivityStrip users={activityUsers} />
       <section

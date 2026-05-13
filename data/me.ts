@@ -34,7 +34,7 @@ export const meStatCardLayout: Record<
     cardBg: "bg-rose-100",
   },
   credits: {
-    label: "Sprankels",
+    label: "Credits",
     subtitle: "Opwaarderen voor meer chat",
     emoji: "✨",
     cardBg: "bg-amber-100",
@@ -111,8 +111,8 @@ export const meSettingsSections: MeSettingsSection[] = [
       },
       {
         href: "/me/earn",
-        title: "Verdien gratis sprankels",
-        subtitle: "Nodig vrienden uit en ontvang sprankels",
+        title: "Verdien gratis credits",
+        subtitle: "Nodig vrienden uit en ontvang credits",
         icon: "gift",
         bonusPill: "+50",
       },

@@ -1,8 +1,24 @@
+"use client";
+
 import Link from "next/link";
 import { Bell } from "lucide-react";
+import { useEffect, useSyncExternalStore } from "react";
 import { homeUnreadNotificationCount } from "@/data/me";
+import {
+  getCreditsSnapshot,
+  initCreditsStore,
+  subscribeCredits,
+} from "@/lib/credits-store";
 
-export function HomeHeader({ credits }: { credits: number }) {
+export function HomeHeader() {
+  useEffect(() => { initCreditsStore(); }, []);
+
+  const balance = useSyncExternalStore(
+    subscribeCredits,
+    getCreditsSnapshot,
+    getCreditsSnapshot,
+  ).balance;
+
   const unread = homeUnreadNotificationCount;
 
   return (
@@ -19,7 +35,7 @@ export function HomeHeader({ credits }: { credits: number }) {
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 text-[10px] font-bold text-white">
             $
           </span>
-          <span className="text-[13px] font-bold text-gray-900">{credits}</span>
+          <span className="text-[13px] font-bold text-gray-900">{balance}</span>
         </Link>
 
         <Link
