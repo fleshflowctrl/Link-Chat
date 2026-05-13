@@ -908,7 +908,7 @@ function StepGender({
         </p>
       </div>
 
-      <ul className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
+      <ul className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-3">
         {GENDER_OPTIONS.map((opt) => {
           const isSel = selected === opt.id;
           return (
@@ -977,7 +977,7 @@ function StepSeekingGender({
         </p>
       </div>
 
-      <ul className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
+      <ul className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-3">
         {SEEKING_OPTIONS.map((opt) => {
           const isSel = selected === opt.id;
           return (
