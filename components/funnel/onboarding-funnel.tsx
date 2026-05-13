@@ -30,8 +30,6 @@ import {
 import {
   FUNNEL_LOOKING_FOR,
   FUNNEL_SESSION_KEY,
-  FUNNEL_VIBE_ID_SET,
-  FUNNEL_VIBES,
   getPersonalizedFirstMessageStarters,
   ONBOARDED_KEY,
   type FunnelAgeRange,
@@ -54,13 +52,17 @@ import {
 } from "@/lib/funnel-match-picks";
 import { setThreadPreview } from "@/lib/thread-preview-store";
 
-const STEP_TOTAL = 8;
+const STEP_TOTAL = 9;
 const MSG_MAX = 240;
+
+type FunnelGender = "man" | "woman";
+type FunnelSeekingGender = "men" | "women" | "both";
 
 type FunnelPersist = {
   step: number;
   lookingFor: FunnelLookingFor | null;
-  vibes: string[];
+  gender: FunnelGender | null;
+  seekingGender: FunnelSeekingGender | null;
   ageRange: FunnelAgeRange;
   basics: FunnelBasics;
   firstContact: FunnelFirstContact;
@@ -192,29 +194,22 @@ function normalizeFirstContact(
 const defaultPersist = (): FunnelPersist => ({
   step: 1,
   lookingFor: null,
-  vibes: [],
+  gender: null,
+  seekingGender: null,
   ageRange: { ...DEFAULT_AGE_RANGE },
   basics: { ...DEFAULT_BASICS },
   firstContact: { profileId: null },
   firstMessage: "",
 });
 
-/** Funnel step 3 — min / max vibe selections. */
-const FUNNEL_VIBES_MIN = 1;
-const FUNNEL_VIBES_MAX = 5;
+function normalizeGender(raw: unknown): FunnelGender | null {
+  if (raw === "man" || raw === "woman") return raw;
+  return null;
+}
 
-function normalizeVibesFromSession(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const id of raw) {
-    if (typeof id !== "string" || !FUNNEL_VIBE_ID_SET.has(id)) continue;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push(id);
-    if (out.length >= FUNNEL_VIBES_MAX) break;
-  }
-  return out;
+function normalizeSeekingGender(raw: unknown): FunnelSeekingGender | null {
+  if (raw === "men" || raw === "women" || raw === "both") return raw;
+  return null;
 }
 
 function loadSession(): FunnelPersist | null {
@@ -237,10 +232,11 @@ function loadSession(): FunnelPersist | null {
       ...defaultPersist(),
       ...p,
       lookingFor: lf,
+      gender: normalizeGender(p.gender),
+      seekingGender: normalizeSeekingGender(p.seekingGender),
       ageRange,
       basics,
       firstContact,
-      vibes: normalizeVibesFromSession(p.vibes),
       step: Math.min(STEP_TOTAL, Math.max(1, Number(p.step) || 1)),
     };
   } catch {
@@ -262,7 +258,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
   const step2Timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [lookingFor, setLookingFor] = useState<FunnelLookingFor | null>(null);
-  const [vibes, setVibes] = useState<string[]>(() => defaultPersist().vibes);
+  const [gender, setGender] = useState<FunnelGender | null>(null);
+  const [seekingGender, setSeekingGender] = useState<FunnelSeekingGender | null>(null);
   const [ageRange, setAgeRange] = useState<FunnelAgeRange>(() => ({
     ...DEFAULT_AGE_RANGE,
   }));
@@ -285,12 +282,12 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
     () =>
       pickFunnelMatchProfiles(
         funnelCatalog,
-        vibes,
+        [],
         lookingFor,
         matchAgeMin,
         matchAgeMax,
       ),
-    [funnelCatalog, vibes, lookingFor, matchAgeMin, matchAgeMax],
+    [funnelCatalog, lookingFor, matchAgeMin, matchAgeMax],
   );
 
   const pickedMatch = useMemo(
@@ -309,7 +306,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       persistRef.current = saved;
       setStep(saved.step);
       setLookingFor(saved.lookingFor);
-      setVibes(saved.vibes);
+      setGender(saved.gender);
+      setSeekingGender(saved.seekingGender);
       setAgeRange(saved.ageRange);
       setBasics(saved.basics);
       setFirstContact(saved.firstContact);
@@ -322,7 +320,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
     const p: FunnelPersist = {
       step,
       lookingFor,
-      vibes,
+      gender,
+      seekingGender,
       ageRange,
       basics,
       firstContact,
@@ -333,7 +332,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
   }, [
     step,
     lookingFor,
-    vibes,
+    gender,
+    seekingGender,
     ageRange,
     basics,
     firstContact,
@@ -353,8 +353,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
   const goBack = useCallback(() => {
     setNavDir(-1);
     setStep((s) => {
-      if (s === 8 && !firstContact.profileId) {
-        return 6;
+      if (s === 9 && !firstContact.profileId) {
+        return 7;
       }
       return Math.max(1, s - 1);
     });
@@ -366,7 +366,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
     setNavDir(1);
     setFirstContact({ profileId: null });
     setFirstMessage("");
-    setStep(8);
+    setStep(9);
   }, []);
 
   const completeFunnel = useCallback(
@@ -399,7 +399,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         age: ageNum,
         location: basics.location.trim() || "London, UK",
         ...(basics.photo ? { photo: basics.photo } : {}),
-        vibe: vibes,
+        vibe: [],
         ageRange,
         lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
         credits,
@@ -448,7 +448,6 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       lookingFor,
       pickedMatch,
       router,
-      vibes,
     ],
   );
 
@@ -521,10 +520,12 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                 />
               )}
               {step === 3 && (
-                <StepVibes
-                  vibes={vibes}
-                  setVibes={setVibes}
-                  onContinue={goNext}
+                <StepGender
+                  selected={gender}
+                  onSelect={(g) => {
+                    setGender(g);
+                    setTimeout(() => goNext(), 300);
+                  }}
                 />
               )}
               {step === 4 && (
@@ -538,26 +539,33 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                 <StepBasics basics={basics} setBasics={setBasics} onContinue={goNext} />
               )}
               {step === 6 && (
+                <StepSeekingGender
+                  selected={seekingGender}
+                  onSelect={(g) => {
+                    setSeekingGender(g);
+                    setTimeout(() => goNext(), 300);
+                  }}
+                />
+              )}
+              {step === 7 && (
                 <StepPickMatch
                   matches={matches}
-                  userVibes={vibes}
                   selectedId={firstContact.profileId}
                   onSelect={(id) => setFirstContact({ profileId: id })}
                   onContinue={goNext}
                   onSkip={skipFirstLink}
                 />
               )}
-              {step === 7 && (
+              {step === 8 && (
                 <StepFirstMessage
                   peer={pickedMatch}
                   lookingFor={lookingFor}
-                  vibes={vibes}
                   value={firstMessage}
                   onChange={setFirstMessage}
                   onContinue={goNext}
                 />
               )}
-              {step === 8 && (
+              {step === 9 && (
                 <StepCreateAccount
                   peer={pickedMatch}
                   firstMessage={firstMessage}
@@ -599,35 +607,7 @@ const WELCOME_CARD_SLOTS = [
   },
 ] as const;
 
-function VideoIntro({ onDone }: { onDone: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    videoRef.current?.play().catch(() => {});
-  }, []);
-
-  return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-black">
-      <video
-        ref={videoRef}
-        src="/assets/F38A5C30-7B03-4C83-A70A-D7E5400D404F.mov"
-        className="h-full w-full object-cover"
-        playsInline
-        onEnded={onDone}
-      />
-      <button
-        type="button"
-        onClick={onDone}
-        className="absolute right-4 top-[max(1.25rem,env(safe-area-inset-top))] rounded-full bg-black/50 px-4 py-1.5 text-[13px] font-bold text-white backdrop-blur-sm transition active:scale-95"
-      >
-        Overslaan →
-      </button>
-    </div>
-  );
-}
-
 function StepWelcome({ onStart }: { onStart: () => void }) {
-  const [showVideo, setShowVideo] = useState(false);
   const countMv = useMotionValue(0);
   const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
@@ -660,7 +640,6 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F5F3EE] font-sans">
-      {showVideo && <VideoIntro onDone={onStart} />}
       <div
         className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#9B7BFF]/30 blur-3xl"
         aria-hidden
@@ -674,12 +653,12 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
         <div className="min-w-0 flex-1">
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
             <div
-              className="h-full w-[12.5%] rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
+              className="h-full w-[11%] rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
               aria-hidden
             />
           </div>
         </div>
-        <span className="shrink-0 text-[10px] font-medium text-gray-500">1 / 8</span>
+        <span className="shrink-0 text-[10px] font-medium text-gray-500">1 / 9</span>
       </div>
 
       <div
@@ -813,7 +792,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
 
         <button
           type="button"
-          onClick={() => setShowVideo(true)}
+          onClick={onStart}
           className="mt-3 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
           Get started →
@@ -905,90 +884,59 @@ function StepLookingFor({
   );
 }
 
-function StepVibes({
-  vibes,
-  setVibes,
-  onContinue,
+const GENDER_OPTIONS: { id: FunnelGender; emoji: string; label: string; sub: string; bg: string; ring: string }[] = [
+  { id: "man", emoji: "👨", label: "Man", sub: "I identify as male", bg: "bg-blue-50", ring: "ring-blue-400" },
+  { id: "woman", emoji: "👩", label: "Woman", sub: "I identify as female", bg: "bg-pink-50", ring: "ring-pink-400" },
+];
+
+function StepGender({
+  selected,
+  onSelect,
 }: {
-  vibes: string[];
-  setVibes: Dispatch<SetStateAction<string[]>>;
-  onContinue: () => void;
+  selected: FunnelGender | null;
+  onSelect: (g: FunnelGender) => void;
 }) {
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimer = useRef<number | null>(null);
-
-  const toggle = (id: string) => {
-    setVibes((prev) => {
-      const adding = !prev.includes(id);
-      if (!adding) return prev.filter((x) => x !== id);
-      if (prev.length >= FUNNEL_VIBES_MAX) {
-        if (toastTimer.current != null) window.clearTimeout(toastTimer.current);
-        setToast(`You can pick up to ${FUNNEL_VIBES_MAX} vibes`);
-        toastTimer.current = window.setTimeout(() => {
-          setToast(null);
-          toastTimer.current = null;
-        }, 2600);
-        return prev;
-      }
-      return [...prev, id];
-    });
-  };
-
-  useEffect(() => {
-    return () => {
-      if (toastTimer.current != null) window.clearTimeout(toastTimer.current);
-    };
-  }, []);
-
-  const n = vibes.length;
-  const ok = n >= FUNNEL_VIBES_MIN && n <= FUNNEL_VIBES_MAX;
-
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
-      <div className="shrink-0 px-4 pt-1">
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
+      <div className="shrink-0">
         <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
-          <span className="block">What&apos;s your</span>
-          <span className="block">vibe?</span>
+          <span className="block">Are you a</span>
+          <span className="block">man or woman?</span>
         </h2>
         <p className="mt-1 text-[13px] leading-snug text-gray-600">
-          Pick {FUNNEL_VIBES_MIN}–{FUNNEL_VIBES_MAX} that feel like you.
+          This helps us personalize your experience.
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 px-4 pb-2 pt-2">
-        <div className="grid h-full min-h-0 w-full grid-cols-3 grid-rows-3 gap-[clamp(4px,1.2vmin,10px)]">
-          {FUNNEL_VIBES.map((v) => {
-            const on = vibes.includes(v.id);
-            return (
+      <ul className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
+        {GENDER_OPTIONS.map((opt) => {
+          const isSel = selected === opt.id;
+          return (
+            <li key={opt.id}>
               <button
-                key={v.id}
                 type="button"
-                onClick={() => toggle(v.id)}
-                className={`relative flex h-full min-h-0 w-full min-w-0 flex-col items-center justify-center rounded-2xl px-1.5 py-1.5 transition active:scale-[0.98] sm:px-2 sm:py-2 ${
-                  on
-                    ? `${v.selectedBg} ring-2 ${v.selectedRing}`
-                    : "bg-white shadow-sm ring-1 ring-black/[0.04]"
+                onClick={() => onSelect(opt.id)}
+                className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left transition active:scale-[0.98] ${opt.bg} ${
+                  isSel
+                    ? `border-2 border-[#7C5CFF] ring-2 ring-[#7C5CFF]/30`
+                    : "border border-gray-200"
                 }`}
               >
-                <span
-                  className="text-[clamp(1.35rem,6vmin,1.85rem)] leading-none"
-                  aria-hidden
-                >
-                  {v.emoji}
+                <span className="text-4xl" aria-hidden>{opt.emoji}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[18px] font-extrabold text-gray-900">{opt.label}</span>
+                  <span className="block text-[12px] text-gray-500">{opt.sub}</span>
                 </span>
-                <span className="mt-1 max-w-full truncate px-0.5 text-center text-[clamp(10px,2.6vmin,12px)] font-bold leading-tight text-gray-900">
-                  {v.label}
-                </span>
-                <span className="pointer-events-none absolute right-1 top-1 flex h-4 w-4 items-center justify-center sm:right-1.5 sm:top-1.5">
-                  <AnimatePresence>
-                    {on && (
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+                  <AnimatePresence mode="wait">
+                    {isSel && (
                       <motion.span
-                        key="c"
+                        key="check"
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
-                        transition={{ type: "spring", stiffness: 520, damping: 28 }}
-                        className="flex h-4 w-4 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] font-bold text-white"
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7C5CFF] text-[11px] font-bold text-white"
                       >
                         ✓
                       </motion.span>
@@ -996,38 +944,79 @@ function StepVibes({
                   </AnimatePresence>
                 </span>
               </button>
-            );
-          })}
-        </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+const SEEKING_OPTIONS: { id: FunnelSeekingGender; emoji: string; label: string; sub: string; bg: string }[] = [
+  { id: "women", emoji: "👩", label: "Women", sub: "Show me women", bg: "bg-pink-50" },
+  { id: "men", emoji: "👨", label: "Men", sub: "Show me men", bg: "bg-blue-50" },
+  { id: "both", emoji: "💫", label: "Both", sub: "I'm open to everyone", bg: "bg-purple-50" },
+];
+
+function StepSeekingGender({
+  selected,
+  onSelect,
+}: {
+  selected: FunnelSeekingGender | null;
+  onSelect: (g: FunnelSeekingGender) => void;
+}) {
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
+      <div className="shrink-0">
+        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+          <span className="block">Who are you</span>
+          <span className="block">looking for?</span>
+        </h2>
+        <p className="mt-1 text-[13px] leading-snug text-gray-600">
+          We&apos;ll match you with the right people.
+        </p>
       </div>
 
-      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
-        <button
-          type="button"
-          disabled={!ok}
-          onClick={onContinue}
-          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
-            ok
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
-              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
-          }`}
-        >
-          Continue{n > 0 ? ` · ${n} picked` : ""}
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {toast && (
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            className="pointer-events-none absolute bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-1/2 z-[60] w-[min(92vw,360px)] -translate-x-1/2 rounded-2xl bg-gray-900/90 px-4 py-2.5 text-center text-[13px] font-medium leading-snug text-white shadow-lg"
-          >
-            {toast}
-          </motion.p>
-        )}
-      </AnimatePresence>
+      <ul className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
+        {SEEKING_OPTIONS.map((opt) => {
+          const isSel = selected === opt.id;
+          return (
+            <li key={opt.id}>
+              <button
+                type="button"
+                onClick={() => onSelect(opt.id)}
+                className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left transition active:scale-[0.98] ${opt.bg} ${
+                  isSel
+                    ? "border-2 border-[#7C5CFF] ring-2 ring-[#7C5CFF]/30"
+                    : "border border-gray-200"
+                }`}
+              >
+                <span className="text-4xl" aria-hidden>{opt.emoji}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[18px] font-extrabold text-gray-900">{opt.label}</span>
+                  <span className="block text-[12px] text-gray-500">{opt.sub}</span>
+                </span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+                  <AnimatePresence mode="wait">
+                    {isSel && (
+                      <motion.span
+                        key="check"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7C5CFF] text-[11px] font-bold text-white"
+                      >
+                        ✓
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -1407,19 +1396,18 @@ function cardFooterEmojis(
 
 function StepPickMatch({
   matches,
-  userVibes,
   selectedId,
   onSelect,
   onContinue,
   onSkip,
 }: {
   matches: FunnelMatchPick[];
-  userVibes: string[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onContinue: () => void;
   onSkip: () => void;
 }) {
+  const userVibes: string[] = [];
   const ok = Boolean(selectedId);
   const n = matches.length;
 
@@ -1548,14 +1536,12 @@ function StepPickMatch({
 function StepFirstMessage({
   peer,
   lookingFor,
-  vibes,
   value,
   onChange,
   onContinue,
 }: {
   peer: FunnelMatchPick | null;
   lookingFor: FunnelLookingFor | null;
-  vibes: string[];
   value: string;
   onChange: (s: string) => void;
   onContinue: () => void;
@@ -1564,8 +1550,8 @@ function StepFirstMessage({
   const len = value.length;
 
   const starterChips = useMemo(
-    () => getPersonalizedFirstMessageStarters(lookingFor, vibes),
-    [lookingFor, vibes],
+    () => getPersonalizedFirstMessageStarters(lookingFor, []),
+    [lookingFor],
   );
 
   return (
