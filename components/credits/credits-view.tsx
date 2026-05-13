@@ -85,9 +85,11 @@ function PackageCard({
             <span className="text-base font-bold text-ink">
               {pkg.credits} credits
             </span>
-            <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
-              +{pkg.bonus} extra
-            </span>
+            {pkg.bonus > 0 && (
+              <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
+                +{pkg.bonus} extra
+              </span>
+            )}
           </div>
         </div>
 
