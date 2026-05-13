@@ -30,6 +30,7 @@ export type UserProfileRow = {
   stat_chats?: number | null;
   stat_links?: number | null;
   stat_likes?: number | null;
+  is_admin?: boolean | null;
 };
 
 const DEFAULT_PREFS: EditProfilePreferences = {
@@ -198,6 +199,8 @@ export async function fetchUserEditProfileServer(): Promise<{
   stats: MeProfileStats;
   /** Email confirmed at signup / confirmation flow. */
   showVerified: boolean;
+  /** Whether the current user has admin rights (controls /admin link visibility). */
+  isAdmin: boolean;
 }> {
   const emptyStats: MeProfileStats = { chats: 0, messages: 0 };
 
@@ -209,6 +212,7 @@ export async function fetchUserEditProfileServer(): Promise<{
       credits: defaultCredits(),
       stats: emptyStats,
       showVerified: false,
+      isAdmin: false,
     };
   }
 
@@ -223,6 +227,7 @@ export async function fetchUserEditProfileServer(): Promise<{
       credits: defaultCredits(),
       stats: emptyStats,
       showVerified: false,
+      isAdmin: false,
     };
   }
 
@@ -252,6 +257,7 @@ export async function fetchUserEditProfileServer(): Promise<{
         messages: 0,
       },
       showVerified,
+      isAdmin: false,
     };
   }
 
@@ -266,6 +272,7 @@ export async function fetchUserEditProfileServer(): Promise<{
         messages: 0,
       },
       showVerified,
+      isAdmin: false,
     };
   }
 
@@ -284,5 +291,6 @@ export async function fetchUserEditProfileServer(): Promise<{
     credits,
     stats,
     showVerified,
+    isAdmin: Boolean(r.is_admin),
   };
 }

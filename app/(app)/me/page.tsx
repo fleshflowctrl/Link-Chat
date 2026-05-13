@@ -2,7 +2,7 @@ import { MeProfileView } from "@/components/me/me-profile-view";
 import { fetchUserEditProfileServer } from "@/lib/me/server-profile";
 
 export default async function MePage() {
-  const { profile, syncToken, stats, showVerified } =
+  const { profile, syncToken, stats, showVerified, isAdmin } =
     await fetchUserEditProfileServer();
   return (
     <MeProfileView
@@ -10,6 +10,7 @@ export default async function MePage() {
       syncToken={syncToken}
       stats={stats}
       showVerified={showVerified}
+      isAdmin={isAdmin}
     />
   );
 }
