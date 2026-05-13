@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   BadgeCheck,
-  Bell,
   Link2,
   Mic,
   Pin,
@@ -18,7 +17,6 @@ import {
   type MessageThread,
   type MessagePreviewType,
 } from "@/data/messages";
-import { homeUnreadNotificationCount } from "@/data/me";
 import type { OnlineUser } from "@/data/onlineUsers";
 import {
   getThreadPreviewsSnapshot,
@@ -69,24 +67,9 @@ function TypingDots() {
 }
 
 function MessagesHeaderActions() {
-  const unread = homeUnreadNotificationCount;
-
   return (
     <div className="mt-0.5 flex shrink-0 items-center gap-2">
       <CreditsPill />
-
-      <Link
-        href="/notifications"
-        className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-gray-100 bg-white text-gray-500 shadow-sm transition active:scale-95"
-        aria-label="Meldingen"
-      >
-        <Bell className="h-[18px] w-[18px]" strokeWidth={2} />
-        {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#7C5CFF] px-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-[#F5F3EE]">
-            {unread > 99 ? "99+" : unread}
-          </span>
-        )}
-      </Link>
     </div>
   );
 }
