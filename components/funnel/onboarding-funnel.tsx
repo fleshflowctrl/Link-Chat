@@ -731,7 +731,7 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
         })}
       </div>
 
-      <div className="pointer-events-auto z-20 shrink-0 border-t border-black/[0.04] bg-gradient-to-t from-[#F5F3EE] via-[#F5F3EE] to-[#F5F3EE]/92 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[clamp(0.75rem,2.5vmin,1.25rem)] shadow-[0_-10px_28px_-14px_rgba(60,40,20,0.08)]">
+      <div className="pointer-events-auto z-20 shrink-0 bg-[#F5F3EE] px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[clamp(0.75rem,2.5vmin,1.25rem)] shadow-[0_-12px_28px_-14px_rgba(60,40,20,0.10)]">
         <h1 className="font-display text-[clamp(2.25rem,9vmin,3rem)] font-semibold lowercase leading-none tracking-tight text-ink">
           whisper
         </h1>
