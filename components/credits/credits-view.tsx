@@ -39,13 +39,11 @@ function PackageCard({
   selected,
   onSelect,
   discount,
-  tierLabel,
 }: {
   pkg: CreditPackage;
   selected: boolean;
   onSelect: () => void;
   discount: number;
-  tierLabel: string | null;
 }) {
   const reserveTopRibbon =
     pkg.badge === "most-popular" ||
@@ -104,12 +102,6 @@ function PackageCard({
               </span>
             )}
           </div>
-          {discount > 0 && tierLabel && (
-            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-emerald-700">
-              <Sparkles className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-              {tierLabel} · -{formatDiscountPercent(discount)}
-            </div>
-          )}
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2 pr-0.5">
@@ -250,7 +242,6 @@ export function CreditsView() {
             selected={selectedId === pkg.id}
             onSelect={() => setSelectedId(pkg.id)}
             discount={discount}
-            tierLabel={tierLabel}
           />
         ))}
       </div>
