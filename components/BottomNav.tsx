@@ -83,7 +83,7 @@ export function BottomNav({ initialUnread = 0 }: { initialUnread?: number }) {
     refresh();
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") refresh();
-    }, 15000);
+    }, 8000);
 
     const onVisibility = () => {
       if (document.visibilityState === "visible") refresh();

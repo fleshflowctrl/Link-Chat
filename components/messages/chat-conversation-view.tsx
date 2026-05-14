@@ -32,7 +32,10 @@ import {
 } from "@/lib/thread-preview-store";
 import { uploadChatImage } from "@/lib/chat/upload-chat-image";
 import { GiftModal } from "@/components/messages/gift-modal";
-import { applyOptimisticUnreadDelta } from "@/lib/messages-tab-badge";
+import {
+  applyOptimisticUnreadDelta,
+  setServerUnreadBaseline,
+} from "@/lib/messages-tab-badge";
 
 const GROUP_GAP_MIN = 5;
 
@@ -168,22 +171,40 @@ export function ChatConversationView({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  const markReadOnServer = useCallback(() => {
-    void fetch(`/api/me/threads/${encodeURIComponent(chatId)}/read`, {
-      method: "POST",
-      cache: "no-store",
-      credentials: "same-origin",
-    }).catch(() => {});
+  const markReadOnServer = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/me/threads/${encodeURIComponent(chatId)}/read`,
+        {
+          method: "POST",
+          cache: "no-store",
+          credentials: "same-origin",
+        },
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as { ok?: boolean; count?: number };
+      if (data?.ok && typeof data.count === "number") {
+        // Sync the badge baseline straight from the server so we don't have
+        // to wait for the next poll — this prevents the "ghost" red dot
+        // briefly reappearing after returning from a chat.
+        setServerUnreadBaseline(Math.max(0, Math.floor(data.count)));
+      }
+    } catch {
+      /* network blip — polling will catch up */
+    }
   }, [chatId]);
 
-  /** Clear unread badge as soon as this conversation is opened. */
+  /** Clear unread badge + bold styling as soon as this conversation is opened. */
   useEffect(() => {
     const o = getThreadPreviewOverride(chatId);
     const wasUnread = (o?.unreadCount ?? 0) > 0;
+    // lastActivityAt = NOW guarantees this override is strictly newer than
+    // anything the server returns later, so the inbox row never flips back
+    // to bold while the read-POST is still in flight.
     setThreadPreview(chatId, {
       lastMessage: o?.lastMessage ?? "",
       timestampLabel: o?.timestampLabel ?? "",
-      lastActivityAt: o?.lastActivityAt,
+      lastActivityAt: new Date().toISOString(),
       name: o?.name ?? meta.name,
       avatarUrl: o?.avatarUrl ?? meta.avatarUrl,
       verified: o?.verified ?? meta.verified,
@@ -191,7 +212,13 @@ export function ChatConversationView({
       unreadCount: 0,
     });
     if (wasUnread) applyOptimisticUnreadDelta(-1);
-    markReadOnServer();
+    void markReadOnServer();
+    // Re-mark on unmount too, in case an AI reply arrived just before the
+    // user navigated away (we want the chat to be fully "read" if they were
+    // here, otherwise the unmount-time peer message would stay unread).
+    return () => {
+      void markReadOnServer();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
@@ -208,8 +235,18 @@ export function ChatConversationView({
     if (last.sender !== "peer") return;
     if (lastReadPeerIdRef.current === last.id) return;
     lastReadPeerIdRef.current = last.id;
-    markReadOnServer();
-  }, [messages, markReadOnServer]);
+    // Bump the override too so the inbox doesn't show a stale "unread" while
+    // the user is actively reading new replies.
+    const o = getThreadPreviewOverride(chatId);
+    setThreadPreview(chatId, {
+      ...o,
+      lastMessage: o?.lastMessage ?? "",
+      timestampLabel: o?.timestampLabel ?? "",
+      lastActivityAt: new Date().toISOString(),
+      unreadCount: 0,
+    });
+    void markReadOnServer();
+  }, [messages, markReadOnServer, chatId]);
 
   /** Clear funnel “unread” bump once the thread is opened. */
   useEffect(() => {

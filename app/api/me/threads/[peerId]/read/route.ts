@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+import { fetchUnreadInboxCountServer } from "@/lib/chat/server-data";
 
 export const dynamic = "force-dynamic";
 
@@ -48,5 +49,8 @@ export async function POST(
     );
   }
 
-  return NextResponse.json({ ok: true });
+  // Return the up-to-date unread count so the client can sync the bottom-nav
+  // badge baseline immediately, without waiting for the next poll.
+  const count = await fetchUnreadInboxCountServer();
+  return NextResponse.json({ ok: true, count });
 }
