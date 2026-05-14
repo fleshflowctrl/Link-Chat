@@ -130,7 +130,7 @@ async function grokViaChatCompletions(
       temperature:
         typeof opts.temperature === "number"
           ? Math.min(2, Math.max(0, opts.temperature))
-          : 0.62,
+          : 0.8,
       max_tokens: Math.min(Math.max(opts.maxOutputTokens ?? 1024, 64), 8192),
     }),
     signal: xaiFetchSignal(),
@@ -176,12 +176,16 @@ async function grokViaChatCompletions(
 /**
  * Complete a chat turn via xAI. Tries Responses API first, then `/v1/chat/completions`
  * if the first call errors or returns no visible text (common when keys only allow one path).
+ *
+ * Default temperature 0.8: high enough for varied, alive, real-person rhythm
+ * in dating-chat replies; low enough that personas stay coherent. Override
+ * with `XAI_CHAT_TEMPERATURE` in env if needed.
  */
 function defaultChatTemperature(): number {
   const raw = process.env.XAI_CHAT_TEMPERATURE?.trim();
-  if (raw === undefined || raw === "") return 0.62;
+  if (raw === undefined || raw === "") return 0.8;
   const n = Number(raw);
-  return Number.isFinite(n) ? Math.min(2, Math.max(0, n)) : 0.62;
+  return Number.isFinite(n) ? Math.min(2, Math.max(0, n)) : 0.8;
 }
 
 export async function grokResponsesComplete(
