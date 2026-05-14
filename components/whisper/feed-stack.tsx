@@ -8,6 +8,7 @@ import {
   Heart,
   MessageCircle,
   RefreshCcw,
+  RotateCcw,
   Timer,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
@@ -118,6 +119,7 @@ export function FeedStack({
             insufficient={insufficient}
             refreshing={refreshing}
             onRefreshNow={onRefreshNow}
+            onReplay={() => setIndex(0)}
           />
         </div>
       ) : (
@@ -182,6 +184,8 @@ type EndProps = {
   insufficient: boolean;
   refreshing: boolean;
   onRefreshNow: () => void | Promise<void>;
+  /** Reset the stack to the first card so the user can browse the same 10 again. */
+  onReplay: () => void;
 };
 
 function FeedEndCard({
@@ -191,6 +195,7 @@ function FeedEndCard({
   insufficient,
   refreshing,
   onRefreshNow,
+  onReplay,
 }: EndProps) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-6 text-center shadow-lg ring-1 ring-black/5">
@@ -239,6 +244,15 @@ function FeedEndCard({
           )}
         </button>
       )}
+
+      <button
+        type="button"
+        onClick={onReplay}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[13px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
+      >
+        <RotateCcw className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
+        Bekijk dezelfde 10 nog een keer
+      </button>
     </div>
   );
 }
