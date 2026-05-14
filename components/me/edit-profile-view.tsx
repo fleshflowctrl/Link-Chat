@@ -106,6 +106,11 @@ export function EditProfileView({
   /** Bumped after every successful save so memoized values that read from
    *  `initialSerialized` (a ref) recompute. */
   const [savedTick, setSavedTick] = useState(0);
+  /** Gallery item ids whose upload is still in flight — used to render
+   *  a spinner on the corresponding tile. */
+  const [uploadingIds, setUploadingIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [lookingOpen, setLookingOpen] = useState(false);
   const [interestsOpen, setInterestsOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(true);
@@ -275,36 +280,64 @@ export function EditProfileView({
     async (files: FileList | null) => {
       if (!files?.length) return;
       const arr = Array.from(files).filter((f) => f.type.startsWith("image/"));
-      let anyUploaded = false;
+      if (!arr.length) {
+        showToast("Kies een afbeeldingsbestand");
+        return;
+      }
 
-      for (const f of arr) {
-        const r = await uploadProfileImage(f, "gallery");
-        if (r.ok) anyUploaded = true;
+      // Optimistic add: insert each photo immediately as a blob preview so
+      // the user sees instant feedback. Then upload in the background and
+      // swap the blob URL for the public URL on success.
+      const pending = arr
+        .slice(0, 6)
+        .map((file) => ({ file, id: gid(), blobUrl: URL.createObjectURL(file) }));
 
-        setState((s) => {
-          if (s.gallery.length >= 6) return s;
+      setState((s) => {
+        const room = Math.max(0, 6 - s.gallery.length);
+        if (room === 0) return s;
+        const toAdd = pending.slice(0, room).map((p) => ({
+          id: p.id,
+          url: p.blobUrl,
+        }));
+        return { ...s, gallery: [...s.gallery, ...toAdd] };
+      });
+
+      // Mark these blob ids as uploading so the UI can render a spinner.
+      setUploadingIds((prev) => {
+        const next = new Set(prev);
+        for (const p of pending) next.add(p.id);
+        return next;
+      });
+
+      // Upload in parallel — each photo independently swaps its blob URL
+      // for the public URL once the upload finishes (or stays as blob if
+      // Supabase rejected it, so the user still sees a preview).
+      await Promise.all(
+        pending.map(async (p) => {
+          const r = await uploadProfileImage(p.file, "gallery");
           if (r.ok) {
-            return {
+            setState((s) => ({
               ...s,
-              gallery: [...s.gallery, { id: gid(), url: r.publicUrl }],
-            };
+              gallery: s.gallery.map((g) =>
+                g.id === p.id ? { ...g, url: r.publicUrl } : g,
+              ),
+            }));
+            URL.revokeObjectURL(p.blobUrl);
+          } else {
+            showToast(
+              r.error === "Supabase is niet geconfigureerd"
+                ? "Galerij alleen voorbeeld zonder Supabase"
+                : r.error,
+            );
           }
-          const blobUrl = URL.createObjectURL(f);
-          return { ...s, gallery: [...s.gallery, { id: gid(), url: blobUrl }] };
-        });
+          setUploadingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(p.id);
+            return next;
+          });
+        }),
+      );
 
-        if (!r.ok) {
-          showToast(
-            r.error === "Supabase is niet geconfigureerd"
-              ? "Galerij alleen voorbeeld zonder Supabase"
-              : r.error,
-          );
-        }
-      }
-
-      if (anyUploaded) {
-        showToast("Foto’s geüpload — sla profiel op om wijzigingen te bewaren");
-      }
       if (galleryInputRef.current) galleryInputRef.current.value = "";
     },
     [showToast],
@@ -406,28 +439,36 @@ export function EditProfileView({
         </div>
 
         <div className="mt-2 grid grid-cols-3 gap-2">
-          {state.gallery.map((item) => (
-            <div
-              key={`grid-${item.id}`}
-              className="relative aspect-square overflow-hidden rounded-2xl bg-ink/10 ring-1 ring-black/[0.06] shadow-sm"
-            >
-              <Image
-                src={item.url}
-                alt=""
-                fill
-                sizes="120px"
-                className="object-cover"
-                unoptimized={item.url.startsWith("blob:")}
-              />
-              <button
-                type="button"
-                onClick={() => removeGalleryPhoto(item.id, item.url)}
-                className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white"
+          {state.gallery.map((item) => {
+            const uploading = uploadingIds.has(item.id);
+            return (
+              <div
+                key={`grid-${item.id}`}
+                className="relative aspect-square overflow-hidden rounded-2xl bg-ink/10 ring-1 ring-black/[0.06] shadow-sm"
               >
-                <X className="h-4 w-4" strokeWidth={2.5} />
-              </button>
-            </div>
-          ))}
+                <Image
+                  src={item.url}
+                  alt=""
+                  fill
+                  sizes="120px"
+                  className="object-cover"
+                  unoptimized={item.url.startsWith("blob:")}
+                />
+                {uploading && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35">
+                    <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/35 border-t-white" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeGalleryPhoto(item.id, item.url)}
+                  className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white"
+                >
+                  <X className="h-4 w-4" strokeWidth={2.5} />
+                </button>
+              </div>
+            );
+          })}
           {state.gallery.length < 6 && (
             <button
               type="button"
@@ -445,6 +486,10 @@ export function EditProfileView({
           accept="image/*"
           multiple
           className="hidden"
+          onClick={(e) => {
+            // Reset value so re-selecting the same file still fires onChange.
+            (e.currentTarget as HTMLInputElement).value = "";
+          }}
           onChange={(e) => void addGalleryFiles(e.target.files)}
         />
       </section>

@@ -1,7 +1,10 @@
 import { createClient } from "@/utils/supabase/client";
 import { getSupabasePublicEnv } from "@/utils/supabase/public-env";
+import { resizeImageForUpload } from "@/lib/me/client-image-resize";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+// Generous safety net — most phone photos are 6–12 MB raw, but we resize
+// client-side before uploading so the actual payload is usually < 1 MB.
+const MAX_BYTES = 15 * 1024 * 1024;
 
 function extForFile(file: File): string {
   if (file.type === "image/png") return "png";
@@ -28,8 +31,13 @@ export async function uploadProfileImage(
   if (!file.type.startsWith("image/")) {
     return { ok: false, error: "Kies een afbeeldingsbestand" };
   }
-  if (file.size > MAX_BYTES) {
-    return { ok: false, error: "Afbeelding mag maximaal 5 MB zijn" };
+
+  // Downscale before checking the size cap so photos that are large only
+  // because of camera resolution can still upload.
+  const prepared = await resizeImageForUpload(file).catch(() => file);
+
+  if (prepared.size > MAX_BYTES) {
+    return { ok: false, error: "Afbeelding is te groot (max 15 MB)" };
   }
 
   let supabase: ReturnType<typeof createClient>;
@@ -50,7 +58,7 @@ export async function uploadProfileImage(
     return { ok: false, error: "Log in om foto’s te uploaden" };
   }
 
-  const ext = extForFile(file);
+  const ext = extForFile(prepared);
   const id =
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
@@ -59,11 +67,13 @@ export async function uploadProfileImage(
     ? `${user.id}/gallery/${id}.${ext}`
     : `${user.id}/${id}.${ext}`;
 
-  const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: file.type || `image/${ext}`,
-  });
+  const { error: upErr } = await supabase.storage
+    .from("avatars")
+    .upload(path, prepared, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: prepared.type || `image/${ext}`,
+    });
 
   if (upErr) {
     return { ok: false, error: upErr.message };
