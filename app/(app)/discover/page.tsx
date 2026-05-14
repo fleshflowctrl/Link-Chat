@@ -1,9 +1,13 @@
 import { HomeScreen } from "@/components/whisper/home-screen";
 import { PostDiscoverToast } from "@/components/whisper/post-discover-toast";
 import { fetchHomePageCatalogServer } from "@/lib/catalog/server-catalog";
+import { fetchUserProfileServerOptional } from "@/lib/me/server-profile";
 
 export default async function DiscoverPage() {
-  const catalog = await fetchHomePageCatalogServer();
+  const [catalog, initialProfile] = await Promise.all([
+    fetchHomePageCatalogServer(),
+    fetchUserProfileServerOptional(),
+  ]);
 
   return (
     <>
@@ -12,6 +16,7 @@ export default async function DiscoverPage() {
         gridProfiles={catalog.gridProfiles}
         activityUsers={catalog.activityUsers}
         catalogDegraded={catalog.catalogDegraded}
+        initialProfile={initialProfile}
       />
     </>
   );

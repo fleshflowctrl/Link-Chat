@@ -191,6 +191,45 @@ export type MeProfileStats = {
   messages: number;
 };
 
+/**
+ * Lightweight profile fetch that does NOT redirect for guests. Returns
+ * `null` for unauthenticated visitors, otherwise the full edit-state.
+ *
+ * Used by pages that render for both signed-in and signed-out users (e.g.
+ * /discover) so the first server-rendered paint already knows whether to
+ * show the "Nieuw op whisper" rail or the profile-completion nudge —
+ * preventing the brief flicker that comes with a client-only fetch.
+ */
+export async function fetchUserProfileServerOptional(): Promise<EditProfileState | null> {
+  if (hasServerDevBypassCookie() || !isSupabaseConfigured()) return null;
+
+  let supabase: ReturnType<typeof createClient>;
+  try {
+    supabase = createClient();
+  } catch {
+    return null;
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: row, error } = await supabase
+    .from("user_profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[fetchUserProfileServerOptional]", error);
+    return createDefaultEditableForNewUser();
+  }
+
+  if (!row) return createDefaultEditableForNewUser();
+  return userProfileRowToEditState(row as UserProfileRow);
+}
+
 export async function fetchUserEditProfileServer(): Promise<{
   profile: EditProfileState;
   /** Pass to client as effect dependency when hydrating the in-memory store. */
