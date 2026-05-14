@@ -195,6 +195,22 @@ export function ChatConversationView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
+  /**
+   * Re-mark the thread as read whenever a new peer message arrives WHILE this
+   * view is mounted. If the user navigates away before an AI reply lands,
+   * this effect won't fire (component unmounted) and the message stays unread
+   * on the server — so the bottom-nav badge + inbox bold styling appear.
+   */
+  const lastReadPeerIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.sender !== "peer") return;
+    if (lastReadPeerIdRef.current === last.id) return;
+    lastReadPeerIdRef.current = last.id;
+    markReadOnServer();
+  }, [messages, markReadOnServer]);
+
   /** Clear funnel “unread” bump once the thread is opened. */
   useEffect(() => {
     try {
@@ -440,8 +456,6 @@ export function ChatConversationView({
           verified: meta.verified,
           showOnlineDot: meta.onlineNow,
         });
-        // Persist that we've already seen the AI's reply.
-        if (data.peerMessage) markReadOnServer();
       } catch (e) {
         console.error("[chat] send failed", e);
         setAssistantError(
