@@ -7,6 +7,11 @@ import {
 import type { EditProfileState } from "@/data/me-edit";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+import {
+  COMPLETENESS_FIELDS,
+  isFieldComplete,
+  type CompletenessField,
+} from "@/lib/me/profile-completeness";
 
 const BIO_MAX = 280;
 
@@ -141,8 +146,80 @@ export async function PATCH(request: Request) {
   }
 
   const profile = userProfileRowToEditState(row as UserProfileRow);
+
+  // ── Auto-claim profile-completion rewards ─────────────────────────────
+  // Pay credits for each milestone that is now satisfied AND not already
+  // recorded in `user_profile_rewards`. Idempotent thanks to PK constraint.
+  let creditsBalance = creditsKeep;
+  const awardedMilestones: { key: CompletenessField; credits: number }[] = [];
+
+  try {
+    const eligible = COMPLETENESS_FIELDS.filter(
+      (f) => f.reward > 0 && isFieldComplete(profile, f.key),
+    );
+
+    if (eligible.length > 0) {
+      const { data: paid } = await supabase
+        .from("user_profile_rewards")
+        .select("milestone")
+        .eq("owner_user_id", user.id)
+        .in(
+          "milestone",
+          eligible.map((f) => f.key),
+        );
+
+      const paidSet = new Set(
+        (paid ?? []).map((r) => r.milestone as string),
+      );
+      const toClaim = eligible.filter((f) => !paidSet.has(f.key));
+
+      if (toClaim.length > 0) {
+        const totalReward = toClaim.reduce((sum, f) => sum + f.reward, 0);
+        creditsBalance = creditsKeep + totalReward;
+
+        const { error: updErr } = await supabase
+          .from("user_profiles")
+          .update({ credits: creditsBalance })
+          .eq("user_id", user.id);
+
+        if (updErr) {
+          console.error("[PATCH /api/me/profile] credits update", updErr);
+          creditsBalance = creditsKeep;
+        } else {
+          const inserts = toClaim.map((f) => ({
+            owner_user_id: user.id,
+            milestone: f.key,
+            credits_paid: f.reward,
+          }));
+          const { error: insErr } = await supabase
+            .from("user_profile_rewards")
+            .insert(inserts);
+
+          if (insErr) {
+            // Refund on bookkeeping failure so we don't pay twice next time.
+            console.error("[PATCH /api/me/profile] rewards insert", insErr);
+            await supabase
+              .from("user_profiles")
+              .update({ credits: creditsKeep })
+              .eq("user_id", user.id);
+            creditsBalance = creditsKeep;
+          } else {
+            for (const f of toClaim) {
+              awardedMilestones.push({ key: f.key, credits: f.reward });
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[PATCH /api/me/profile] reward flow", e);
+    /* best effort — never block the profile save itself */
+  }
+
   return NextResponse.json({
     profile,
     updatedAt: (row as UserProfileRow).updated_at,
+    awarded: awardedMilestones,
+    creditsBalance,
   });
 }

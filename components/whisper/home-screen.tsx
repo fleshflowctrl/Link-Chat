@@ -7,6 +7,7 @@ import { ActivityStrip } from "./activity-strip";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
 import { HomeHeader } from "./home-header";
 import { PersonalizedProfileGrid } from "./personalized-profile-grid";
+import { ProfileStrengthBanner } from "./profile-strength-banner";
 
 type Props = {
   gridProfiles: Profile[];
@@ -24,6 +25,7 @@ export function HomeScreen({
     <>
       <HomeHeader />
       <CatalogFallbackBanner show={catalogDegraded} />
+      <ProfileStrengthBanner />
       <ActivityStrip users={activityUsers} />
       <section
         className="px-4 pt-4"

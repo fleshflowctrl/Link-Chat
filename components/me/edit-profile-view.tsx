@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -32,6 +32,11 @@ import {
 } from "@/data/me-edit";
 import { uploadProfileImage } from "@/lib/me/client-storage-upload";
 import { setMeProfileSnapshot } from "@/lib/me-profile-store";
+import { applyServerCreditsUpdate } from "@/lib/credits-store";
+import {
+  COMPLETENESS_FIELDS,
+  type CompletenessField,
+} from "@/lib/me/profile-completeness";
 
 const BIO_MAX = 280;
 
@@ -60,9 +65,28 @@ export function EditProfileView({
   syncToken,
 }: EditProfileViewProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusKey = searchParams?.get("focus");
   const mainInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const initialSerialized = useRef<string | null>(null);
+
+  /**
+   * If the /me page deep-linked us with `?focus=bio` (etc.), scroll the
+   * matching section into view shortly after mount so the user lands right
+   * where they need to be.
+   */
+  useEffect(() => {
+    if (!focusKey) return;
+    const id = `section-${focusKey}`;
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, [focusKey]);
 
   const [state, setState] = useState<EditProfileState>(() =>
     clone(initialProfile),
@@ -106,13 +130,31 @@ export function EditProfileView({
       });
 
       if (res.ok) {
-        const data = (await res.json()) as { profile: EditProfileState };
+        const data = (await res.json()) as {
+          profile: EditProfileState;
+          awarded?: { key: CompletenessField; credits: number }[];
+          creditsBalance?: number;
+        };
         const next = clone(data.profile);
         setMeProfileSnapshot(next);
         setState(next);
         initialSerialized.current = JSON.stringify(next);
-        showToast("Profiel bijgewerkt ✨");
-        window.setTimeout(() => router.push("/me"), 450);
+        if (typeof data.creditsBalance === "number") {
+          applyServerCreditsUpdate(data.creditsBalance);
+        }
+        if (data.awarded && data.awarded.length > 0) {
+          const total = data.awarded.reduce((s, a) => s + a.credits, 0);
+          const labels = data.awarded
+            .map(
+              (a) =>
+                COMPLETENESS_FIELDS.find((f) => f.key === a.key)?.label ?? a.key,
+            )
+            .join(", ");
+          showToast(`+${total} credits voor ${labels} ✨`);
+        } else {
+          showToast("Profiel bijgewerkt ✨");
+        }
+        window.setTimeout(() => router.push("/me"), 800);
         return;
       }
 
@@ -251,7 +293,7 @@ export function EditProfileView({
         </button>
       </header>
 
-      <div className="flex flex-col items-center px-5 pt-2">
+      <div id="section-photo" className="flex flex-col items-center px-5 pt-2">
         <div className="relative">
           <div className="rounded-full bg-gradient-to-br from-primary via-primarySoft to-accentPink p-[3px] shadow-card">
             <div className="relative h-40 w-40 overflow-hidden rounded-full bg-canvas ring-2 ring-white">
@@ -300,7 +342,7 @@ export function EditProfileView({
         </button>
       </div>
 
-      <section className="px-5 pt-8">
+      <section id="section-gallery" className="px-5 pt-8">
         <div className="mb-2 flex items-end justify-between gap-2">
           <h2 className="text-lg font-bold text-ink">Jouw foto’s</h2>
           <p className="text-right text-[11px] font-medium text-inkMuted">
@@ -352,7 +394,7 @@ export function EditProfileView({
         />
       </section>
 
-      <section className="mt-6 px-5">
+      <section id="section-name" className="mt-6 px-5">
         <div className="overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-black/[0.06]">
           <FieldRow label="Naam">
             <input
@@ -366,6 +408,7 @@ export function EditProfileView({
           <div className="mx-4 h-px bg-black/[0.06]" />
           <FieldRow label="Leeftijd">
             <input
+              id="section-age"
               type="number"
               min={18}
               max={120}
@@ -386,7 +429,7 @@ export function EditProfileView({
           </FieldRow>
           <div className="mx-4 h-px bg-black/[0.06]" />
           <FieldRow label="Locatie">
-            <div className="flex items-center gap-2">
+            <div id="section-location" className="flex items-center gap-2 scroll-mt-24">
               <MapPin className="h-5 w-5 shrink-0 text-ink/35" strokeWidth={2} />
               <input
                 className="min-w-0 flex-1 border-0 bg-transparent py-1 text-lg font-semibold text-ink outline-none"
@@ -437,7 +480,7 @@ export function EditProfileView({
         </div>
       </section>
 
-      <section className="mt-6 px-5">
+      <section id="section-bio" className="mt-6 px-5">
         <label className="text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
           Over mij
         </label>
@@ -481,7 +524,7 @@ export function EditProfileView({
         </button>
       </section>
 
-      <section className="mt-6 px-5">
+      <section id="section-interests" className="mt-6 px-5">
         <div className="mb-1 flex items-end justify-between gap-2">
           <h2 className="text-lg font-bold text-ink">Interesses</h2>
           <p className="text-[11px] font-medium text-inkMuted">Max. 8</p>

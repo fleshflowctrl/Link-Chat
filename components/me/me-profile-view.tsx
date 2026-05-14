@@ -46,6 +46,7 @@ import {
   getCreditsSnapshot,
   subscribeCredits,
 } from "@/lib/credits-store";
+import { ProfileStrengthCard } from "@/components/me/profile-strength-card";
 
 const settingsIcons: Record<MeSettingsIconKey, typeof ShieldCheck> = {
   shield: ShieldCheck,
@@ -249,6 +250,8 @@ export function MeProfileView({
           </div>
         </div>
       </div>
+
+      <ProfileStrengthCard state={live} />
 
       <div className="grid grid-cols-2 gap-2.5 px-5 pb-6">
         {meStatGridOrder.map((key) => {
