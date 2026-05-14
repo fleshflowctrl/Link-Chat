@@ -45,6 +45,7 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 import { ProfileStrengthCard } from "@/components/me/profile-strength-card";
+import { MyExclusiveContent } from "@/components/me/my-exclusive-content";
 
 const settingsIcons: Record<MeSettingsIconKey, typeof ShieldCheck> = {
   shield: ShieldCheck,
@@ -221,6 +222,7 @@ export function MeProfileView({
       </div>
 
       <div className="space-y-6 px-5 pb-6">
+        <MyExclusiveContent />
         {meSettingsSections.map((section) => (
           <section key={section.label}>
             <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-500">

@@ -16,6 +16,7 @@ import {
   initCreditsStore,
   subscribeCredits,
 } from "@/lib/credits-store";
+import { readCachedUnlocks, writeCachedUnlocks } from "@/lib/unlocks/cache";
 
 /* ─────────────────────────── helpers ────────────────────────────── */
 
@@ -336,37 +337,6 @@ function ContentCard({
 }
 
 /* ─────────────────── main export ────────────────────────────────── */
-
-/** Per-user localStorage cache so unlocks render instantly on next visit
- *  without waiting for the server round-trip. Keyed by `userKey` (user id
- *  from credits store, or "guest" when not signed in). */
-const UNLOCKS_KEY_PREFIX = "whisper_unlocked_content";
-
-function unlocksKey(userKey: string): string {
-  return `${UNLOCKS_KEY_PREFIX}:${userKey}`;
-}
-
-function readCachedUnlocks(userKey: string): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(unlocksKey(userKey));
-    if (!raw) return [];
-    const arr = JSON.parse(raw) as unknown;
-    if (!Array.isArray(arr)) return [];
-    return arr.filter((x): x is string => typeof x === "string");
-  } catch {
-    return [];
-  }
-}
-
-function writeCachedUnlocks(userKey: string, ids: string[]) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(unlocksKey(userKey), JSON.stringify(ids));
-  } catch {
-    /* quota / privacy mode — survive gracefully */
-  }
-}
 
 export function ExclusiveContentStore() {
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => new Set());
