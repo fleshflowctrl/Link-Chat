@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   BadgeCheck,
   Link2,
@@ -383,6 +383,43 @@ export function MessagesView({
   // runs whenever the server thread list changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverThreads]);
+
+  /**
+   * Persist the inbox scroll position across navigations to a chat and back.
+   * The scroll container is the <main> in the app layout. We save scrollTop
+   * to sessionStorage on every scroll and restore it on mount.
+   */
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const main =
+      (document.querySelector("main") as HTMLElement | null) ?? null;
+    if (!main) return;
+
+    const KEY = "messages:scroll-top";
+
+    // Restore: try a couple of frames so layout (online rail, list) settles.
+    const restore = () => {
+      const raw = sessionStorage.getItem(KEY);
+      if (!raw) return;
+      const y = Number.parseInt(raw, 10);
+      if (Number.isNaN(y) || y <= 0) return;
+      main.scrollTop = y;
+    };
+    if (!restoredRef.current) {
+      restoredRef.current = true;
+      requestAnimationFrame(() => {
+        restore();
+        requestAnimationFrame(restore);
+      });
+    }
+
+    const onScroll = () => {
+      sessionStorage.setItem(KEY, String(main.scrollTop));
+    };
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => main.removeEventListener("scroll", onScroll);
+  }, []);
 
   /** Server is the source of truth; never show legacy mock threads in the inbox. */
   const source = serverThreads ?? [];
