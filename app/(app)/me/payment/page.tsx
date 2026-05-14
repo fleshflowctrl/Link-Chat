@@ -1,10 +1,5 @@
-import { MePlaceholderPage } from "@/components/me/me-placeholder-page";
+import { PaymentMethodsView } from "@/components/me/payment-methods-view";
 
 export default function MePaymentPage() {
-  return (
-    <MePlaceholderPage
-      title="Betaalmethoden"
-      description="Tijdelijke pagina — beheer kaarten en abonnementen."
-    />
-  );
+  return <PaymentMethodsView />;
 }
