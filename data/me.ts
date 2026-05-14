@@ -41,7 +41,7 @@ export const meProfile = {
   verified: true,
   stats: {
     chats: { ...meStatCardLayout.chats, value: 12 },
-    credits: { ...meStatCardLayout.credits, value: 125 },
+    credits: { ...meStatCardLayout.credits, value: 50 },
   },
 };
 

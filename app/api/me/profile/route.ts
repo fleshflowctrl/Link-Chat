@@ -96,7 +96,7 @@ export async function PATCH(request: Request) {
   const creditsKeep =
     typeof existing?.credits === "number" && existing.credits >= 0
       ? existing.credits
-      : 125;
+      : 50;
 
   const statChatsKeep =
     typeof existing?.stat_chats === "number" && existing.stat_chats >= 0

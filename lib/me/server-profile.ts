@@ -40,7 +40,7 @@ const DEFAULT_PREFS: EditProfilePreferences = {
   pushNotifications: true,
 };
 
-const DEFAULT_CREDITS = 125;
+const DEFAULT_CREDITS = 50;
 
 export function formatProfileLastUpdatedLabel(
   iso: string | null | undefined,

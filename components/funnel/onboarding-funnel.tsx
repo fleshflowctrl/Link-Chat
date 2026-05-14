@@ -373,7 +373,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       email: string;
       password: string;
     }): Promise<{ ok: true } | { ok: false; error: string }> => {
-      const SIGNUP_CREDITS = 25;
+      const SIGNUP_CREDITS = 50;
 
       const pid = firstContact.profileId;
       const msgTrim = firstMessage.trim();
