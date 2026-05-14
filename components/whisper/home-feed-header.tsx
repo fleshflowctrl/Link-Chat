@@ -85,8 +85,8 @@ export function HomeFeedHeader({
               <span>{countdown}</span>
             </span>
           </div>
-          <p className="mt-0.5 text-[13px] leading-snug text-inkMuted">
-            Elk uur vernieuwen we deze 10 profielen voor jou
+          <p className="mt-0.5 truncate whitespace-nowrap text-[13px] leading-snug text-inkMuted">
+            Elk uur een nieuwe selectie van 10 profielen
           </p>
         </div>
       </div>
