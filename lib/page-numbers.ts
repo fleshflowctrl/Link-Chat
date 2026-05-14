@@ -9,7 +9,7 @@ export function getPageNumber(pathname: string): number {
   if (pathname.startsWith("/messages/")) return 3;
   if (pathname === "/messages") return 2;
   if (pathname === "/links" || pathname.startsWith("/links/")) return 5;
-  if (pathname === "/credits") return 6;
+  if (pathname === "/credits" || pathname.startsWith("/credits/")) return 6;
   if (pathname === "/me") return 7;
   if (pathname === "/me/settings") return 8;
   if (pathname === "/me/edit") return 9;
