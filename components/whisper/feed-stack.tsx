@@ -127,6 +127,23 @@ export function FeedStack({
           </div>
 
           <div className="grid shrink-0 grid-cols-2 gap-2.5">
+            <Link
+              href={`/messages/${current.id}`}
+              className="flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-primary px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
+            >
+              <MessageCircle
+                className="h-5 w-5 shrink-0"
+                strokeWidth={2.5}
+                aria-hidden
+              />
+              <span className="flex min-w-0 flex-col text-left leading-tight">
+                <span className="text-[14px] font-bold">Open gesprek</span>
+                <span className="truncate text-[11px] font-medium opacity-90">
+                  Praat met {current.name}
+                </span>
+              </span>
+            </Link>
+
             <button
               type="button"
               onClick={handleNext}
@@ -144,23 +161,6 @@ export function FeedStack({
                 </span>
               </span>
             </button>
-
-            <Link
-              href={`/messages/${current.id}`}
-              className="flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-primary px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
-            >
-              <MessageCircle
-                className="h-5 w-5 shrink-0"
-                strokeWidth={2.5}
-                aria-hidden
-              />
-              <span className="flex min-w-0 flex-col text-left leading-tight">
-                <span className="text-[14px] font-bold">Open gesprek</span>
-                <span className="truncate text-[11px] font-medium opacity-90">
-                  Praat met {current.name}
-                </span>
-              </span>
-            </Link>
           </div>
         </>
       )}
