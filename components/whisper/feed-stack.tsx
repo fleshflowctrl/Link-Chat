@@ -12,11 +12,14 @@ import {
   Timer,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
+import type { EditProfileState } from "@/data/me-edit";
+import { hasProfileBasics } from "@/lib/me/profile-completeness";
 import {
   getCreditsSnapshot,
   subscribeCredits,
 } from "@/lib/credits-store";
 import { FeedCard } from "./feed-card";
+import { ProfileStrengthBanner } from "./profile-strength-banner";
 
 const FEED_INDEX_KEY_PREFIX = "whisper_feed_index";
 
@@ -71,6 +74,9 @@ type Props = {
   onRefreshNow: () => void | Promise<void>;
   refreshing: boolean;
   refreshError: string | null;
+  /** Signed-in user profile — used to render the compact "profiel afmaken"
+   *  nudge under the end-state. `null` for guests. */
+  profile?: EditProfileState | null;
 };
 
 function formatCountdown(ms: number): string {
@@ -101,6 +107,7 @@ export function FeedStack({
   onRefreshNow,
   refreshing,
   refreshError,
+  profile,
 }: Props) {
   // Per-user key so two accounts in the same browser don't share progress.
   const userKey = useSyncExternalStore(
@@ -143,6 +150,7 @@ export function FeedStack({
 
   const isAnonymous = balance === null;
   const insufficient = !isAnonymous && balance < refreshCost;
+  const showProfileNudge = profile != null && !hasProfileBasics(profile);
 
   function handleNext() {
     setIndex((i) => Math.min(i + 1, total));
@@ -173,7 +181,7 @@ export function FeedStack({
       </div>
 
       {atEnd ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center">
+        <div className="flex min-h-0 flex-1 flex-col items-stretch justify-center gap-3">
           <FeedEndCard
             countdown={countdown}
             refreshCost={refreshCost}
@@ -184,6 +192,9 @@ export function FeedStack({
             onRefreshNow={onRefreshNow}
             onReplay={() => setIndex(0)}
           />
+          {showProfileNudge && profile && (
+            <ProfileStrengthBanner profile={profile} compact />
+          )}
         </div>
       ) : (
         <>

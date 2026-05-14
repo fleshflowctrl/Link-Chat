@@ -8,24 +8,56 @@ import {
 import type { EditProfileState } from "@/data/me-edit";
 
 /**
- * Slim nudge that replaces the "Nieuw op whisper" rail on /discover when
- * the signed-in user is still missing the profile basics (photo, name, age).
+ * Profile-completion nudge.
  *
- * The visibility decision lives in the parent (HomeScreen) — this component
- * just renders. Tap → /me/edit?focus=<top-missing-field>.
+ * Two visual variants:
+ *   - default: large hero card (kept for backwards compat / other surfaces).
+ *   - compact: slim row used inline under the FeedEndCard ("alle 10 gezien")
+ *     where vertical room is tight and we just want a subtle reminder.
+ *
+ * Visibility decisions live with the parent — this component just renders.
+ * Tap → `/me/edit?focus=<top-missing-field>`.
  */
 export function ProfileStrengthBanner({
   profile,
+  compact = false,
 }: {
   profile: EditProfileState;
+  /** Slim inline variant — smaller padding, single-row layout. */
+  compact?: boolean;
 }) {
   const report = getProfileCompleteness(profile);
   const top = report.nextSteps[0];
   if (!top) return null;
 
-  // Reward earned by doing JUST the next step — concrete "you'll get X
-  // credits right now" promise rather than the abstract total.
   const nextReward = top.reward;
+
+  if (compact) {
+    return (
+      <Link
+        href={`/me/edit?focus=${top.focus}`}
+        className="flex items-center gap-2.5 rounded-2xl bg-gradient-to-br from-[#7C5CFF] via-[#8E6BFF] to-[#B68BFF] px-3 py-2.5 text-white shadow-md transition active:scale-[0.99]"
+      >
+        <span
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-base"
+          aria-hidden
+        >
+          {top.emoji}
+        </span>
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-[13px] font-extrabold">{top.cta}</p>
+          <p className="truncate text-[11px] font-bold text-white/90">
+            {nextReward > 0
+              ? `+${nextReward} gratis credits · ${report.percent}% af`
+              : `Vereist · ${report.percent}% af`}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-white px-3 py-1.5 text-[11px] font-extrabold text-[#7C5CFF] shadow-sm">
+          Doen ›
+        </span>
+      </Link>
+    );
+  }
 
   return (
     <div className="px-4 pt-3">

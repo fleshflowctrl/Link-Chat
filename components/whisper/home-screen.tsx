@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { Profile } from "@/data/profiles";
 import type { EditProfileState } from "@/data/me-edit";
-import { hasProfileBasics } from "@/lib/me/profile-completeness";
 import {
   applyServerCreditsUpdate,
   getCreditsSnapshot,
@@ -17,7 +16,6 @@ import {
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
 import { FeedStack } from "./feed-stack";
 import { HomeHeader } from "./home-header";
-import { ProfileStrengthBanner } from "./profile-strength-banner";
 
 type Props = {
   gridProfiles: Profile[];
@@ -175,17 +173,10 @@ export function HomeScreen({
     }
   }
 
-  // Decision: signed-in users missing photo/name/age see the nudge instead
-  // of the social-proof rail. Guests + complete profiles see the rail.
-  const basicsMissing = profile !== null && !hasProfileBasics(profile);
-
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <HomeHeader />
+      <HomeHeader profile={profile} />
       <CatalogFallbackBanner show={catalogDegraded} />
-      {basicsMissing && (
-        <ProfileStrengthBanner profile={profile as EditProfileState} />
-      )}
       <FeedStack
         profiles={profilesState}
         feedSlot={slot}
@@ -195,6 +186,7 @@ export function HomeScreen({
         onRefreshNow={handleRefreshNow}
         refreshing={refreshing}
         refreshError={refreshError}
+        profile={profile}
       />
     </div>
   );
