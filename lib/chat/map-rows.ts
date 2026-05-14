@@ -86,12 +86,14 @@ export function mergeProfileWithLatestUserMessage(
   row: ChatProfileRow,
   latest: Pick<
     ChatMessageRow,
-    "body" | "created_at" | "kind" | "image_url" | "reaction_emoji"
+    "body" | "created_at" | "kind" | "image_url" | "reaction_emoji" | "sender"
   > & { gift_credits?: number | null },
 ): MessageThread {
   const base = profileRowToThread(row);
   const ts = isoToThreadTimeLabel(latest.created_at);
   const at = latest.created_at;
+  const latestSender: "me" | "peer" =
+    latest.sender === "me" ? "me" : "peer";
 
   if (latest.kind === "image") {
     return {
@@ -101,6 +103,7 @@ export function mergeProfileWithLatestUserMessage(
       previewImage: latest.image_url ?? undefined,
       timestampLabel: ts,
       lastActivityAt: at,
+      latestSender,
     };
   }
 
@@ -112,6 +115,7 @@ export function mergeProfileWithLatestUserMessage(
       lastMessage: amount > 0 ? `🎁 ${amount} credits` : "🎁 Cadeau verstuurd",
       timestampLabel: ts,
       lastActivityAt: at,
+      latestSender,
     };
   }
 
@@ -123,6 +127,7 @@ export function mergeProfileWithLatestUserMessage(
       lastMessage: "Reageerde op je bericht",
       timestampLabel: ts,
       lastActivityAt: at,
+      latestSender,
     };
   }
 
@@ -132,6 +137,7 @@ export function mergeProfileWithLatestUserMessage(
     lastMessage: (latest.body ?? "").trim() || "Bericht",
     timestampLabel: ts,
     lastActivityAt: at,
+    latestSender,
   };
 }
 

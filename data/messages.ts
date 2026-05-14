@@ -39,6 +39,8 @@ export interface MessageThread {
   reactionEmoji?: string;
   /** ISO for sorting (newest first) */
   lastActivityAt: string;
+  /** Who sent the most recent message — used to derive unread state. */
+  latestSender?: "me" | "peer";
 }
 
 const u = (id: string, w = 400) =>

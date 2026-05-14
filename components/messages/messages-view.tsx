@@ -148,6 +148,10 @@ function ConversationRow({
   const showOnline =
     t.showOnlineDot && !locked && mt !== "reaction";
   const timeTyping = mt === "typing";
+  const unread = !locked && (t.unreadCount ?? 0) > 0;
+  const previewClass = unread
+    ? "min-w-0 flex-1 truncate text-[13px] font-semibold text-ink"
+    : "min-w-0 flex-1 truncate text-[13px] text-inkMuted";
 
   const unreadBadge =
     t.unreadCount != null && t.unreadCount > 0 ? (
@@ -176,8 +180,12 @@ function ConversationRow({
           )}
         </div>
         <span
-          className={`shrink-0 text-[10px] font-medium ${
-            timeTyping ? "font-semibold text-primary" : "text-gray-500"
+          className={`shrink-0 text-[10px] ${
+            timeTyping
+              ? "font-semibold text-primary"
+              : unread
+                ? "font-bold text-primary"
+                : "font-medium text-gray-500"
           }`}
         >
           {t.timestampLabel}
@@ -204,15 +212,17 @@ function ConversationRow({
               />
             )}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[13px] text-inkMuted">
-            Stuurde een foto
-          </span>
+          <span className={previewClass}>Stuurde een foto</span>
           {unreadBadge}
         </div>
       )}
 
       {mt === "voice" && (
-        <div className="mt-1 flex items-center gap-1.5 text-[13px] text-inkMuted">
+        <div
+          className={`mt-1 flex items-center gap-1.5 text-[13px] ${
+            unread ? "font-semibold text-ink" : "text-inkMuted"
+          }`}
+        >
           <Mic className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
           <span className="min-w-0 flex-1 truncate">
             Spraakbericht · {t.voiceDuration ?? "0:00"}
@@ -222,7 +232,11 @@ function ConversationRow({
       )}
 
       {mt === "reaction" && (
-        <p className="mt-1 text-[13px] italic text-gray-500">
+        <p
+          className={`mt-1 text-[13px] italic ${
+            unread ? "font-semibold text-ink" : "text-gray-500"
+          }`}
+        >
           <span className="not-italic">{t.reactionEmoji ?? "❤️"}</span> reageerde op
           je bericht
         </p>
@@ -230,9 +244,7 @@ function ConversationRow({
 
       {mt === "text" && (
         <div className="mt-1 flex items-start gap-2">
-          <p className="min-w-0 flex-1 truncate text-[13px] text-inkMuted">
-            {t.lastMessage}
-          </p>
+          <p className={previewClass}>{t.lastMessage}</p>
           {unreadBadge}
         </div>
       )}
@@ -325,25 +337,47 @@ export function MessagesView({
     };
   }, []);
 
-  /** Clear unread badges for all threads we know about when the inbox opens. */
+  /**
+   * Sync the in-memory inbox cache with the server thread list.
+   *
+   * Per-thread unread state:
+   *   - If the user already has an override AND the override's lastActivityAt
+   *     is at least as recent as the server's, keep their override (they've
+   *     read up to that point).
+   *   - Otherwise the thread is unread iff the latest message is from the peer.
+   *
+   * That way, opening /messages does NOT mark every thread as read — bold
+   * styling stays until the user actually opens the specific chat (which
+   * sets unreadCount = 0 in `chat-conversation-view`).
+   */
   useEffect(() => {
+    if (!serverThreads) return;
     const { byId } = getThreadPreviewsSnapshot();
-    const idSet = new Set<string>();
-    for (const t of serverThreads ?? []) idSet.add(t.id);
-    for (const id of Object.keys(byId)) idSet.add(id);
-    const ids = Array.from(idSet);
-    for (const id of ids) {
-      const o = byId[id];
-      const t = serverThreads?.find((x) => x.id === id);
-      setThreadPreview(id, {
-        lastMessage: o?.lastMessage ?? t?.lastMessage ?? "",
-        timestampLabel: o?.timestampLabel ?? t?.timestampLabel ?? "",
-        lastActivityAt: o?.lastActivityAt ?? t?.lastActivityAt,
-        name: o?.name ?? t?.name,
-        avatarUrl: o?.avatarUrl ?? t?.avatarUrl,
-        verified: o?.verified ?? t?.verified,
-        showOnlineDot: o?.showOnlineDot,
-        unreadCount: 0,
+
+    for (const t of serverThreads) {
+      const o = byId[t.id];
+      const overrideUpToDate =
+        o?.lastActivityAt &&
+        t.lastActivityAt &&
+        new Date(o.lastActivityAt).getTime() >=
+          new Date(t.lastActivityAt).getTime();
+
+      const unread =
+        overrideUpToDate && o?.unreadCount !== undefined
+          ? o.unreadCount
+          : t.latestSender === "peer"
+            ? 1
+            : 0;
+
+      setThreadPreview(t.id, {
+        lastMessage: t.lastMessage ?? o?.lastMessage ?? "",
+        timestampLabel: t.timestampLabel ?? o?.timestampLabel ?? "",
+        lastActivityAt: t.lastActivityAt ?? o?.lastActivityAt,
+        name: t.name ?? o?.name,
+        avatarUrl: t.avatarUrl ?? o?.avatarUrl,
+        verified: t.verified ?? o?.verified,
+        showOnlineDot: t.showOnlineDot ?? o?.showOnlineDot,
+        unreadCount: unread,
       });
     }
   // runs whenever the server thread list changes
