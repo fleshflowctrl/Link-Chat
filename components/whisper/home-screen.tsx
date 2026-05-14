@@ -15,9 +15,8 @@ import {
 // back the "Nieuw op whisper" rail.
 // import { ActivityStrip } from "./activity-strip";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
-import { HomeFeedHeader } from "./home-feed-header";
+import { FeedStack } from "./feed-stack";
 import { HomeHeader } from "./home-header";
-import { PersonalizedProfileGrid } from "./personalized-profile-grid";
 import { ProfileStrengthBanner } from "./profile-strength-banner";
 
 type Props = {
@@ -187,17 +186,15 @@ export function HomeScreen({
       {basicsMissing && (
         <ProfileStrengthBanner profile={profile as EditProfileState} />
       )}
-      <HomeFeedHeader
+      <FeedStack
+        profiles={profilesState}
+        feedSlot={slot}
         nextRefreshAt={nextAt}
         refreshCost={refreshCost}
         balance={balanceForButton}
         onRefreshNow={handleRefreshNow}
         refreshing={refreshing}
-        error={refreshError}
-      />
-      <PersonalizedProfileGrid
-        key={`feed-${slot}`}
-        profiles={profilesState}
+        refreshError={refreshError}
       />
       <div className="h-6 shrink-0" aria-hidden />
     </>
