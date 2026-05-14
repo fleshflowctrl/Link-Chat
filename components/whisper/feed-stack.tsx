@@ -9,6 +9,7 @@ import {
   MessageCircle,
   RefreshCcw,
   Timer,
+  User,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
 import { openerForProfile } from "@/lib/whisper/feed-openers";
@@ -80,7 +81,6 @@ export function FeedStack({
 
   const isAnonymous = balance === null;
   const insufficient = !isAnonymous && balance < refreshCost;
-  const canPayRefresh = !isAnonymous && !insufficient;
 
   function handleNext() {
     setIndex((i) => Math.min(i + 1, total));
@@ -165,30 +165,13 @@ export function FeedStack({
             </Link>
           </div>
 
-          {/* Quick paid-refresh shortcut for users mid-pack */}
-          {canPayRefresh && (
-            <button
-              type="button"
-              onClick={() => {
-                void onRefreshNow();
-              }}
-              disabled={refreshing}
-              className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white py-1.5 text-[12px] font-bold text-ink shadow-sm transition active:scale-[0.98] disabled:opacity-60"
-            >
-              <RefreshCcw
-                className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-                strokeWidth={2.5}
-                aria-hidden
-              />
-              {refreshing ? "Vernieuwen…" : "Direct 10 nieuwe profielen"}
-              {!refreshing && (
-                <span className="flex items-center gap-0.5 rounded-full bg-lavender px-1.5 py-0.5 text-[10px] text-primary">
-                  <Coins className="h-2.5 w-2.5" strokeWidth={2.5} aria-hidden />
-                  {refreshCost}
-                </span>
-              )}
-            </button>
-          )}
+          <Link
+            href={`/profile/${current.id}`}
+            className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white py-2 text-[13px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
+          >
+            <User className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
+            Bekijk profiel
+          </Link>
         </>
       )}
 
