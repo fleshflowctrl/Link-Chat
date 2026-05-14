@@ -304,8 +304,42 @@ function AddCardSheet({
 
 /* ─────────────────── main page ────────────────────────────────── */
 
-export function PaymentMethodsView() {
-  const [methods, setMethods] = useState<SavedPaymentMethod[] | null>(null);
+const PAYMENT_METHODS_CACHE_KEY = "whisper_payment_methods_v1";
+
+function readCache(): SavedPaymentMethod[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(PAYMENT_METHODS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as SavedPaymentMethod[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(methods: SavedPaymentMethod[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(PAYMENT_METHODS_CACHE_KEY, JSON.stringify(methods));
+  } catch {
+    /* quota / privacy mode — ignore */
+  }
+}
+
+export function PaymentMethodsView({
+  initialMethods,
+}: {
+  initialMethods?: SavedPaymentMethod[];
+}) {
+  // Server-rendered data wins on first paint; fall back to in-session cache so
+  // anonymous/local navigations still feel instant. Empty array is a valid
+  // "loaded" state — we never show a skeleton when we already know the answer.
+  const [methods, setMethods] = useState<SavedPaymentMethod[] | null>(() => {
+    if (initialMethods !== undefined) return initialMethods;
+    const cached = readCache();
+    return cached ?? null;
+  });
   const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
   const [adding, setAdding] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -327,21 +361,33 @@ export function PaymentMethodsView() {
     });
   }
 
+  // Persist server snapshot to the in-session cache so subsequent client-side
+  // navigations to this page render instantly without waiting for the server
+  // round-trip.
   useEffect(() => {
+    if (initialMethods !== undefined) writeCache(initialMethods);
+  }, [initialMethods]);
+
+  // Silent background re-sync to catch out-of-band changes (e.g. another tab).
+  // Skipped when we already trust server-rendered data on initial paint.
+  useEffect(() => {
+    if (initialMethods !== undefined) return;
     let cancelled = false;
     void fetch("/api/me/payment-methods", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { ok?: boolean; methods?: SavedPaymentMethod[] } | null) => {
         if (cancelled) return;
-        setMethods(data?.ok && Array.isArray(data.methods) ? data.methods : []);
+        const fresh = data?.ok && Array.isArray(data.methods) ? data.methods : [];
+        setMethods(fresh);
+        writeCache(fresh);
       })
       .catch(() => {
-        if (!cancelled) setMethods([]);
+        if (!cancelled) setMethods((m) => m ?? []);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialMethods]);
 
   async function handleSetDefault(id: string) {
     setBusy(id, true);
@@ -354,13 +400,14 @@ export function PaymentMethodsView() {
         showToast(data.error ?? "Wijzigen mislukt");
         return;
       }
-      setMethods((prev) =>
-        prev
-          ? prev
-              .map((m) => ({ ...m, isDefault: m.id === id }))
-              .sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
-          : prev,
-      );
+      setMethods((prev) => {
+        if (!prev) return prev;
+        const next = prev
+          .map((m) => ({ ...m, isDefault: m.id === id }))
+          .sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+        writeCache(next);
+        return next;
+      });
       showToast("Standaardkaart bijgewerkt");
     } catch {
       showToast("Netwerkfout");
@@ -392,6 +439,7 @@ export function PaymentMethodsView() {
         ) {
           remaining[0] = { ...remaining[0], isDefault: true };
         }
+        writeCache(remaining);
         return remaining;
       });
       showToast("Kaart verwijderd");
@@ -495,9 +543,11 @@ export function PaymentMethodsView() {
                 const updated = m.isDefault
                   ? base.map((x) => ({ ...x, isDefault: false }))
                   : base;
-                return [m, ...updated].sort(
+                const next = [m, ...updated].sort(
                   (a, b) => Number(b.isDefault) - Number(a.isDefault),
                 );
+                writeCache(next);
+                return next;
               });
               setAdding(false);
               showToast("Kaart toegevoegd");
