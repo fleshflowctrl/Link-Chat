@@ -11,7 +11,9 @@ import {
   initCreditsStore,
   subscribeCredits,
 } from "@/lib/credits-store";
-import { ActivityStrip } from "./activity-strip";
+// ActivityStrip is temporarily disabled — re-enable in the JSX below to bring
+// back the "Nieuw op whisper" rail.
+// import { ActivityStrip } from "./activity-strip";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
 import { HomeFeedHeader } from "./home-feed-header";
 import { HomeHeader } from "./home-header";
@@ -182,10 +184,8 @@ export function HomeScreen({
     <>
       <HomeHeader />
       <CatalogFallbackBanner show={catalogDegraded} />
-      {basicsMissing ? (
+      {basicsMissing && (
         <ProfileStrengthBanner profile={profile as EditProfileState} />
-      ) : (
-        <ActivityStrip users={activityUsers} />
       )}
       <HomeFeedHeader
         nextRefreshAt={nextAt}
