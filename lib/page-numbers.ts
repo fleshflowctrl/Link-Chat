@@ -19,6 +19,7 @@ export function getPageNumber(pathname: string): number {
   if (pathname === "/me/history") return 13;
   if (pathname === "/me/earn") return 14;
   if (pathname === "/me/help") return 15;
+  if (pathname === "/me/collection") return 18;
   if (pathname.startsWith("/profile/")) return 16;
   if (pathname === "/notifications") return 17;
   return 0;

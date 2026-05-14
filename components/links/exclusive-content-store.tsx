@@ -385,7 +385,7 @@ export function ExclusiveContentStore() {
 
       {/* info: waar belandt aangekochte content? */}
       <Link
-        href="/me"
+        href="/me/collection"
         className="mb-4 flex items-center gap-2.5 rounded-2xl bg-[#F4EFFF] px-3.5 py-2.5 text-left ring-1 ring-[#7C5CFF]/15 transition active:scale-[0.99]"
       >
         <span
@@ -397,11 +397,11 @@ export function ExclusiveContentStore() {
         <span className="min-w-0 flex-1">
           <span className="block text-[12.5px] font-bold text-ink">
             {unlockedIds.size > 0
-              ? `Je collectie (${unlockedIds.size})`
+              ? `Mijn collectie (${unlockedIds.size})`
               : "Aankopen op je profiel"}
           </span>
           <span className="block text-[11.5px] leading-tight text-gray-600">
-            Gekochte content vind je terug onder &quot;Mijn collectie&quot;
+            Gekochte content vind je terug op je profiel
           </span>
         </span>
         <ChevronRight
