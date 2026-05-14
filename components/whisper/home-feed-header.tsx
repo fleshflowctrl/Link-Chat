@@ -86,7 +86,7 @@ export function HomeFeedHeader({
             </span>
           </div>
           <p className="mt-0.5 text-[13px] leading-snug text-inkMuted">
-            10 nieuwe profielen elk uur — volgende drop in {countdown}
+            Elk uur vernieuwen we deze 10 profielen voor jou
           </p>
         </div>
       </div>
