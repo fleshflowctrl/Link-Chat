@@ -293,22 +293,22 @@ export function EditProfileView({
         </button>
       </header>
 
-      <div id="section-photo" className="flex flex-col items-center px-5 pt-2">
+      <div id="section-photo" className="flex flex-col items-center px-5 pt-1">
         <div className="relative">
           <div className="rounded-full bg-gradient-to-br from-primary via-primarySoft to-accentPink p-[3px] shadow-card">
-            <div className="relative h-40 w-40 overflow-hidden rounded-full bg-canvas ring-2 ring-white">
+            <div className="relative h-32 w-32 overflow-hidden rounded-full bg-canvas ring-2 ring-white">
               {state.mainPhotoUrl ? (
                 <Image
                   src={state.mainPhotoUrl}
                   alt=""
-                  width={320}
-                  height={320}
+                  width={256}
+                  height={256}
                   className="h-full w-full object-cover"
                   unoptimized={state.mainPhotoUrl.startsWith("blob:")}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-lavender/40 to-canvas text-ink/25">
-                  <User className="h-16 w-16" strokeWidth={1.5} aria-hidden />
+                  <User className="h-12 w-12" strokeWidth={1.5} aria-hidden />
                 </div>
               )}
             </div>
@@ -316,10 +316,10 @@ export function EditProfileView({
           <button
             type="button"
             onClick={() => mainInputRef.current?.click()}
-            className="absolute bottom-1 right-1 flex h-11 w-11 items-center justify-center rounded-full bg-white text-ink shadow-lg ring-2 ring-canvas transition active:scale-95"
+            className="absolute bottom-0.5 right-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink shadow-lg ring-2 ring-canvas transition active:scale-95"
             aria-label="Foto wijzigen"
           >
-            <Camera className="h-5 w-5" strokeWidth={2} />
+            <Camera className="h-[18px] w-[18px]" strokeWidth={2} />
           </button>
           <input
             ref={mainInputRef}
@@ -336,15 +336,15 @@ export function EditProfileView({
         <button
           type="button"
           onClick={() => mainInputRef.current?.click()}
-          className="mt-3 text-[13px] font-semibold text-primary"
+          className="mt-2.5 text-[13px] font-semibold text-primary"
         >
           {state.mainPhotoUrl ? "Hoofdfoto wijzigen" : "Hoofdfoto toevoegen"}
         </button>
       </div>
 
-      <section id="section-gallery" className="px-5 pt-8">
+      <section id="section-gallery" className="px-5 pt-6">
         <div className="mb-2 flex items-end justify-between gap-2">
-          <h2 className="text-lg font-bold text-ink">Jouw foto’s</h2>
+          <h2 className="text-[15px] font-bold text-ink">Jouw foto’s</h2>
           <p className="text-right text-[11px] font-medium text-inkMuted">
             Maximaal 6 foto’s
           </p>
@@ -394,11 +394,11 @@ export function EditProfileView({
         />
       </section>
 
-      <section id="section-name" className="mt-6 px-5">
+      <section id="section-name" className="mt-5 px-5">
         <div className="overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-black/[0.06]">
           <FieldRow label="Naam">
             <input
-              className="w-full border-0 bg-transparent py-1 text-lg font-semibold text-ink outline-none ring-0 placeholder:text-ink/30"
+              className="w-full border-0 bg-transparent py-0.5 text-[16px] font-semibold text-ink outline-none ring-0 placeholder:text-ink/30"
               value={state.firstName}
               onChange={(e) =>
                 setState((s) => ({ ...s, firstName: e.target.value }))
@@ -413,7 +413,7 @@ export function EditProfileView({
               min={18}
               max={120}
               placeholder="Leeftijd toevoegen"
-              className="w-full border-0 bg-transparent py-1 text-lg font-semibold text-ink outline-none placeholder:text-ink/30"
+              className="w-full border-0 bg-transparent py-0.5 text-[16px] font-semibold text-ink outline-none placeholder:text-ink/30"
               value={state.age ?? ""}
               onChange={(e) => {
                 const v = e.target.value;
@@ -430,9 +430,9 @@ export function EditProfileView({
           <div className="mx-4 h-px bg-black/[0.06]" />
           <FieldRow label="Locatie">
             <div id="section-location" className="flex items-center gap-2 scroll-mt-24">
-              <MapPin className="h-5 w-5 shrink-0 text-ink/35" strokeWidth={2} />
+              <MapPin className="h-[18px] w-[18px] shrink-0 text-ink/35" strokeWidth={2} />
               <input
-                className="min-w-0 flex-1 border-0 bg-transparent py-1 text-lg font-semibold text-ink outline-none"
+                className="min-w-0 flex-1 border-0 bg-transparent py-0.5 text-[16px] font-semibold text-ink outline-none"
                 value={state.location}
                 onChange={(e) =>
                   setState((s) => ({ ...s, location: e.target.value }))
@@ -441,7 +441,7 @@ export function EditProfileView({
             </div>
           </FieldRow>
           <div className="mx-4 h-px bg-black/[0.06]" />
-          <div className="px-4 py-3">
+          <div className="px-4 py-2.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
               Voornaamwoorden
             </p>
@@ -456,7 +456,7 @@ export function EditProfileView({
                       pronouns: p,
                     }))
                   }
-                  className={`rounded-full px-3.5 py-2 text-[13px] font-bold transition ${
+                  className={`rounded-full px-3 py-1.5 text-[13px] font-bold transition ${
                     state.pronouns === p
                       ? "bg-primary text-white shadow-sm"
                       : "bg-ink/[0.06] text-ink ring-1 ring-black/[0.06]"
@@ -480,14 +480,14 @@ export function EditProfileView({
         </div>
       </section>
 
-      <section id="section-bio" className="mt-6 px-5">
+      <section id="section-bio" className="mt-5 px-5">
         <label className="text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
           Over mij
         </label>
         <div className="relative mt-2">
           <textarea
-            rows={4}
-            className={`w-full resize-none rounded-xl bg-ink/[0.04] px-3 py-3 pb-8 text-[15px] leading-relaxed text-ink outline-none ring-1 ring-black/[0.06] ${
+            rows={3}
+            className={`w-full resize-none rounded-xl bg-ink/[0.04] px-3 py-2.5 pb-7 text-[14px] leading-relaxed text-ink outline-none ring-1 ring-black/[0.06] ${
               bioOver ? "ring-2 ring-red-400/70" : ""
             }`}
             value={state.bio}
@@ -503,20 +503,20 @@ export function EditProfileView({
         </div>
       </section>
 
-      <section className="mt-6 px-5">
+      <section className="mt-5 px-5">
         <button
           type="button"
           onClick={() => setLookingOpen(true)}
-          className="flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-100 via-rose-100 to-pink-200 px-4 py-3.5 text-left shadow-card ring-1 ring-accentPink/20 transition active:scale-[0.99]"
+          className="flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-100 via-rose-100 to-pink-200 px-4 py-3 text-left shadow-card ring-1 ring-accentPink/20 transition active:scale-[0.99]"
         >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accentPink to-primary text-white shadow-md">
-            <Heart className="h-5 w-5" fill="currentColor" strokeWidth={0} />
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accentPink to-primary text-white shadow-md">
+            <Heart className="h-[18px] w-[18px]" fill="currentColor" strokeWidth={0} />
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-accentPink">
               Op zoek naar
             </p>
-            <p className="truncate text-[15px] font-bold text-ink">
+            <p className="truncate text-[14px] font-bold text-ink">
               {state.lookingFor || "Kies waar je naar op zoek bent"}
             </p>
           </div>
@@ -524,19 +524,19 @@ export function EditProfileView({
         </button>
       </section>
 
-      <section id="section-interests" className="mt-6 px-5">
+      <section id="section-interests" className="mt-5 px-5">
         <div className="mb-1 flex items-end justify-between gap-2">
-          <h2 className="text-lg font-bold text-ink">Interesses</h2>
+          <h2 className="text-[15px] font-bold text-ink">Interesses</h2>
           <p className="text-[11px] font-medium text-inkMuted">Max. 8</p>
         </div>
-        <p className="mb-3 text-[12px] text-inkMuted">
+        <p className="mb-2 text-[12px] text-inkMuted">
           Zo vinden we betere koppelingen voor je
         </p>
         <div className="flex flex-wrap gap-2">
           {state.interests.map((label) => (
             <span
               key={label}
-              className="inline-flex items-center gap-1 rounded-full bg-ink/[0.08] px-3 py-2 text-[13px] font-bold text-ink ring-1 ring-black/[0.05]"
+              className="inline-flex items-center gap-1 rounded-full bg-ink/[0.08] px-2.5 py-1.5 text-[13px] font-bold text-ink ring-1 ring-black/[0.05]"
             >
               {label}
               <button
@@ -552,20 +552,20 @@ export function EditProfileView({
           <button
             type="button"
             onClick={() => setInterestsOpen(true)}
-            className="inline-flex items-center rounded-full border-2 border-dashed border-primary/45 px-3 py-2 text-[13px] font-bold text-primary"
+            className="inline-flex items-center rounded-full border-2 border-dashed border-primary/45 px-2.5 py-1.5 text-[13px] font-bold text-primary"
           >
             + Meer toevoegen
           </button>
         </div>
       </section>
 
-      <section className="mt-6 px-5">
+      <section className="mt-5 px-5">
         <button
           type="button"
           onClick={() => setPrefsOpen((o) => !o)}
-          className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-card ring-1 ring-black/[0.06]"
+          className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-2.5 shadow-card ring-1 ring-black/[0.06]"
         >
-          <span className="text-lg font-bold text-ink">Voorkeuren</span>
+          <span className="text-[15px] font-bold text-ink">Voorkeuren</span>
           <ChevronDown
             className={`h-5 w-5 text-ink/40 transition ${prefsOpen ? "rotate-180" : ""}`}
           />
@@ -762,11 +762,11 @@ function FieldRow({
   children: ReactNode;
 }) {
   return (
-    <div className="px-4 py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
+    <div className="px-4 py-2.5">
+      <p className="text-[10.5px] font-semibold uppercase tracking-wide text-inkMuted">
         {label}
       </p>
-      <div className="mt-1">{children}</div>
+      <div className="mt-0.5">{children}</div>
     </div>
   );
 }
@@ -781,8 +781,8 @@ function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex min-h-[52px] items-center justify-between gap-3 px-4 py-3">
-      <span className="text-[15px] font-semibold text-ink">{label}</span>
+    <div className="flex min-h-[44px] items-center justify-between gap-3 px-4 py-2">
+      <span className="text-[14px] font-semibold text-ink">{label}</span>
       <button
         type="button"
         role="switch"
