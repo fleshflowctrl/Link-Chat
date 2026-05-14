@@ -9,14 +9,12 @@ import {
   Mic,
   Pin,
 } from "lucide-react";
-import { OnlineNowRail } from "@/components/OnlineNowRail";
 import {
   getThreadMeta,
   sortThreadsByRecency,
   type MessageThread,
   type MessagePreviewType,
 } from "@/data/messages";
-import { getOnlineUsers, type OnlineUser } from "@/data/onlineUsers";
 import {
   getThreadPreviewsSnapshot,
   setThreadPreview,
@@ -308,10 +306,8 @@ function ConversationRow({
 
 export function MessagesView({
   initialThreads,
-  onlineRailUsers = getOnlineUsers(),
 }: {
   initialThreads?: MessageThread[];
-  onlineRailUsers?: OnlineUser[];
 }) {
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
   const [serverThreads, setServerThreads] = useState<MessageThread[] | null>(
@@ -499,8 +495,6 @@ export function MessagesView({
         </h1>
         <CreditsPill />
       </header>
-
-      <OnlineNowRail compact className="-mt-1 pt-0" users={onlineRailUsers} />
 
       <PinnedSection threads={pinnedThreads} />
 
