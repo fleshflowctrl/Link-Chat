@@ -110,15 +110,18 @@ export function EditProfileView({
 
   const bioLen = state.bio.length;
   const bioOver = bioLen > BIO_MAX;
-  const ageInvalid =
-    state.age != null && (state.age < 18 || state.age > 120);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(null), 2800);
   }, []);
 
-  const save = useCallback(async () => {
+  /**
+   * Persist the current edit state to the server. Used by the debounced
+   * auto-save effect — never navigates and stays quiet (no "saved" toast)
+   * unless the server awards credits, in which case we surface that.
+   */
+  const persist = useCallback(async () => {
     if (!dirty || bioOver || saving) return;
     setSaving(true);
     try {
@@ -151,31 +154,52 @@ export function EditProfileView({
             )
             .join(", ");
           showToast(`+${total} credits voor ${labels} ✨`);
-        } else {
-          showToast("Profiel bijgewerkt ✨");
         }
-        window.setTimeout(() => router.push("/me"), 800);
         return;
       }
 
       if (res.status === 401 || res.status === 503) {
+        // Best-effort local persistence so the form state reflects "saved".
         setMeProfileSnapshot(clone(state));
         initialSerialized.current = JSON.stringify(state);
-        showToast(
-          res.status === 401
-            ? "Opgeslagen op dit apparaat (log in om te synchroniseren)"
-            : "Opgeslagen op dit apparaat (Supabase niet beschikbaar)",
-        );
-        window.setTimeout(() => router.push("/me"), 450);
         return;
       }
 
       const err = (await res.json().catch(() => ({}))) as { error?: string };
-      showToast(err.error ?? "Profiel opslaan mislukt");
+      if (err.error) showToast(err.error);
     } finally {
       setSaving(false);
     }
-  }, [bioOver, dirty, router, saving, showToast, state]);
+  }, [bioOver, dirty, saving, showToast, state]);
+
+  /**
+   * Debounced auto-save. Any state change after the user stops typing for
+   * ~700 ms is automatically pushed to the server. We also flush on tab
+   * hide / unmount so we never lose pending changes.
+   */
+  useEffect(() => {
+    if (!dirty || bioOver) return;
+    const t = window.setTimeout(() => {
+      void persist();
+    }, 700);
+    return () => window.clearTimeout(t);
+  }, [bioOver, dirty, persist, state]);
+
+  useEffect(() => {
+    const flush = () => {
+      if (dirty && !bioOver && !saving) void persist();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [bioOver, dirty, persist, saving]);
 
   const setMainFromFile = useCallback(
     async (file: File) => {
@@ -265,10 +289,13 @@ export function EditProfileView({
     });
   }
 
-  const saveDisabled = !dirty || bioOver || saving || ageInvalid;
+  // Subtle "Opgeslagen" indicator that appears in the header while the
+  // last debounced auto-save is in flight, so the user has a quiet
+  // confirmation that changes are being persisted.
+  const headerStatus = saving ? "Opslaan…" : dirty ? "" : "Opgeslagen";
 
   return (
-    <div className="pb-36">
+    <div className="pb-10">
       <header className="flex items-center justify-between gap-2 px-4 py-3 pt-3">
         <button
           type="button"
@@ -281,16 +308,14 @@ export function EditProfileView({
         <h1 className="flex-1 text-center text-lg font-bold text-ink">
           Profiel bewerken
         </h1>
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={saveDisabled}
-          className={`min-h-[44px] shrink-0 px-2 text-[15px] font-bold ${
-            saveDisabled ? "text-ink/30" : "text-primary"
-          }`}
+        <span
+          className={`min-h-[44px] shrink-0 px-2 text-[12px] font-semibold tabular-nums ${
+            saving ? "text-primary" : "text-ink/40"
+          } flex items-center justify-end`}
+          aria-live="polite"
         >
-          Opslaan
-        </button>
+          {headerStatus}
+        </span>
       </header>
 
       <div id="section-photo" className="flex flex-col items-center px-5 pt-1">
@@ -644,22 +669,6 @@ export function EditProfileView({
           </button>
         </div>
       </section>
-
-      <div className="sticky bottom-0 z-30 border-t border-black/[0.06] bg-canvas/95 px-5 py-3 backdrop-blur-md">
-        <button
-          type="button"
-          disabled={saveDisabled}
-          onClick={() => void save()}
-          className={`flex min-h-[52px] w-full items-center justify-center rounded-full bg-gradient-primary py-3.5 text-[15px] font-bold text-white shadow-fab transition ${
-            saveDisabled ? "cursor-not-allowed opacity-50" : "active:scale-[0.99]"
-          }`}
-        >
-          Wijzigingen opslaan
-        </button>
-        <p className="mt-2 text-center text-[11px] text-inkMuted">
-          {state.lastUpdatedLabel}
-        </p>
-      </div>
 
       <AnimatePresence>
         {toast && (
