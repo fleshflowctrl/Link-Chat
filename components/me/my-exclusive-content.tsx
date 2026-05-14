@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { AnimatePresence } from "framer-motion";
 import { ChevronRight, Sparkles } from "lucide-react";
 import { contentSets, type ContentSet } from "@/data/exclusive-content";
 import {
@@ -10,12 +10,20 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 import { readCachedUnlocks, writeCachedUnlocks } from "@/lib/unlocks/cache";
+import { PhotoViewer } from "@/components/links/photo-viewer";
 
-function CollectionRow({ set }: { set: ContentSet }) {
+function CollectionRow({
+  set,
+  onOpen,
+}: {
+  set: ContentSet;
+  onOpen: (set: ContentSet) => void;
+}) {
   return (
-    <Link
-      href="/links"
-      className="flex items-center gap-3 px-4 py-3 transition-colors active:bg-black/[0.03]"
+    <button
+      type="button"
+      onClick={() => onOpen(set)}
+      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-black/[0.03]"
     >
       <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-black/5">
         <Image
@@ -38,7 +46,7 @@ function CollectionRow({ set }: { set: ContentSet }) {
         strokeWidth={2}
         aria-hidden
       />
-    </Link>
+    </button>
   );
 }
 
@@ -59,8 +67,8 @@ export function MyExclusiveContent() {
   const userKey = credits.userKey;
 
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => new Set());
+  const [viewTarget, setViewTarget] = useState<{ set: ContentSet; index: number } | null>(null);
 
-  // Hydrate from cache on mount + whenever the active user changes.
   useEffect(() => {
     if (!userKey) return;
     setUnlockedIds(new Set(readCachedUnlocks(userKey)));
@@ -106,10 +114,20 @@ export function MyExclusiveContent() {
             key={set.id}
             className={i > 0 ? "border-t border-gray-100" : ""}
           >
-            <CollectionRow set={set} />
+            <CollectionRow set={set} onOpen={(s) => setViewTarget({ set: s, index: 0 })} />
           </div>
         ))}
       </div>
+
+      <AnimatePresence>
+        {viewTarget && (
+          <PhotoViewer
+            set={viewTarget.set}
+            startIndex={viewTarget.index}
+            onClose={() => setViewTarget(null)}
+          />
+        )}
+      </AnimatePresence>
     </section>
   );
 }
