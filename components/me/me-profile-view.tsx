@@ -3,11 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BadgeCheck,
-  Camera,
   ChevronRight,
   CreditCard,
   Gift,
@@ -34,7 +33,6 @@ import {
   WHISPER_USER_KEY,
 } from "@/data/funnel";
 import type { EditProfileState } from "@/data/me-edit";
-import { uploadProfileImage } from "@/lib/me/client-storage-upload";
 import type { MeProfileStats } from "@/lib/me/server-profile";
 import {
   getMeProfileSnapshot,
@@ -82,9 +80,7 @@ export function MeProfileView({
   isAdmin = false,
 }: MeProfileViewProps) {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [photoBusy, setPhotoBusy] = useState(false);
 
   const credits = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
 
@@ -109,44 +105,6 @@ export function MeProfileView({
   const displayName = live.firstName.trim() || "Jouw profiel";
   const ageLoc = formatAgeLocation(live.age, live.location);
 
-  function openPhotoPicker() {
-    fileInputRef.current?.click();
-  }
-
-  async function onPhotoSelected() {
-    const input = fileInputRef.current;
-    const f = input?.files?.[0];
-    if (input) input.value = "";
-    if (!f || photoBusy) return;
-
-    setPhotoBusy(true);
-    try {
-      const r = await uploadProfileImage(f);
-      if (!r.ok) {
-        showToast(r.error);
-        return;
-      }
-      const snap = getMeProfileSnapshot();
-      const res = await fetch("/api/me/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...snap, mainPhotoUrl: r.publicUrl }),
-        credentials: "same-origin",
-      });
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({}))) as { error?: string };
-        showToast(err.error ?? "Foto opslaan mislukt");
-        return;
-      }
-      const data = (await res.json()) as { profile: EditProfileState };
-      setMeProfileSnapshot(data.profile);
-      showToast("Profielfoto bijgewerkt");
-      router.refresh();
-    } finally {
-      setPhotoBusy(false);
-    }
-  }
-
   return (
     <div className="bg-[#F5F3EE] pb-8">
       <StatusBarMock />
@@ -159,15 +117,6 @@ export function MeProfileView({
       </header>
 
       <div className="px-5 pb-5">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          aria-hidden
-          onChange={() => void onPhotoSelected()}
-        />
-
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#7C5CFF] to-[#9B7BFF] p-5 text-white shadow-md">
           <div
             className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10"
@@ -179,36 +128,25 @@ export function MeProfileView({
           />
 
           <div className="relative flex gap-4">
-            <div className="relative shrink-0">
-              <div className="relative h-20 w-20 overflow-hidden rounded-full bg-white/20 ring-4 ring-white/30">
-                {hasPhoto ? (
-                  <Image
-                    src={live.mainPhotoUrl}
-                    alt=""
-                    fill
-                    sizes="80px"
-                    className="object-cover"
-                    priority
-                    unoptimized={live.mainPhotoUrl.startsWith("blob:")}
-                  />
-                ) : (
-                  <div
-                    className="flex h-full w-full items-center justify-center bg-white/15 text-white/90"
-                    aria-hidden
-                  >
-                    <User className="h-9 w-9" strokeWidth={1.75} />
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={openPhotoPicker}
-                disabled={photoBusy}
-                className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-primary shadow-md ring-2 ring-white/40 transition enabled:active:scale-95 disabled:opacity-50"
-                aria-label="Profielfoto wijzigen"
-              >
-                <Camera className="h-4 w-4" strokeWidth={2.25} />
-              </button>
+            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white/20 ring-4 ring-white/30">
+              {hasPhoto ? (
+                <Image
+                  src={live.mainPhotoUrl}
+                  alt=""
+                  fill
+                  sizes="80px"
+                  className="object-cover"
+                  priority
+                  unoptimized={live.mainPhotoUrl.startsWith("blob:")}
+                />
+              ) : (
+                <div
+                  className="flex h-full w-full items-center justify-center bg-white/15 text-white/90"
+                  aria-hidden
+                >
+                  <User className="h-9 w-9" strokeWidth={1.75} />
+                </div>
+              )}
             </div>
 
             <div className="min-w-0 flex-1 pt-0.5">
@@ -240,14 +178,15 @@ export function MeProfileView({
                   Voeg een korte bio toe bij bewerken — vertel waar je van houdt.
                 </p>
               )}
-              <Link
-                href="/me/edit"
-                className="mt-3 inline-block rounded-full bg-white px-3 py-1.5 text-xs font-bold text-primary shadow-sm transition active:scale-[0.98]"
-              >
-                Profiel bewerken
-              </Link>
             </div>
           </div>
+
+          <Link
+            href="/me/edit"
+            className="relative mt-4 flex w-full items-center justify-center rounded-full bg-white px-4 py-2.5 text-[13px] font-bold text-primary shadow-sm transition active:scale-[0.99]"
+          >
+            Profiel bewerken
+          </Link>
         </div>
       </div>
 
