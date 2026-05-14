@@ -21,29 +21,42 @@ import {
 
 function BlurredCover({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="relative h-full w-full overflow-hidden">
-      <Image
-        src={src}
-        alt=""
-        fill
-        sizes="(max-width: 430px) 45vw, 200px"
-        className="object-cover"
-        quality={80}
+    <div
+      className="relative h-full w-full select-none overflow-hidden"
+      role="img"
+      aria-label={alt}
+      style={{
+        WebkitTouchCallout: "none",
+        WebkitUserSelect: "none",
+      }}
+    >
+      {/*
+        Render as a CSS background instead of an <img>. iOS Safari long-press
+        only offers "Save to Photos" / "Copy Subject" on real <img> elements,
+        so backgrounds are safe from context-menu extraction. We also blur
+        heavily and overscale so no real detail leaks through the edges.
+      */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: `url(${src})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          filter: "blur(36px) saturate(1.05)",
+          transform: "scale(1.25)",
+        }}
       />
-      {/* blur overlay */}
-      <div className="absolute inset-0 backdrop-blur-[10px] bg-black/25" />
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-black/35"
+      />
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
         <Lock className="h-6 w-6 text-white drop-shadow" strokeWidth={2.2} />
-        <span className="text-[11px] font-bold text-white drop-shadow">Vergrendeld</span>
+        <span className="text-[11px] font-bold text-white drop-shadow">
+          Vergrendeld
+        </span>
       </div>
-      <Image
-        src={src}
-        alt={alt}
-        fill
-        sizes="(max-width: 430px) 45vw, 200px"
-        className="object-cover opacity-40"
-        quality={60}
-      />
     </div>
   );
 }
