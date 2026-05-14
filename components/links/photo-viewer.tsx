@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageCircle, X } from "lucide-react";
+import { Check, MessageCircle, X } from "lucide-react";
 import type { ContentSet } from "@/data/exclusive-content";
 
 /**
@@ -16,10 +16,15 @@ export function PhotoViewer({
   set,
   startIndex,
   onClose,
+  /** When true, shows a "Opgeslagen in Mijn collectie" pill at the top —
+   *  use right after a fresh purchase so the user immediately knows where
+   *  their content lives from now on. */
+  savedToCollectionHint = false,
 }: {
   set: ContentSet;
   startIndex: number;
   onClose: () => void;
+  savedToCollectionHint?: boolean;
 }) {
   const [idx, setIdx] = useState(startIndex);
 
@@ -66,6 +71,20 @@ export function PhotoViewer({
           sizes="430px"
           quality={95}
         />
+
+        {savedToCollectionHint && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.1 }}
+            className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-full bg-emerald-500/95 px-3 py-1.5 text-[11.5px] font-bold text-white shadow-lg backdrop-blur-sm"
+          >
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
+              Opgeslagen in Mijn collectie
+            </span>
+          </motion.div>
+        )}
       </div>
 
       <div className="absolute inset-y-[10%] left-0 w-1/2" onClick={() => setIdx((i) => Math.max(0, i - 1))} />

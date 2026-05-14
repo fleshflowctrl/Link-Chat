@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Lock, MessageCircle, Sparkles, X } from "lucide-react";
+import { ChevronRight, Lock, MessageCircle, Sparkles, X } from "lucide-react";
 import { CreditsPill } from "@/components/ui/credits-pill";
 import {
   contentSets,
@@ -261,7 +261,11 @@ function ContentCard({
 export function ExclusiveContentStore() {
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => new Set());
   const [unlockTarget, setUnlockTarget] = useState<ContentSet | null>(null);
-  const [viewTarget, setViewTarget] = useState<{ set: ContentSet; index: number } | null>(null);
+  const [viewTarget, setViewTarget] = useState<{
+    set: ContentSet;
+    index: number;
+    justUnlocked?: boolean;
+  } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -352,10 +356,13 @@ export function ExclusiveContentStore() {
       if (typeof data.balance === "number") {
         applyServerCreditsUpdate(data.balance);
       }
-      showToast(`${unlockTarget.title} ontgrendeld ✨`);
+      showToast(`${unlockTarget.title} ontgrendeld ✨ — staat nu op je profiel`);
       const opened = unlockTarget;
       setUnlockTarget(null);
-      setTimeout(() => setViewTarget({ set: opened, index: 0 }), 250);
+      setTimeout(
+        () => setViewTarget({ set: opened, index: 0, justUnlocked: true }),
+        250,
+      );
     } catch {
       showToast("Netwerkfout — probeer opnieuw");
     } finally {
@@ -376,6 +383,33 @@ export function ExclusiveContentStore() {
         <CreditsPill />
       </div>
 
+      {/* info: waar belandt aangekochte content? */}
+      <Link
+        href="/me"
+        className="mb-4 flex items-center gap-2.5 rounded-2xl bg-[#F4EFFF] px-3.5 py-2.5 text-left ring-1 ring-[#7C5CFF]/15 transition active:scale-[0.99]"
+      >
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#7C5CFF] ring-1 ring-[#7C5CFF]/20"
+          aria-hidden
+        >
+          <Sparkles className="h-4 w-4" strokeWidth={2.25} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[12.5px] font-bold text-ink">
+            {unlockedIds.size > 0
+              ? `Je collectie (${unlockedIds.size})`
+              : "Aankopen op je profiel"}
+          </span>
+          <span className="block text-[11.5px] leading-tight text-gray-600">
+            Gekochte content vind je terug onder &quot;Mijn collectie&quot;
+          </span>
+        </span>
+        <ChevronRight
+          className="h-4 w-4 shrink-0 text-[#7C5CFF]"
+          strokeWidth={2.25}
+          aria-hidden
+        />
+      </Link>
 
       {/* vergrendelde sets — ontgrendelde content staat op /me ("Mijn collectie") */}
       {contentSets.some((s) => !unlockedIds.has(s.id)) ? (
@@ -446,6 +480,7 @@ export function ExclusiveContentStore() {
             set={viewTarget.set}
             startIndex={viewTarget.index}
             onClose={() => setViewTarget(null)}
+            savedToCollectionHint={viewTarget.justUnlocked}
           />
         )}
       </AnimatePresence>
