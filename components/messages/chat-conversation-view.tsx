@@ -109,6 +109,49 @@ function GiftBubble({
   );
 }
 
+/**
+ * Peer typing indicator shown at the bottom of the message list while we
+ * wait for the AI's reply (POST in flight). Uses the same dot animation as
+ * the inbox row but inside a peer-bubble shape so it visually integrates
+ * with the conversation.
+ */
+function PeerTypingBubble({ avatarUrl }: { avatarUrl: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      className="mt-4"
+      aria-live="polite"
+      aria-label="Aan het typen"
+    >
+      <div className="flex items-end gap-2">
+        <div className="w-8 shrink-0">
+          <div className="relative h-8 w-8 overflow-hidden rounded-full bg-lavender ring-1 ring-black/[0.06]">
+            <Image
+              src={avatarUrl}
+              alt=""
+              width={64}
+              height={64}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-2xl rounded-bl-md bg-white px-4 py-3 shadow-sm ring-1 ring-black/[0.04]">
+          {[0, 140, 280].map((delay) => (
+            <span
+              key={delay}
+              className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70"
+              style={{ animationDelay: `${delay}ms` }}
+            />
+          ))}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
 function ReadReceipt({ phase }: { phase: "single" | "double" }) {
   return (
     <span className="inline-flex items-center gap-0.5 text-primary">
@@ -155,6 +198,9 @@ export function ChatConversationView({
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   /** Shown when the AI reply failed (e.g. xAI error); user message is still saved. */
   const [assistantError, setAssistantError] = useState<string | null>(null);
+  /** True while the POST that sends the user's text is awaiting Grok + pacing.
+   * Renders a typing-bubble at the bottom so the wait feels human, not laggy. */
+  const [peerTyping, setPeerTyping] = useState(false);
   const [composerLift, setComposerLift] = useState(0);
   const longPressRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -219,6 +265,13 @@ export function ChatConversationView({
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  // Keep the typing-bubble in view too — when peerTyping toggles on we want
+  // the user to *see* it without manually scrolling, otherwise the wait feels
+  // like a hung send.
+  useEffect(() => {
+    if (peerTyping) scrollToBottom();
+  }, [peerTyping, scrollToBottom]);
 
   const markReadOnServer = useCallback(async () => {
     try {
@@ -482,6 +535,7 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
+      setPeerTyping(true);
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
@@ -572,6 +626,8 @@ export function ChatConversationView({
           return rest;
         });
         setInput(trimmed);
+      } finally {
+        setPeerTyping(false);
       }
     },
     [blockIfNoProfilePhoto, chatId, useSupabase, meta],
@@ -621,6 +677,7 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
+      setPeerTyping(true);
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
@@ -654,6 +711,8 @@ export function ChatConversationView({
           e instanceof Error ? e.message : "Foto versturen mislukt",
         );
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      } finally {
+        setPeerTyping(false);
       }
     },
     [blockIfNoProfilePhoto, chatId, useSupabase, meta],
@@ -688,6 +747,7 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
+      setPeerTyping(true);
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/gifts`,
@@ -723,6 +783,8 @@ export function ChatConversationView({
         );
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         return { ok: false as const, error: "Netwerkfout" };
+      } finally {
+        setPeerTyping(false);
       }
     },
     [blockIfNoProfilePhoto, chatId, meta],
@@ -1048,6 +1110,9 @@ export function ChatConversationView({
               )}
             </motion.div>
           ))}
+          <AnimatePresence>
+            {peerTyping && <PeerTypingBubble avatarUrl={meta.avatarUrl} />}
+          </AnimatePresence>
         </div>
         <div ref={endRef} className="h-1 shrink-0" aria-hidden />
       </div>

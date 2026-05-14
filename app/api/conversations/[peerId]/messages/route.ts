@@ -24,6 +24,7 @@ import {
   isDraftReviseEnabled,
   reviseDraftIfWorthIt,
 } from "@/lib/ai/draft-revise";
+import { computeReplyDelayMs, sleep } from "@/lib/ai/reply-pacing";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import { createClient } from "@/utils/supabase/server";
@@ -297,6 +298,22 @@ export async function POST(
       if (!finalText) {
         warning = "Lege reactie na postprocessing";
       } else {
+        // Human-like pacing: hold the response for a calculated delay so the
+        // client shows a typing indicator for a believable amount of time. We
+        // subtract the time we already spent in Grok + revise so a slow Grok
+        // call effectively counts as part of the human delay (and a fast one
+        // gets padded out). Capped inside the helper.
+        const elapsed = Date.now() - t0;
+        const target = computeReplyDelayMs({
+          turnIndex: priorAssistantTurns,
+          userMessageChars: (text || "").length,
+          replyChars: finalText.length,
+        });
+        const remainingDelay = Math.max(0, target - elapsed);
+        if (remainingDelay > 0) {
+          await sleep(remainingDelay);
+        }
+
         const { data: insertedPeer, error: peIns } = await supabase
           .from("chat_messages")
           .insert({
