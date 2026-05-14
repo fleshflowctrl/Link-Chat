@@ -11,9 +11,9 @@ import {
   type ContentSet,
 } from "@/data/exclusive-content";
 import {
+  applyServerCreditsUpdate,
   getCreditsSnapshot,
   initCreditsStore,
-  spendCredits,
   subscribeCredits,
 } from "@/lib/credits-store";
 
@@ -324,22 +324,78 @@ function ContentCard({
 
 /* ─────────────────── main export ────────────────────────────────── */
 
+/** Per-user localStorage cache so unlocks render instantly on next visit
+ *  without waiting for the server round-trip. Keyed by `userKey` (user id
+ *  from credits store, or "guest" when not signed in). */
+const UNLOCKS_KEY_PREFIX = "whisper_unlocked_content";
+
+function unlocksKey(userKey: string): string {
+  return `${UNLOCKS_KEY_PREFIX}:${userKey}`;
+}
+
+function readCachedUnlocks(userKey: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(unlocksKey(userKey));
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr)) return [];
+    return arr.filter((x): x is string => typeof x === "string");
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedUnlocks(userKey: string, ids: string[]) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(unlocksKey(userKey), JSON.stringify(ids));
+  } catch {
+    /* quota / privacy mode — survive gracefully */
+  }
+}
+
 export function ExclusiveContentStore() {
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => new Set());
   const [unlockTarget, setUnlockTarget] = useState<ContentSet | null>(null);
   const [viewTarget, setViewTarget] = useState<{ set: ContentSet; index: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [unlocking, setUnlocking] = useState(false);
   const toastRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const balance = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
+  const credits = useSyncExternalStore(
+    subscribeCredits,
+    getCreditsSnapshot,
+    getCreditsSnapshot,
+  );
+  const balance = credits.balance;
+  const userKey = credits.userKey;
 
+  /** Hydrate from per-user cache instantly, then re-sync with server. */
   useEffect(() => {
     initCreditsStore();
-    try {
-      const raw = localStorage.getItem("whisper_unlocked_content");
-      if (raw) setUnlockedIds(new Set<string>(JSON.parse(raw) as string[]));
-    } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    if (!userKey) return;
+    setUnlockedIds(new Set(readCachedUnlocks(userKey)));
+    if (userKey === "guest") return;
+
+    let cancelled = false;
+    void fetch("/api/me/unlocks", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { ok?: boolean; setIds?: string[] } | null) => {
+        if (cancelled || !data?.ok || !Array.isArray(data.setIds)) return;
+        setUnlockedIds(new Set(data.setIds));
+        writeCachedUnlocks(userKey, data.setIds);
+      })
+      .catch(() => {
+        /* keep cached state */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userKey]);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -355,24 +411,53 @@ export function ExclusiveContentStore() {
     }
   }
 
-  function handleConfirmUnlock() {
-    if (!unlockTarget) return;
-    const ok = spendCredits(unlockTarget.credits);
-    if (!ok) {
-      showToast("Niet genoeg credits — laad meer op");
+  async function handleConfirmUnlock() {
+    if (!unlockTarget || unlocking) return;
+    if (userKey === "guest") {
+      showToast("Log in om content te ontgrendelen");
       setUnlockTarget(null);
       return;
     }
-    const nextArr = Array.from(unlockedIds).concat(unlockTarget.id);
-    const next = new Set(nextArr);
-    setUnlockedIds(next);
+
+    setUnlocking(true);
     try {
-      localStorage.setItem("whisper_unlocked_content", JSON.stringify(nextArr));
-    } catch { /* ignore */ }
-    showToast(`${unlockTarget.title} ontgrendeld ✨`);
-    const opened = unlockTarget;
-    setUnlockTarget(null);
-    setTimeout(() => setViewTarget({ set: opened, index: 0 }), 250);
+      const res = await fetch("/api/me/unlocks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ setId: unlockTarget.id }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        balance?: number;
+        setIds?: string[];
+        error?: string;
+      };
+
+      if (!res.ok || !data.ok) {
+        if (res.status === 402) {
+          showToast("Niet genoeg credits — laad meer op");
+        } else {
+          showToast(data.error ?? "Ontgrendelen mislukt");
+        }
+        return;
+      }
+
+      if (Array.isArray(data.setIds)) {
+        setUnlockedIds(new Set(data.setIds));
+        writeCachedUnlocks(userKey, data.setIds);
+      }
+      if (typeof data.balance === "number") {
+        applyServerCreditsUpdate(data.balance);
+      }
+      showToast(`${unlockTarget.title} ontgrendeld ✨`);
+      const opened = unlockTarget;
+      setUnlockTarget(null);
+      setTimeout(() => setViewTarget({ set: opened, index: 0 }), 250);
+    } catch {
+      showToast("Netwerkfout — probeer opnieuw");
+    } finally {
+      setUnlocking(false);
+    }
   }
 
   return (
