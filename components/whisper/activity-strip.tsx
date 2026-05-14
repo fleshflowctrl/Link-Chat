@@ -9,7 +9,7 @@ import { showNewJoinBadge } from "@/data/newUsers";
 export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
 
   return (
-    <div className="px-4 pt-5">
+    <div className="px-4 pt-2">
       <div className="rounded-2xl bg-[#EDE7FF] p-3">
         <div className="mb-2 flex min-w-0 items-center gap-1.5">
           <Sparkles
@@ -27,7 +27,7 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
             <Link
               key={user.id}
               href={`/profile/${user.id}`}
-              className="flex w-[60px] shrink-0 flex-col items-center gap-1 text-center"
+              className="flex w-[68px] shrink-0 flex-col items-center gap-1 text-center"
             >
               <div className="relative shrink-0">
                 <div
@@ -38,12 +38,12 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
                   }}
                 >
                   <div className="rounded-full bg-white p-[2px]">
-                    <div className="relative h-11 w-11 overflow-hidden rounded-full bg-lavender">
+                    <div className="relative h-14 w-14 overflow-hidden rounded-full bg-lavender">
                       <Image
                         src={user.avatar}
                         alt=""
-                        width={112}
-                        height={112}
+                        width={140}
+                        height={140}
                         className="h-full w-full object-cover"
                       />
                     </div>
