@@ -1,10 +1,5 @@
-import { MePlaceholderPage } from "@/components/me/me-placeholder-page";
+import { HelpSupportView } from "@/components/me/help-support-view";
 
 export default function MeHelpPage() {
-  return (
-    <MePlaceholderPage
-      title="Help & ondersteuning"
-      description="Tijdelijke pagina — hulp of contact met support."
-    />
-  );
+  return <HelpSupportView />;
 }
