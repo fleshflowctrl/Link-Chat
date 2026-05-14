@@ -91,8 +91,21 @@ export function EditProfileView({
   const [state, setState] = useState<EditProfileState>(() =>
     clone(initialProfile),
   );
+  /** Always points to the latest `state` so async callbacks can read it
+   *  without forcing themselves to be re-created on every keystroke. */
+  const stateRef = useRef<EditProfileState>(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   const [toast, setToast] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** Set to true while a save is in flight so the debounce effect can
+   *  stay quiet and let it finish before scheduling another. */
+  const savingRef = useRef(false);
+  /** Bumped after every successful save so memoized values that read from
+   *  `initialSerialized` (a ref) recompute. */
+  const [savedTick, setSavedTick] = useState(0);
   const [lookingOpen, setLookingOpen] = useState(false);
   const [interestsOpen, setInterestsOpen] = useState(false);
   const [prefsOpen, setPrefsOpen] = useState(true);
@@ -106,7 +119,10 @@ export function EditProfileView({
   const dirty = useMemo(() => {
     if (initialSerialized.current == null) return false;
     return JSON.stringify(state) !== initialSerialized.current;
-  }, [state]);
+    // savedTick is intentional — bumping it after a save forces this memo
+    // to re-read `initialSerialized.current` which was just updated.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, savedTick]);
 
   const bioLen = state.bio.length;
   const bioOver = bioLen > BIO_MAX;
@@ -117,18 +133,31 @@ export function EditProfileView({
   }, []);
 
   /**
-   * Persist the current edit state to the server. Used by the debounced
-   * auto-save effect — never navigates and stays quiet (no "saved" toast)
-   * unless the server awards credits, in which case we surface that.
+   * Persist the current edit state to the server. Captures `stateRef` at
+   * call time so we never overwrite what the user is typing with a server
+   * response (the server may normalize values, e.g. clamp age).
+   *
+   * Stable identity (no `state` dependency) so the debounce effect doesn't
+   * re-fire on every keystroke.
    */
   const persist = useCallback(async () => {
-    if (!dirty || bioOver || saving) return;
+    if (savingRef.current) return;
+    const snap = stateRef.current;
+    // Never send obviously invalid intermediate values (e.g. half-typed age).
+    if (snap.bio.length > BIO_MAX) return;
+    if (snap.age != null && (snap.age < 18 || snap.age > 120)) return;
+
+    // Nothing to save if it matches the last successful payload.
+    const serialized = JSON.stringify(snap);
+    if (serialized === initialSerialized.current) return;
+
+    savingRef.current = true;
     setSaving(true);
     try {
       const res = await fetch("/api/me/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(state),
+        body: serialized,
         credentials: "same-origin",
       });
 
@@ -138,10 +167,13 @@ export function EditProfileView({
           awarded?: { key: CompletenessField; credits: number }[];
           creditsBalance?: number;
         };
-        const next = clone(data.profile);
-        setMeProfileSnapshot(next);
-        setState(next);
-        initialSerialized.current = JSON.stringify(next);
+        // IMPORTANT: do NOT setState(data.profile) here — the user may have
+        // typed more characters while this request was in flight. We only
+        // mark "what we just sent" as the new baseline so `dirty` flips
+        // back to false IF nothing has changed since.
+        initialSerialized.current = serialized;
+        setSavedTick((n) => n + 1);
+        setMeProfileSnapshot(clone(snap));
         if (typeof data.creditsBalance === "number") {
           applyServerCreditsUpdate(data.creditsBalance);
         }
@@ -159,35 +191,44 @@ export function EditProfileView({
       }
 
       if (res.status === 401 || res.status === 503) {
-        // Best-effort local persistence so the form state reflects "saved".
-        setMeProfileSnapshot(clone(state));
-        initialSerialized.current = JSON.stringify(state);
+        setMeProfileSnapshot(clone(snap));
+        initialSerialized.current = serialized;
+        setSavedTick((n) => n + 1);
         return;
       }
 
       const err = (await res.json().catch(() => ({}))) as { error?: string };
       if (err.error) showToast(err.error);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
-  }, [bioOver, dirty, saving, showToast, state]);
+  }, [showToast]);
 
   /**
-   * Debounced auto-save. Any state change after the user stops typing for
-   * ~700 ms is automatically pushed to the server. We also flush on tab
-   * hide / unmount so we never lose pending changes.
+   * Debounced auto-save. Resets the timer on every state change; only
+   * fires once the user has paused for ~900 ms. Re-arms after a save
+   * completes (via `saving` dep) so changes the user typed mid-flight
+   * don't get stranded.
    */
   useEffect(() => {
+    if (saving) return;
     if (!dirty || bioOver) return;
+    if (state.age != null && (state.age < 18 || state.age > 120)) return;
     const t = window.setTimeout(() => {
       void persist();
-    }, 700);
+    }, 900);
     return () => window.clearTimeout(t);
-  }, [bioOver, dirty, persist, state]);
+  }, [bioOver, dirty, persist, saving, state]);
 
+  /**
+   * Failsafe flush so we never lose changes if the user navigates away
+   * before the debounce timer fires.
+   */
   useEffect(() => {
     const flush = () => {
-      if (dirty && !bioOver && !saving) void persist();
+      if (savingRef.current) return;
+      void persist();
     };
     const onVisibility = () => {
       if (document.visibilityState === "hidden") flush();
@@ -199,7 +240,7 @@ export function EditProfileView({
       window.removeEventListener("pagehide", flush);
       flush();
     };
-  }, [bioOver, dirty, persist, saving]);
+  }, [persist]);
 
   const setMainFromFile = useCallback(
     async (file: File) => {
