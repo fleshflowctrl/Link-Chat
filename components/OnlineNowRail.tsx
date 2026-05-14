@@ -77,9 +77,6 @@ export function OnlineNowRail({ className, compact, users: usersProp }: OnlineNo
             <span className="w-full truncate text-[12px] font-semibold text-ink">
               {user.name}
             </span>
-            <span className="w-full truncate text-[10px] font-medium text-green-600">
-              Online
-            </span>
           </Link>
         ))}
       </div>

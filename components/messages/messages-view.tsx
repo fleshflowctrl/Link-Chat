@@ -499,7 +499,7 @@ export function MessagesView({
         <CreditsPill />
       </header>
 
-      <OnlineNowRail compact className="pt-3" users={onlineRailUsers} />
+      <OnlineNowRail compact className="-mt-1 pt-0" users={onlineRailUsers} />
 
       <PinnedSection threads={pinnedThreads} />
 
