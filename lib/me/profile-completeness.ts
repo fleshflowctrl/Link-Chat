@@ -98,16 +98,7 @@ const MIN_GALLERY = 3;
  * client (instant UI) and on the API route (authoritative reward).
  */
 export function isFieldComplete(
-  state: Pick<
-    EditProfileState,
-    | "firstName"
-    | "age"
-    | "location"
-    | "bio"
-    | "interests"
-    | "mainPhotoUrl"
-    | "gallery"
-  >,
+  state: Partial<EditProfileState>,
   key: CompletenessField,
 ): boolean {
   switch (key) {
@@ -139,16 +130,7 @@ export type CompletenessReport = {
 };
 
 export function getProfileCompleteness(
-  state: Pick<
-    EditProfileState,
-    | "firstName"
-    | "age"
-    | "location"
-    | "bio"
-    | "interests"
-    | "mainPhotoUrl"
-    | "gallery"
-  >,
+  state: Partial<EditProfileState>,
 ): CompletenessReport {
   const fields = {} as Record<CompletenessField, boolean>;
   for (const meta of COMPLETENESS_FIELDS) {
@@ -172,4 +154,20 @@ export function hasProfilePhoto(
   state: Pick<EditProfileState, "mainPhotoUrl">,
 ): boolean {
   return Boolean(state.mainPhotoUrl?.trim());
+}
+
+/**
+ * The "minimum viable profile" required to be shown around the rest of the
+ * app — photo, name, age. Used on /discover to gate the social-proof rail
+ * (we only show "Nieuw op whisper" once the user themselves looks like a
+ * real profile to others).
+ */
+export function hasProfileBasics(
+  state: Pick<EditProfileState, "mainPhotoUrl" | "firstName" | "age">,
+): boolean {
+  return (
+    isFieldComplete(state, "photo") &&
+    isFieldComplete(state, "name") &&
+    isFieldComplete(state, "age")
+  );
 }

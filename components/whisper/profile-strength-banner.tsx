@@ -1,73 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import {
   COMPLETENESS_FIELDS,
   getProfileCompleteness,
 } from "@/lib/me/profile-completeness";
 import type { EditProfileState } from "@/data/me-edit";
 
-const DISMISS_KEY = "whisper:profile-strength-banner-dismissed";
-
 /**
- * Slim, dismissible nudge that appears on /discover when the signed-in user's
- * profile is < 50% complete. Hidden on guest accounts (no fetch result) and
- * once the user dismisses it (per session).
+ * Slim nudge that replaces the "Nieuw op whisper" rail on /discover when
+ * the signed-in user is still missing the profile basics (photo, name, age).
  *
- * Opens /me/edit?focus=<top-missing-field> so the user lands on the right
- * block.
+ * The visibility decision lives in the parent (HomeScreen) — this component
+ * just renders. Tap → /me/edit?focus=<top-missing-field>.
  */
-export function ProfileStrengthBanner() {
-  const [profile, setProfile] = useState<EditProfileState | null>(null);
-  const [dismissed, setDismissed] = useState(true); // start hidden until we know
-
-  useEffect(() => {
-    try {
-      const flag = sessionStorage.getItem(DISMISS_KEY);
-      setDismissed(flag === "1");
-    } catch {
-      /* ignore */
-    }
-
-    let cancelled = false;
-    void fetch("/api/me/profile", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { profile?: EditProfileState } | null) => {
-        if (cancelled || !data?.profile) return;
-        setProfile(data.profile);
-      })
-      .catch(() => {
-        /* leave hidden */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (!profile || dismissed) return null;
-
+export function ProfileStrengthBanner({
+  profile,
+}: {
+  profile: EditProfileState;
+}) {
   const report = getProfileCompleteness(profile);
-  if (report.percent >= 50) return null;
-
   const top = report.nextSteps[0];
   if (!top) return null;
 
-  // Total credits still on the table.
+  // Total credits the user can still earn by completing remaining fields.
   const stillOnTable = report.nextSteps.reduce(
     (sum, f) => sum + f.reward,
     0,
   );
-
-  function dismiss() {
-    setDismissed(true);
-    try {
-      sessionStorage.setItem(DISMISS_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-  }
 
   return (
     <div className="px-4 pt-3">
@@ -98,14 +58,6 @@ export function ProfileStrengthBanner() {
         >
           Doen
         </Link>
-        <button
-          type="button"
-          onClick={dismiss}
-          aria-label="Sluiten"
-          className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition active:scale-90"
-        >
-          <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-        </button>
       </div>
     </div>
   );
