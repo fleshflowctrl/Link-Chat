@@ -9,9 +9,9 @@ import { showNewJoinBadge } from "@/data/newUsers";
 export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
 
   return (
-    <div className="px-4 pt-2">
-      <div className="rounded-2xl bg-[#EDE7FF] p-3">
-        <div className="mb-2 flex min-w-0 items-center gap-1.5">
+    <div className="px-4 pt-0">
+      <div className="overflow-hidden rounded-2xl bg-[#EDE7FF] px-3 pb-3 pt-2.5">
+        <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
           <Sparkles
             className="h-4 w-4 shrink-0 text-primary"
             strokeWidth={2.25}
@@ -22,7 +22,7 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
           </h2>
         </div>
 
-        <div className="scrollbar-hide -mx-1 flex gap-3 overflow-x-auto px-1 pt-0.5">
+        <div className="scrollbar-hide flex gap-3 overflow-x-auto pt-0.5">
           {users.map((user) => (
             <Link
               key={user.id}
