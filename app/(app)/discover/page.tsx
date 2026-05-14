@@ -17,6 +17,9 @@ export default async function DiscoverPage() {
         activityUsers={catalog.activityUsers}
         catalogDegraded={catalog.catalogDegraded}
         initialProfile={initialProfile}
+        feedSlot={catalog.feedSlot}
+        nextRefreshAt={catalog.nextRefreshAt}
+        refreshCost={catalog.refreshCost}
       />
     </>
   );

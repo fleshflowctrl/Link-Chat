@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import {
   getProfileById,
-  homeGridProfiles,
   profiles,
   type Profile,
 } from "@/data/profiles";
@@ -9,6 +8,13 @@ import type { NewWhisperUser } from "@/data/newUsers";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
 import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
+import {
+  HOURLY_FEED_REFRESH_COST,
+  HOURLY_FEED_SIZE,
+  activeFeedSlot,
+  nextHourBoundary,
+  pickHourlyFeed,
+} from "@/lib/catalog/hourly-feed";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -17,15 +23,58 @@ export type HomePageCatalogBundle = {
   activityUsers: NewWhisperUser[];
   /** True when Supabase was expected but the home grid fell back to static demo data. */
   catalogDegraded: boolean;
+  /** Active hourly feed slot for this user (current hour + paid refresh offset). */
+  feedSlot: number;
+  /** How many times the user has paid to skip ahead to a fresh slot. */
+  refreshOffset: number;
+  /** Epoch-ms when the next natural hourly rotation lands. */
+  nextRefreshAt: number;
+  /** Credit cost to skip ahead to the next slot now. */
+  refreshCost: number;
 };
 
+/**
+ * Look up the per-user `refresh_offset` (paid-refresh counter) without
+ * blowing up if the table doesn't exist yet (e.g. migration not applied).
+ */
+async function fetchRefreshOffset(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from("home_feed_state")
+      .select("refresh_offset")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) return 0;
+    const v = (data as { refresh_offset?: number } | null)?.refresh_offset;
+    return typeof v === "number" && v >= 0 ? Math.floor(v) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function bundleMeta(refreshOffset: number, now: number = Date.now()) {
+  return {
+    feedSlot: activeFeedSlot(now, refreshOffset),
+    refreshOffset,
+    nextRefreshAt: nextHourBoundary(now),
+    refreshCost: HOURLY_FEED_REFRESH_COST,
+  };
+}
+
 export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundle> {
+  const now = Date.now();
+
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
+    const meta = bundleMeta(0, now);
     return {
-      gridProfiles: homeGridProfiles,
+      gridProfiles: pickHourlyFeed(profiles, "guest", meta.feedSlot),
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: false,
+      ...meta,
     };
   }
 
@@ -34,41 +83,57 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     supabase = createClient();
   } catch {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
+    const meta = bundleMeta(0, now);
     return {
-      gridProfiles: homeGridProfiles,
+      gridProfiles: pickHourlyFeed(profiles, "guest", meta.feedSlot),
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: true,
+      ...meta,
     };
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const userKey = user?.id ?? "guest";
+  const refreshOffset = user ? await fetchRefreshOffset(supabase, user.id) : 0;
+  const meta = bundleMeta(refreshOffset, now);
+
   if (!user) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     return {
-      gridProfiles: homeGridProfiles,
+      gridProfiles: pickHourlyFeed(profiles, userKey, meta.feedSlot),
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: false,
+      ...meta,
     };
   }
 
+  // Pull a wide pool so the hourly picker can rotate through many subsets.
   const { data: rows, error: gridError } = await supabase
     .from("chat_profiles")
     .select("*")
     .order("home_sort", { ascending: true })
     .order("display_name", { ascending: true })
-    .limit(6);
+    .limit(120);
 
-  let gridProfiles: Profile[];
+  let pool: Profile[];
   let gridDegraded = false;
   if (gridError || !rows?.length) {
     console.error("[fetchHomePageCatalogServer] grid", gridError);
-    gridProfiles = homeGridProfiles;
+    pool = profiles;
     gridDegraded = true;
   } else {
-    gridProfiles = (rows as ChatProfileRow[]).map(chatProfileRowToProfile);
+    pool = (rows as ChatProfileRow[]).map(chatProfileRowToProfile);
   }
+
+  const gridProfiles = pickHourlyFeed(
+    pool,
+    userKey,
+    meta.feedSlot,
+    HOURLY_FEED_SIZE,
+  );
 
   const { data: actRows, error: actError } = await supabase
     .from("chat_profiles")
@@ -97,6 +162,7 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     gridProfiles,
     activityUsers,
     catalogDegraded: gridDegraded,
+    ...meta,
   };
 }
 
