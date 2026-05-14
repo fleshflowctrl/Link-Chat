@@ -454,6 +454,11 @@ export function MessagesView({
       if (byId.has(id)) continue;
       const o = previews.byId[id];
       if (!o) continue;
+      // Don't surface visit-only stubs: only show a stub thread when the
+      // override carries a real message body. Empty previews are leftovers
+      // from "I opened the chat but never sent anything" and shouldn't
+      // appear in the inbox.
+      if (!o.lastMessage || !o.lastMessage.trim()) continue;
       const stub = getThreadMeta(id);
       byId.set(
         id,

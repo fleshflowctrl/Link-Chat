@@ -246,6 +246,21 @@ export function ChatConversationView({
   /** Clear unread badge + bold styling as soon as this conversation is opened. */
   useEffect(() => {
     const o = getThreadPreviewOverride(chatId);
+    // Don't surface brand-new empty chats in the inbox: only persist a preview
+    // override (which the inbox uses to stub a row) when this thread already
+    // has activity — either real messages on the server, or an existing
+    // override carrying a real lastMessage. Pure "I just opened the chat"
+    // visits with nothing to read should leave no trace.
+    const hasRealActivity =
+      initialMessages.length > 0 || (o?.lastMessage ?? "").trim().length > 0;
+
+    if (!hasRealActivity) {
+      // Nothing to mark, nothing to remember — but if the override somehow
+      // exists from a previous visit, clear stale unread bookkeeping locally.
+      if ((o?.unreadCount ?? 0) > 0) applyOptimisticUnreadDelta(-1);
+      return;
+    }
+
     const wasUnread = (o?.unreadCount ?? 0) > 0;
     // lastActivityAt = NOW guarantees this override is strictly newer than
     // anything the server returns later, so the inbox row never flips back
