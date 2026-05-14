@@ -109,7 +109,7 @@ export function HomeFeedHeader({
                 ? "Vernieuwen…"
                 : insufficient
                   ? `Te weinig credits (${refreshCost} nodig)`
-                  : "Vernieuw nu"}
+                  : "Direct 10 nieuwe profielen"}
             </span>
             {!refreshing && !insufficient && (
               <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">
