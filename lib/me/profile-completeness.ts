@@ -86,7 +86,9 @@ export const TOTAL_PROFILE_REWARD_CREDITS = COMPLETENESS_FIELDS.reduce(
   0,
 );
 
-const MIN_BIO_CHARS = 20;
+// Just "filled in something" counts — the reward is meant to nudge users
+// to write *anything*, so don't gate it behind an arbitrary length.
+const MIN_BIO_CHARS = 1;
 const MIN_INTERESTS = 3;
 const MIN_GALLERY = 3;
 
