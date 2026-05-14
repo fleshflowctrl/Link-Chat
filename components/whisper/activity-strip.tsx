@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import type { NewWhisperUser } from "@/data/newUsers";
-import { formatJoinedAgo, showNewJoinBadge } from "@/data/newUsers";
+import { showNewJoinBadge } from "@/data/newUsers";
 
 export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
 
@@ -57,9 +57,6 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
               </div>
               <span className="w-full truncate text-[11px] font-semibold text-ink">
                 {user.name}
-              </span>
-              <span className="w-full truncate text-[9px] text-gray-500">
-                {formatJoinedAgo(user.joinedAt)}
               </span>
             </Link>
           ))}
