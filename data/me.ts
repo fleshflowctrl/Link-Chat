@@ -72,12 +72,6 @@ export const meSettingsSections: MeSettingsSection[] = [
         subtitle: "Kaarten en abonnementen beheren",
         icon: "credit",
       },
-      {
-        href: "/me/history",
-        title: "Aankoopgeschiedenis",
-        subtitle: "Eerdere aankopen bekijken",
-        icon: "history",
-      },
     ],
   },
   {
