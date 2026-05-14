@@ -330,11 +330,6 @@ export function EditProfileView({
     });
   }
 
-  // Subtle "Opgeslagen" indicator that appears in the header while the
-  // last debounced auto-save is in flight, so the user has a quiet
-  // confirmation that changes are being persisted.
-  const headerStatus = saving ? "Opslaan…" : dirty ? "" : "Opgeslagen";
-
   return (
     <div className="pb-10">
       <header className="flex items-center justify-between gap-2 px-4 py-3 pt-3">
@@ -349,14 +344,8 @@ export function EditProfileView({
         <h1 className="flex-1 text-center text-lg font-bold text-ink">
           Profiel bewerken
         </h1>
-        <span
-          className={`min-h-[44px] shrink-0 px-2 text-[12px] font-semibold tabular-nums ${
-            saving ? "text-primary" : "text-ink/40"
-          } flex items-center justify-end`}
-          aria-live="polite"
-        >
-          {headerStatus}
-        </span>
+        {/* Spacer to balance the back button so the title stays centered. */}
+        <div className="h-11 w-11 shrink-0" aria-hidden />
       </header>
 
       <div id="section-photo" className="flex flex-col items-center px-5 pt-1">
