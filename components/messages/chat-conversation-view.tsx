@@ -198,9 +198,17 @@ export function ChatConversationView({
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   /** Shown when the AI reply failed (e.g. xAI error); user message is still saved. */
   const [assistantError, setAssistantError] = useState<string | null>(null);
-  /** True while the POST that sends the user's text is awaiting Grok + pacing.
-   * Renders a typing-bubble at the bottom so the wait feels human, not laggy. */
+  /** True while the POST that sends the user's text is awaiting Grok + pacing,
+   * OR while a scheduled async reply is being delivered. Renders a typing-bubble
+   * at the bottom so the wait feels human, not laggy. */
   const [peerTyping, setPeerTyping] = useState(false);
+  /** ISO timestamp when the next async-scheduled AI reply should land, or null
+   * if nothing is queued. Set by POST /messages (when a long pause was
+   * scheduled), GET /messages (catch-up), and POST /poll-pending. The timer
+   * effect below fires `pollPending()` at this moment. */
+  const [nextPendingAt, setNextPendingAt] = useState<string | null>(null);
+  /** Guard against overlapping pollPending invocations. */
+  const pollingRef = useRef(false);
   const [composerLift, setComposerLift] = useState(0);
   const longPressRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -272,6 +280,89 @@ export function ChatConversationView({
   useEffect(() => {
     if (peerTyping) scrollToBottom();
   }, [peerTyping, scrollToBottom]);
+
+  /**
+   * Trigger delivery of any due async-scheduled AI reply. Hits the dedicated
+   * /poll-pending endpoint which: (a) processes all due rows for this thread,
+   * (b) calls Grok with the current full history, (c) inserts the peer
+   * message, (d) returns the new peer message(s) plus the next still-pending
+   * scheduled_at if any. Shows the typing-bubble while in-flight so the
+   * delivery feels like a "she's typing… message" sequence, not a sudden pop.
+   */
+  const pollPending = useCallback(async () => {
+    if (!useSupabase) return;
+    if (pollingRef.current) return;
+    pollingRef.current = true;
+    setPeerTyping(true);
+    try {
+      const res = await fetch(
+        `/api/conversations/${encodeURIComponent(chatId)}/poll-pending`,
+        {
+          method: "POST",
+          cache: "no-store",
+          credentials: "same-origin",
+        },
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        ok?: boolean;
+        newPeerMessages?: ChatMessage[];
+        nextPendingAt?: string | null;
+      };
+      if (!data?.ok) return;
+      const fresh = data.newPeerMessages ?? [];
+      if (fresh.length > 0) {
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          const additions = fresh.filter((m) => !seen.has(m.id));
+          return additions.length === 0 ? prev : [...prev, ...additions];
+        });
+      }
+      setNextPendingAt(data.nextPendingAt ?? null);
+    } catch {
+      /* network blip — next interaction will retry */
+    } finally {
+      pollingRef.current = false;
+      setPeerTyping(false);
+    }
+  }, [chatId, useSupabase]);
+
+  /**
+   * Initial catch-up on mount: if the user opened the chat after a scheduled
+   * reply was due, deliver it right now. This is what makes the persona feel
+   * truly async — she "replied 20 minutes ago" lands the moment you open the
+   * chat. Also seeds nextPendingAt for the timer effect below.
+   */
+  useEffect(() => {
+    if (!useSupabase) return;
+    void pollPending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
+
+  /**
+   * Timer-driven delivery: schedule a `setTimeout` that fires at
+   * `nextPendingAt` and then triggers pollPending. We add a tiny lead-in
+   * (200ms) so the typing-bubble appears *before* the message lands instead
+   * of simultaneously, which feels more natural.
+   *
+   * If the user closes the tab before this fires, the next GET /messages or
+   * POST will pick it up (server-side lazy delivery).
+   */
+  useEffect(() => {
+    if (!nextPendingAt) return;
+    const target = new Date(nextPendingAt).getTime();
+    if (!Number.isFinite(target)) return;
+    const ms = Math.max(0, target - Date.now());
+    // Clamp insanely-long timers to one hour and re-arm later. Browsers /
+    // mobile suspend long timers and they may not fire reliably.
+    const armFor = Math.min(ms, 60 * 60_000);
+    const timer = window.setTimeout(() => {
+      void pollPending();
+    }, armFor);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [nextPendingAt, pollPending]);
 
   const markReadOnServer = useCallback(async () => {
     try {
@@ -549,6 +640,8 @@ export function ChatConversationView({
           ok?: boolean;
           userMessage?: ChatMessage;
           peerMessage?: ChatMessage | null;
+          newPeerMessages?: ChatMessage[];
+          nextPendingAt?: string | null;
           warning?: string;
           error?: string;
         };
@@ -589,8 +682,24 @@ export function ChatConversationView({
           const replaced = prev.map((m) =>
             m.id === tempId ? data.userMessage! : m,
           );
-          return data.peerMessage ? [...replaced, data.peerMessage] : replaced;
+          // Append in order: any catch-up replies that the server delivered
+          // for older queued messages, then the synchronous reply for *this*
+          // message (if any).
+          const seen = new Set(replaced.map((m) => m.id));
+          const additions: ChatMessage[] = [];
+          for (const m of data.newPeerMessages ?? []) {
+            if (!seen.has(m.id)) {
+              additions.push(m);
+              seen.add(m.id);
+            }
+          }
+          if (data.peerMessage && !seen.has(data.peerMessage.id)) {
+            additions.push(data.peerMessage);
+          }
+          return additions.length === 0 ? replaced : [...replaced, ...additions];
         });
+        // Arm the next async delivery if the server scheduled one.
+        setNextPendingAt(data.nextPendingAt ?? null);
 
         const uid = data.userMessage.id;
         setReadPhase((p) => {
@@ -691,6 +800,8 @@ export function ChatConversationView({
           ok?: boolean;
           userMessage?: ChatMessage;
           peerMessage?: ChatMessage | null;
+          newPeerMessages?: ChatMessage[];
+          nextPendingAt?: string | null;
           warning?: string;
           error?: string;
         };
@@ -703,8 +814,20 @@ export function ChatConversationView({
           const replaced = prev.map((m) =>
             m.id === tempId ? data.userMessage! : m,
           );
-          return data.peerMessage ? [...replaced, data.peerMessage] : replaced;
+          const seen = new Set(replaced.map((m) => m.id));
+          const additions: ChatMessage[] = [];
+          for (const m of data.newPeerMessages ?? []) {
+            if (!seen.has(m.id)) {
+              additions.push(m);
+              seen.add(m.id);
+            }
+          }
+          if (data.peerMessage && !seen.has(data.peerMessage.id)) {
+            additions.push(data.peerMessage);
+          }
+          return additions.length === 0 ? replaced : [...replaced, ...additions];
         });
+        setNextPendingAt(data.nextPendingAt ?? null);
       } catch (e) {
         console.error("[chat] send image failed", e);
         setAssistantError(

@@ -5,35 +5,34 @@ import {
   type ChatMessageRow,
   type ChatProfileRow,
 } from "@/lib/chat/map-rows";
+import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
+import { processDuePendingReplies } from "@/lib/ai/pending-replies";
 import {
-  AI_CHAT_PROMPT_VERSION,
-  buildGrokSystemPrompt,
-} from "@/lib/ai/build-grok-system-prompt";
-import {
-  RECENT_MESSAGE_COUNT,
-  refreshThreadSummaryIfNeeded,
-  sliceRecentDialogue,
-  type ThreadMemoryRow,
-} from "@/lib/ai/thread-memory";
-import {
-  endsWithQuestion,
-  hasEmoji,
-  postProcessReply,
-} from "@/lib/ai/post-process-reply";
-import {
-  isDraftReviseEnabled,
-  reviseDraftIfWorthIt,
-} from "@/lib/ai/draft-revise";
-import { computeReplyDelayMs, sleep } from "@/lib/ai/reply-pacing";
-import type { GrokInputMessage } from "@/lib/xai/grok-responses";
-import { grokResponsesComplete } from "@/lib/xai/grok-responses";
+  computeReplyDelayMs,
+  sleep,
+  SYNC_DELAY_THRESHOLD_MS,
+} from "@/lib/ai/reply-pacing";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
-/** Grok reasoning can exceed default limits; raise on hosts that support it (e.g. Vercel). */
+/** Grok reasoning + sync pacing can exceed default limits. */
 export const maxDuration = 120;
 
 const MAX_LEN = 4000;
+
+/** Look at history (oldest→newest) and return the most recent peer-side
+ * reply timestamp, or null if she's never replied yet. Used by the pacing
+ * function to choose engagement mode (hot/warm/cold). */
+function lastPeerReplyAt(history: ChatMessageRow[]): Date | null {
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].sender === "peer") {
+      const t = new Date(history[i].created_at);
+      if (!Number.isNaN(t.getTime())) return t;
+      return null;
+    }
+  }
+  return null;
+}
 
 export async function GET(
   _request: Request,
@@ -47,6 +46,32 @@ export async function GET(
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ ok: false, error: "Niet geautoriseerd" }, { status: 401 });
+  }
+
+  // Lazy catch-up: if a pending reply is due (e.g. user closed the app and is
+  // now reopening), deliver it before returning so it shows up in this load.
+  const { data: profileForGet } = await supabase
+    .from("chat_profiles")
+    .select("*")
+    .eq("id", peerId)
+    .maybeSingle();
+
+  let nextPendingAt: string | null = null;
+  if (profileForGet && (profileForGet as ChatProfileRow).is_ai) {
+    try {
+      const r = await processDuePendingReplies(supabase, {
+        ownerUserId: user.id,
+        peerId,
+        profile: profileForGet as ChatProfileRow,
+      });
+      nextPendingAt = r.nextPendingAt;
+    } catch (e) {
+      console.warn(
+        "[conversations/messages GET] processDuePending threw",
+        peerId,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
   }
 
   const { data: msgs, error } = await supabase
@@ -63,6 +88,7 @@ export async function GET(
   return NextResponse.json({
     ok: true,
     messages: ((msgs ?? []) as ChatMessageRow[]).map(messageRowToUi),
+    nextPendingAt,
   });
 }
 
@@ -123,6 +149,7 @@ export async function POST(
 
   const p = profile as ChatProfileRow;
 
+  // 1. Persist the user message before doing anything else.
   const { data: insertedUser, error: ie } = await supabase
     .from("chat_messages")
     .insert({
@@ -145,6 +172,41 @@ export async function POST(
 
   const userMessage = messageRowToUi(insertedUser as ChatMessageRow);
 
+  // Non-AI peer: nothing more to do.
+  if (!p.is_ai) {
+    return NextResponse.json({
+      ok: true,
+      userMessage,
+      peerMessage: null,
+      newPeerMessages: [] as ChatMessage[],
+      nextPendingAt: null,
+    });
+  }
+
+  // 2. Catch up any *already-due* pending replies (older messages whose
+  //    scheduled_at has passed while the user was away). These deliveries
+  //    happen BEFORE we look at the new message — so the persona's reply
+  //    history is up-to-date when we compute the engagement state below.
+  let processedPeerMessages: ChatMessage[] = [];
+  let warning: string | undefined;
+  try {
+    const r = await processDuePendingReplies(supabase, {
+      ownerUserId: user.id,
+      peerId,
+      profile: p,
+    });
+    processedPeerMessages = r.newPeerMessages.map(messageRowToUi);
+  } catch (e) {
+    console.warn(
+      "[conversations/messages POST] catch-up processDuePending threw",
+      peerId,
+      e instanceof Error ? e.message : String(e),
+    );
+  }
+
+  // 3. Fetch the latest history (now possibly including freshly-delivered
+  //    peer messages from step 2) so the pacing function sees the correct
+  //    peerLastReplyAt and turnIndex.
   const { data: historyRows, error: he } = await supabase
     .from("chat_messages")
     .select("*")
@@ -153,212 +215,106 @@ export async function POST(
     .order("created_at", { ascending: true });
 
   if (he) {
-    return NextResponse.json(
-      { ok: true, userMessage, peerMessage: null, warning: he.message },
-      { status: 200 },
-    );
+    return NextResponse.json({
+      ok: true,
+      userMessage,
+      peerMessage: null,
+      newPeerMessages: processedPeerMessages,
+      nextPendingAt: null,
+      warning: he.message,
+    });
   }
 
   const history = (historyRows ?? []) as ChatMessageRow[];
+  const priorAssistantTurns = history.reduce(
+    (acc, row) => acc + (row.sender === "peer" ? 1 : 0),
+    0,
+  );
+
+  // 4. Decide sync vs async. We compute an *initial* delay using just the
+  //    user-message length (we don't know the reply length yet without
+  //    calling Grok). For sync flow we'll re-compute with replyChars after
+  //    Grok returns; for async flow the typing-bonus is negligible relative
+  //    to the multi-minute pause, so the initial estimate is good enough.
+  const initialDelayMs = computeReplyDelayMs({
+    turnIndex: priorAssistantTurns,
+    userMessageChars: (text || "").length,
+    replyChars: 0,
+    nowLocal: new Date(),
+    peerLastReplyAt: lastPeerReplyAt(history),
+  });
 
   let peerMessage: ChatMessage | null = null;
-  let warning: string | undefined;
+  let nextPendingAt: string | null = null;
 
-  if (p.is_ai) {
+  if (initialDelayMs <= SYNC_DELAY_THRESHOLD_MS) {
+    // Sync flow: generate now, hold the response open with sleep so the
+    // client's typing indicator runs for the right amount of time.
     const t0 = Date.now();
-    let resolvedModel: string | null =
-      process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
+    const result = await generatePeerReply(supabase, {
+      profile: p,
+      history,
+      ownerUserId: user.id,
+      peerId,
+      options: { triggerUserMessageId: insertedUser.id },
+    });
 
-    const { data: memRow, error: memErr } = await supabase
-      .from("chat_ai_thread_memory")
-      .select("summary, prefix_messages_count")
-      .eq("peer_id", peerId)
-      .eq("owner_user_id", user.id)
-      .maybeSingle();
-
-    if (memErr) {
-      console.warn("[conversations/messages] thread memory select", peerId, memErr.message);
+    if (!result.ok) {
+      warning = result.error;
+    } else {
+      // Re-compute target now that we know reply length, so a long reply gets
+      // its typing-time bonus. Subtract elapsed Grok time so a slow Grok
+      // counts as part of the natural delay.
+      const finalTarget = computeReplyDelayMs({
+        turnIndex: priorAssistantTurns,
+        userMessageChars: (text || "").length,
+        replyChars: result.finalText.length,
+        nowLocal: new Date(),
+        peerLastReplyAt: lastPeerReplyAt(history),
+      });
+      const elapsed = Date.now() - t0;
+      const remaining = Math.max(0, finalTarget - elapsed);
+      if (remaining > 0 && remaining <= SYNC_DELAY_THRESHOLD_MS) {
+        await sleep(remaining);
+      }
+      peerMessage = messageRowToUi(result.assistantRow);
     }
-
-    const m = memRow as
-      | { summary: string; prefix_messages_count: number }
-      | null
-      | undefined;
-    const prevMemory: ThreadMemoryRow | null =
-      m &&
-      typeof m.summary === "string" &&
-      typeof m.prefix_messages_count === "number"
-        ? { summary: m.summary, prefix_messages_count: m.prefix_messages_count }
-        : null;
-
-    const memory = await refreshThreadSummaryIfNeeded(history, prevMemory);
-
-    const { error: memUpsertErr } = await supabase.from("chat_ai_thread_memory").upsert(
-      {
+  } else {
+    // Async flow: queue a pending row, return immediately, let the client
+    // poll at scheduled_at. The persona will appear "away" until the timer
+    // fires (or until a later GET catches it up if the user closes the app).
+    const scheduledAt = new Date(Date.now() + initialDelayMs).toISOString();
+    const { error: queueErr } = await supabase
+      .from("chat_pending_replies")
+      .insert({
+        user_message_id: insertedUser.id,
         owner_user_id: user.id,
         peer_id: peerId,
-        summary: memory.summary,
-        prefix_messages_count: memory.prefix_messages_count,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "owner_user_id,peer_id" },
-    );
-
-    if (memUpsertErr) {
-      console.warn("[conversations/messages] thread memory upsert", peerId, memUpsertErr.message);
-    }
-
-    const threadSummaryForPrompt =
-      history.length > RECENT_MESSAGE_COUNT && memory.summary.trim()
-        ? memory.summary.trim()
-        : undefined;
-
-    // Turn-context: how many AI replies we've already sent (= prior `peer` messages,
-    // excluding the just-inserted `me` message), and how long the user was silent
-    // between their previous message and this one. Both are used by the system
-    // prompt to set tone, pacing stage, and natural acknowledgement of silence.
-    let priorAssistantTurns = 0;
-    let priorUserAt: number | null = null;
-    for (const row of history) {
-      if (row.id === insertedUser.id) continue;
-      if (row.sender === "peer") priorAssistantTurns += 1;
-      if (row.sender === "me") {
-        const t = new Date(row.created_at).getTime();
-        if (Number.isFinite(t)) priorUserAt = t;
-      }
-    }
-    const insertedAt = new Date(insertedUser.created_at).getTime();
-    const userSilenceMs =
-      priorUserAt !== null && Number.isFinite(insertedAt) && insertedAt > priorUserAt
-        ? insertedAt - priorUserAt
-        : undefined;
-
-    const system = buildGrokSystemPrompt(p, {
-      threadSummary: threadSummaryForPrompt,
-      nowLocal: new Date(),
-      turnIndex: priorAssistantTurns,
-      userSilenceMs,
-    });
-
-    const tail = sliceRecentDialogue(history);
-    const input: GrokInputMessage[] = [
-      { role: "system", content: system },
-      ...tail.map((r) => ({
-        role: (r.sender === "me" ? "user" : "assistant") as "user" | "assistant",
-        content:
-          r.kind === "image"
-            ? "[They sent a photo]"
-            : (r.body ?? "").trim() || "…",
-      })),
-    ];
-
-    let grok: Awaited<ReturnType<typeof grokResponsesComplete>>;
-    try {
-      grok = await grokResponsesComplete(input);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("[conversations/messages] grok threw", peerId, msg);
-      grok = { ok: false as const, error: msg };
-    }
-
-    if (grok.ok) {
-      resolvedModel = grok.model;
-    }
-
-    if (!grok.ok) {
-      console.error("[conversations/messages] grok failed", peerId, grok.error);
-    }
-
-    let assistantRow: ChatMessageRow | null = null;
-    let revised = false;
-    let finalText = "";
-
-    if (grok.ok) {
-      // Optional second pass: ask the editor whether the draft sounds AI;
-      // rewrite once if so. Off by default (XAI_DRAFT_REVISE).
-      let draftText = grok.text;
-      if (isDraftReviseEnabled()) {
-        try {
-          const r = await reviseDraftIfWorthIt(draftText, system);
-          draftText = r.text;
-          revised = r.revised;
-        } catch (e) {
-          console.warn(
-            "[conversations/messages] revise pass threw",
-            peerId,
-            e instanceof Error ? e.message : String(e),
-          );
-        }
-      }
-
-      // Defensive scrub of any markdown / service-y leakage / em-dashes /
-      // runaway length before persisting.
-      finalText = postProcessReply(draftText);
-
-      if (!finalText) {
-        warning = "Lege reactie na postprocessing";
+        scheduled_at: scheduledAt,
+        status: "pending",
+      });
+    if (queueErr) {
+      // Fall back to sync delivery so the chat doesn't silently die. This is
+      // rare (would mean RLS / FK violation).
+      console.warn(
+        "[conversations/messages POST] pending insert failed, falling back to sync",
+        peerId,
+        queueErr.message,
+      );
+      const result = await generatePeerReply(supabase, {
+        profile: p,
+        history,
+        ownerUserId: user.id,
+        peerId,
+        options: { triggerUserMessageId: insertedUser.id },
+      });
+      if (result.ok) {
+        peerMessage = messageRowToUi(result.assistantRow);
       } else {
-        // Human-like pacing: hold the response for a calculated delay so the
-        // client shows a typing indicator for a believable amount of time. We
-        // subtract the time we already spent in Grok + revise so a slow Grok
-        // call effectively counts as part of the human delay (and a fast one
-        // gets padded out). Capped inside the helper.
-        const elapsed = Date.now() - t0;
-        const target = computeReplyDelayMs({
-          turnIndex: priorAssistantTurns,
-          userMessageChars: (text || "").length,
-          replyChars: finalText.length,
-        });
-        const remainingDelay = Math.max(0, target - elapsed);
-        if (remainingDelay > 0) {
-          await sleep(remainingDelay);
-        }
-
-        const { data: insertedPeer, error: peIns } = await supabase
-          .from("chat_messages")
-          .insert({
-            peer_id: peerId,
-            sender: "peer",
-            kind: "text",
-            body: finalText,
-            owner_user_id: user.id,
-          })
-          .select("*")
-          .single();
-
-        if (!peIns && insertedPeer) {
-          assistantRow = insertedPeer as ChatMessageRow;
-          peerMessage = messageRowToUi(assistantRow);
-        } else if (peIns) {
-          warning = peIns.message;
-        }
+        warning = result.error;
       }
     } else {
-      warning = grok.error;
-    }
-
-    const latencyMs = Date.now() - t0;
-    const { error: logErr } = await supabase.from("ai_chat_turn_logs").insert({
-      owner_user_id: user.id,
-      peer_id: peerId,
-      user_message_id: insertedUser.id,
-      assistant_message_id: assistantRow?.id ?? null,
-      model: resolvedModel,
-      ok: grok.ok,
-      error: grok.ok ? null : grok.error,
-      latency_ms: latencyMs,
-      prompt_version: AI_CHAT_PROMPT_VERSION,
-      turn_index: priorAssistantTurns,
-      user_silence_ms:
-        typeof userSilenceMs === "number" ? userSilenceMs : null,
-      output_chars: finalText.length || null,
-      had_question_mark: finalText ? endsWithQuestion(finalText) : null,
-      had_emoji: finalText ? hasEmoji(finalText) : null,
-      revised,
-    });
-
-    if (logErr) {
-      console.warn("[conversations/messages] ai turn log insert", peerId, logErr.message);
+      nextPendingAt = scheduledAt;
     }
   }
 
@@ -366,6 +322,8 @@ export async function POST(
     ok: true,
     userMessage,
     peerMessage,
+    newPeerMessages: processedPeerMessages,
+    nextPendingAt,
     ...(warning ? { warning } : {}),
   });
 }
