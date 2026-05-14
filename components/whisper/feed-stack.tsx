@@ -181,7 +181,7 @@ export function FeedStack({
       </div>
 
       {atEnd ? (
-        <div className="flex min-h-0 flex-1 flex-col items-stretch justify-center gap-3">
+        <div className="flex min-h-0 flex-1 flex-col items-stretch justify-center gap-2 overflow-hidden">
           <FeedEndCard
             countdown={countdown}
             refreshCost={refreshCost}
@@ -272,20 +272,20 @@ function FeedEndCard({
   onReplay,
 }: EndProps) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-3xl bg-white p-6 text-center shadow-lg ring-1 ring-black/5">
-      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-lavender">
+    <div className="flex flex-col items-center gap-2 rounded-3xl bg-white p-4 text-center shadow-lg ring-1 ring-black/5">
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-lavender">
         <Heart
-          className="h-7 w-7 text-primary"
+          className="h-5 w-5 text-primary"
           fill="currentColor"
           strokeWidth={0}
           aria-hidden
         />
       </span>
-      <h2 className="text-[18px] font-extrabold tracking-tight text-ink">
+      <h2 className="text-[16px] font-extrabold tracking-tight text-ink">
         Je hebt alle 10 gezien
       </h2>
-      <p className="text-[13px] leading-snug text-inkMuted">
-        Volgende selectie van 10 profielen komt over{" "}
+      <p className="text-[12px] leading-snug text-inkMuted">
+        Volgende selectie komt over{" "}
         <span className="font-bold text-ink">{countdown}</span>.
       </p>
 
@@ -296,7 +296,7 @@ function FeedEndCard({
             void onRefreshNow();
           }}
           disabled={refreshing || insufficient}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-primary px-4 py-3 text-[14px] font-bold text-white shadow-md transition active:scale-[0.98] disabled:opacity-60"
+          className="mt-0.5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-primary px-3 py-2.5 text-[13px] font-bold text-white shadow-md transition active:scale-[0.98] disabled:opacity-60"
         >
           <RefreshCcw
             className={`h-4 w-4 shrink-0 ${refreshing ? "animate-spin" : ""}`}
@@ -322,7 +322,7 @@ function FeedEndCard({
       <button
         type="button"
         onClick={onReplay}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-[13px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-[12.5px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
       >
         <RotateCcw className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
         Bekijk dezelfde 10 nog een keer

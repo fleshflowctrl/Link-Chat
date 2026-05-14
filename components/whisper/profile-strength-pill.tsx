@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getProfileCompleteness } from "@/lib/me/profile-completeness";
 import type { EditProfileState } from "@/data/me-edit";
 
-const RING_SIZE = 30;
+const RING_SIZE = 32;
 const RING_STROKE = 3;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_CIRC = 2 * Math.PI * RING_RADIUS;
@@ -20,6 +20,9 @@ function ringColor(percent: number): string {
  * Tiny progress-ring chip for the discover header. Shows the user's profile
  * completeness at a glance and links to /me/edit focused on the next missing
  * field. Renders nothing once the profile is 100% complete to avoid clutter.
+ *
+ * Icon-only by design so it sits cleanly next to the credits pill on narrow
+ * phones — adding a label would push the credits pill against the screen edge.
  */
 export function ProfileStrengthPill({
   profile,
@@ -37,16 +40,16 @@ export function ProfileStrengthPill({
     <Link
       href={`/me/edit?focus=${focus}`}
       aria-label={`Profiel ${report.percent}% compleet — maak af`}
-      className="flex h-8 items-center gap-1.5 rounded-full bg-white px-1.5 pr-2.5 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/[0.06] transition active:scale-95"
     >
       <span
         className="relative shrink-0"
-        style={{ width: RING_SIZE - 4, height: RING_SIZE - 4 }}
+        style={{ width: RING_SIZE, height: RING_SIZE }}
         aria-hidden
       >
         <svg
-          width={RING_SIZE - 4}
-          height={RING_SIZE - 4}
+          width={RING_SIZE}
+          height={RING_SIZE}
           viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
         >
           <circle
@@ -71,12 +74,9 @@ export function ProfileStrengthPill({
             style={{ transition: "stroke-dashoffset 480ms ease, stroke 240ms" }}
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-[8px] font-extrabold tabular-nums text-ink">
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-extrabold tabular-nums leading-none text-ink">
           {report.percent}%
         </span>
-      </span>
-      <span className="text-[11px] font-extrabold uppercase tracking-wider text-ink">
-        Profiel
       </span>
     </Link>
   );
