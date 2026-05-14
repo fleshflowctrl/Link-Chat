@@ -9,7 +9,6 @@ import {
   MessageCircle,
   RefreshCcw,
   Timer,
-  User,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
 import { openerForProfile } from "@/lib/whisper/feed-openers";
@@ -164,14 +163,6 @@ export function FeedStack({
               </span>
             </Link>
           </div>
-
-          <Link
-            href={`/profile/${current.id}`}
-            className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white py-2 text-[13px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
-          >
-            <User className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
-            Bekijk profiel
-          </Link>
         </>
       )}
 

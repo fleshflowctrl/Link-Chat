@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { BadgeCheck, MapPin } from "lucide-react";
+import Link from "next/link";
+import { BadgeCheck, MapPin, User } from "lucide-react";
 import type { Profile } from "@/data/profiles";
 
 type Props = {
@@ -79,7 +80,7 @@ export function FeedCard({ profile, opener }: Props) {
         </div>
 
         {profile.interests.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap gap-1">
+          <div className="mt-2 flex flex-wrap gap-1">
             {profile.interests.slice(0, 4).map((interest) => (
               <span
                 key={interest.label}
@@ -94,16 +95,20 @@ export function FeedCard({ profile, opener }: Props) {
           </div>
         )}
 
-        {profile.bio && (
-          <p className="mt-2.5 line-clamp-4 text-[12.5px] leading-snug text-gray-700">
-            {profile.bio}
-          </p>
-        )}
+        <Link
+          href={`/profile/${profile.id}`}
+          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white py-1.5 text-[12px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
+        >
+          <User className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+          Bekijk profiel
+        </Link>
 
         {/* Opener bubble — pinned to the bottom of the right column */}
         <div className="mt-auto pt-3">
           <div className="rounded-2xl rounded-bl-md bg-lavender px-3 py-2">
-            <p className="text-[13px] leading-snug text-ink">{opener}</p>
+            <p className="line-clamp-3 text-[13px] leading-snug text-ink">
+              {opener}
+            </p>
           </div>
         </div>
       </div>
