@@ -499,15 +499,6 @@ export function MessagesView({
       <PinnedSection threads={pinnedThreads} />
 
       <section className="pt-2">
-        <div className="mb-2 flex items-center justify-between px-5">
-          <h2 className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
-            Gesprekken
-          </h2>
-          <span className="text-[12px] font-semibold text-primary">
-            {sorted.length} chats
-          </span>
-        </div>
-
         <div className="overflow-hidden border-y border-black/[0.06] bg-white shadow-sm">
           {sorted.length === 0 ? (
             <div className="px-5 py-14 text-center">
