@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   CreditCard,
   HelpCircle,
   Lock,
@@ -210,7 +211,7 @@ export function HelpSupportView() {
   }
 
   return (
-    <div className="min-h-full bg-[#F5F3EE] pb-12">
+    <div className="min-h-full overflow-x-hidden bg-[#F5F3EE] pb-[max(3rem,env(safe-area-inset-bottom))]">
       <StatusBarMock />
 
       <header className="flex items-center gap-3 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
@@ -222,10 +223,10 @@ export function HelpSupportView() {
           <ChevronLeft className="h-5 w-5 text-ink" strokeWidth={2.25} />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[22px] font-bold leading-tight tracking-tight text-ink">
+          <h1 className="truncate text-[clamp(18px,5.2vw,22px)] font-bold leading-tight tracking-tight text-ink">
             Hulp &amp; ondersteuning
           </h1>
-          <p className="text-[12px] text-gray-500">
+          <p className="truncate text-[12px] text-gray-500">
             Vind antwoorden of neem contact met ons op
           </p>
         </div>
@@ -233,7 +234,7 @@ export function HelpSupportView() {
 
       {/* Hero / search */}
       <div className="px-5 pb-5">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#7C5CFF] to-[#9B7BFF] p-5 text-white shadow-md">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#7C5CFF] to-[#9B7BFF] p-[clamp(16px,4.5vw,20px)] text-white shadow-md">
           <div
             className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10"
             aria-hidden
@@ -244,12 +245,14 @@ export function HelpSupportView() {
           />
           <div className="relative">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 ring-2 ring-white/30">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 ring-2 ring-white/30">
                 <HelpCircle className="h-5 w-5" strokeWidth={2.25} aria-hidden />
               </span>
-              <div>
-                <p className="text-[18px] font-bold leading-tight">Waar kunnen we mee helpen?</p>
-                <p className="text-[12px] text-white/80">
+              <div className="min-w-0 flex-1">
+                <p className="text-[clamp(15px,4.4vw,18px)] font-bold leading-tight">
+                  Waar kunnen we mee helpen?
+                </p>
+                <p className="mt-0.5 text-[12px] leading-snug text-white/80">
                   Doorzoek de veelgestelde vragen of stuur ons een bericht.
                 </p>
               </div>
@@ -261,13 +264,14 @@ export function HelpSupportView() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Zoek bv. credits, foto, blokkeren…"
+                aria-label="Zoek in hulp & ondersteuning"
                 className="h-11 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-gray-400"
               />
               {query && (
                 <button
                   type="button"
                   onClick={() => setQuery("")}
-                  className="text-[11px] font-bold text-[#7C5CFF] active:scale-95"
+                  className="shrink-0 text-[11px] font-bold text-[#7C5CFF] active:scale-95"
                 >
                   Wis
                 </button>
@@ -321,7 +325,7 @@ export function HelpSupportView() {
           <h2 className="mb-2 px-1 text-[11px] font-bold uppercase tracking-wider text-gray-500">
             Onderwerpen
           </h2>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             {helpCategories.map((c) => {
               const Icon = c.icon;
               return (
@@ -329,19 +333,19 @@ export function HelpSupportView() {
                   key={c.key}
                   type="button"
                   onClick={() => handleCategoryToggle(c.key)}
-                  className="flex items-start gap-3 rounded-2xl bg-white p-3.5 text-left shadow-sm ring-1 ring-black/[0.04] transition active:scale-[0.98]"
+                  className="flex min-w-0 items-start gap-2.5 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-black/[0.04] transition active:scale-[0.98]"
                 >
                   <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${c.iconBg} ${c.iconColor}`}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${c.iconBg} ${c.iconColor}`}
                     aria-hidden
                   >
-                    <Icon className="h-[18px] w-[18px]" strokeWidth={2.25} />
+                    <Icon className="h-[17px] w-[17px]" strokeWidth={2.25} />
                   </span>
-                  <div className="min-w-0">
-                    <p className="text-[13.5px] font-bold leading-tight text-ink">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-bold leading-tight text-ink">
                       {c.title}
                     </p>
-                    <p className="mt-0.5 text-[11.5px] leading-snug text-gray-500">
+                    <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-gray-500">
                       {c.description}
                     </p>
                   </div>
@@ -385,7 +389,7 @@ export function HelpSupportView() {
                     aria-expanded={open}
                     className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:bg-black/[0.02]"
                   >
-                    <span className="min-w-0 flex-1 text-[14px] font-bold leading-snug text-ink">
+                    <span className="min-w-0 flex-1 break-words text-[14px] font-bold leading-snug text-ink">
                       {f.question}
                     </span>
                     <motion.span
@@ -436,10 +440,16 @@ export function HelpSupportView() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[14.5px] font-bold text-ink">E-mail support</p>
-              <p className="text-[12px] leading-snug text-gray-500">
-                Antwoord doorgaans binnen 24 uur · support@whisper.app
+              <p className="break-words text-[12px] leading-snug text-gray-500">
+                Antwoord binnen 24 uur ·{" "}
+                <span className="break-all">support@whisper.app</span>
               </p>
             </div>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-gray-300"
+              strokeWidth={2.25}
+              aria-hidden
+            />
           </button>
           <button
             type="button"
@@ -457,6 +467,11 @@ export function HelpSupportView() {
                 Chat met een teamlid · ma–vr 9.00–17.00
               </p>
             </div>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-gray-300"
+              strokeWidth={2.25}
+              aria-hidden
+            />
           </button>
         </div>
       </div>
@@ -474,10 +489,14 @@ export function HelpSupportView() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EDE7FF] text-[#7C5CFF] ring-1 ring-primary/10">
               <Lock className="h-[16px] w-[16px]" strokeWidth={2} />
             </span>
-            <p className="flex-1 text-[14px] font-bold text-ink">
+            <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">
               Privacyinstellingen
             </p>
-            <ChevronLeft className="h-4 w-4 -rotate-180 text-gray-300" strokeWidth={2.25} />
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-gray-300"
+              strokeWidth={2.25}
+              aria-hidden
+            />
           </Link>
           <button
             type="button"
@@ -487,10 +506,14 @@ export function HelpSupportView() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
               <Shield className="h-[16px] w-[16px]" strokeWidth={2} />
             </span>
-            <p className="flex-1 text-[14px] font-bold text-ink">
+            <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">
               Community-richtlijnen
             </p>
-            <ChevronLeft className="h-4 w-4 -rotate-180 text-gray-300" strokeWidth={2.25} />
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-gray-300"
+              strokeWidth={2.25}
+              aria-hidden
+            />
           </button>
           <button
             type="button"
@@ -500,10 +523,14 @@ export function HelpSupportView() {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 ring-1 ring-amber-100">
               <ShieldCheck className="h-[16px] w-[16px]" strokeWidth={2} />
             </span>
-            <p className="flex-1 text-[14px] font-bold text-ink">
+            <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">
               Algemene voorwaarden
             </p>
-            <ChevronLeft className="h-4 w-4 -rotate-180 text-gray-300" strokeWidth={2.25} />
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-gray-300"
+              strokeWidth={2.25}
+              aria-hidden
+            />
           </button>
         </div>
 
