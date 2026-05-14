@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   ChevronsRight,
@@ -12,7 +12,53 @@ import {
   Timer,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
+import {
+  getCreditsSnapshot,
+  subscribeCredits,
+} from "@/lib/credits-store";
 import { FeedCard } from "./feed-card";
+
+const FEED_INDEX_KEY_PREFIX = "whisper_feed_index";
+
+/** Build a per-user, per-slot localStorage key so packs don't bleed into each other. */
+function feedIndexKey(userKey: string, slot: number): string {
+  return `${FEED_INDEX_KEY_PREFIX}:${userKey}:${slot}`;
+}
+
+/** Read a saved index for this user+slot, or 0 when absent/invalid. */
+function readSavedIndex(userKey: string, slot: number): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = localStorage.getItem(feedIndexKey(userKey, slot));
+    if (raw === null) return 0;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Persist the current index, and clean up stale entries from older slots. */
+function writeSavedIndex(userKey: string, slot: number, index: number) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(feedIndexKey(userKey, slot), String(index));
+    // Garbage collect any keys for this user from older slots so storage
+    // doesn't grow unbounded.
+    const prefix = `${FEED_INDEX_KEY_PREFIX}:${userKey}:`;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(prefix)) continue;
+      const slotPart = k.slice(prefix.length);
+      const slotNum = parseInt(slotPart, 10);
+      if (Number.isFinite(slotNum) && slotNum < slot) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 type Props = {
   profiles: Profile[];
@@ -56,13 +102,30 @@ export function FeedStack({
   refreshing,
   refreshError,
 }: Props) {
-  const [index, setIndex] = useState(0);
+  // Per-user key so two accounts in the same browser don't share progress.
+  const userKey = useSyncExternalStore(
+    subscribeCredits,
+    getCreditsSnapshot,
+    getCreditsSnapshot,
+  ).userKey;
 
-  // Reset to the first card whenever a new pack arrives (paid refresh or hourly
-  // rotation).
+  const [index, setIndex] = useState<number>(0);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore the saved index for this user + slot on mount and whenever a fresh
+  // pack arrives. If we've already seen all 10 in this slot, this keeps the
+  // user on the end-state instead of bouncing them back to profile #1.
   useEffect(() => {
-    setIndex(0);
-  }, [feedSlot]);
+    setIndex(readSavedIndex(userKey, feedSlot));
+    setHydrated(true);
+  }, [userKey, feedSlot]);
+
+  // Persist progress (skip the very first render before hydration to avoid
+  // overwriting a saved value with the initial 0).
+  useEffect(() => {
+    if (!hydrated) return;
+    writeSavedIndex(userKey, feedSlot, index);
+  }, [hydrated, userKey, feedSlot, index]);
 
   const [now, setNow] = useState<number>(() => Date.now());
   useEffect(() => {
