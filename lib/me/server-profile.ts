@@ -70,6 +70,11 @@ function parseGallery(raw: unknown): GalleryPhoto[] {
     const id = (item as { id?: unknown }).id;
     const url = (item as { url?: unknown }).url;
     if (typeof id !== "string" || typeof url !== "string") continue;
+    // Filter out broken transient `blob:` URLs left behind by older
+    // versions that persisted them mid-upload — they look fine in the
+    // session that created them but render as broken thumbnails on
+    // every subsequent page load.
+    if (url.startsWith("blob:")) continue;
     out.push({ id, url });
   }
   return out;
@@ -111,7 +116,11 @@ export function userProfileRowToEditState(row: UserProfileRow): EditProfileState
     bio: row.bio ?? "",
     lookingFor: row.looking_for ?? "",
     interests,
-    mainPhotoUrl: row.main_photo_url?.trim() ?? "",
+    mainPhotoUrl: (() => {
+      const u = row.main_photo_url?.trim() ?? "";
+      // Reject stale `blob:` URLs (see parseGallery comment).
+      return u.startsWith("blob:") ? "" : u;
+    })(),
     gallery: parseGallery(row.gallery),
     preferences: parsePreferences(row.preferences),
     lastUpdatedLabel: formatProfileLastUpdatedLabel(row.updated_at),

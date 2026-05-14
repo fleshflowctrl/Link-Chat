@@ -152,8 +152,21 @@ export function EditProfileView({
     if (snap.bio.length > BIO_MAX) return;
     if (snap.age != null && (snap.age < 18 || snap.age > 120)) return;
 
+    // Defensive: never persist transient `blob:` URLs. They look fine in
+    // the browser tab they were created in but become invalid the moment
+    // the page reloads — which leaves the user with broken thumbnails
+    // next time they visit /me/edit. Filter both the main photo and the
+    // gallery so half-uploaded items get rolled back rather than saved.
+    const sanitizedSnap: EditProfileState = {
+      ...snap,
+      mainPhotoUrl: snap.mainPhotoUrl.startsWith("blob:")
+        ? ""
+        : snap.mainPhotoUrl,
+      gallery: snap.gallery.filter((g) => !g.url.startsWith("blob:")),
+    };
+
     // Nothing to save if it matches the last successful payload.
-    const serialized = JSON.stringify(snap);
+    const serialized = JSON.stringify(sanitizedSnap);
     if (serialized === initialSerialized.current) return;
 
     savingRef.current = true;
@@ -178,7 +191,7 @@ export function EditProfileView({
         // back to false IF nothing has changed since.
         initialSerialized.current = serialized;
         setSavedTick((n) => n + 1);
-        setMeProfileSnapshot(clone(snap));
+        setMeProfileSnapshot(clone(sanitizedSnap));
         if (typeof data.creditsBalance === "number") {
           applyServerCreditsUpdate(data.creditsBalance);
         }
@@ -196,7 +209,7 @@ export function EditProfileView({
       }
 
       if (res.status === 401 || res.status === 503) {
-        setMeProfileSnapshot(clone(snap));
+        setMeProfileSnapshot(clone(sanitizedSnap));
         initialSerialized.current = serialized;
         setSavedTick((n) => n + 1);
         return;
@@ -215,16 +228,20 @@ export function EditProfileView({
    * fires once the user has paused for ~900 ms. Re-arms after a save
    * completes (via `saving` dep) so changes the user typed mid-flight
    * don't get stranded.
+   *
+   * Also waits for any in-flight uploads (`uploadingIds`) so we never
+   * persist transient `blob:` URLs that would break on next page load.
    */
   useEffect(() => {
     if (saving) return;
+    if (uploadingIds.size > 0) return;
     if (!dirty || bioOver) return;
     if (state.age != null && (state.age < 18 || state.age > 120)) return;
     const t = window.setTimeout(() => {
       void persist();
     }, 900);
     return () => window.clearTimeout(t);
-  }, [bioOver, dirty, persist, saving, state]);
+  }, [bioOver, dirty, persist, saving, state, uploadingIds]);
 
   /**
    * Failsafe flush so we never lose changes if the user navigates away
