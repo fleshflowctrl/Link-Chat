@@ -98,12 +98,33 @@ export async function GET() {
     profileById.set(p.id, p);
   }
 
+  const { data: reads } = await supabase
+    .from("chat_reads")
+    .select("peer_id, last_read_at")
+    .eq("owner_user_id", user.id)
+    .in("peer_id", peerIds);
+
+  const lastReadByPeer = new Map<string, string>();
+  for (const r of reads ?? []) {
+    lastReadByPeer.set(r.peer_id as string, r.last_read_at as string);
+  }
+
   const threads = peerIds
     .map((peerId) => {
       const profile = profileById.get(peerId);
       const latest = latestByPeer.get(peerId);
       if (!profile || !latest) return null;
-      return mergeProfileWithLatestUserMessage(profile, latest);
+      const thread = mergeProfileWithLatestUserMessage(profile, latest);
+      if (latest.sender === "peer") {
+        const readAt = lastReadByPeer.get(peerId);
+        const unread =
+          !readAt ||
+          new Date(readAt).getTime() < new Date(latest.created_at).getTime();
+        thread.unreadCount = unread ? 1 : 0;
+      } else {
+        thread.unreadCount = 0;
+      }
+      return thread;
     })
     .filter((t): t is NonNullable<typeof t> => t !== null)
     .sort(

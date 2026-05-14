@@ -356,18 +356,19 @@ export function MessagesView({
 
     for (const t of serverThreads) {
       const o = byId[t.id];
+      // Server is authoritative for unread state (chat_reads table). The only
+      // exception: if the user has an override that's NEWER than the server's
+      // last activity (they just sent or read in-session), keep their value.
       const overrideUpToDate =
         o?.lastActivityAt &&
         t.lastActivityAt &&
-        new Date(o.lastActivityAt).getTime() >=
+        new Date(o.lastActivityAt).getTime() >
           new Date(t.lastActivityAt).getTime();
 
       const unread =
         overrideUpToDate && o?.unreadCount !== undefined
           ? o.unreadCount
-          : t.latestSender === "peer"
-            ? 1
-            : 0;
+          : (t.unreadCount ?? 0);
 
       setThreadPreview(t.id, {
         lastMessage: t.lastMessage ?? o?.lastMessage ?? "",

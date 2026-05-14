@@ -32,6 +32,7 @@ import {
 } from "@/lib/thread-preview-store";
 import { uploadChatImage } from "@/lib/chat/upload-chat-image";
 import { GiftModal } from "@/components/messages/gift-modal";
+import { applyOptimisticUnreadDelta } from "@/lib/messages-tab-badge";
 
 const GROUP_GAP_MIN = 5;
 
@@ -167,9 +168,18 @@ export function ChatConversationView({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-    /** Clear unread badge as soon as this conversation is opened. */
+  const markReadOnServer = useCallback(() => {
+    void fetch(`/api/me/threads/${encodeURIComponent(chatId)}/read`, {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+    }).catch(() => {});
+  }, [chatId]);
+
+  /** Clear unread badge as soon as this conversation is opened. */
   useEffect(() => {
     const o = getThreadPreviewOverride(chatId);
+    const wasUnread = (o?.unreadCount ?? 0) > 0;
     setThreadPreview(chatId, {
       lastMessage: o?.lastMessage ?? "",
       timestampLabel: o?.timestampLabel ?? "",
@@ -180,6 +190,8 @@ export function ChatConversationView({
       showOnlineDot: o?.showOnlineDot ?? meta.onlineNow,
       unreadCount: 0,
     });
+    if (wasUnread) applyOptimisticUnreadDelta(-1);
+    markReadOnServer();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
@@ -428,6 +440,8 @@ export function ChatConversationView({
           verified: meta.verified,
           showOnlineDot: meta.onlineNow,
         });
+        // Persist that we've already seen the AI's reply.
+        if (data.peerMessage) markReadOnServer();
       } catch (e) {
         console.error("[chat] send failed", e);
         setAssistantError(

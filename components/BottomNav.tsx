@@ -43,12 +43,61 @@ function hideBottomNavOnPath(pathname: string | null) {
   return Boolean(m && m[1] !== "new");
 }
 
+async function fetchUnreadCount(): Promise<number | null> {
+  try {
+    const res = await fetch("/api/me/unread-count", {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { ok?: boolean; count?: number };
+    if (!data?.ok || typeof data.count !== "number") return null;
+    return Math.max(0, Math.floor(data.count));
+  } catch {
+    return null;
+  }
+}
+
 export function BottomNav({ initialUnread = 0 }: { initialUnread?: number }) {
   const pathname = usePathname();
 
   useEffect(() => {
     setServerUnreadBaseline(initialUnread);
   }, [initialUnread]);
+
+  /**
+   * Keep the unread badge accurate on every page (not just /messages):
+   *  - poll every 15 s while the tab is visible
+   *  - refresh immediately when the tab regains focus / visibility
+   *  - refresh on each route change
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    const refresh = async () => {
+      const n = await fetchUnreadCount();
+      if (cancelled || n === null) return;
+      setServerUnreadBaseline(n);
+    };
+
+    refresh();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 15000);
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [pathname]);
 
   const messagesBadge = useSyncExternalStore(
     subscribeMessagesTabBadge,

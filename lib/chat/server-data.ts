@@ -73,9 +73,14 @@ export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
 }
 
 /**
- * Number of inbox threads whose most recent message is from the peer (i.e.
- * unread by the user). Used as the SSR baseline for the bottom-nav badge so
- * the red dot only shows when there is something new to read.
+ * Number of inbox threads with unread peer messages for the signed-in user.
+ *
+ * A thread is unread iff its most recent message is from the peer AND that
+ * message is newer than the user's `chat_reads.last_read_at` for that peer
+ * (or no read row exists yet).
+ *
+ * This is the SSR baseline for the bottom-nav red dot; clients also poll
+ * `/api/me/unread-count` to keep it fresh between navigations.
  */
 export async function fetchUnreadInboxCountServer(): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
@@ -100,14 +105,38 @@ export async function fetchUnreadInboxCountServer(): Promise<number> {
 
   if (error || !rows?.length) return 0;
 
+  const latestPeerByPeer = new Map<string, string>();
   const seen = new Set<string>();
-  let unread = 0;
   for (const r of rows) {
     const pid = r.peer_id as string;
     if (seen.has(pid)) continue;
     seen.add(pid);
-    if ((r.sender as string) === "peer") unread += 1;
+    if ((r.sender as string) === "peer") {
+      latestPeerByPeer.set(pid, r.created_at as string);
+    }
   }
+
+  if (latestPeerByPeer.size === 0) return 0;
+
+  const peerIds = Array.from(latestPeerByPeer.keys());
+  const { data: reads } = await supabase
+    .from("chat_reads")
+    .select("peer_id, last_read_at")
+    .eq("owner_user_id", user.id)
+    .in("peer_id", peerIds);
+
+  const lastReadByPeer = new Map<string, string>();
+  for (const r of reads ?? []) {
+    lastReadByPeer.set(r.peer_id as string, r.last_read_at as string);
+  }
+
+  let unread = 0;
+  latestPeerByPeer.forEach((latestAt, pid) => {
+    const readAt = lastReadByPeer.get(pid);
+    if (!readAt || new Date(readAt).getTime() < new Date(latestAt).getTime()) {
+      unread += 1;
+    }
+  });
   return unread;
 }
 
@@ -189,12 +218,35 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
       (profiles as ChatProfileRow[]).map((p) => [p.id, p] as const),
     );
 
+    // Per-peer last-read timestamps so each thread carries an authoritative
+    // unreadCount (1 if latest peer message is newer than last read, else 0).
+    const { data: reads } = await supabase
+      .from("chat_reads")
+      .select("peer_id, last_read_at")
+      .eq("owner_user_id", user.id)
+      .in("peer_id", peerOrder);
+
+    const lastReadByPeer = new Map<string, string>();
+    for (const r of reads ?? []) {
+      lastReadByPeer.set(r.peer_id as string, r.last_read_at as string);
+    }
+
     return peerOrder
       .map((id) => {
         const row = byId.get(id);
         const latest = latestByPeer.get(id);
         if (!row || !latest) return null;
-        return mergeProfileWithLatestUserMessage(row, latest);
+        const thread = mergeProfileWithLatestUserMessage(row, latest);
+        if (latest.sender === "peer") {
+          const readAt = lastReadByPeer.get(id);
+          const unread =
+            !readAt ||
+            new Date(readAt).getTime() < new Date(latest.created_at).getTime();
+          thread.unreadCount = unread ? 1 : 0;
+        } else {
+          thread.unreadCount = 0;
+        }
+        return thread;
       })
       .filter((t): t is MessageThread => t != null);
   } catch (e) {

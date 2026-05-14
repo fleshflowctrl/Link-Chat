@@ -1,55 +1,54 @@
-import {
-  getThreadPreviewsSnapshot,
-  subscribeThreadPreviews,
-} from "@/lib/thread-preview-store";
-
 /**
- * Server-rendered baseline so the dot is correct on first paint, even on
- * pages other than /messages. Updated by the (app) layout each navigation.
+ * Source of truth for the bottom-nav messages badge.
+ *
+ * - The server (via SSR + `/api/me/unread-count` polling) supplies the unread
+ *   count. The bottom nav layout sets this on every navigation and the bottom
+ *   nav itself polls in the background to keep it fresh on every page.
+ *
+ * - In-session optimistic deltas (e.g. user just opened a chat → badge should
+ *   drop instantly without waiting for the next poll) are applied via
+ *   `applyOptimisticUnreadDelta`. They reset the next time the server pushes
+ *   a fresh baseline.
  */
 let serverBaseline = 0;
-const serverListeners = new Set<() => void>();
+let optimisticDelta = 0;
+const listeners = new Set<() => void>();
+
+function notify() {
+  listeners.forEach((l) => l());
+}
 
 export function setServerUnreadBaseline(count: number) {
   const safe = Math.max(0, Math.floor(count));
-  if (safe === serverBaseline) return;
+  if (safe === serverBaseline && optimisticDelta === 0) return;
   serverBaseline = safe;
-  serverListeners.forEach((l) => l());
+  optimisticDelta = 0;
+  notify();
 }
 
 /**
- * Sum of per-thread unread counts. Source of truth is the per-user inbox:
- *   - SSR baseline counts threads whose latest message is from the peer.
- *   - Client overrides (thread-preview-store) reset to 0 when the inbox /
- *     thread is opened, so the badge clears immediately.
+ * Apply an in-session adjustment (typically `-1` when the user opens a chat)
+ * so the badge updates instantly. The next server baseline replaces this.
  */
+export function applyOptimisticUnreadDelta(delta: number) {
+  if (!delta) return;
+  optimisticDelta += delta;
+  notify();
+}
+
+function effectiveCount(): number {
+  return Math.max(0, serverBaseline + optimisticDelta);
+}
+
 export function getMessagesTabBadgeLabel(): string | null {
-  const { byId } = getThreadPreviewsSnapshot();
-
-  // If we have any client-side overrides at all, trust the store completely.
-  // It's been hydrated by the messages page or chat view this session.
-  const overrideIds = Object.keys(byId);
-  if (overrideIds.length > 0) {
-    let sum = 0;
-    for (const id of overrideIds) {
-      const o = byId[id];
-      if (!o) continue;
-      sum += o.unreadCount ?? 0;
-    }
-    if (sum <= 0) return null;
-    return sum > 99 ? "99+" : String(sum);
-  }
-
-  // Otherwise fall back to the server baseline (badge persists cross-page).
-  if (serverBaseline <= 0) return null;
-  return serverBaseline > 99 ? "99+" : String(serverBaseline);
+  const n = effectiveCount();
+  if (n <= 0) return null;
+  return n > 99 ? "99+" : String(n);
 }
 
 export function subscribeMessagesTabBadge(cb: () => void) {
-  const offStore = subscribeThreadPreviews(cb);
-  serverListeners.add(cb);
+  listeners.add(cb);
   return () => {
-    offStore();
-    serverListeners.delete(cb);
+    listeners.delete(cb);
   };
 }
