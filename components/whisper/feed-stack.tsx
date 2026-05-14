@@ -87,7 +87,7 @@ export function FeedStack({
   }
 
   return (
-    <section className="flex w-full flex-col gap-3 px-4 pt-2">
+    <section className="flex min-h-0 w-full flex-1 flex-col gap-2 px-4 pb-3 pt-2">
       {/* Progress dots + countdown */}
       <div className="flex items-center gap-2.5">
         <div className="flex flex-1 items-center gap-1">
@@ -111,24 +111,28 @@ export function FeedStack({
       </div>
 
       {atEnd ? (
-        <FeedEndCard
-          countdown={countdown}
-          refreshCost={refreshCost}
-          balance={balance}
-          isAnonymous={isAnonymous}
-          insufficient={insufficient}
-          refreshing={refreshing}
-          onRefreshNow={onRefreshNow}
-        />
+        <div className="flex min-h-0 flex-1 items-center justify-center">
+          <FeedEndCard
+            countdown={countdown}
+            refreshCost={refreshCost}
+            balance={balance}
+            isAnonymous={isAnonymous}
+            insufficient={insufficient}
+            refreshing={refreshing}
+            onRefreshNow={onRefreshNow}
+          />
+        </div>
       ) : (
         <>
-          <FeedCard profile={current} opener={openerForProfile(current)} />
+          <div className="flex min-h-0 flex-1">
+            <FeedCard profile={current} opener={openerForProfile(current)} />
+          </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid shrink-0 grid-cols-2 gap-2.5">
             <button
               type="button"
               onClick={handleNext}
-              className="flex items-center justify-center gap-2.5 rounded-2xl bg-gray-900 px-3 py-3 text-white shadow-md transition active:scale-[0.98]"
+              className="flex items-center justify-center gap-2.5 rounded-2xl bg-gray-900 px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
             >
               <ChevronsRight
                 className="h-5 w-5 shrink-0"
@@ -145,7 +149,7 @@ export function FeedStack({
 
             <Link
               href={`/messages/${current.id}`}
-              className="flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-primary px-3 py-3 text-white shadow-md transition active:scale-[0.98]"
+              className="flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-primary px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
             >
               <MessageCircle
                 className="h-5 w-5 shrink-0"
@@ -169,7 +173,7 @@ export function FeedStack({
                 void onRefreshNow();
               }}
               disabled={refreshing}
-              className="flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white py-2 text-[12px] font-bold text-ink shadow-sm transition active:scale-[0.98] disabled:opacity-60"
+              className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-gray-200 bg-white py-1.5 text-[12px] font-bold text-ink shadow-sm transition active:scale-[0.98] disabled:opacity-60"
             >
               <RefreshCcw
                 className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
@@ -189,7 +193,7 @@ export function FeedStack({
       )}
 
       {refreshError && (
-        <p className="rounded-xl bg-red-50 px-3 py-2 text-[12px] font-medium text-red-700">
+        <p className="shrink-0 rounded-xl bg-red-50 px-3 py-2 text-[12px] font-medium text-red-700">
           {refreshError}
         </p>
       )}

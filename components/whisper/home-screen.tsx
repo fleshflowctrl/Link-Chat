@@ -180,7 +180,7 @@ export function HomeScreen({
   const basicsMissing = profile !== null && !hasProfileBasics(profile);
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <HomeHeader />
       <CatalogFallbackBanner show={catalogDegraded} />
       {basicsMissing && (
@@ -196,7 +196,6 @@ export function HomeScreen({
         refreshing={refreshing}
         refreshError={refreshError}
       />
-      <div className="h-6 shrink-0" aria-hidden />
-    </>
+    </div>
   );
 }
