@@ -124,12 +124,68 @@ function timeOfDayLabel(hour: number): string {
   return "nacht";
 }
 
-function clockLabel(d: Date): string {
-  return d.toLocaleTimeString("nl-NL", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: false,
-  });
+/** Default tz for personas. The app is NL-targeted, so unless the persona's
+ * city explicitly maps elsewhere we treat their "local clock" as Europe/Amsterdam.
+ * Override via `PERSONA_DEFAULT_TZ` if you ever ship internationally. */
+function personaTimeZone(_profile: ChatProfileRow): string {
+  const env = process.env.PERSONA_DEFAULT_TZ?.trim();
+  if (env) return env;
+  return "Europe/Amsterdam";
+}
+
+type LocalNowParts = { hour: number; weekdayLabel: string; clockText: string };
+
+/** Compute hour-of-day, weekday name (Dutch), and "HH:MM" — *all* in the
+ * persona's timezone, regardless of where the server is running.
+ *
+ * Rationale: a Vercel/UTC server using `Date.getHours()` would tell a persona
+ * in Amsterdam it's 22:10 when it's actually 00:10 locally — exactly the kind
+ * of detail that breaks immersion. We use `Intl.DateTimeFormat` to project
+ * the wall clock into the persona's tz, then parse the parts back. */
+function nowInPersonaTimeZone(d: Date, timeZone: string): LocalNowParts {
+  let hour = 0;
+  let weekdayLabel = NL_WEEKDAYS[d.getDay()] ?? "";
+  let clockText = "";
+
+  try {
+    const hourFmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      hour: "2-digit",
+      hour12: false,
+    });
+    const parsed = parseInt(hourFmt.format(d), 10);
+    if (Number.isFinite(parsed)) hour = ((parsed % 24) + 24) % 24;
+  } catch {
+    hour = d.getHours();
+  }
+
+  try {
+    const wdFmt = new Intl.DateTimeFormat("nl-NL", {
+      timeZone,
+      weekday: "long",
+    });
+    weekdayLabel = wdFmt.format(d).toLowerCase();
+  } catch {
+    /* keep server-tz fallback */
+  }
+
+  try {
+    const clockFmt = new Intl.DateTimeFormat("nl-NL", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    clockText = clockFmt.format(d);
+  } catch {
+    clockText = d.toLocaleTimeString("nl-NL", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+
+  return { hour, weekdayLabel, clockText };
 }
 
 /** Friendly Dutch label for "tijd sinds vorig user-bericht". Returns null
@@ -299,19 +355,23 @@ export function buildGrokSystemPrompt(
   }
 
   // Live turn context. This is what mostly separates "AI from a chat tab" from
-  // "iemand die op haar telefoon zit te tikken om half 12 's nachts".
+  // "iemand die op haar telefoon zit te tikken om half 12 's nachts". We resolve
+  // the wall clock in the persona's timezone (Europe/Amsterdam by default),
+  // not the server's — Vercel/UTC servers would otherwise tell a Dutch persona
+  // it's 22:10 when it's actually 00:10 there.
   const now = opts.nowLocal ?? new Date();
-  const hour = now.getHours();
-  const weekday = NL_WEEKDAYS[now.getDay()] ?? "";
+  const tz = personaTimeZone(profile);
+  const { hour, weekdayLabel, clockText } = nowInPersonaTimeZone(now, tz);
   const tod = timeOfDayLabel(hour);
-  const clock = clockLabel(now);
   const silence = silenceLabel(opts.userSilenceMs);
   const turnIndex = typeof opts.turnIndex === "number" ? opts.turnIndex : 0;
   const stage = paceStage(turnIndex);
 
   bits.push("");
   bits.push("Nu (gebruik subtiel — niet hardop melden tenzij het natuurlijk past):");
-  bits.push(`- Lokaal nu: ${weekday}, ${tod} (${clock}).`);
+  bits.push(
+    `- Het is bij jou nu: ${weekdayLabel}, ${tod} (${clockText}, tijdzone ${tz}). Als zij vraagt hoe laat het is of hoe laat het bij jou is, geef je *deze* tijd — geen andere.`,
+  );
   bits.push(`- Dit is ongeveer beurt ${turnIndex + 1} aan jouw kant in dit gesprek.`);
   if (silence) {
     bits.push(`- Tussen haar vorige bericht en dit nieuwe zat: ${silence}. Reageer daar passend op (niet zeurig, wel oprecht).`);
