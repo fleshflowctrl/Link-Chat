@@ -64,23 +64,6 @@ export type MeSettingsSection = {
 
 export const meSettingsSections: MeSettingsSection[] = [
   {
-    label: "ACCOUNT",
-    rows: [
-      {
-        href: "/me/account",
-        title: "Account & beveiliging",
-        subtitle: "Beheer je account en privacy",
-        icon: "shield",
-      },
-      {
-        href: "/me/privacy",
-        title: "Privacyinstellingen",
-        subtitle: "Bepaal wie je kan zien en contacteren",
-        icon: "lock",
-      },
-    ],
-  },
-  {
     label: "BETALING",
     rows: [
       {
@@ -94,13 +77,6 @@ export const meSettingsSections: MeSettingsSection[] = [
         title: "Aankoopgeschiedenis",
         subtitle: "Eerdere aankopen bekijken",
         icon: "history",
-      },
-      {
-        href: "/me/earn",
-        title: "Verdien gratis credits",
-        subtitle: "Nodig vrienden uit en ontvang credits",
-        icon: "gift",
-        bonusPill: "+50",
       },
     ],
   },
