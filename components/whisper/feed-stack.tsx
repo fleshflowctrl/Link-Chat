@@ -11,7 +11,6 @@ import {
   Timer,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
-import { openerForProfile } from "@/lib/whisper/feed-openers";
 import { FeedCard } from "./feed-card";
 
 type Props = {
@@ -124,7 +123,7 @@ export function FeedStack({
       ) : (
         <>
           <div className="flex min-h-0 flex-1">
-            <FeedCard profile={current} opener={openerForProfile(current)} />
+            <FeedCard profile={current} />
           </div>
 
           <div className="grid shrink-0 grid-cols-2 gap-2.5">

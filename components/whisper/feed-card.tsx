@@ -7,8 +7,6 @@ import type { Profile } from "@/data/profiles";
 
 type Props = {
   profile: Profile;
-  /** Personalized opener shown as a chat-bubble on the right side of the card. */
-  opener: string;
 };
 
 const INTEREST_EMOJI: Record<string, string> = {
@@ -21,9 +19,9 @@ const INTEREST_EMOJI: Record<string, string> = {
 
 /**
  * Side-by-side discover card: portrait photo on the left, scannable details on
- * the right (name, city, interests, bio, opener).
+ * the right (name, city, interests, view-profile button).
  */
-export function FeedCard({ profile, opener }: Props) {
+export function FeedCard({ profile }: Props) {
   const isOnline =
     profile.status.variant === "online" || profile.status.variant === "active";
 
@@ -97,20 +95,11 @@ export function FeedCard({ profile, opener }: Props) {
 
         <Link
           href={`/profile/${profile.id}`}
-          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white py-1.5 text-[12px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
+          className="mt-auto inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white py-1.5 text-[12px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
         >
           <User className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
           Bekijk profiel
         </Link>
-
-        {/* Opener bubble — pinned to the bottom of the right column */}
-        <div className="mt-auto pt-3">
-          <div className="rounded-2xl rounded-bl-md bg-lavender px-3 py-2">
-            <p className="line-clamp-3 text-[13px] leading-snug text-ink">
-              {opener}
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );
