@@ -70,7 +70,7 @@ export function HomeFeedHeader({
           aria-hidden
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
             <h2
               id="home-for-you-heading"
               className="text-[17px] font-bold leading-tight tracking-tight text-ink"
@@ -78,10 +78,10 @@ export function HomeFeedHeader({
               Speciaal voor jou
             </h2>
             <span
-              className="ml-1 flex shrink-0 items-center gap-1 rounded-full bg-lavender px-2.5 py-1 text-[11px] font-bold tabular-nums text-primary"
+              className="flex shrink-0 items-center gap-1 rounded-full bg-lavender px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary"
               aria-live="polite"
             >
-              <Timer className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+              <Timer className="h-3 w-3" strokeWidth={2.25} aria-hidden />
               <span>{countdown}</span>
             </span>
           </div>
