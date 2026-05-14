@@ -5,6 +5,24 @@ import type {
   MessageThread,
 } from "@/data/messages";
 
+/** Optional structured persona styling metadata (DB column `chat_style`, jsonb).
+ * Every key is optional; missing keys must fall back gracefully. Never surface
+ * any of this verbatim in chat — only let it influence tone/style. */
+export type ChatStyle = {
+  /** Words/phrases the persona naturally drops in chat (e.g. "joh", "ofzo"). */
+  verbal_tics?: string[];
+  /** Tiny preferred emoji set (~2–5). Empty/missing means "use default sparingly". */
+  emoji_palette?: string[];
+  /** Typical reply rhythm. */
+  reply_length?: "short" | "medium" | "variable";
+  /** Casual = drops dots, sometimes lowercase. Clean = polished punctuation. */
+  punctuation?: "casual" | "clean";
+  /** Idiosyncratic small quirks ("luistert dezelfde 4 nummers tot ze ze haat"). */
+  quirks?: string[];
+  /** Subjects the persona prefers to keep light / not unpack early. */
+  talks_less_about?: string[];
+};
+
 export type ChatProfileRow = {
   id: string;
   display_name: string;
@@ -31,6 +49,8 @@ export type ChatProfileRow = {
   vibe_tags?: string[] | null;
   /** Funnel step-2 intent ids; subset of `FUNNEL_LOOKING_FOR` in `data/funnel.ts`. */
   funnel_intent_ids?: string[] | null;
+  /** Optional persona texture (verbal tics, emoji, reply length, quirks). */
+  chat_style?: ChatStyle | null;
 };
 
 export type ChatMessageRow = {

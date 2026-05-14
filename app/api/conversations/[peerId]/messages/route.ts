@@ -15,6 +15,15 @@ import {
   sliceRecentDialogue,
   type ThreadMemoryRow,
 } from "@/lib/ai/thread-memory";
+import {
+  endsWithQuestion,
+  hasEmoji,
+  postProcessReply,
+} from "@/lib/ai/post-process-reply";
+import {
+  isDraftReviseEnabled,
+  reviseDraftIfWorthIt,
+} from "@/lib/ai/draft-revise";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import { createClient } from "@/utils/supabase/server";
@@ -203,7 +212,32 @@ export async function POST(
         ? memory.summary.trim()
         : undefined;
 
-    const system = buildGrokSystemPrompt(p, { threadSummary: threadSummaryForPrompt });
+    // Turn-context: how many AI replies we've already sent (= prior `peer` messages,
+    // excluding the just-inserted `me` message), and how long the user was silent
+    // between their previous message and this one. Both are used by the system
+    // prompt to set tone, pacing stage, and natural acknowledgement of silence.
+    let priorAssistantTurns = 0;
+    let priorUserAt: number | null = null;
+    for (const row of history) {
+      if (row.id === insertedUser.id) continue;
+      if (row.sender === "peer") priorAssistantTurns += 1;
+      if (row.sender === "me") {
+        const t = new Date(row.created_at).getTime();
+        if (Number.isFinite(t)) priorUserAt = t;
+      }
+    }
+    const insertedAt = new Date(insertedUser.created_at).getTime();
+    const userSilenceMs =
+      priorUserAt !== null && Number.isFinite(insertedAt) && insertedAt > priorUserAt
+        ? insertedAt - priorUserAt
+        : undefined;
+
+    const system = buildGrokSystemPrompt(p, {
+      threadSummary: threadSummaryForPrompt,
+      nowLocal: new Date(),
+      turnIndex: priorAssistantTurns,
+      userSilenceMs,
+    });
 
     const tail = sliceRecentDialogue(history);
     const input: GrokInputMessage[] = [
@@ -235,25 +269,52 @@ export async function POST(
     }
 
     let assistantRow: ChatMessageRow | null = null;
+    let revised = false;
+    let finalText = "";
 
     if (grok.ok) {
-      const { data: insertedPeer, error: peIns } = await supabase
-        .from("chat_messages")
-        .insert({
-          peer_id: peerId,
-          sender: "peer",
-          kind: "text",
-          body: grok.text,
-          owner_user_id: user.id,
-        })
-        .select("*")
-        .single();
+      // Optional second pass: ask the editor whether the draft sounds AI;
+      // rewrite once if so. Off by default (XAI_DRAFT_REVISE).
+      let draftText = grok.text;
+      if (isDraftReviseEnabled()) {
+        try {
+          const r = await reviseDraftIfWorthIt(draftText, system);
+          draftText = r.text;
+          revised = r.revised;
+        } catch (e) {
+          console.warn(
+            "[conversations/messages] revise pass threw",
+            peerId,
+            e instanceof Error ? e.message : String(e),
+          );
+        }
+      }
 
-      if (!peIns && insertedPeer) {
-        assistantRow = insertedPeer as ChatMessageRow;
-        peerMessage = messageRowToUi(assistantRow);
-      } else if (peIns) {
-        warning = peIns.message;
+      // Defensive scrub of any markdown / service-y leakage / em-dashes /
+      // runaway length before persisting.
+      finalText = postProcessReply(draftText);
+
+      if (!finalText) {
+        warning = "Lege reactie na postprocessing";
+      } else {
+        const { data: insertedPeer, error: peIns } = await supabase
+          .from("chat_messages")
+          .insert({
+            peer_id: peerId,
+            sender: "peer",
+            kind: "text",
+            body: finalText,
+            owner_user_id: user.id,
+          })
+          .select("*")
+          .single();
+
+        if (!peIns && insertedPeer) {
+          assistantRow = insertedPeer as ChatMessageRow;
+          peerMessage = messageRowToUi(assistantRow);
+        } else if (peIns) {
+          warning = peIns.message;
+        }
       }
     } else {
       warning = grok.error;
@@ -270,6 +331,13 @@ export async function POST(
       error: grok.ok ? null : grok.error,
       latency_ms: latencyMs,
       prompt_version: AI_CHAT_PROMPT_VERSION,
+      turn_index: priorAssistantTurns,
+      user_silence_ms:
+        typeof userSilenceMs === "number" ? userSilenceMs : null,
+      output_chars: finalText.length || null,
+      had_question_mark: finalText ? endsWithQuestion(finalText) : null,
+      had_emoji: finalText ? hasEmoji(finalText) : null,
+      revised,
     });
 
     if (logErr) {
