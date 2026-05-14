@@ -6,74 +6,105 @@ import type { Profile } from "@/data/profiles";
 
 type Props = {
   profile: Profile;
-  /** Personalized opener shown as a chat-bubble overlay on the card. */
+  /** Personalized opener shown as a chat-bubble on the right side of the card. */
   opener: string;
 };
 
+const INTEREST_EMOJI: Record<string, string> = {
+  caring: "💗",
+  romantic: "💜",
+  playful: "✨",
+  warm: "🌿",
+  listener: "🎧",
+};
+
 /**
- * Single full-bleed profile card used by the discover stack.
- *
- * The photo fills the card; a vertical gradient at the bottom keeps the name,
- * city and opener message readable. The status pill sits in the top-left so
- * "Nu online" / last-active context is immediately visible.
+ * Side-by-side discover card: portrait photo on the left, scannable details on
+ * the right (name, city, interests, bio, opener).
  */
 export function FeedCard({ profile, opener }: Props) {
   const isOnline =
     profile.status.variant === "online" || profile.status.variant === "active";
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[28px] bg-gray-900 shadow-xl">
-      <Image
-        src={profile.photo}
-        alt={profile.name}
-        fill
-        sizes="(max-width: 480px) 100vw, 440px"
-        className="object-cover"
-        priority
-      />
-      <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-black/0 to-black/85"
-        aria-hidden
-      />
-
-      {/* Status pill */}
-      <div className="absolute left-3 top-3 z-[1]">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-          {isOnline && (
-            <span
-              className="h-1.5 w-1.5 rounded-full bg-green-400"
-              aria-hidden
-            />
-          )}
-          {profile.status.label}
-        </span>
+    <div className="relative flex h-full w-full overflow-hidden rounded-[28px] bg-white shadow-xl ring-1 ring-black/5">
+      {/* Left: portrait photo */}
+      <div className="relative h-full w-[46%] shrink-0 overflow-hidden bg-gray-100">
+        <Image
+          src={profile.photo}
+          alt={profile.name}
+          fill
+          sizes="(max-width: 480px) 50vw, 220px"
+          className="object-cover"
+          priority
+        />
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-b from-transparent to-black/40"
+          aria-hidden
+        />
+        <div className="absolute left-2 top-2 z-[1]">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-md">
+            {isOnline && (
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-green-400"
+                aria-hidden
+              />
+            )}
+            {profile.status.label}
+          </span>
+        </div>
       </div>
 
-      {/* Name + city overlaid at the bottom */}
-      <div className="absolute inset-x-0 bottom-0 z-[1] p-4">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <h2 className="truncate text-2xl font-extrabold leading-tight tracking-tight text-white drop-shadow-md">
-            {profile.name}, {profile.age}
-          </h2>
-          {profile.isVerified && (
-            <BadgeCheck
-              className="h-5 w-5 shrink-0 text-primary drop-shadow"
-              strokeWidth={2.4}
-              fill="white"
-              aria-hidden
-            />
+      {/* Right: details */}
+      <div className="flex min-w-0 flex-1 flex-col p-4">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-1">
+            <h2 className="truncate text-[20px] font-extrabold leading-tight tracking-tight text-ink">
+              {profile.name}, {profile.age}
+            </h2>
+            {profile.isVerified && (
+              <BadgeCheck
+                className="h-4 w-4 shrink-0 text-primary"
+                strokeWidth={2.4}
+                aria-hidden
+              />
+            )}
+          </div>
+          {profile.city && (
+            <div className="mt-0.5 flex items-center gap-1 text-[12px] font-medium text-inkMuted">
+              <MapPin className="h-3 w-3" strokeWidth={2.25} aria-hidden />
+              <span className="truncate">{profile.city}</span>
+            </div>
           )}
         </div>
-        {profile.city && (
-          <div className="mt-1 flex items-center gap-1 text-[12px] font-medium text-white/85">
-            <MapPin className="h-3 w-3" strokeWidth={2.25} aria-hidden />
-            <span className="truncate">{profile.city}</span>
+
+        {profile.interests.length > 0 && (
+          <div className="mt-2.5 flex flex-wrap gap-1">
+            {profile.interests.slice(0, 4).map((interest) => (
+              <span
+                key={interest.label}
+                className="inline-flex items-center gap-1 rounded-full bg-lavender px-2 py-0.5 text-[11px] font-semibold text-primary"
+              >
+                <span aria-hidden>
+                  {INTEREST_EMOJI[interest.icon] ?? "✨"}
+                </span>
+                {interest.label}
+              </span>
+            ))}
           </div>
         )}
 
-        {/* Opener bubble */}
-        <div className="mt-3 max-w-[90%] rounded-2xl bg-black/55 px-3.5 py-2.5 backdrop-blur-md">
-          <p className="text-[14px] leading-snug text-white">{opener}</p>
+        {profile.bio && (
+          <p className="mt-2.5 line-clamp-4 text-[12.5px] leading-snug text-gray-700">
+            {profile.bio}
+          </p>
+        )}
+
+        {/* Opener bubble — pinned to the bottom of the right column */}
+        <div className="mt-auto pt-3">
+          <div className="rounded-2xl rounded-bl-md bg-lavender px-3 py-2">
+            <p className="text-[13px] leading-snug text-ink">{opener}</p>
+          </div>
         </div>
       </div>
     </div>
