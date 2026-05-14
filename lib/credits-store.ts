@@ -6,12 +6,19 @@ import { meProfile } from "@/data/me";
 const CREDITS_KEY_PREFIX = "whisper_credits";
 const ACTIVE_USER_KEY = "whisper_credits_active_user";
 
-type Snapshot = { version: number; balance: number; userKey: string };
+type Snapshot = {
+  version: number;
+  balance: number;
+  userKey: string;
+  /** How many credit packs the user has bought — drives the tiered discount. */
+  purchaseCount: number;
+};
 
 let snapshot: Snapshot = {
   version: 0,
   balance: meProfile.stats.credits.value,
   userKey: "guest",
+  purchaseCount: 0,
 };
 const listeners = new Set<() => void>();
 let initialized = false;
@@ -63,6 +70,7 @@ function readSignupCreditsFallback(): number | null {
 async function fetchServerCredits(): Promise<{
   balance: number | null;
   userKey: string;
+  purchaseCount: number;
 } | null> {
   try {
     const res = await fetch("/api/me/credits", { cache: "no-store" });
@@ -72,14 +80,19 @@ async function fetchServerCredits(): Promise<{
       balance?: number | null;
       userId?: string;
       anonymous?: boolean;
+      purchaseCount?: number;
     };
     if (!json.ok) return null;
     if (json.anonymous || !json.userId) {
-      return { balance: null, userKey: "guest" };
+      return { balance: null, userKey: "guest", purchaseCount: 0 };
     }
     return {
       balance: typeof json.balance === "number" ? json.balance : null,
       userKey: json.userId,
+      purchaseCount:
+        typeof json.purchaseCount === "number" && json.purchaseCount >= 0
+          ? json.purchaseCount
+          : 0,
     };
   } catch {
     return null;
@@ -102,8 +115,17 @@ function scheduleServerSync(balance: number, userKey: string) {
   }, 250);
 }
 
-function setSnapshot(balance: number, userKey: string) {
-  snapshot = { version: snapshot.version + 1, balance, userKey };
+function setSnapshot(
+  balance: number,
+  userKey: string,
+  purchaseCount: number = snapshot.purchaseCount,
+) {
+  snapshot = {
+    version: snapshot.version + 1,
+    balance,
+    userKey,
+    purchaseCount,
+  };
   emit();
 }
 
@@ -139,13 +161,17 @@ export function initCreditsStore() {
       // load the fresh user's balance and don't carry over previous state.
       const fresh = server.balance ?? readLocalBalance(server.userKey) ?? 0;
       writeLocalBalance(server.userKey, fresh);
-      setSnapshot(fresh, server.userKey);
+      setSnapshot(fresh, server.userKey, server.purchaseCount);
       return;
     }
 
     if (server.balance !== null && server.balance !== snapshot.balance) {
       writeLocalBalance(server.userKey, server.balance);
-      setSnapshot(server.balance, server.userKey);
+      setSnapshot(server.balance, server.userKey, server.purchaseCount);
+    } else if (server.purchaseCount !== snapshot.purchaseCount) {
+      // Balance unchanged but the count drifted (e.g. just made a purchase
+      // on another device).
+      setSnapshot(snapshot.balance, snapshot.userKey, server.purchaseCount);
     }
   });
 }
@@ -186,6 +212,21 @@ export function applyServerCreditsUpdate(balance: number) {
 }
 
 /**
+ * Like {@link applyServerCreditsUpdate} but also bumps the purchase counter
+ * (used after a successful credit-pack purchase so the next price tier kicks
+ * in immediately without a re-fetch round trip).
+ */
+export function applyServerPurchaseUpdate(
+  balance: number,
+  purchaseCount: number,
+) {
+  if (!Number.isFinite(balance) || balance < 0) return;
+  if (!Number.isFinite(purchaseCount) || purchaseCount < 0) return;
+  writeLocalBalance(snapshot.userKey, balance);
+  setSnapshot(balance, snapshot.userKey, Math.floor(purchaseCount));
+}
+
+/**
  * Called by the funnel right after a successful signup so the new account
  * starts with a clean per-user balance, even if the previous test session
  * had purchases or other state in localStorage.
@@ -197,6 +238,6 @@ export function resetCreditsForNewUser(
   if (typeof window === "undefined") return;
   const key = userKey && userKey.length > 0 ? userKey : "guest";
   writeLocalBalance(key, startingBalance);
-  setSnapshot(startingBalance, key);
+  setSnapshot(startingBalance, key, 0);
   scheduleServerSync(startingBalance, key);
 }

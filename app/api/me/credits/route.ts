@@ -19,7 +19,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("user_profiles")
-    .select("credits")
+    .select("credits, purchase_count")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -30,10 +30,15 @@ export async function GET() {
     );
   }
 
+  const row = data as { credits?: number; purchase_count?: number } | null;
   return NextResponse.json({
     ok: true,
     balance:
-      typeof data?.credits === "number" && data.credits >= 0 ? data.credits : 0,
+      typeof row?.credits === "number" && row.credits >= 0 ? row.credits : 0,
+    purchaseCount:
+      typeof row?.purchase_count === "number" && row.purchase_count >= 0
+        ? row.purchase_count
+        : 0,
     userId: user.id,
   });
 }
