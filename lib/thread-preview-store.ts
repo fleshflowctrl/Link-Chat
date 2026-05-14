@@ -1,4 +1,4 @@
-/** In-memory overrides for inbox rows (preview + optional stub meta for new threads). */
+/** Inbox row overrides (preview + optional stub meta for new threads). */
 
 export type ThreadPreview = {
   lastMessage: string;
@@ -15,7 +15,31 @@ export type ThreadPreview = {
 
 type Snapshot = { version: number; byId: Record<string, ThreadPreview> };
 
-let snapshot: Snapshot = { version: 0, byId: {} };
+const STORAGE_KEY = "whisper_thread_previews";
+
+function readPersisted(): Record<string, ThreadPreview> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as Record<string, ThreadPreview>;
+  } catch {
+    return {};
+  }
+}
+
+function writePersisted(byId: Record<string, ThreadPreview>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(byId));
+  } catch {
+    /* quota / privacy mode — survive gracefully */
+  }
+}
+
+let snapshot: Snapshot = { version: 0, byId: readPersisted() };
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -32,10 +56,9 @@ export function getThreadPreviewsSnapshot(): Snapshot {
 }
 
 export function setThreadPreview(chatId: string, p: ThreadPreview) {
-  snapshot = {
-    version: snapshot.version + 1,
-    byId: { ...snapshot.byId, [chatId]: p },
-  };
+  const byId = { ...snapshot.byId, [chatId]: p };
+  snapshot = { version: snapshot.version + 1, byId };
+  writePersisted(byId);
   emit();
 }
 

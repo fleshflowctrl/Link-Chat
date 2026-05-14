@@ -73,6 +73,45 @@ export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
 }
 
 /**
+ * Number of inbox threads whose most recent message is from the peer (i.e.
+ * unread by the user). Used as the SSR baseline for the bottom-nav badge so
+ * the red dot only shows when there is something new to read.
+ */
+export async function fetchUnreadInboxCountServer(): Promise<number> {
+  if (!isSupabaseConfigured()) return 0;
+
+  let supabase: ReturnType<typeof createClient>;
+  try {
+    supabase = createClient();
+  } catch {
+    return 0;
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return 0;
+
+  const { data: rows, error } = await supabase
+    .from("chat_messages")
+    .select("peer_id, sender, created_at")
+    .eq("owner_user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error || !rows?.length) return 0;
+
+  const seen = new Set<string>();
+  let unread = 0;
+  for (const r of rows) {
+    const pid = r.peer_id as string;
+    if (seen.has(pid)) continue;
+    seen.add(pid);
+    if ((r.sender as string) === "peer") unread += 1;
+  }
+  return unread;
+}
+
+/**
  * Threads for the signed-in user: one row per peer they have actually messaged.
  * Never injects demo threads — new users see an empty list until they send a message.
  */

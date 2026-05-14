@@ -1,11 +1,15 @@
 import { BottomNav } from "@/components/BottomNav";
 import { PageNumberBadge } from "@/components/PageNumberBadge";
+import { fetchUnreadInboxCountServer } from "@/lib/chat/server-data";
 
-export default function AppShellLayout({
+export const dynamic = "force-dynamic";
+
+export default async function AppShellLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const initialUnread = await fetchUnreadInboxCountServer();
   return (
     <div className="flex min-h-[100dvh] justify-center bg-[#E4DFD4]">
       {/* One viewport tall: main scrolls; bottom nav stays visible */}
@@ -14,7 +18,7 @@ export default function AppShellLayout({
         <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
           {children}
         </main>
-        <BottomNav />
+        <BottomNav initialUnread={initialUnread} />
       </div>
     </div>
   );

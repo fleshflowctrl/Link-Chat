@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import {
   getMessagesTabBadgeLabel,
+  setServerUnreadBaseline,
   subscribeMessagesTabBadge,
 } from "@/lib/messages-tab-badge";
 import {
@@ -42,12 +43,17 @@ function hideBottomNavOnPath(pathname: string | null) {
   return Boolean(m && m[1] !== "new");
 }
 
-export function BottomNav() {
+export function BottomNav({ initialUnread = 0 }: { initialUnread?: number }) {
   const pathname = usePathname();
+
+  useEffect(() => {
+    setServerUnreadBaseline(initialUnread);
+  }, [initialUnread]);
+
   const messagesBadge = useSyncExternalStore(
     subscribeMessagesTabBadge,
     getMessagesTabBadgeLabel,
-    getMessagesTabBadgeLabel,
+    () => null,
   );
 
   if (hideBottomNavOnPath(pathname)) {
