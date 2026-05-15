@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
+import { pickSceneTemplate } from "@/lib/images/scene-templates";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,14 +25,20 @@ export const maxDuration = 60;
 
 type RouteCtx = { params: { id: string } };
 
-const DEFAULT_SCENE =
-  "casual selfie thuis bij het raam, zacht daglicht, ze kijkt licht glimlachend in de camera";
-
 type RegenerateBody = {
-  /** Optional override scene description; defaults to a soft selfie at
-   * home so the photo_style anchor (appearance/build/style/vibe) does
-   * the heavy lifting. */
+  /** Optional override scene description. When omitted, the route picks
+   * a deterministic scene template (varies setting/camera/lighting per
+   * persona+slot) so we get full-body, mirror selfies, café candids,
+   * etc. instead of always the same front-camera selfie. */
   scene?: string;
+  /** Slot — "avatar" biases toward face-forward shots so the profile
+   * photo is always recognizable. "gallery" uses the full set with
+   * full-body and activity shots. Defaults to "avatar". */
+  slot?: "avatar" | "gallery";
+  /** Variant index for rotation. Same persona+slot+variant always
+   * yields the same template (idempotent retries). Bump to roll a
+   * different look. */
+  variant?: number;
 };
 
 export async function POST(req: Request, ctx: RouteCtx) {
@@ -53,9 +60,8 @@ export async function POST(req: Request, ctx: RouteCtx) {
       body = (await req.json()) as RegenerateBody;
     }
   } catch {
-    // Empty / malformed body is fine — we have a default scene.
+    // Empty / malformed body is fine — we have a default template.
   }
-  const scene = (body.scene ?? "").trim() || DEFAULT_SCENE;
 
   // Load the persona row so we can build the prompt from her real
   // photo_style anchor (appearance, build, style, vibe, seed). Without
@@ -73,9 +79,26 @@ export async function POST(req: Request, ctx: RouteCtx) {
     return NextResponse.json({ error: "Persona niet gevonden." }, { status: 404 });
   }
 
+  // Pick a scene template — deterministic per persona+slot+variant so
+  // retries are stable, but different personas roll different looks
+  // and the operator can bump `variant` to cycle through the set.
+  const slot = body.slot ?? "avatar";
+  const template = pickSceneTemplate({
+    personaId: ctx.params.id,
+    slot,
+    variant: body.variant,
+  });
+  const scene = (body.scene ?? "").trim() || template.scene;
+
   const { prompt, seed } = buildPersonaPhotoPrompt({
     profile: persona as Parameters<typeof buildPersonaPhotoPrompt>[0]["profile"],
     scene,
+    cameraStyle: {
+      camera: template.camera,
+      backdrop: template.backdrop,
+      lighting: template.lighting,
+      capture: template.capture,
+    },
   });
 
   const photo = await generatePersonaPhoto({ prompt, seed });

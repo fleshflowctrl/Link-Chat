@@ -162,10 +162,33 @@ function deriveDefaults(
   };
 }
 
+/** Optional per-shot framing overrides. When supplied (typically from a
+ * scene template), these replace the hard-coded "casual phone selfie /
+ * shot on iPhone" tail so we get full-body shots, mirror selfies,
+ * candid-by-friend shots, etc. instead of the same front-camera selfie
+ * every time. Each part is optional; missing parts fall back to the
+ * legacy defaults. */
+export type CameraStyle = {
+  /** Camera distance / angle / framing instruction.
+   * e.g. "full body shot from a few meters away, taken by a friend" */
+  camera?: string;
+  /** Visible background detail. e.g. "Vondelpark autumn leaves" */
+  backdrop?: string;
+  /** Lighting mood. e.g. "golden hour late afternoon, warm soft light" */
+  lighting?: string;
+  /** Capture-device feel. e.g. "DSLR by friend" or "phone selfie" */
+  capture?: string;
+};
+
 export function buildPersonaPhotoPrompt(args: {
   profile: ChatProfileRow;
-  /** Scene description — what she's showing/doing. Comes from Grok. */
+  /** Scene description — what she's showing/doing. Comes from Grok or
+   * a scene template. */
   scene: string;
+  /** Optional camera/lighting/backdrop overrides. When omitted we keep
+   * the legacy "phone selfie at home" tail for backwards-compatibility
+   * with older callers; new callers should always supply this. */
+  cameraStyle?: CameraStyle;
 }): { prompt: string; seed: number; negativePrompt: string } {
   const profile = args.profile;
   const customStyle = (profile as ChatProfileRow & { photo_style?: PersonaPhotoStyle }).photo_style ?? {};
@@ -218,8 +241,21 @@ export function buildPersonaPhotoPrompt(args: {
   if (attractiveness === "striking") {
     promptParts.push(anchors.positive);
   }
-  promptParts.push("casual phone selfie or candid snapshot, soft natural lighting");
-  promptParts.push("shot on iPhone, slight grain, intimate everyday moment");
+
+  // Per-shot framing — supplied by a scene template. Without these,
+  // every persona photo drifts back to the same front-camera selfie
+  // because the model sees no instruction to vary. Falling back to the
+  // legacy defaults preserves backwards-compat for older callers.
+  const cam = args.cameraStyle ?? {};
+  const camera = (cam.camera ?? "casual phone selfie or candid snapshot").trim();
+  const backdrop = (cam.backdrop ?? "").trim();
+  const lighting = (cam.lighting ?? "soft natural lighting").trim();
+  const capture = (cam.capture ?? "shot on iPhone, slight grain, intimate everyday moment").trim();
+  promptParts.push(camera);
+  if (backdrop) promptParts.push(`background: ${backdrop}`);
+  promptParts.push(lighting);
+  promptParts.push(capture);
+
   promptParts.push("photorealistic, high detail, no text, no watermark, no logo");
 
   const prompt = promptParts.filter(Boolean).join(", ");
