@@ -27,6 +27,8 @@ export type PhotoStyleForm = {
   /** Realism lever: drives diffusion-prompt anchors so the discovery
    * feed has a believable mix of looks. */
   attractiveness: "" | "striking" | "average" | "plain";
+  /** Body shape lever — composes independently of attractiveness. */
+  body_type: "" | "slim" | "average" | "plus";
 };
 
 export type PersonaMetaForm = {
@@ -121,7 +123,15 @@ export function emptyPersonaFormValues(): PersonaFormValues {
       quirks: [],
       talks_less_about: [],
     },
-    photo_style: { appearance: "", build: "", style: "", vibe: "", seed: "", attractiveness: "" },
+    photo_style: {
+      appearance: "",
+      build: "",
+      style: "",
+      vibe: "",
+      seed: "",
+      attractiveness: "",
+      body_type: "",
+    },
     persona_meta: {
       languages: ["nl"],
       personality_traits: [],

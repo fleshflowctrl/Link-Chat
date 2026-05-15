@@ -31,6 +31,14 @@ type GenerateBody = {
    * to the photo prompt. Default "average" so a fresh discovery feed
    * doesn't feel like a model agency catalog. */
   attractiveness?: "striking" | "average" | "plain";
+  /** Body shape tier. Default "average". Composes independently of
+   * attractiveness (slim+plain, plus+striking, etc. are all valid). */
+  body_type?: "slim" | "average" | "plus";
+  /** Inclusive age range. The server picks a random age in [min, max]
+   * for this persona before calling Grok and forces it post-coerce so
+   * the operator's range is respected exactly. */
+  age_min?: number;
+  age_max?: number;
 };
 
 /** Resolve a slug that doesn't collide with an existing chat_profiles row.
@@ -88,6 +96,22 @@ export async function POST(req: Request) {
     body.attractiveness === "striking" || body.attractiveness === "plain"
       ? body.attractiveness
       : "average";
+  const bodyType =
+    body.body_type === "slim" || body.body_type === "plus"
+      ? body.body_type
+      : "average";
+
+  // Age range — both bounds must be valid + ordered. We clamp to [18,99]
+  // and pick a uniform-random age per persona; this gives the batch
+  // visible age variety without needing client coordination.
+  let forcedAge: number | undefined;
+  const rawMin = Number(body.age_min);
+  const rawMax = Number(body.age_max);
+  if (Number.isFinite(rawMin) && Number.isFinite(rawMax)) {
+    const lo = Math.max(18, Math.min(99, Math.round(Math.min(rawMin, rawMax))));
+    const hi = Math.max(18, Math.min(99, Math.round(Math.max(rawMin, rawMax))));
+    forcedAge = lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
 
   // 1) Generate the persona text/JSON via Grok.
   const generated = await generatePersonaFromBrief({
@@ -96,6 +120,8 @@ export async function POST(req: Request) {
     total,
     exclude,
     attractiveness,
+    body_type: bodyType,
+    forced_age: forcedAge,
   });
   if (!generated.ok) {
     return NextResponse.json(

@@ -98,6 +98,7 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
         ...v.photo_style,
         seed: v.photo_style.seed.trim() ? Number(v.photo_style.seed) : undefined,
         attractiveness: v.photo_style.attractiveness || undefined,
+        body_type: v.photo_style.body_type || undefined,
       },
       persona_meta: { ...v.persona_meta },
     };
@@ -169,6 +170,7 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
               vibe: v.photo_style.vibe || undefined,
               seed: v.photo_style.seed.trim() ? Number(v.photo_style.seed) : undefined,
               attractiveness: v.photo_style.attractiveness || undefined,
+              body_type: v.photo_style.body_type || undefined,
             },
           },
           scene: "casual selfie thuis op de bank, zachte avondverlichting",
@@ -600,38 +602,70 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
           description="Hoe ze er consistent uit moet zien als de AI foto's stuurt. Concreet en specifiek werkt het beste."
           icon={<PaletteIcon className="h-5 w-5" />}
         >
-          <Field
-            label="Aantrekkelijkheid"
-            hint="realisme-knop — alle vrouwen knap voelt scammy. Wij vertalen dit naar prompt-anchors voor de diffusion-model."
-          >
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { id: "plain", label: "Gewoon", hint: "onopvallend, niet-perfect" },
-                { id: "average", label: "Normaal", hint: "alledaags, default" },
-                { id: "striking", label: "Knap", hint: "model-look, fotogeniek" },
-              ].map((opt) => {
-                const active = v.photo_style.attractiveness === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() =>
-                      setPhoto("attractiveness", opt.id as PhotoStyleForm["attractiveness"])
-                    }
-                    className={
-                      "rounded-lg border px-3 py-2 text-left transition-colors " +
-                      (active
-                        ? "border-primary bg-primary/10 text-primary shadow-sm"
-                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300")
-                    }
-                  >
-                    <div className="text-sm font-semibold">{opt.label}</div>
-                    <div className="text-[10px] leading-tight text-gray-500">{opt.hint}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Aantrekkelijkheid"
+              hint="realisme-knop — diffusion-anchors voor model-bias"
+            >
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "plain", label: "Gewoon", hint: "onopvallend" },
+                  { id: "average", label: "Normaal", hint: "alledaags" },
+                  { id: "striking", label: "Knap", hint: "model-look" },
+                ].map((opt) => {
+                  const active = v.photo_style.attractiveness === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() =>
+                        setPhoto("attractiveness", opt.id as PhotoStyleForm["attractiveness"])
+                      }
+                      className={
+                        "rounded-lg border px-3 py-2 text-left transition-colors " +
+                        (active
+                          ? "border-primary bg-primary/10 text-primary shadow-sm"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300")
+                      }
+                    >
+                      <div className="text-sm font-semibold">{opt.label}</div>
+                      <div className="text-[10px] leading-tight text-gray-500">{opt.hint}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            <Field label="Lichaamsbouw" hint="onafhankelijk van aantrekkelijkheid">
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "slim", label: "Slank", hint: "smal frame" },
+                  { id: "average", label: "Normaal", hint: "gemiddeld" },
+                  { id: "plus", label: "Dik", hint: "voller postuur" },
+                ].map((opt) => {
+                  const active = v.photo_style.body_type === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() =>
+                        setPhoto("body_type", opt.id as PhotoStyleForm["body_type"])
+                      }
+                      className={
+                        "rounded-lg border px-3 py-2 text-left transition-colors " +
+                        (active
+                          ? "border-primary bg-primary/10 text-primary shadow-sm"
+                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300")
+                      }
+                    >
+                      <div className="text-sm font-semibold">{opt.label}</div>
+                      <div className="text-[10px] leading-tight text-gray-500">{opt.hint}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+          </div>
 
           <Field label="Uiterlijk" hint="haar, ogen, sproetjes, glimlach — 1–2 zinnen">
             <TextArea

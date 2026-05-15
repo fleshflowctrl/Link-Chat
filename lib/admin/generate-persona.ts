@@ -82,7 +82,8 @@ Schema (alle velden verplicht tenzij gemarkeerd):
     "style": "string",                        // 1 zin: outfit / aesthetic
     "vibe": "string",                         // 1 zin: mood/energie in foto's
     "seed": 12345,                            // willekeurig getal 1000–999999
-    "attractiveness": "average"               // exact "striking" | "average" | "plain" — wordt door operator opgegeven
+    "attractiveness": "average",              // exact "striking" | "average" | "plain" — wordt door operator opgegeven
+    "body_type": "average"                    // exact "slim" | "average" | "plus" — wordt door operator opgegeven
   }
 }
 
@@ -110,7 +111,21 @@ Aantrekkelijkheid (zeer belangrijk voor realisme):
 - "plain" = onopvallend, niet-perfect. Onregelmatige trekken, asymmetrie,
   fletse huid, kleine acne of littekens, eenvoudige kleren die niet altijd
   perfect zitten. Persoonlijkheid is vaak warmer/oprechter ter compensatie.
-- VERPLICHT: zet exact dezelfde waarde door in photo_style.attractiveness.`;
+- VERPLICHT: zet exact dezelfde waarde door in photo_style.attractiveness.
+
+Lichaamsbouw (body_type — onafhankelijk van attractiveness):
+- "slim" = slank, slank postuur, smal frame
+- "average" = gemiddeld, normaal, niet bijzonder slank of zwaar
+- "plus" = curvy/dik, zachter lichaam, voller postuur, ronder gezicht
+- VERPLICHT: zet exact dezelfde waarde door in photo_style.body_type.
+- Pas appearance + build aan zodat ze bij body_type passen (een "plus"
+  vrouw kan niet beschreven worden als "slank en sportief").
+
+Leeftijd:
+- De operator geeft een exacte leeftijd op (age = X). Gebruik die
+  precies, NIET aanpassen. Pas wel bio/backstory/occupation passend
+  bij die leeftijd aan (een 19-jarige is hoogstwaarschijnlijk student;
+  een 38-jarige heeft waarschijnlijk al een carrière of kinderen).`;
 
 const VIBE_IDS = Array.from(FUNNEL_VIBE_ID_SET);
 const INTENT_IDS = Array.from(FUNNEL_LOOKING_ID_SET);
@@ -121,11 +136,18 @@ const PUNCTUATIONS = ["casual", "clean"] as const;
 const ICON_OPTIONS = ["caring", "romantic", "playful", "warm", "listener"] as const;
 
 export type AttractivenessLevel = "striking" | "average" | "plain";
+export type BodyTypeLevel = "slim" | "average" | "plus";
 
 const ATTRACTIVENESS_VALUES: readonly AttractivenessLevel[] = [
   "striking",
   "average",
   "plain",
+] as const;
+
+const BODY_TYPE_VALUES: readonly BodyTypeLevel[] = [
+  "slim",
+  "average",
+  "plus",
 ] as const;
 
 export type GeneratedPersona = {
@@ -167,6 +189,7 @@ export type GeneratedPersona = {
     vibe: string;
     seed: number;
     attractiveness: AttractivenessLevel;
+    body_type: BodyTypeLevel;
   };
 };
 
@@ -182,6 +205,11 @@ export type GeneratePersonaArgs = {
   /** Attractiveness tier for this persona. Defaults to "average" so a
    * fresh discovery feed feels realistic. */
   attractiveness?: AttractivenessLevel;
+  /** Body shape — independent from attractiveness. Default "average". */
+  body_type?: BodyTypeLevel;
+  /** Force this exact age (e.g. operator's range narrowed to one value).
+   * If set, takes precedence over the brief and Grok cannot drift. */
+  forced_age?: number;
 };
 
 const SLUG_RE = /^[a-z][a-z0-9_-]{2,23}$/;
@@ -291,6 +319,7 @@ function coerce(raw: unknown): GeneratedPersona | null {
         return Math.floor(1000 + Math.random() * 998_999);
       })(),
       attractiveness: pickEnum(ps.attractiveness, ATTRACTIVENESS_VALUES, "average"),
+      body_type: pickEnum(ps.body_type, BODY_TYPE_VALUES, "average"),
     },
   };
 }
@@ -327,15 +356,33 @@ export async function generatePersonaFromBrief(
     args.attractiveness && ATTRACTIVENESS_VALUES.includes(args.attractiveness)
       ? args.attractiveness
       : "average";
+  const bodyType: BodyTypeLevel =
+    args.body_type && BODY_TYPE_VALUES.includes(args.body_type)
+      ? args.body_type
+      : "average";
+  const forcedAge =
+    typeof args.forced_age === "number" && Number.isFinite(args.forced_age)
+      ? Math.max(18, Math.min(99, Math.round(args.forced_age)))
+      : null;
 
   const userParts: string[] = [];
   userParts.push(`Brief van de operator: ${brief}`);
   userParts.push(
     `Aantrekkelijkheid (verplicht): ${attractiveness}. Stem appearance/build/style/vibe daarop af, en zet photo_style.attractiveness ook op "${attractiveness}".`,
   );
+  userParts.push(
+    `Lichaamsbouw (verplicht): ${bodyType}. Stem appearance + build daarop af; zet photo_style.body_type op "${bodyType}".`,
+  );
+  if (forcedAge !== null) {
+    userParts.push(
+      `Leeftijd (verplicht, exact): ${forcedAge}. Pas bio/backstory/occupation aan zodat ze passen bij deze leeftijd.`,
+    );
+  }
   if (total > 1) {
     userParts.push(
-      `Dit is persona #${idx + 1} van ${total}. Maak haar duidelijk anders dan de andere ${total - 1} in deze batch — variatie in stad, leeftijd, beroep en vibe-mix.`,
+      `Dit is persona #${idx + 1} van ${total}. Maak haar duidelijk anders dan de andere ${total - 1} in deze batch — variatie in stad, beroep en vibe-mix.${
+        forcedAge !== null ? "" : " Ook leeftijd mag variëren."
+      }`,
     );
   }
   if (excludeList.length > 0) {
@@ -398,11 +445,15 @@ export async function generatePersonaFromBrief(
     };
   }
 
-  // Force the attractiveness level the operator chose, even if Grok
-  // ignored the hint and produced a different value. The diffusion
-  // anchors keyed off this field are what actually drive the photo
-  // result, so it must be authoritative on the operator's choice.
+  // Force the operator's choices, even if Grok drifted. The diffusion
+  // anchors are keyed off these fields, and the API forwards them to
+  // the validator — they MUST be authoritative on what the operator
+  // picked, not on what Grok felt like writing.
   persona.photo_style.attractiveness = attractiveness;
+  persona.photo_style.body_type = bodyType;
+  if (forcedAge !== null) {
+    persona.age = forcedAge;
+  }
 
   return { ok: true, persona, rawText: grok.text };
 }

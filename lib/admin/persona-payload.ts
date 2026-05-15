@@ -140,12 +140,22 @@ type PhotoStyle = {
    *   "average"  — gemiddelde Nederlandse vrouw, alledaags, herkenbaar
    *   "plain"    — onopvallend, niet-perfect, maar warm en authentiek */
   attractiveness?: "striking" | "average" | "plain";
+  /** Body shape tier — independent of attractiveness so any combination
+   * is valid (e.g. plus-size + striking is a perfectly normal real
+   * person). Drives diffusion build/silhouette anchors. */
+  body_type?: "slim" | "average" | "plus";
 };
 
 const ATTRACTIVENESS = new Set<NonNullable<PhotoStyle["attractiveness"]>>([
   "striking",
   "average",
   "plain",
+]);
+
+const BODY_TYPES = new Set<NonNullable<PhotoStyle["body_type"]>>([
+  "slim",
+  "average",
+  "plus",
 ]);
 
 function asPhotoStyle(v: unknown): PhotoStyle | null {
@@ -169,6 +179,10 @@ function asPhotoStyle(v: unknown): PhotoStyle | null {
   const attr = asString(o.attractiveness, 16).toLowerCase();
   if (ATTRACTIVENESS.has(attr as PhotoStyle["attractiveness"] & string)) {
     out.attractiveness = attr as PhotoStyle["attractiveness"];
+  }
+  const bt = asString(o.body_type, 16).toLowerCase();
+  if (BODY_TYPES.has(bt as PhotoStyle["body_type"] & string)) {
+    out.body_type = bt as PhotoStyle["body_type"];
   }
   return Object.keys(out).length > 0 ? out : null;
 }

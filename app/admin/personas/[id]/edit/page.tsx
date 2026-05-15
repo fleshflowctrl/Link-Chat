@@ -109,6 +109,12 @@ function rowToFormValues(row: RowFromDb): PersonaFormValues {
         ps.attractiveness === "plain"
           ? ps.attractiveness
           : "",
+      body_type:
+        ps.body_type === "slim" ||
+        ps.body_type === "average" ||
+        ps.body_type === "plus"
+          ? ps.body_type
+          : "",
     },
     persona_meta: {
       languages: asStrArr(pm.languages).length ? asStrArr(pm.languages) : empty.persona_meta.languages,

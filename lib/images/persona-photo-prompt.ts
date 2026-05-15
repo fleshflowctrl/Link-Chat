@@ -43,6 +43,33 @@ export type PersonaPhotoStyle = {
    *   "average"  — alledaagse Nederlandse vrouw (recommended default)
    *   "plain"    — onopvallend, niet-perfect, maar oprecht authentiek */
   attractiveness?: "striking" | "average" | "plain";
+  /** Body shape — independent from attractiveness. Drives the silhouette
+   * the diffusion model commits to. */
+  body_type?: "slim" | "average" | "plus";
+};
+
+/** Body-type prompt anchors — keep these on the "shape" axis only, never
+ * mix in attractiveness words. The two levers compose so any combination
+ * (slim+plain, plus+striking, etc.) renders correctly. */
+const BODY_TYPE_ANCHORS: Record<
+  NonNullable<PersonaPhotoStyle["body_type"]>,
+  { positive: string; negative: string }
+> = {
+  slim: {
+    positive:
+      "slim slender body, lean figure, narrow shoulders, thin frame, slight build",
+    negative: "plus size, overweight, chubby, full-figured, heavy build",
+  },
+  average: {
+    positive:
+      "average build, normal body shape, healthy proportions, neither thin nor heavy",
+    negative: "skinny, very thin, plus size, overweight",
+  },
+  plus: {
+    positive:
+      "plus-size body, fuller figure, soft body, larger build, fuller arms and torso, rounder cheeks, double chin possible, curvy heavier silhouette",
+    negative: "skinny, slim, very thin, athletic, fit, lean, slender",
+  },
 };
 
 /** Per-tier prompt anchors. Diffusion models train mostly on attractive,
@@ -58,17 +85,28 @@ const ATTRACTIVENESS_ANCHORS: Record<
       "naturally beautiful, photogenic, expressive eyes, healthy radiant skin, well-proportioned features",
     negative: "",
   },
+  // NOTE on "average": diffusion bases for Z-Image-Turbo are heavily
+  // skewed toward attractive faces (LAION/AVA-style training data), so
+  // simply *omitting* beauty markers does not work — every output drifts
+  // back to glossy. We have to (a) explicitly anchor to "ordinary face"
+  // multiple times so token-weight is high and (b) load the negative
+  // prompt with every glamour-aesthetic synonym we can think of.
   average: {
     positive:
-      "ordinary average-looking woman, regular everyday face, mid-tier looks, slightly imperfect features, natural skin texture with pores and small blemishes, no makeup or minimal makeup, candid not posed, average build, looks like a real person you'd see at the supermarket",
+      "ordinary face, ordinary features, ordinary woman, regular everyday face you would see at the supermarket, plain regular features, mid-tier average looks, slightly imperfect asymmetric face, real natural skin texture with visible pores and small blemishes and freckles, no makeup, frizzy or simple unstyled hair, candid amateur phone photo, not posed not glamorous, looks like a normal real Dutch person",
     negative:
-      "supermodel, magazine cover, fashion model, instagram influencer, perfectly symmetric, flawless porcelain skin, glossy, glamour shot, model agency, runway, beautiful, gorgeous, stunning, attractive",
+      "supermodel, fashion model, magazine cover, magazine shoot, vogue, instagram influencer, instagram model, beauty influencer, perfectly symmetric face, flawless skin, porcelain skin, smooth airbrushed skin, glossy, glamour shot, glamour, glam, model agency, runway, professional model, beauty pageant, beautiful woman, gorgeous, stunning, attractive face, photogenic, pretty, cute girl, hot, sexy, alluring, polished portrait, fashion photography, editorial, high-fashion, sharp jawline, defined cheekbones, big eyes, full lips, plump lips, perfect teeth, white teeth, contoured face, well-groomed, makeup look",
   },
+  // "plain" goes one step further: we explicitly add anti-beauty
+  // descriptors (still respectful and human, never deformed). The trick
+  // is concrete, neutral physical detail rather than insults — diffusion
+  // responds to "double chin, pale skin, mild acne" much better than
+  // "ugly".
   plain: {
     positive:
-      "plain-looking woman, below-average attractiveness, irregular features, asymmetric face, uneven skin tone, visible blemishes or freckles or acne scars, no makeup, frizzy or flat hair, awkward natural smile, ordinary build, looks like a regular Dutch woman, not glamorous, not photogenic, candid amateur snapshot",
+      "plain-looking ordinary woman, below-average looks, irregular asymmetric facial features, uneven crooked smile, weak chin or no defined jawline, slightly puffy face, pale or sallow skin, visible mild acne or small scars or blemishes, large pores, frizzy unkempt hair or flat greasy hair, no makeup, tired-looking eyes, mouth slightly closed, awkward unposed candid amateur snapshot, looks like a regular non-photogenic Dutch person, not glamorous at all",
     negative:
-      "supermodel, magazine cover, fashion model, instagram influencer, perfectly symmetric, flawless skin, glamour shot, model, beautiful, gorgeous, stunning, attractive, photogenic, professional photo, polished, glossy, smooth skin, perfect teeth, perfect hair",
+      "supermodel, fashion model, magazine cover, vogue, instagram influencer, instagram model, model agency, runway, professional model, beauty pageant, perfectly symmetric face, flawless skin, smooth airbrushed skin, porcelain skin, glossy, glamour shot, glamour, glam, beautiful woman, gorgeous, stunning, attractive, photogenic, pretty, cute, hot, sexy, alluring, sharp jawline, defined cheekbones, high cheekbones, big eyes, full lips, plump lips, perfect teeth, white teeth, contoured face, makeup look, well-groomed, polished, professional portrait, fashion photography, editorial, high-fashion, model features",
   },
 };
 
@@ -86,11 +124,13 @@ function hashSeed(input: string): number {
 
 /** Derive a default appearance/style from the persona's profile when no
  * explicit photo_style is configured. We keep this generic-but-plausible
- * — explicit photo_style values always take precedence. */
+ * — explicit photo_style values always take precedence. The body field
+ * is left to the body-type anchor in buildPersonaPhotoPrompt so we don't
+ * double-write it; here we set only appearance/style/vibe. */
 function deriveDefaults(
   profile: ChatProfileRow,
   attractiveness: NonNullable<PersonaPhotoStyle["attractiveness"]>,
-): Required<Pick<PersonaPhotoStyle, "appearance" | "build" | "style" | "vibe">> {
+): Required<Pick<PersonaPhotoStyle, "appearance" | "style" | "vibe">> {
   const age = typeof profile.age === "number" ? profile.age : 25;
   const cityHint = (profile.city ?? "").toLowerCase();
   const isDutchish = !cityHint || /amsterdam|rotterdam|utrecht|nederland|netherlands|den haag|the hague/i.test(cityHint);
@@ -100,7 +140,6 @@ function deriveDefaults(
       appearance: isDutchish
         ? `${age}-jarige Nederlandse vrouw, alledaags gezicht, regelmatige trekken, natuurlijke huid met sproeten of kleine onvolmaaktheden, glimlach met asymmetrie, haar gewoon naar achter`
         : `${age}-year-old ordinary-looking woman, average everyday face, regular features`,
-      build: "gemiddelde bouw, normale lengte, niet sportief en niet curvy",
       style: "casual alledaagse outfit, gewoon t-shirt of trui en spijkerbroek, geen statement-stuk",
       vibe: "rustig, gewoon, een beetje verlegen, alledaags moment, geen pose",
     };
@@ -110,7 +149,6 @@ function deriveDefaults(
       appearance: isDutchish
         ? `${age}-jarige Nederlandse vrouw, onopvallend gezicht, onregelmatige trekken, lichte acne of vlekjes, fletse huid, asymmetrische glimlach, eenvoudige haar zonder styling`
         : `${age}-year-old plain-looking woman, irregular features, blemished skin`,
-      build: "gewone bouw, niet sportief, niet bijzonder",
       style: "simpele alledaagse kleren, vaak iets te ruim of niet helemaal passend, geen mode-bewustzijn",
       vibe: "ingetogen, niet glamoureus, oprecht awkward candid moment",
     };
@@ -119,7 +157,6 @@ function deriveDefaults(
     appearance: isDutchish
       ? `natuurlijke schoonheid, ${age}-jarige Nederlandse vrouw, rustige glimlach, lichte sproetjes, haar in een half-knot of losjes neergelaten`
       : `natural-looking ${age}-year-old woman, soft smile, light makeup, expressive eyes`,
-    build: "average build, gemiddelde lengte",
     style: "casual everyday outfit, denim, comfortable, modern girl-next-door",
     vibe: "warm, een beetje verlegen, oprecht, candid moment",
   };
@@ -133,17 +170,22 @@ export function buildPersonaPhotoPrompt(args: {
   const profile = args.profile;
   const customStyle = (profile as ChatProfileRow & { photo_style?: PersonaPhotoStyle }).photo_style ?? {};
 
-  // Default to "average" so a fresh persona without an explicit choice
-  // looks like a real Dutch woman instead of a magazine cover. Operators
-  // who want striking can opt in.
+  // Default to "average" / "average" so a fresh persona without an
+  // explicit choice looks like a real Dutch woman instead of a magazine
+  // cover. Operators who want striking/slim/plus can opt in.
   const attractiveness: NonNullable<PersonaPhotoStyle["attractiveness"]> =
     customStyle.attractiveness ?? "average";
+  const bodyType: NonNullable<PersonaPhotoStyle["body_type"]> =
+    customStyle.body_type ?? "average";
   const anchors = ATTRACTIVENESS_ANCHORS[attractiveness];
+  const bodyAnchors = BODY_TYPE_ANCHORS[bodyType];
 
   const defaults = deriveDefaults(profile, attractiveness);
 
   const appearance = (customStyle.appearance ?? defaults.appearance).trim();
-  const build = (customStyle.build ?? defaults.build).trim();
+  // Operator-supplied build wins; otherwise the body-type anchor
+  // provides the silhouette description so we don't double-anchor.
+  const build = (customStyle.build ?? "").trim();
   const style = (customStyle.style ?? defaults.style).trim();
   const vibe = (customStyle.vibe ?? defaults.vibe).trim();
 
@@ -159,30 +201,40 @@ export function buildPersonaPhotoPrompt(args: {
   // Compose the full prompt. Order matters for diffusion models — the
   // most important visual anchors go first so the model commits early
   // to the persona's identity, then layers the scene on top.
-  const promptParts = [
-    `${appearance}`,
-    build,
-    `wearing ${style}`,
-    `scene: ${cleanScene}`,
-    vibe,
-    anchors.positive,
-    "casual phone selfie or candid snapshot, soft natural lighting",
-    "shot on iPhone, slight grain, intimate everyday moment",
-    "photorealistic, high detail, no text, no watermark, no logo",
-  ];
+  //
+  // For non-striking attractiveness we frontload the realism anchor so
+  // the model commits before the scene/style descriptors lure it back
+  // toward "instagram girl". Diffusion is heavily order-sensitive.
+  const promptParts: string[] = [];
+  if (attractiveness !== "striking") {
+    promptParts.push(anchors.positive);
+  }
+  promptParts.push(appearance);
+  if (build) promptParts.push(build);
+  promptParts.push(bodyAnchors.positive);
+  promptParts.push(`wearing ${style}`);
+  promptParts.push(`scene: ${cleanScene}`);
+  promptParts.push(vibe);
+  if (attractiveness === "striking") {
+    promptParts.push(anchors.positive);
+  }
+  promptParts.push("casual phone selfie or candid snapshot, soft natural lighting");
+  promptParts.push("shot on iPhone, slight grain, intimate everyday moment");
+  promptParts.push("photorealistic, high detail, no text, no watermark, no logo");
+
   const prompt = promptParts.filter(Boolean).join(", ");
 
-  // Negative prompt — base + tier-specific anti-glam terms. We keep
-  // "ugly" out of the average/plain negative on purpose; we want
-  // realistic, not deformed. The tier-specific block instead pushes
-  // away from supermodel/glamour aesthetics.
+  // Negative prompt — base + tier-specific anti-glam terms + body-type
+  // counterweights. We keep "ugly" out on purpose; we want realistic,
+  // not deformed.
   const baseNegative =
     "deformed, distorted, blurry, lowres, extra fingers, mutated hands, " +
     "watermark, signature, text, logo, harsh studio lighting, " +
     "ai-generated look, plastic skin, oversaturated";
-  const negativePrompt = anchors.negative
-    ? `${baseNegative}, ${anchors.negative}`
-    : baseNegative;
+  const negParts = [baseNegative];
+  if (anchors.negative) negParts.push(anchors.negative);
+  if (bodyAnchors.negative) negParts.push(bodyAnchors.negative);
+  const negativePrompt = negParts.join(", ");
 
   return { prompt, seed, negativePrompt };
 }
