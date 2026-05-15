@@ -215,9 +215,12 @@ export async function generatePeerReply(
   const triggerId = args.options?.triggerUserMessageId;
 
   // ----- Prose summary (legacy thread memory) -----
+  // select("*") so envs missing the structured_facts column (migration
+  // 20260515110000_chat_realism_foundation.sql) still resolve — the row
+  // just won't carry that field and prevStructured falls back to null.
   const { data: memRow } = await supabase
     .from("chat_ai_thread_memory")
-    .select("summary, prefix_messages_count, structured_facts")
+    .select("*")
     .eq("peer_id", args.peerId)
     .eq("owner_user_id", args.ownerUserId)
     .maybeSingle();
@@ -261,20 +264,38 @@ export async function generatePeerReply(
     ),
   ]);
 
-  await supabase.from("chat_ai_thread_memory").upsert(
-    {
-      owner_user_id: args.ownerUserId,
-      peer_id: args.peerId,
-      summary: memory.summary,
-      prefix_messages_count: memory.prefix_messages_count,
-      structured_facts: {
-        ...structured.facts,
-        __prefix: structured.prefix_messages_count,
+  // Try to write both prose summary and structured facts. If the
+  // structured_facts column doesn't exist yet (migration not applied),
+  // retry without it so we at least keep the prose memory working.
+  const memoryUpsertBase = {
+    owner_user_id: args.ownerUserId,
+    peer_id: args.peerId,
+    summary: memory.summary,
+    prefix_messages_count: memory.prefix_messages_count,
+    updated_at: new Date().toISOString(),
+  };
+  const { error: memUpsertErr } = await supabase
+    .from("chat_ai_thread_memory")
+    .upsert(
+      {
+        ...memoryUpsertBase,
+        structured_facts: {
+          ...structured.facts,
+          __prefix: structured.prefix_messages_count,
+        },
       },
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "owner_user_id,peer_id" },
-  );
+      { onConflict: "owner_user_id,peer_id" },
+    );
+  if (memUpsertErr && /structured_facts/i.test(memUpsertErr.message)) {
+    console.warn(
+      "[generate-peer-reply] structured_facts column missing — falling back to prose-only memory; apply 20260515110000_chat_realism_foundation.sql",
+    );
+    await supabase
+      .from("chat_ai_thread_memory")
+      .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
+  } else if (memUpsertErr) {
+    console.warn("[generate-peer-reply] memory upsert", memUpsertErr.message);
+  }
 
   const threadSummaryForPrompt =
     args.history.length > RECENT_MESSAGE_COUNT && memory.summary.trim()
@@ -524,14 +545,25 @@ export async function generatePeerReply(
   // ----- Mark unread user messages as read by the persona -----
   // Anything she just replied to counts as "read"; older user messages
   // without peer_read_at also flip to read (the conversation has moved on).
+  // Defensive: tolerate envs where the realism-foundation migration hasn't
+  // run yet — a missing peer_read_at column should never crash a reply.
   const nowIso = new Date().toISOString();
-  await supabase
-    .from("chat_messages")
-    .update({ peer_read_at: nowIso })
-    .eq("peer_id", args.peerId)
-    .eq("owner_user_id", args.ownerUserId)
-    .eq("sender", "me")
-    .is("peer_read_at", null);
+  try {
+    const { error: readErr } = await supabase
+      .from("chat_messages")
+      .update({ peer_read_at: nowIso })
+      .eq("peer_id", args.peerId)
+      .eq("owner_user_id", args.ownerUserId)
+      .eq("sender", "me")
+      .is("peer_read_at", null);
+    if (readErr && /does not exist/i.test(readErr.message)) {
+      console.warn("[generate-peer-reply] peer_read_at column missing — apply 20260515110000_chat_realism_foundation.sql");
+    } else if (readErr) {
+      console.warn("[generate-peer-reply] read-receipt update", readErr.message);
+    }
+  } catch (e) {
+    console.warn("[generate-peer-reply] read-receipt update threw", e);
+  }
 
   // ----- Schedule additional chunks (chunk[1..]) + photos -----
   // Both flow through the same chat_pending_replies queue with different

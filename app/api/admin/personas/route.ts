@@ -20,11 +20,11 @@ export async function GET() {
     );
   }
 
+  // select("*") tolerates partial migrations — missing columns just
+  // come back undefined instead of failing the whole query.
   const { data, error } = await service
     .from("chat_profiles")
-    .select(
-      "id, display_name, age, city, avatar_url, bio, occupation, status_variant, status_label, online_now, verified, is_archived, home_sort, joined_at, last_message_at, vibe_tags, funnel_intent_ids, filter_tags",
-    )
+    .select("*")
     .order("home_sort", { ascending: true })
     .order("display_name", { ascending: true });
 

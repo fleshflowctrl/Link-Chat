@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { PersonasList, type PersonaListRow } from "@/components/admin/personas-list";
+import { MigrationBanner } from "@/components/admin/migration-banner";
+import { probeDbHealth, type DbHealthReport } from "@/lib/admin/db-health";
 
 export const dynamic = "force-dynamic";
 
@@ -10,28 +12,57 @@ async function loadPersonas(): Promise<{
   rows: PersonaListRow[];
   error?: string;
   serviceConfigured: boolean;
+  health: DbHealthReport | null;
 }> {
   const service = getServiceSupabase();
   if (!service) {
     return {
       rows: [],
       serviceConfigured: false,
+      health: null,
       error: "SUPABASE_SERVICE_ROLE_KEY ontbreekt — voeg hem toe aan je env.",
     };
   }
+
+  const health = await probeDbHealth(service);
+
+  // Use select("*") so missing-column migrations don't blow this query
+  // up — the banner above the list explains exactly which migration is
+  // outstanding. Wider payload but the admin operates on small result
+  // sets so this is fine.
   const { data, error } = await service
     .from("chat_profiles")
-    .select(
-      "id, display_name, age, city, avatar_url, bio, occupation, status_variant, status_label, online_now, verified, is_archived, home_sort, joined_at, last_message_at, vibe_tags",
-    )
+    .select("*")
     .eq("is_ai", true)
     .order("home_sort", { ascending: true })
     .order("display_name", { ascending: true });
 
   if (error) {
-    return { rows: [], serviceConfigured: true, error: error.message };
+    return { rows: [], serviceConfigured: true, health, error: error.message };
   }
-  return { rows: (data ?? []) as PersonaListRow[], serviceConfigured: true };
+
+  const rows = ((data ?? []) as Array<Record<string, unknown>>).map((r): PersonaListRow => ({
+    id: String(r.id ?? ""),
+    display_name: String(r.display_name ?? ""),
+    age: typeof r.age === "number" ? r.age : null,
+    city: typeof r.city === "string" ? r.city : null,
+    avatar_url: typeof r.avatar_url === "string" ? r.avatar_url : "",
+    bio: typeof r.bio === "string" ? r.bio : null,
+    occupation: typeof r.occupation === "string" ? r.occupation : null,
+    status_variant: typeof r.status_variant === "string" ? r.status_variant : null,
+    status_label: typeof r.status_label === "string" ? r.status_label : null,
+    online_now: typeof r.online_now === "boolean" ? r.online_now : null,
+    verified: typeof r.verified === "boolean" ? r.verified : null,
+    is_archived: typeof r.is_archived === "boolean" ? r.is_archived : false,
+    home_sort: typeof r.home_sort === "number" ? r.home_sort : null,
+    joined_at: typeof r.joined_at === "string" ? r.joined_at : null,
+    last_message_at: typeof r.last_message_at === "string" ? r.last_message_at : null,
+    vibe_tags: Array.isArray(r.vibe_tags)
+      ? (r.vibe_tags as unknown[]).filter((s): s is string => typeof s === "string")
+      : null,
+  }));
+
+  return { rows, serviceConfigured: true, health };
 }
 
 export default async function AdminPersonasPage() {
@@ -46,7 +77,7 @@ export default async function AdminPersonasPage() {
     );
   }
 
-  const { rows, error } = await loadPersonas();
+  const { rows, error, health } = await loadPersonas();
   const activeCount = rows.filter((r) => !r.is_archived).length;
   const archivedCount = rows.filter((r) => r.is_archived).length;
 
@@ -65,8 +96,10 @@ export default async function AdminPersonasPage() {
         }
       />
 
+      {health ? <MigrationBanner report={health} /> : null}
+
       {error ? (
-        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
           {error}
         </div>
       ) : null}
