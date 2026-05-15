@@ -52,27 +52,30 @@ export type PersonaPhotoStyle = {
  * are heavily skewed toward 20-30 year old subjects — most training
  * data is "young attractive woman", so without explicit anchors a
  * "55-jarige Nederlandse vrouw" still renders as someone in their late
- * 20s. We brute-force the tier in two ways:
+ * 20s. We push back with concrete physical tokens, but calibration
+ * matters in BOTH directions:
  *
- *   1. Positive prompt names concrete physical age markers ("grey
- *      hair, fine lines around eyes and mouth, age spots, mature
- *      face"). The model needs concrete tokens, not just numbers.
+ *   - Too weak ("55-year-old woman") → model ignores it, output 25-30.
+ *   - Too strong ("post-menopausal, deep wrinkles, jowls, age spots") →
+ *     model overshoots, output looks 80+.
  *
- *   2. Negative prompt explicitly rejects youthful features ("young
- *      woman, twenties, smooth youthful skin, teenage") so the model
- *      doesn't fall back to its default.
- *
- * "young" is intentionally minimal — it's the natural diffusion default
- * and we don't need to push the model anywhere. Older tiers get
- * progressively stronger anchors. */
-type AgeTier = "young" | "thirties" | "forties" | "fifties" | "sixties_plus";
+ * 55-65 is "middle-aged but NOT elderly". They have fine lines, maybe
+ * some grey at the temples, settled features — but not jowls, not
+ * sagging skin, not a grandmother. The `late_middle` tier is calibrated
+ * for that. Real "elderly" anchors only kick in at 65+. */
+type AgeTier =
+  | "young"
+  | "thirties"
+  | "forties"
+  | "late_middle"
+  | "senior";
 
 function ageToTier(age: number): AgeTier {
   if (age < 30) return "young";
   if (age < 40) return "thirties";
   if (age < 50) return "forties";
-  if (age < 60) return "fifties";
-  return "sixties_plus";
+  if (age < 65) return "late_middle";
+  return "senior";
 }
 
 const AGE_ANCHORS: Record<AgeTier, { positive: string; negative: string }> = {
@@ -82,27 +85,35 @@ const AGE_ANCHORS: Record<AgeTier, { positive: string; negative: string }> = {
   },
   thirties: {
     positive:
-      "woman in her thirties, mature adult face, subtle fine lines around eyes when smiling, slightly looser skin compared to youth, settled adult features",
+      "woman in her thirties, mature adult face, subtle fine lines around eyes when smiling, settled adult features",
     negative:
-      "teenager, twenties, very young, youthful babyface, college-aged, freshly out of high school",
+      "teenager, twenties, very young, youthful babyface, college-aged",
   },
   forties: {
     positive:
-      "woman in her forties, middle-aged face, visible fine lines around eyes and mouth, mature skin texture with slight loss of elasticity, possibly a few grey hairs at the temples, mature adult features, no longer young",
+      "woman in her forties, mature adult face, visible fine lines around eyes and mouth, possibly a few grey hairs at the temples, settled adult features",
     negative:
-      "young woman, twenties, smooth youthful skin, teenage, college-aged, twentysomething, fresh-faced, porcelain skin, youthful",
+      "young woman, twenties, smooth youthful skin, teenage, college-aged, twentysomething",
   },
-  fifties: {
+  // 50-64 — middle-aged. NOT elderly, NOT a grandmother. Fine lines,
+  // possibly dyed hair or some grey at temples, but no jowls, no
+  // sagging skin, no age spots. Operator hit "55-65 looks like 80-90"
+  // when this tier was too aggressive — calibration is deliberately
+  // soft here.
+  late_middle: {
     positive:
-      "woman in her fifties, clearly middle-aged to older face, deeper wrinkles around eyes mouth and forehead, looser jawline starting to soften, grey or salt-and-pepper hair (or dyed-but-aged hair), age spots possible on hands and chest, mature older skin texture, distinctly not young, post-menopausal mature woman, lines around lips and forehead",
+      "woman in her fifties or early sixties, middle-aged face, visible fine lines around eyes and mouth, mature skin texture, hair may have some grey at the temples or be dyed, settled mature adult features, well-kept and presentable, NOT elderly, NOT a grandmother",
     negative:
-      "young woman, twenties, thirties, smooth skin, youthful, fresh face, college-aged, teenage, twentysomething, plump cheeks, taut skin, instagram filter, smooth airbrushed skin, jonge vrouw",
+      "young woman, twenties, thirties, smooth youthful skin, teenage, college-aged, taut babyface, instagram filter, elderly, very old, eighty, ninety, deep deep wrinkles, sagging jowls, frail, grandmother, senior citizen, elderly woman",
   },
-  sixties_plus: {
+  // 65+ — actual senior. Deeper wrinkles, fully grey or white hair,
+  // softer jawline, age spots become visible. This is where the
+  // "elderly woman" tokens belong.
+  senior: {
     positive:
-      "older woman in her sixties or seventies, clearly elderly face, deep wrinkles across forehead cheeks and around eyes, soft sagging jowls and neck skin, white or grey hair often shorter style or pinned up, prominent age spots, weathered mature skin texture, thinning hair, lines around the lips, older woman senior citizen, distinctly elderly, grandmother age, post-retirement age",
+      "older woman in her late sixties or seventies, mature elderly face with deeper wrinkles around eyes mouth and forehead, softened jawline, grey or white hair, age spots possible on hands, mature older skin texture",
     negative:
-      "young woman, middle-aged, twenties, thirties, forties, smooth skin, youthful, fresh face, taut skin, instagram filter, dark hair without grey, plump cheeks, jonge vrouw, vrouw van middelbare leeftijd",
+      "young woman, middle-aged, twenties, thirties, forties, smooth skin, youthful, fresh face, dark hair without grey, instagram filter, taut skin, plump cheeks",
   },
 };
 
@@ -187,16 +198,23 @@ function hashSeed(input: string): number {
  * double-write it; here we set only appearance/style/vibe. */
 /** Concrete age cues by tier. Used both in deriveDefaults (when the
  * operator hasn't supplied a custom appearance) and as fallback hints
- * when the Grok-generated appearance might still be 25-coded. */
+ * when the Grok-generated appearance might still be 25-coded.
+ *
+ * Calibrated alongside AGE_ANCHORS — these are subtle reinforcements,
+ * not the primary signal. Too aggressive here causes overshoot. */
 function ageHairAndSkinHint(age: number): string {
   if (age < 30) return "";
   if (age < 40)
-    return "lichte rimpeltjes rond de ogen, volwassen volwassen gezicht, mogelijk een enkele grijze haar";
+    return "lichte rimpeltjes rond de ogen wanneer ze lacht, volwassen gezicht";
   if (age < 50)
-    return "fijne rimpels rond ogen en mond, volwassen huidstructuur, mogelijk grijze haren bij de slapen";
-  if (age < 60)
-    return "duidelijke rimpels rond ogen en mond, mature huidstructuur, grijs of zout-en-peper haar, lichte jowls aan het begin van de kaak, ouderdomsvlekjes mogelijk";
-  return "diepe rimpels op voorhoofd, wangen en rond de ogen, grijs of wit haar, hangende kaaklijn en hals, ouderdomsvlekken op handen en borst, dun ouder haar";
+    return "fijne rimpels rond ogen en mond, volwassen huidstructuur, mogelijk een paar grijze haren bij de slapen";
+  if (age < 65)
+    // 50-64 — soft cue. Fine lines, possibly some grey, but explicitly
+    // NOT elderly markers like jowls, age spots or deep wrinkles. The
+    // operator complained that 55-65 came out looking 80+ — this is
+    // where calibration matters most.
+    return "fijne rimpels rond ogen en mond, volwassen huidstructuur, haar mogelijk geverfd of met grijze plukken bij de slapen, verzorgd middelbaar uiterlijk";
+  return "duidelijke rimpels rond ogen en mond, grijs of wit haar, oudere huidstructuur";
 }
 
 function deriveDefaults(
@@ -333,18 +351,19 @@ export function buildPersonaPhotoPrompt(args: {
   // For non-striking attractiveness we frontload the realism anchor so
   // the model commits before the scene/style descriptors lure it back
   // toward "instagram girl". Diffusion is heavily order-sensitive.
-  // Concrete physical age cue (e.g. "grijs haar, fijne rimpels rond
-  // ogen en mond, ouderdomsvlekjes"). We attach this directly after
-  // appearance so the cue lands together with face descriptors. Even
-  // when Grok wrote a 25-coded appearance for a 60-year-old, this
-  // injects the older-age tokens explicitly into the prompt.
+  // Concrete physical age cue (e.g. "fijne rimpels, grijze plukken bij
+  // de slapen"). We attach this directly after appearance so the cue
+  // lands together with face descriptors. Even when Grok wrote a
+  // 25-coded appearance for a 60-year-old, this injects age tokens
+  // explicitly. Soft for 50-64, stronger for 65+.
   const ageHint = ageHairAndSkinHint(personaAge);
 
   const promptParts: string[] = [];
   // Age anchor frontloads ABOVE the realism/appearance anchors for
   // anything past mid-20s — diffusion is order-sensitive and we need
-  // the model to commit to "older woman" before it sees "soft glimlach,
-  // sproetjes" (which it would otherwise parse as 25-year-old features).
+  // the model to commit to the right age bracket before it sees the
+  // appearance descriptors. We do NOT also end-load: doubling the age
+  // signal causes overshoot (55 starts looking like 80).
   if (ageAnchors.positive) {
     promptParts.push(ageAnchors.positive);
   }
@@ -360,12 +379,6 @@ export function buildPersonaPhotoPrompt(args: {
   promptParts.push(vibe);
   if (attractiveness === "striking") {
     promptParts.push(anchors.positive);
-  }
-  // Re-assert age at the end too — diffusion U-net commitment phase
-  // weighs both early and late tokens. For older subjects we want
-  // every chance to keep the model on track.
-  if (ageAnchors.positive) {
-    promptParts.push(ageAnchors.positive);
   }
 
   // Per-shot framing — supplied by a scene template. Without these,

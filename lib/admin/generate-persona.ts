@@ -132,14 +132,21 @@ Leeftijd:
   precies, NIET aanpassen. Pas wel bio/backstory/occupation passend
   bij die leeftijd aan (een 19-jarige is hoogstwaarschijnlijk student;
   een 38-jarige heeft waarschijnlijk al een carrière of kinderen;
-  een 55-jarige werkt al lang of is al opa/oma; een 65+'er is
-  waarschijnlijk gepensioneerd).
-- VERPLICHT bij oudere leeftijden (45+): photo_style.appearance MOET
-  expliciet leeftijdspassende fysieke kenmerken bevatten. Geen
-  "rustige glimlach met sproetjes" meer — wel "rimpels rond ogen en
-  mond", "grijs of zout-en-peper haar", "mature huidstructuur",
-  "ouderdomsvlekjes" (afhankelijk van leeftijd). Als je dat weglaat
-  produceert het diffusion-model namelijk alsnog een 25-jarige.
+  een 55-jarige werkt al lang en heeft soms al volwassen kinderen;
+  een 65+'er is waarschijnlijk gepensioneerd of werkt parttime).
+- photo_style.appearance MOET kalibreren op de leeftijd, maar pas op
+  voor overshoot — diffusion-modellen zijn extreem gevoelig voor
+  leeftijdsmarkers en kunnen makkelijk 20 jaar te oud uitvallen:
+    - 30-39: "lichte rimpeltjes rond de ogen wanneer ze lacht,
+      volwassen gezicht". GEEN grijs haar, GEEN diepe rimpels.
+    - 40-49: "fijne rimpels rond ogen en mond, mogelijk een paar
+      grijze haren bij de slapen, mature huid". NOG STEEDS grotendeels
+      jeugdig haar.
+    - 50-64: "fijne rimpels, haar mogelijk geverfd of met grijze plukken
+      bij de slapen, verzorgd middelbaar uiterlijk". GEEN "elderly",
+      GEEN "grandmother", GEEN "deep wrinkles", GEEN "jowls",
+      GEEN "age spots" — die horen pas bij 65+.
+    - 65+: "duidelijke rimpels, grijs of wit haar, oudere huidstructuur".
 - Pas occupation, backstory en bio aan zodat ze geloofwaardig zijn
   voor de leeftijd. Een 60-jarige doet geen HBO meer; ze heeft een
   carrière, of werkt parttime, of is gepensioneerd.`;

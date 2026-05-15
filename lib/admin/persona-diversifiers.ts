@@ -249,50 +249,55 @@ export function pickPersonaDiversifier(opts: {
 
 /** Age-appropriate hair colour palettes. Default HAIR_COLORS is skewed
  * toward the 20-40 range; for older personas we replace the pick with
- * something believable so a 65-year-old doesn't end up described as
- * "platinablond". This composes with the diffusion age-anchor for a
- * doubly-correct look. */
-const HAIR_COLORS_50PLUS = [
-  "grijs haar met enkele plukken donker",
-  "zout-en-peper haar",
-  "donkergrijs haar",
-  "zilvergrijs haar",
-  "kort grijs haar",
+ * something believable. Calibration matters: 55-year-olds in real life
+ * very often have dyed hair (still look brown/blonde); only at 65+ does
+ * grey dominate. The 50-64 palette intentionally includes "geverfd"
+ * (dyed) options so the batch doesn't all look elderly. */
+const HAIR_COLORS_50_TO_64 = [
+  "geverfd donkerbruin haar",
   "geverfd kastanjebruin haar met grijze uitgroei",
   "donkerblond haar met grijze plukken bij de slapen",
+  "lichtbruin haar met enkele grijze haartjes",
+  "geverfd lichtbruin haar",
+  "donker haar met subtiele grijze plukken",
+  "zout-en-peper haar",
+  "geverfd auburn haar",
 ] as const;
 
-const HAIR_COLORS_60PLUS = [
-  "wit haar",
+const HAIR_COLORS_65PLUS = [
+  "grijs haar",
   "wit-grijs haar",
   "zilvergrijs kort haar",
   "kort grijs haar met krullen",
   "geverfd lichtbruin haar met grijze uitgroei",
+  "donkergrijs haar",
 ] as const;
 
 /** Returns an age-overridden diversifier when the picked hair colour
- * clashes with the persona's age (e.g. platinablond on a 65-year-old).
- * Otherwise returns the input unchanged. */
+ * clashes with the persona's age (e.g. platinablond on a 70-year-old).
+ * Threshold is 50: below that the default palette is fine.
+ *
+ * For 50-64 we use a *soft* palette that includes dyed/coloured options
+ * so 55-year-olds don't all come out looking 70+. The diffusion
+ * age-anchor handles the broader age bracket; this just keeps Grok's
+ * appearance text and the photo consistent. */
 export function applyAgeOverride(
   d: PersonaDiversifier,
   age: number,
 ): PersonaDiversifier {
   if (age < 50) return d;
-  // Deterministic-but-varied: pick one of the age-appropriate colours
-  // based on the existing hair_color string so two personas with the
-  // same age don't all get the same grey.
   let hash = 0;
   for (let i = 0; i < d.hair_color.length; i++) {
     hash = (hash * 31 + d.hair_color.charCodeAt(i)) >>> 0;
   }
-  const palette = age >= 60 ? HAIR_COLORS_60PLUS : HAIR_COLORS_50PLUS;
+  const palette = age >= 65 ? HAIR_COLORS_65PLUS : HAIR_COLORS_50_TO_64;
   const newHair = palette[hash % palette.length]!;
-  // Skin gets nudged toward age-appropriate cues. We don't override if
-  // the original already mentions wrinkles/age — just append a marker.
+  // Skin gets a subtle cue for 50-64, stronger for 65+. We don't
+  // override if the original already mentions wrinkles/age.
   const skinHasAge = /rimpel|ouderdom|wrinkle|age/i.test(d.skin);
-  const ageSkin = age >= 60
-    ? "duidelijke rimpels en ouderdomsvlekjes, dunne huid"
-    : "fijne rimpels rond ogen en mond, mature huidstructuur";
+  const ageSkin = age >= 65
+    ? "duidelijke rimpels rond ogen en mond, oudere huidstructuur"
+    : "fijne rimpels rond ogen en mond, volwassen huidstructuur";
   return {
     ...d,
     hair_color: newHair,
