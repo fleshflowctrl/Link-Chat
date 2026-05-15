@@ -16,10 +16,12 @@
  *   1. **Hook** — first 3 turns are always snappy (0.6-1.8s). She just opened
  *      your chat, she's excited, replies are quick. This is the engagement
  *      hook and we never override it.
- *   2. **Sleep window** — between 01:00 and 07:30 in the persona's local
- *      timezone she's almost certainly asleep. Schedule the reply for the
- *      next morning between 07:30 and 09:00. Window is intentionally tight:
- *      Dutch dating-app match behaviour is "stays up texting till 1am".
+ *   2. **Bedtime context** (see lib/ai/bedtime.ts) — each persona has a
+ *      *random-but-deterministic* bedtime per night in [01:45, 03:35]. If
+ *      `now` is past her bedtime she's asleep; reply scheduled for the
+ *      morning. If `now` is within the last hour before bedtime ("approach"),
+ *      we clamp the reply to land before bedtime so a goodnight message can
+ *      fit; the prompt builder is told to write a warm goodnight.
  *   3. **Engagement state** — based on how recently SHE last replied:
  *      - HOT  (<5min): she's still in the chat tab. ~80% under 60s.
  *      - WARM (5-30min): she's around but multitasking. ~65% under 2min.
@@ -40,6 +42,10 @@
  */
 
 export type PacingInput = {
+  /** Persona id (chat_profiles.id). Required to derive a deterministic
+   * per-persona bedtime so two pacing calls for the same user message
+   * always agree on tonight's sleep schedule. */
+  personaId: string;
   /** How many AI replies have already happened in this thread (0 = first). */
   turnIndex: number;
   /** Length in chars of the user message we're replying to. */
@@ -48,10 +54,26 @@ export type PacingInput = {
   replyChars: number;
   /** Persona's local "now". Defaults to the server's `new Date()`. */
   nowLocal?: Date;
-  /** IANA timezone for the persona's clock (sleep window). Defaults to Europe/Amsterdam. */
+  /** IANA timezone for the persona's clock (bedtime / wake). Defaults to Europe/Amsterdam. */
   timeZone?: string;
-  /** When the persona last replied in this thread, if ever. Drives engagement state. */
+  /** When the persona last replied in this thread, if ever. Drives engagement state
+   * and "already-said-goodnight" detection. */
   peerLastReplyAt?: Date | null;
+};
+
+import {
+  getBedtimeContext,
+  type BedtimePhase,
+} from "@/lib/ai/bedtime";
+
+export type PacingResult = {
+  /** Wall-clock delay before her reply lands. */
+  delayMs: number;
+  /** Bedtime phase at scheduling time — pass to the prompt builder so the
+   * reply tone matches (goodnight when approaching, normal otherwise). */
+  bedtimePhase: BedtimePhase;
+  /** Minutes until her bedtime when phase === "approaching", else null. */
+  minutesUntilBedtime: number | null;
 };
 
 /** Replies whose target delay is within this threshold are delivered
@@ -66,16 +88,6 @@ export const SYNC_DELAY_THRESHOLD_MS = 25_000;
 const HARD_CAP_MS = 9 * 60 * 60_000;
 const HOOK_TURN_LIMIT = 3;
 
-/** Sleep window in 24h decimal hours (persona-local). 01:00 - 07:30 — tight
- * by design so personas chat through the late evening into early morning
- * (peak monetisation hours). */
-const SLEEP_START_HOUR = 1.0;
-const SLEEP_END_HOUR = 7.5;
-/** When she "wakes up", reply lands between these hours (random per row).
- * Leans early so users who messaged her overnight get a fast morning reply. */
-const WAKE_HOUR_MIN = 7.5;
-const WAKE_HOUR_MAX = 9.0;
-
 function isPacingDisabled(): boolean {
   const raw = process.env.XAI_DISABLE_PACING?.trim().toLowerCase();
   if (!raw) return false;
@@ -86,71 +98,6 @@ function defaultTimeZone(): string {
   const env = process.env.PERSONA_DEFAULT_TZ?.trim();
   if (env) return env;
   return "Europe/Amsterdam";
-}
-
-/** Decimal hour (e.g. 23.75 for 23:45) in the given tz. */
-function hourFloatInTz(d: Date, timeZone: string): number {
-  try {
-    const fmt = new Intl.DateTimeFormat("en-GB", {
-      timeZone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    const text = fmt.format(d);
-    const [h, m] = text.split(":").map((n) => parseInt(n, 10));
-    if (!Number.isFinite(h) || !Number.isFinite(m)) return d.getHours();
-    return ((h % 24) + 24) % 24 + m / 60;
-  } catch {
-    return d.getHours();
-  }
-}
-
-/** Compute next-wake target time, returning a Date. Uses formatToParts trick
- * to combine "tomorrow's date in tz" with the random wake hour. */
-function nextWakeTime(now: Date, timeZone: string): Date {
-  const wakeHour = WAKE_HOUR_MIN + Math.random() * (WAKE_HOUR_MAX - WAKE_HOUR_MIN);
-  const wakeH = Math.floor(wakeHour);
-  const wakeM = Math.floor((wakeHour - wakeH) * 60);
-
-  // Determine "the day she'll wake up" in the persona tz. If now is past
-  // midnight (00:00–07:30), wake-up is *today* in tz; if it's late evening
-  // (23:30–24:00), wake-up is *tomorrow* in tz.
-  const hourNow = hourFloatInTz(now, timeZone);
-  const wakingToday = hourNow < SLEEP_END_HOUR;
-
-  // Build the wake instant by formatting today's date in tz, parsing it back,
-  // then setting H/M. We use a "noon trick" to find the calendar date in tz
-  // robustly across DST transitions.
-  let target = new Date(now.getTime());
-  if (!wakingToday) {
-    target = new Date(target.getTime() + 24 * 3600_000);
-  }
-  // Get YYYY-MM-DD as seen in the tz
-  const dateFmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const ymd = dateFmt.format(target); // e.g. "2026-05-15"
-  // Construct an ISO-ish string assuming the tz is +02:00 / +01:00; we don't
-  // know offset, so use a roundtrip: build a Date in tz by interpreting the
-  // wall clock literally via Date constructor + adjust.
-  // Cheap robust approach: build "ymdTHH:MM:00" in tz, then iterate Date()
-  // candidates to find one whose tz-projected wall clock matches.
-  const wallText = `${ymd}T${String(wakeH).padStart(2, "0")}:${String(wakeM).padStart(2, "0")}:00`;
-  // Try UTC first, then adjust by tz offset diff.
-  const utcGuess = new Date(`${wallText}Z`);
-  const projected = hourFloatInTz(utcGuess, timeZone);
-  const desired = wakeH + wakeM / 60;
-  const diffHours = desired - projected;
-  let result = new Date(utcGuess.getTime() + Math.round(diffHours * 3600_000));
-  // Ensure we're returning a future time (in case of tz quirks).
-  if (result.getTime() <= now.getTime()) {
-    result = new Date(result.getTime() + 24 * 3600_000);
-  }
-  return result;
 }
 
 type EngagementMode = "hot" | "warm" | "cold";
@@ -182,41 +129,56 @@ function clampMs(n: number, lo: number, hi: number): number {
 }
 
 /**
- * Pure (modulo Math.random()) function returning the wall-clock delay in ms
- * the AI peer should wait before her reply lands. May be anywhere from
- * ~600ms (hook) to ~6h (sleep / cold morning).
+ * Compute the AI peer's reply delay AND the bedtime phase to use when
+ * building the system prompt. Returns both in one shot so callers don't
+ * have to re-derive bedtime themselves (and risk inconsistency).
+ *
+ * Outputs:
+ *   - `delayMs`: wall-clock delay before her reply lands (~600ms → ~9h).
+ *   - `bedtimePhase`: pass to `buildGrokSystemPrompt` so the reply tone
+ *     matches her current state (goodnight when approaching, morning when
+ *     just-woken-up, normal otherwise).
  */
-export function computeReplyDelayMs(opts: PacingInput): number {
-  if (isPacingDisabled()) return 0;
-
+export function computeReplyPacing(opts: PacingInput): PacingResult {
   const turnIndex = Math.max(0, Math.floor(opts.turnIndex));
   const userChars = Math.max(0, opts.userMessageChars);
   const replyChars = Math.max(0, opts.replyChars);
   const now = opts.nowLocal ?? new Date();
   const tz = opts.timeZone ?? defaultTimeZone();
 
-  // 1. Hook mode: first 3 turns are always snappy. We never override this.
+  if (isPacingDisabled()) {
+    return { delayMs: 0, bedtimePhase: "awake", minutesUntilBedtime: null };
+  }
+
+  const bedtime = getBedtimeContext({
+    now,
+    timeZone: tz,
+    personaId: opts.personaId,
+    peerLastReplyAt: opts.peerLastReplyAt ?? null,
+  });
+
+  // 1. Hook mode: first 3 turns are always snappy. We never override this,
+  // even during bedtime — if she just opened your chat at 02:00, she's still
+  // in the "hooked-on-you" phase and answers fast. Sleep mode kicks in for
+  // turn 4+.
   if (turnIndex < HOOK_TURN_LIMIT) {
     const base = 600 + Math.min(userChars * 8, 600);
     const jitter = Math.random() * 600 - 300;
-    return clampMs(base + jitter, 400, 1800);
+    return {
+      delayMs: clampMs(base + jitter, 400, 1800),
+      bedtimePhase: bedtime.phase,
+      minutesUntilBedtime: bedtime.minutesUntilBedtime,
+    };
   }
 
-  // 2. Sleep window: she's asleep, schedule for tomorrow morning.
-  // The window may or may not cross midnight depending on configuration:
-  //   23:30-07:30 (cross-midnight): use OR
-  //   01:00-07:30 (same-day):       use AND
-  const hourNow = hourFloatInTz(now, tz);
-  const inSleepWindow =
-    SLEEP_START_HOUR > SLEEP_END_HOUR
-      ? hourNow >= SLEEP_START_HOUR || hourNow < SLEEP_END_HOUR
-      : hourNow >= SLEEP_START_HOUR && hourNow < SLEEP_END_HOUR;
-  if (inSleepWindow) {
-    const wakeAt = nextWakeTime(now, tz);
-    const delay = wakeAt.getTime() - now.getTime();
-    // Sanity floor: if computation lands within the next minute (DST quirk),
-    // bump to at least a few minutes so she "wakes up properly".
-    return clampMs(delay, 3 * 60_000, HARD_CAP_MS);
+  // 2. Asleep: schedule for tomorrow morning's wake-up.
+  if (bedtime.phase === "asleep") {
+    const delay = bedtime.wakeAfter.getTime() - now.getTime();
+    return {
+      delayMs: clampMs(delay, 3 * 60_000, HARD_CAP_MS),
+      bedtimePhase: "asleep",
+      minutesUntilBedtime: null,
+    };
   }
 
   // 3. Engagement state from peerLastReplyAt.
@@ -260,9 +222,24 @@ export function computeReplyDelayMs(opts: PacingInput): number {
   const readingBonus = Math.min(userChars * 30, 2500);
 
   // 7. Mild jitter ±10% so two consecutive replies never share a delay.
-  const total = (raw + typingBonus + readingBonus) * (0.9 + Math.random() * 0.2);
+  let total = (raw + typingBonus + readingBonus) * (0.9 + Math.random() * 0.2);
 
-  return clampMs(total, 5_000, HARD_CAP_MS);
+  // 8. Approaching-bedtime clamp: if her bedtime is within the next hour,
+  // ensure the reply lands at least 60s before bedtime so the goodnight
+  // message has time to land before she "drops her phone". Without this
+  // clamp a 25-min COLD reply scheduled at 03:20 (bedtime 03:30) would
+  // either crowd or skip past bedtime entirely.
+  if (bedtime.phase === "approaching") {
+    const msUntilBed = bedtime.bedtime.getTime() - now.getTime();
+    const maxBeforeBed = Math.max(15_000, msUntilBed - 60_000);
+    if (total > maxBeforeBed) total = maxBeforeBed;
+  }
+
+  return {
+    delayMs: clampMs(total, 5_000, HARD_CAP_MS),
+    bedtimePhase: bedtime.phase,
+    minutesUntilBedtime: bedtime.minutesUntilBedtime,
+  };
 }
 
 export function sleep(ms: number): Promise<void> {

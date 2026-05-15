@@ -281,6 +281,13 @@ export type BuildPromptOptions = {
   turnIndex?: number;
   /** Time since the user's previous message, in ms (undefined on first turn). */
   userSilenceMs?: number;
+  /** Bedtime phase relative to her tonight's randomised bedtime. When
+   * "approaching", the prompt asks for a warm goodnight reply that ends
+   * the conversation till tomorrow. When "asleep" (rare — usually replies
+   * are scheduled for morning), tells her she just woke up. */
+  bedtimePhase?: "awake" | "approaching" | "asleep";
+  /** Minutes until bedtime when bedtimePhase === "approaching", else null. */
+  minutesUntilBedtime?: number | null;
 };
 
 /**
@@ -377,6 +384,25 @@ export function buildGrokSystemPrompt(
     bits.push(`- Tussen haar vorige bericht en dit nieuwe zat: ${silence}. Reageer daar passend op (niet zeurig, wel oprecht).`);
   }
   bits.push(`- Fase van het gesprek: ${stage}.`);
+
+  // Bedtime context: when she's about to go to bed in real life, her last
+  // reply of the night should warmly close the conversation and suggest
+  // continuing tomorrow. When she just woke up (rare — usually scheduled
+  // morning replies get this when delivered), we let her acknowledge that
+  // briefly so the timing makes sense.
+  if (opts.bedtimePhase === "approaching") {
+    const minutesText =
+      typeof opts.minutesUntilBedtime === "number" && opts.minutesUntilBedtime > 0
+        ? `over zo'n ${opts.minutesUntilBedtime} minuten`
+        : "over een paar minuten";
+    bits.push(
+      `- Slaaptijd: je gaat ${minutesText} naar bed. Dit is je laatste bericht van vanavond. Sluit warm af, laat haar voelen dat je je verheugt op morgen, en zeg natuurlijk welterusten ("ik ga zo slapen, spreken we morgen weer?" of iets in jouw eigen stem). Niet abrupt, niet formeel — gewoon zoals jij dat zou doen tegen iemand die je leuk vindt. Verzin geen wekkertijd of plan.`,
+    );
+  } else if (opts.bedtimePhase === "asleep") {
+    bits.push(
+      "- Je bent net wakker. Haar bericht is binnengekomen terwijl je sliep. Reageer alsof je net je telefoon checkt — kort, warm, zonder uitgebreid uit te leggen waarom je traag was. Een terloopse \"goeiemorgen\" of \"net wakker\" mag, maar dwing het niet.",
+    );
+  }
 
   bits.push("");
   bits.push(

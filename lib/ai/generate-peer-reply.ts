@@ -25,9 +25,18 @@ import {
   isDraftReviseEnabled,
   reviseDraftIfWorthIt,
 } from "@/lib/ai/draft-revise";
+import { getBedtimeContext } from "@/lib/ai/bedtime";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
+
+function personaTimeZone(profile: ChatProfileRow): string {
+  const env = process.env.PERSONA_DEFAULT_TZ?.trim();
+  if (env) return env;
+  const city = (profile.city ?? "").toLowerCase();
+  if (city) return "Europe/Amsterdam";
+  return "Europe/Amsterdam";
+}
 
 export type GeneratePeerReplyResult =
   | {
@@ -159,11 +168,33 @@ export async function generatePeerReply(
       ? triggerUserAt - priorUserAt
       : null;
 
+  // Determine bedtime phase at *delivery time* (not at queue time) so that a
+  // pending reply scheduled an hour ago picks up an updated phase if she's
+  // since crossed bedtime, and so the goodnight tone always matches reality.
+  const peerLastReplyAtForBedtime = (() => {
+    for (let i = args.history.length - 1; i >= 0; i--) {
+      if (args.history[i].sender === "peer") {
+        const t = new Date(args.history[i].created_at);
+        if (!Number.isNaN(t.getTime())) return t;
+        return null;
+      }
+    }
+    return null;
+  })();
+  const bedtime = getBedtimeContext({
+    now: new Date(),
+    timeZone: personaTimeZone(args.profile),
+    personaId: args.peerId,
+    peerLastReplyAt: peerLastReplyAtForBedtime,
+  });
+
   const system = buildGrokSystemPrompt(args.profile, {
     threadSummary: threadSummaryForPrompt,
     nowLocal: new Date(),
     turnIndex: priorAssistantTurns,
     userSilenceMs: userSilenceMs ?? undefined,
+    bedtimePhase: bedtime.phase,
+    minutesUntilBedtime: bedtime.minutesUntilBedtime,
   });
 
   const tail = sliceRecentDialogue(args.history);

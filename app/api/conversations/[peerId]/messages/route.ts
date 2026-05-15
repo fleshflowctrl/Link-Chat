@@ -8,7 +8,7 @@ import {
 import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
 import { processDuePendingReplies } from "@/lib/ai/pending-replies";
 import {
-  computeReplyDelayMs,
+  computeReplyPacing,
   sleep,
   SYNC_DELAY_THRESHOLD_MS,
 } from "@/lib/ai/reply-pacing";
@@ -236,13 +236,15 @@ export async function POST(
   //    calling Grok). For sync flow we'll re-compute with replyChars after
   //    Grok returns; for async flow the typing-bonus is negligible relative
   //    to the multi-minute pause, so the initial estimate is good enough.
-  const initialDelayMs = computeReplyDelayMs({
+  const initialPacing = computeReplyPacing({
+    personaId: peerId,
     turnIndex: priorAssistantTurns,
     userMessageChars: (text || "").length,
     replyChars: 0,
     nowLocal: new Date(),
     peerLastReplyAt: lastPeerReplyAt(history),
   });
+  const initialDelayMs = initialPacing.delayMs;
 
   let peerMessage: ChatMessage | null = null;
   let nextPendingAt: string | null = null;
@@ -265,7 +267,8 @@ export async function POST(
       // Re-compute target now that we know reply length, so a long reply gets
       // its typing-time bonus. Subtract elapsed Grok time so a slow Grok
       // counts as part of the natural delay.
-      const finalTarget = computeReplyDelayMs({
+      const finalPacing = computeReplyPacing({
+        personaId: peerId,
         turnIndex: priorAssistantTurns,
         userMessageChars: (text || "").length,
         replyChars: result.finalText.length,
@@ -273,7 +276,7 @@ export async function POST(
         peerLastReplyAt: lastPeerReplyAt(history),
       });
       const elapsed = Date.now() - t0;
-      const remaining = Math.max(0, finalTarget - elapsed);
+      const remaining = Math.max(0, finalPacing.delayMs - elapsed);
       if (remaining > 0 && remaining <= SYNC_DELAY_THRESHOLD_MS) {
         await sleep(remaining);
       }
