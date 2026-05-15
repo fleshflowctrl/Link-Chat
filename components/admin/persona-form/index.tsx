@@ -28,7 +28,6 @@ import {
 import { ImageUploadField } from "./image-upload-field";
 import { PersonaSectionCard, PersonaSectionNav, type SectionDef } from "./section-nav";
 import {
-  emptyPersonaFormValues,
   slugify,
   FILTER_TAG_OPTIONS,
   STATUS_OPTIONS,
@@ -39,8 +38,10 @@ import {
   type PhotoStyleForm,
 } from "./types";
 
-export { emptyPersonaFormValues } from "./types";
-export type { PersonaFormValues } from "./types";
+// Note: server pages must import `emptyPersonaFormValues` and the
+// `PersonaFormValues` type directly from "./types" (no "use client"),
+// not via this barrel — re-exporting them from this client module would
+// turn the function into a client-side proxy and crash during SSR.
 
 const SECTIONS: SectionDef[] = [
   { id: "identity", number: 1, label: "Identiteit & foto's", icon: <IdIcon className="h-4 w-4" /> },

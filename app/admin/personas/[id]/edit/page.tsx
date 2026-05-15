@@ -2,11 +2,11 @@ import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
+import { PersonaForm } from "@/components/admin/persona-form";
 import {
-  PersonaForm,
   emptyPersonaFormValues,
   type PersonaFormValues,
-} from "@/components/admin/persona-form";
+} from "@/components/admin/persona-form/types";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { ArchiveIcon } from "@/components/admin/icons";
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { PersonaForm, emptyPersonaFormValues } from "@/components/admin/persona-form";
+import { PersonaForm } from "@/components/admin/persona-form";
+import { emptyPersonaFormValues } from "@/components/admin/persona-form/types";
 import { AdminPageHeader } from "@/components/admin/page-header";
 
 export const dynamic = "force-dynamic";
