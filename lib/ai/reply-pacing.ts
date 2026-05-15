@@ -103,6 +103,34 @@ export const SYNC_DELAY_THRESHOLD_MS = 25_000;
 const HARD_CAP_MS = 9 * 60 * 60_000;
 const HOOK_TURN_LIMIT = 3;
 
+/** Probability she sneaks a phone-glance during work and replies with a
+ * 10-30 min delay (instead of waiting for the next break). Operator
+ * request: "soms tijdens werk wel appen, gewoon 10-30 min eroverheen".
+ * 15% per turn means roughly 1 in 7 work-time messages still gets a
+ * reply during the shift — feels realistic without breaking the
+ * "phone-away during work" mental model.
+ *
+ * Override via env XAI_WORK_SNEAKY_PROBABILITY="0.15" if needed. */
+const WORK_SNEAKY_PROBABILITY = (() => {
+  const raw = process.env.XAI_WORK_SNEAKY_PROBABILITY;
+  if (typeof raw === "string") {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
+  }
+  return 0.15;
+})();
+
+/** Build the prompt hint shown to Grok when the persona is sneaking a
+ * glance during work. Tone: secret, hurried, slightly guilty. */
+function SNEAKY_GLANCE_HINT(localTimeLabel: string): string {
+  return (
+    `- Werk-context: het is ${localTimeLabel} en je werkt eigenlijk nu. ` +
+    `Je kijkt stiekem op je telefoon (mag eigenlijk niet) — schrijf kort en gehaast, ` +
+    `met een gevoel van "ff snel even tussendoor" of "even snel een berichtje voor m'n collega het ziet". ` +
+    `Niet uitgebreid en ook niet alsof je er rustig de tijd voor hebt. Een paar woorden tot één zin, max twee.`
+  );
+}
+
 function isPacingDisabled(): boolean {
   const raw = process.env.XAI_DISABLE_PACING?.trim().toLowerCase();
   if (!raw) return false;
@@ -221,7 +249,33 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   //     into the middle of her workday. Pacing layer alone handles
   //     this; prompt-builder gets the work hint so the eventual reply
   //     references it ("zat in een vergadering" / "tussen lessen door").
+  //
+  // Sneaky-glance exception (operator request: "soms tijdens werk wel
+  // appen, gewoon 10-30 min eroverheen"): with WORK_SNEAKY_PROBABILITY
+  // chance she does sneak a quick look at her phone. We schedule the
+  // reply 10-30 min out (not the next break), and flag the prompt so
+  // the message acknowledges it ("ff snel even tussendoor"). This
+  // makes the work-schedule lever feel realistic instead of robotic
+  // (she's not literally untouchable for 4h every day).
   if (work.phase === "working") {
+    const sneaky = Math.random() < WORK_SNEAKY_PROBABILITY;
+    if (sneaky) {
+      const sneakyDelayMs = (10 + Math.random() * 20) * 60_000; // 10-30 min
+      // Make sure the sneaky reply lands well before the end of shift
+      // — past that we should just wait for end-of-day naturally.
+      const msToShiftEnd = work.nextAvailableAt.getTime() - now.getTime();
+      const cappedSneaky = Math.min(sneakyDelayMs, Math.max(60_000, msToShiftEnd - 60_000));
+      return {
+        delayMs: clampMs(cappedSneaky, 60_000, HARD_CAP_MS),
+        bedtimePhase: bedtime.phase,
+        minutesUntilBedtime: bedtime.minutesUntilBedtime,
+        workPhase: "working",
+        // Override the prompt hint with a sneaky-glance phrasing so
+        // Grok writes "ik kijk eigenlijk niet op werk maar oké, ff snel"
+        // instead of the normal "ik moet zo aan het werk".
+        workPromptHint: SNEAKY_GLANCE_HINT(work.localTimeLabel),
+      };
+    }
     const delay = work.nextAvailableAt.getTime() - now.getTime();
     if (delay > 60_000) {
       return {

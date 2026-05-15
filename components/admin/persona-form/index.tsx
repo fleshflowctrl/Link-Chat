@@ -26,6 +26,7 @@ import {
   MultiCheck,
 } from "./primitives";
 import { ImageUploadField } from "./image-upload-field";
+import { WorkScheduleBadge } from "@/components/admin/work-schedule-badge";
 import { PersonaSectionCard, PersonaSectionNav, type SectionDef } from "./section-nav";
 import {
   slugify,
@@ -285,6 +286,8 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
                   />
                 </Field>
               </div>
+
+              <WorkScheduleBadge occupation={v.occupation} />
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Checkbox

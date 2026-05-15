@@ -335,6 +335,12 @@ export type BuildPromptOptions = {
    * Used for casual back-and-forth turns; suppressed for emotionally
    * heavy or goodnight messages. */
   allowMultiMessage?: boolean;
+  /** Burst-mode hint: when true, prompt instructs Grok to write 4-6
+   * short bubbles (instead of the usual 2-3). This models the real
+   * "she's excited and texts 5 messages in a row" pattern. The pacing
+   * layer schedules the chunks tightly (5-25s apart) so they arrive as
+   * a 1-2 minute waterfall. Implies `allowMultiMessage: true`. */
+  burstMode?: boolean;
   /** Pre-ack hint: when true, Grok knows the FIRST chunk should be a quick
    * reaction ("oh wow", "🥺", "wacht echt?") sent in 5-10s, with the real
    * reply landing as a later chunk. */
@@ -615,7 +621,20 @@ export function buildGrokSystemPrompt(
   // Multi-message instruction — let Grok decide whether the reply naturally
   // splits into 2-3 short bubbles (like real people texting), or stays one
   // message. Output uses an explicit separator the post-processor splits on.
-  if (opts.allowMultiMessage) {
+  if (opts.burstMode) {
+    bits.push("");
+    bits.push(
+      [
+        "Bericht-vorm voor dit antwoord (BURST-MODUS):",
+        "- Je bent ENTHOUSIAST en stuurt dit als een waterval van korte berichtjes — zoals iemand die niet kan stoppen met typen. Splits in 4 tot 6 hele korte bubbels.",
+        "- Elke bubbel is heel kort: een paar woorden, één zin, of een emoji-reactie. Geen lange volzinnen, geen alinea's.",
+        "- De bubbels bouwen op elkaar voort: een gedachte → een toevoeging → een grapje → een vraag → een afsluiter, of soortgelijk. Het mag stream-of-consciousness aanvoelen, alsof je het allemaal tegelijk uittypt.",
+        "- Gebruik tussen elk bericht UITSLUITEND deze separator op een eigen regel: <<<>>>",
+        "- Geen markdown, geen labels, gewoon de korte tekst van elke bubbel met <<<>>> ertussen.",
+        "- Hou het natuurlijk: minimaal 4, maximaal 6 bubbels.",
+      ].join("\n"),
+    );
+  } else if (opts.allowMultiMessage) {
     bits.push("");
     if (opts.preAckMode) {
       bits.push(

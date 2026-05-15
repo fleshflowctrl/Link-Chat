@@ -158,6 +158,51 @@ function decideMultiMessage(args: {
   return Math.random() < (args.emotional ? 0.5 : 0.7);
 }
 
+/** Decide whether this turn should be a "burst" (4-6 fast chunks).
+ *
+ * Operator brief: "soms 2 minuten waarin ze ineens 4 tot 6 berichten in
+ * korte tijd stuurt, het moet extreem realistisch zijn". This models the
+ * real "she's excited and texting 5 short messages in a row" pattern.
+ *
+ * Constraints:
+ *   - Past the hook turns (so the hook itself stays a single warm message)
+ *   - Not bedtime-approaching / asleep (those want a single closure)
+ *   - Not emotional (those want a measured single reply, not a waterfall)
+ *   - Not actively working unless we're in sneaky-glance mode (and even
+ *     then a burst on a sneaky glance feels off — she'd send 1 quick msg)
+ *   - Roughly 1 in 14 turns when conditions are right
+ *
+ * Returns false unless allowMultiMessage already true — burst implies
+ * multi-message.
+ *
+ * Override via env XAI_BURST_PROBABILITY="0.07" if needed. */
+function decideBurstMode(args: {
+  allowMultiMessage: boolean;
+  turnIndex: number;
+  bedtimePhase: "awake" | "approaching" | "asleep";
+  workPhase:
+    | "off"
+    | "approaching_work"
+    | "working"
+    | "break"
+    | "lunch_break"
+    | "ending_work";
+  emotional: boolean;
+}): boolean {
+  if (!args.allowMultiMessage) return false;
+  if (args.turnIndex < 3) return false;
+  if (args.bedtimePhase !== "awake") return false;
+  if (args.workPhase === "working" || args.workPhase === "approaching_work") return false;
+  if (args.emotional) return false;
+  const raw = process.env.XAI_BURST_PROBABILITY;
+  let p = 0.07;
+  if (typeof raw === "string") {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0 && n <= 1) p = n;
+  }
+  return Math.random() < p;
+}
+
 export type GeneratePeerReplyResult =
   | {
       ok: true;
@@ -388,6 +433,16 @@ export async function generatePeerReply(
       bedtimePhase: bedtime.phase,
       emotional,
     });
+  // Burst-mode: small chance of 4-6 chunks in 1-2 min, when conditions
+  // are right. Implies allowMultiMessage so the prompt-builder gets the
+  // separator instructions even if multi was rolled false.
+  const burstMode = decideBurstMode({
+    allowMultiMessage,
+    turnIndex: priorAssistantTurns,
+    bedtimePhase: bedtime.phase,
+    workPhase: workCtx.phase,
+    emotional,
+  });
 
   // ----- Build prompt -----
   const system = buildGrokSystemPrompt(args.profile, {
@@ -401,7 +456,9 @@ export async function generatePeerReply(
     daysActive,
     bannedPhrases,
     structuredFacts: hasAnyFacts(structured.facts) ? structured.facts : null,
-    allowMultiMessage,
+    // Burst implies multi.
+    allowMultiMessage: allowMultiMessage || burstMode,
+    burstMode,
     preAckMode: false, // pre-ack support reserved for a follow-up
   });
 
@@ -477,7 +534,11 @@ export async function generatePeerReply(
   }
 
   // ----- Multi-message split + post-process -----
-  const rawChunks = allowMultiMessage ? splitMultiMessage(draftText) : [draftText];
+  // Burst-mode raises the cap from 4 to 6 so an excited 5-bubble
+  // waterfall isn't folded back into 3.
+  const rawChunks = (allowMultiMessage || burstMode)
+    ? splitMultiMessage(draftText, burstMode ? 6 : 4)
+    : [draftText];
 
   // Photo directives can appear in any chunk. We extract them up front
   // so the visible chunk text stays clean, and we collect the scenes
@@ -628,7 +689,13 @@ export async function generatePeerReply(
       // Next text chunk (skip i=0, that's already inserted as peer message).
       if (i + 1 < cleanedChunks.length) {
         const text = cleanedChunks[i + 1];
-        const inter = Math.min(8000, 2000 + Math.random() * 3000 + Math.min(text.length * 50, 4000));
+        // Burst mode: 5-25s per gap so 4-6 chunks land in 1-2 minutes
+        // total — that's the "extreem realistisch" waterfall feel the
+        // operator asked for. Regular mode: 2-8s gap with a small
+        // text-length bonus, so 2-3 chunks feel naturally spaced out.
+        const inter = burstMode
+          ? 5000 + Math.random() * 20_000
+          : Math.min(8000, 2000 + Math.random() * 3000 + Math.min(text.length * 50, 4000));
         cursor += inter;
         rowsToInsert.push({
           owner_user_id: args.ownerUserId,

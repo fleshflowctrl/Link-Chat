@@ -769,3 +769,116 @@ function categoryFallbackLabel(c: OccupationCategory): string {
       return "aan het werk";
   }
 }
+
+/** ---------------------------- admin display ------------------------ */
+
+export type ScheduleSummary = {
+  category: OccupationCategory;
+  /** Display label for the category, in Dutch. */
+  categoryLabel: string;
+  /** Human-readable workdays, e.g. "Ma-Vr". */
+  workDaysLabel: string;
+  /** Per-shift summary, one line per shift block. */
+  shifts: Array<{
+    hoursLabel: string; // "08:15 – 15:45"
+    breaksLabel: string; // "ochtendpauze 10:25 (15 min) · lunch 12:00 (30 min)"
+  }>;
+  /** True when the persona has no schedule (always available). */
+  isFlexible: boolean;
+  /** Short "phone behaviour" line for the admin UI tooltip. */
+  phoneHint: string;
+};
+
+const DOW_NL = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"] as const;
+
+function formatHour(h: number): string {
+  const hours = Math.floor(h);
+  const mins = Math.round((h - hours) * 60);
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+function formatWorkDays(days: ReadonlyArray<number>): string {
+  if (days.length === 0) return "—";
+  // Find consecutive runs.
+  const sorted = [...days].sort();
+  const runs: Array<[number, number]> = [];
+  let runStart = sorted[0]!;
+  let runEnd = sorted[0]!;
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === runEnd + 1) {
+      runEnd = sorted[i]!;
+    } else {
+      runs.push([runStart, runEnd]);
+      runStart = sorted[i]!;
+      runEnd = sorted[i]!;
+    }
+  }
+  runs.push([runStart, runEnd]);
+  return runs
+    .map(([a, b]) =>
+      a === b ? DOW_NL[a] : `${DOW_NL[a]}-${DOW_NL[b]}`,
+    )
+    .join(", ");
+}
+
+const PHONE_HINT_BY_CATEGORY: Record<OccupationCategory, string> = {
+  school_teacher:
+    "Telefoon ligt weg tijdens lesgeven; reageert vooral in pauzes en na school.",
+  healthcare_dayshift:
+    "Geen telefoon op de werkvloer; reageert in koffie- en lunchpauzes.",
+  office_hours:
+    "Snel even tussen meetings door, vooral lunch en koffiepauzes.",
+  retail_horeca:
+    "Reageert tussen klanten door of in pauze; avonden vaak werken.",
+  student:
+    "Tussen colleges door wel beschikbaar; vrije ochtenden of middagen ook.",
+  freelance_creative:
+    "Flexibel beschikbaar, behalve in een deep-work blok middags.",
+  fitness_active:
+    "Tussen lesblokken door bereikbaar (ochtend + avond shift).",
+  flexible: "Geen vast werkschema — bijna altijd beschikbaar.",
+};
+
+/** Build a Dutch-language summary of the schedule for a given occupation
+ * string. Used by the admin persona-form to show the operator what
+ * chat-tijden de pacing-laag eruit zal halen. */
+export function describeSchedule(
+  occupation: string | null | undefined,
+): ScheduleSummary {
+  const category = classifyOccupation(occupation);
+  const schedule = SCHEDULE_BY_CATEGORY[category];
+  const categoryLabel = categoryFallbackLabel(category);
+  const phoneHint = PHONE_HINT_BY_CATEGORY[category];
+
+  if (!schedule) {
+    return {
+      category,
+      categoryLabel,
+      workDaysLabel: "—",
+      shifts: [],
+      isFlexible: true,
+      phoneHint,
+    };
+  }
+
+  return {
+    category,
+    categoryLabel,
+    workDaysLabel: formatWorkDays(schedule.workDays),
+    shifts: schedule.shifts.map((s) => ({
+      hoursLabel: `${formatHour(s.startHour)} – ${formatHour(s.endHour)}`,
+      breaksLabel: [
+        ...(s.shortBreaks ?? []).map(
+          (b) => `pauze ${formatHour(b.atHour)} (${b.durationMin} min)`,
+        ),
+        ...(s.lunchBreak
+          ? [
+              `lunch ${formatHour(s.lunchBreak.atHour)} (${s.lunchBreak.durationMin} min)`,
+            ]
+          : []),
+      ].join(" · ") || "geen vaste pauzes",
+    })),
+    isFlexible: false,
+    phoneHint,
+  };
+}

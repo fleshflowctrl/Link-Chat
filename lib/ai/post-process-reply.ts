@@ -47,19 +47,25 @@ const MULTI_SPLIT_RE = /\n*\s*<<<>>>\s*\n*/g;
 
 /** Split a Grok reply into 1-N chat bubbles. The model is told to use
  * `<<<>>>` on its own line to separate bubbles. We tolerate surrounding
- * whitespace. Empty chunks are dropped. Output array preserves order. */
-export function splitMultiMessage(raw: string): string[] {
+ * whitespace. Empty chunks are dropped. Output array preserves order.
+ *
+ * @param maxChunks Hard cap on how many bubbles to emit. Defaults to 4
+ *   (the regular casual-multi mode). Pass 6 in burst mode so a "I'm
+ *   excited and texting 5 short messages in a row" reply isn't folded.
+ *   Anything beyond the cap is concatenated into the last bubble. */
+export function splitMultiMessage(raw: string, maxChunks = 4): string[] {
   if (!raw) return [];
   const parts = raw
     .split(MULTI_SPLIT_RE)
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
   if (parts.length === 0) return [raw.trim()].filter((p) => p.length > 0);
+  const cap = Math.max(1, Math.floor(maxChunks));
   // Safety: if Grok went wild and produced too many chunks, fold extras
   // into the last bubble so we don't spam the user.
-  if (parts.length > 4) {
-    const head = parts.slice(0, 3);
-    const tail = parts.slice(3).join(" ");
+  if (parts.length > cap) {
+    const head = parts.slice(0, cap - 1);
+    const tail = parts.slice(cap - 1).join(" ");
     return [...head, tail];
   }
   return parts;
