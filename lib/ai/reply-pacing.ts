@@ -6,22 +6,30 @@
  * 30 seconds during an active conversation, sometimes after 20 minutes ("ik
  * was ff weg"), sometimes hours (sleep, work, life). We model that here.
  *
+ * Volume-first design: monetisation scales with messages-per-day, so we
+ * lean toward short intervals across the board. A real, *interested* match
+ * texts a lot. Long pauses exist (sleep, occasional life-happens moment) but
+ * are rare and the distributions are heavily front-loaded toward seconds-
+ * and-low-minutes territory.
+ *
  * Strategy (in priority order):
  *   1. **Hook** — first 3 turns are always snappy (0.6-1.8s). She just opened
  *      your chat, she's excited, replies are quick. This is the engagement
  *      hook and we never override it.
- *   2. **Sleep window** — between 23:30 and 07:30 in the persona's local
+ *   2. **Sleep window** — between 01:00 and 07:30 in the persona's local
  *      timezone she's almost certainly asleep. Schedule the reply for the
- *      next morning between 07:45 and 09:30 (random per row).
+ *      next morning between 07:30 and 09:00. Window is intentionally tight:
+ *      Dutch dating-app match behaviour is "stays up texting till 1am".
  *   3. **Engagement state** — based on how recently SHE last replied:
- *      - HOT  (<5min): she's still in the chat tab. Most replies 20s-3min.
- *      - WARM (5-30min): she's around but multitasking. Mostly 1-15min.
- *      - COLD (30min+ / first reply): she has to "come back". Mostly 5-45min,
- *        with occasional hour-long pauses.
+ *      - HOT  (<5min): she's still in the chat tab. ~80% under 60s.
+ *      - WARM (5-30min): she's around but multitasking. ~65% under 2min.
+ *      - COLD (30min+ / first reply): she has to "come back". ~85% under
+ *        12min, with a small tail up to ~90min for true "I was busy"
+ *        moments. No more multi-hour cold pauses.
  *   4. **Length-aware adjustment** — long replies (longer to type) get a
  *      small bonus delay; very short replies stay snappy.
  *
- * The output can be anywhere from a few hundred ms to several hours. The
+ * The output can be anywhere from a few hundred ms to a few hours. The
  * caller decides how to deliver:
  *   - delay <= SYNC_DELAY_THRESHOLD_MS: hold HTTP response open and reply
  *     in-line (current synchronous path)
@@ -52,18 +60,21 @@ export type PacingInput = {
  * `maxDuration` and well under typical serverless timeouts. */
 export const SYNC_DELAY_THRESHOLD_MS = 25_000;
 
-/** Upper bound on any single delay. 12h covers full overnight sleep cycles
- * (e.g. message at 23:30 → reply ~08:30 next morning) but prevents pathological
- * values from leaking through. Awake-hour distributions never reach this. */
-const HARD_CAP_MS = 12 * 60 * 60_000;
+/** Upper bound on any single delay. 9h covers a full overnight sleep cycle
+ * (e.g. message at 00:30 → reply ~08:30 next morning) but caps any
+ * pathological non-sleep value at "obviously too long for a dating chat". */
+const HARD_CAP_MS = 9 * 60 * 60_000;
 const HOOK_TURN_LIMIT = 3;
 
-/** Sleep window in 24h decimal hours (persona-local). 23:30 - 07:30. */
-const SLEEP_START_HOUR = 23.5;
+/** Sleep window in 24h decimal hours (persona-local). 01:00 - 07:30 — tight
+ * by design so personas chat through the late evening into early morning
+ * (peak monetisation hours). */
+const SLEEP_START_HOUR = 1.0;
 const SLEEP_END_HOUR = 7.5;
-/** When she "wakes up", reply lands between these hours (random per row). */
-const WAKE_HOUR_MIN = 7.75;
-const WAKE_HOUR_MAX = 9.5;
+/** When she "wakes up", reply lands between these hours (random per row).
+ * Leans early so users who messaged her overnight get a fast morning reply. */
+const WAKE_HOUR_MIN = 7.5;
+const WAKE_HOUR_MAX = 9.0;
 
 function isPacingDisabled(): boolean {
   const raw = process.env.XAI_DISABLE_PACING?.trim().toLowerCase();
@@ -192,8 +203,14 @@ export function computeReplyDelayMs(opts: PacingInput): number {
   }
 
   // 2. Sleep window: she's asleep, schedule for tomorrow morning.
+  // The window may or may not cross midnight depending on configuration:
+  //   23:30-07:30 (cross-midnight): use OR
+  //   01:00-07:30 (same-day):       use AND
   const hourNow = hourFloatInTz(now, tz);
-  const inSleepWindow = hourNow >= SLEEP_START_HOUR || hourNow < SLEEP_END_HOUR;
+  const inSleepWindow =
+    SLEEP_START_HOUR > SLEEP_END_HOUR
+      ? hourNow >= SLEEP_START_HOUR || hourNow < SLEEP_END_HOUR
+      : hourNow >= SLEEP_START_HOUR && hourNow < SLEEP_END_HOUR;
   if (inSleepWindow) {
     const wakeAt = nextWakeTime(now, tz);
     const delay = wakeAt.getTime() - now.getTime();
@@ -209,27 +226,28 @@ export function computeReplyDelayMs(opts: PacingInput): number {
       : Number.POSITIVE_INFINITY;
   const mode = engagementMode(peerInactiveMs);
 
-  // 4. Mode-based weighted distribution. Numbers are minutes for readability.
+  // 4. Mode-based weighted distribution. Volume-first: most replies land in
+  // tens-of-seconds to a few minutes. Longer pauses exist for realism but
+  // are rare. Numbers chosen so an average day yields many short exchanges.
   let raw: number;
   if (mode === "hot") {
     raw = pickWeighted([
-      [70, rng(20_000, 90_000)],         // 70%: 20-90s
-      [22, rng(90_000, 240_000)],        // 22%: 1.5-4 min
-      [8,  rng(240_000, 600_000)],       // 8%:  4-10 min
+      [80, rng(15_000, 60_000)],         // 80%: 15-60s — active back-and-forth
+      [17, rng(60_000, 180_000)],        // 17%: 1-3 min — brief distraction
+      [3,  rng(180_000, 420_000)],       // 3%:  3-7 min — phone-down moment
     ]);
   } else if (mode === "warm") {
     raw = pickWeighted([
-      [40, rng(60_000, 180_000)],        // 40%: 1-3 min
-      [35, rng(180_000, 600_000)],       // 35%: 3-10 min
-      [20, rng(600_000, 1_800_000)],     // 20%: 10-30 min
-      [5,  rng(1_800_000, 3_600_000)],   // 5%:  30-60 min
+      [65, rng(30_000, 120_000)],        // 65%: 30s-2min — back to the chat
+      [28, rng(120_000, 480_000)],       // 28%: 2-8 min — multitasking
+      [7,  rng(480_000, 1_200_000)],     // 7%:  8-20 min — got pulled away
     ]);
   } else {
     raw = pickWeighted([
-      [30, rng(120_000, 300_000)],       // 30%: 2-5 min
-      [30, rng(300_000, 1_200_000)],     // 30%: 5-20 min
-      [30, rng(1_200_000, 3_600_000)],   // 30%: 20-60 min
-      [10, rng(3_600_000, 4 * 3_600_000)], // 10%: 1-4h
+      [55, rng(60_000, 240_000)],        // 55%: 1-4 min — comes back fast
+      [30, rng(240_000, 720_000)],       // 30%: 4-12 min — was elsewhere
+      [13, rng(720_000, 1_800_000)],     // 13%: 12-30 min — busy moment
+      [2,  rng(1_800_000, 5_400_000)],   // 2%:  30-90 min — true "I was busy"
     ]);
   }
 
