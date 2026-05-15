@@ -406,14 +406,17 @@ export function buildPersonaPhotoPrompt(args: {
   promptParts.push(bodyAnchors.positive);
 
   // If the scene description contains explicit nude keywords, override
-  // the persona's normal "wearing X" style so the model actually generates
-  // nudity instead of the default outfit.
+  // the persona's normal "wearing X" style and force full visible nudity.
   const isExplicitNude =
-    /naakt|naakte|naaktfoto|topless|bloot|naakt.*bed|naakt.*spiegel|naakt.*liggend|naakt.*knie/i.test(
+    /naakt|naakte|naaktfoto|topless|bloot|kutje|kut|kutje zichtbaar|borsten zichtbaar|gespreid|naakt.*bed|naakt.*spiegel|naakt.*liggend|naakt.*knie/i.test(
       cleanScene,
     );
   if (isExplicitNude) {
-    promptParts.push("completely nude, no clothes, bare skin, naked body");
+    promptParts.push(
+      "completely nude, no clothes at all, bare skin, full frontal nudity, " +
+        "breasts fully visible with nipples, vagina/pussy clearly visible and exposed, " +
+        "legs spread wide, explicit nudity, no hands covering breasts or vagina",
+    );
   } else {
     promptParts.push(`wearing ${style}`);
   }
@@ -495,7 +498,9 @@ export function buildPersonaPhotoPrompt(args: {
     "shallow depth of field, bokeh background, blurred background, " +
     "stylish outfit, fashion outfit, designer clothing, dressed up, " +
     "full makeup, contoured face, styled hair, blow-dry, " +
-    "duplicate person, multiple women, twins, identical twins";
+    "duplicate person, multiple women, twins, identical twins, " +
+    // anti-clothing (especially important for explicit nudes)
+    "wearing clothes, shirt, top, jeans, pants, bra, panties, underwear, dress, jacket, hoodie, leggings, skirt, clothing, dressed, partially clothed";
   const negParts = [baseNegative];
   if (anchors.negative) negParts.push(anchors.negative);
   if (bodyAnchors.negative) negParts.push(bodyAnchors.negative);
