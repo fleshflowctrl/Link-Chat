@@ -3,8 +3,9 @@
 /**
  * Auto-generate personas card.
  *
- * The flow runs in two phases per persona because Vercel caps function
- * duration well below what Z-Image-Turbo cold-starts can take:
+ * The flow runs in three phases per persona because Vercel caps function
+ * duration well below what Z-Image-Turbo cold-starts can take, and
+ * because each persona needs more than just a face to feel real:
  *
  *   Phase 1 (per persona, ~5-15s) — POST /api/admin/personas/generate-one
  *     Grok writes the profile, we upload an initials placeholder avatar,
@@ -16,9 +17,18 @@
  *     limited the call fails, the persona keeps her initials avatar,
  *     and the operator can retry from her edit page.
  *
- * The UI shows both phases per persona. Phase 1 errors mark the persona
- * as failed; phase 2 errors are non-blocking (the persona is still
- * created, just without a real photo).
+ *   Phase 3 (per persona, GALLERY_TARGET × ~10-30s warm)
+ *     — POST /api/admin/personas/{id}/append-gallery-photo
+ *     Three additional photos: full-body, candid, activity shots, all
+ *     using the persona's photo_style.seed so the same face appears in
+ *     different scenes. Each call appends one URL to gallery_urls;
+ *     errors are non-blocking. A profile feels empty without ≥3 extra
+ *     photos so the discovery feed and profile detail page expect
+ *     at least this many.
+ *
+ * The UI shows all three phases per persona. Phase 1 errors mark the
+ * persona as failed; phase 2 + 3 errors are non-blocking (the persona is
+ * still created, just with fewer photos than ideal).
  */
 
 import Image from "next/image";
@@ -28,6 +38,7 @@ import { SparkleIcon, CheckIcon, XIcon, CameraIcon } from "@/components/admin/ic
 
 type ProfileState = "pending" | "running" | "done" | "error";
 type PhotoState = "pending" | "running" | "done" | "error" | "skipped";
+type GalleryState = "pending" | "running" | "partial" | "done" | "error" | "skipped";
 
 type StepResult = {
   id: string;
@@ -43,14 +54,25 @@ type Step = {
   index: number;
   profileState: ProfileState;
   photoState: PhotoState;
+  galleryState: GalleryState;
+  /** how many gallery photos we've successfully appended so far */
+  galleryDone: number;
+  /** total gallery photos this batch is targeting (typically GALLERY_TARGET) */
+  galleryTarget: number;
   result?: StepResult;
   realAvatarUrl?: string;
   profileError?: string;
   photoError?: string;
+  galleryError?: string;
   warning?: string;
 };
 
-type Phase = "idle" | "running-profiles" | "running-photos" | "done";
+type Phase =
+  | "idle"
+  | "running-profiles"
+  | "running-photos"
+  | "running-gallery"
+  | "done";
 type Attractiveness = "striking" | "average" | "plain";
 type BodyType = "slim" | "average" | "plus";
 
@@ -60,6 +82,10 @@ const AGE_FLOOR = 18;
 // 80 so seniors stay reachable. The diffusion + Grok pipeline both
 // support it; the upper cap is purely a safeguard against typos.
 const AGE_CEILING = 80;
+// Discovery feed + profile detail expect ≥3 extra photos beyond the
+// avatar. Generating fewer makes the gallery look like the avatar
+// repeated and breaks the realism the operator is investing in.
+const GALLERY_TARGET = 3;
 
 const ATTRACTIVENESS_OPTIONS: Array<{
   id: Attractiveness;
@@ -149,6 +175,9 @@ export function BulkGenerateCard() {
       index: i,
       profileState: "pending",
       photoState: withPhotos ? "pending" : "skipped",
+      galleryState: withPhotos ? "pending" : "skipped",
+      galleryDone: 0,
+      galleryTarget: withPhotos ? GALLERY_TARGET : 0,
     }));
     setSteps(initial);
     setPhase("running-profiles");
@@ -197,6 +226,7 @@ export function BulkGenerateCard() {
           patchStep(i, {
             profileState: "error",
             photoState: "skipped",
+            galleryState: "skipped",
             profileError: data.error ?? `HTTP ${res.status}`,
           });
           continue;
@@ -214,15 +244,16 @@ export function BulkGenerateCard() {
         patchStep(i, {
           profileState: "error",
           photoState: "skipped",
+          galleryState: "skipped",
           profileError: e instanceof Error ? e.message : String(e),
         });
       }
     }
 
-    // Phase 2: photos. Sequential calls so the HF Space cold-starts on
-    // the first call and reuses the warm worker for the rest (5-15s
-    // per call instead of 60-90s). Each call has its own 60s server
-    // budget — failures are non-blocking, the persona keeps her
+    // Phase 2: avatar photos. Sequential calls so the HF Space cold-
+    // starts on the first call and reuses the warm worker for the rest
+    // (5-15s per call instead of 60-90s). Each call has its own 60s
+    // server budget — failures are non-blocking, the persona keeps her
     // initials avatar.
     if (withPhotos && successList.length > 0 && !abortRef.current) {
       setPhase("running-photos");
@@ -280,6 +311,75 @@ export function BulkGenerateCard() {
       }
     }
 
+    // Phase 3: gallery photos. GALLERY_TARGET extra shots per persona
+    // using the gallery-kind scene templates (full-body, candid,
+    // activity). All share the persona's photo_style.seed so the same
+    // face appears in different scenes — that's what makes the gallery
+    // feel like a real person's photo roll instead of one selfie
+    // copy-pasted six times. Each photo is its own 60s function call;
+    // failures are non-blocking and we still mark `partial` if at
+    // least one succeeded.
+    if (withPhotos && successList.length > 0 && !abortRef.current) {
+      setPhase("running-gallery");
+      const galleryBatchOffset = Math.floor(Math.random() * 1000);
+      for (const { index: i, persona } of successList) {
+        if (abortRef.current) {
+          patchStep(i, { galleryState: "skipped" });
+          continue;
+        }
+        patchStep(i, { galleryState: "running" });
+        let success = 0;
+        let lastError: string | undefined;
+        for (let g = 0; g < GALLERY_TARGET; g++) {
+          if (abortRef.current) break;
+          try {
+            const res = await fetch(
+              `/api/admin/personas/${encodeURIComponent(persona.id)}/append-gallery-photo`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  // Per-persona variant offset so the 3 photos in this
+                  // persona's gallery roll 3 distinct templates, and
+                  // different personas in the batch don't all start at
+                  // template 0.
+                  variant: galleryBatchOffset + i * GALLERY_TARGET + g,
+                }),
+              },
+            );
+            const data: {
+              ok?: boolean;
+              gallery_url?: string;
+              error?: string;
+            } = await res.json().catch(() => ({}));
+
+            if (!res.ok || !data.ok || !data.gallery_url) {
+              lastError = data.error ?? `HTTP ${res.status}`;
+              continue;
+            }
+            success += 1;
+            patchStep(i, { galleryDone: success });
+          } catch (e) {
+            lastError = e instanceof Error ? e.message : String(e);
+          }
+        }
+        if (success >= GALLERY_TARGET) {
+          patchStep(i, { galleryState: "done", galleryDone: success });
+        } else if (success > 0) {
+          patchStep(i, {
+            galleryState: "partial",
+            galleryDone: success,
+            galleryError: lastError,
+          });
+        } else {
+          patchStep(i, {
+            galleryState: "error",
+            galleryError: lastError ?? "Onbekende fout",
+          });
+        }
+      }
+    }
+
     setPhase("done");
     router.refresh();
   }
@@ -299,7 +399,13 @@ export function BulkGenerateCard() {
   const profilesError = steps.filter((s) => s.profileState === "error").length;
   const photosDone = steps.filter((s) => s.photoState === "done").length;
   const photosError = steps.filter((s) => s.photoState === "error").length;
-  const isRunning = phase === "running-profiles" || phase === "running-photos";
+  const galleryDoneFull = steps.filter((s) => s.galleryState === "done").length;
+  const galleryDonePartial = steps.filter((s) => s.galleryState === "partial").length;
+  const galleryError = steps.filter((s) => s.galleryState === "error").length;
+  const isRunning =
+    phase === "running-profiles" ||
+    phase === "running-photos" ||
+    phase === "running-gallery";
 
   return (
     <section className="mb-5 overflow-hidden rounded-2xl border border-black/5 bg-gradient-to-br from-white via-lavender/30 to-white shadow-sm">
@@ -495,15 +601,19 @@ export function BulkGenerateCard() {
                 {phase === "running-profiles"
                   ? `Fase 1 — profielen schrijven · ${profilesDone}/${steps.length}`
                   : phase === "running-photos"
-                    ? `Fase 2 — foto's renderen · ${photosDone}/${profilesDone}`
-                    : `Klaar — ${profilesDone} profielen, ${photosDone} foto's${
-                        profilesError + photosError > 0
-                          ? ` · ${profilesError + photosError} fouten`
-                          : ""
-                      }`}
+                    ? `Fase 2 — avatars renderen · ${photosDone}/${profilesDone}`
+                    : phase === "running-gallery"
+                      ? `Fase 3 — galerij (${GALLERY_TARGET} extra foto's per persona) · ${galleryDoneFull}/${profilesDone}`
+                      : `Klaar — ${profilesDone} profielen, ${photosDone} avatars, ${galleryDoneFull}/${profilesDone} volledige galerijen${
+                          profilesError + photosError + galleryError > 0
+                            ? ` · ${profilesError + photosError + galleryError} fouten`
+                            : galleryDonePartial > 0
+                              ? ` · ${galleryDonePartial} gedeeltelijk`
+                              : ""
+                        }`}
               </p>
               <p className="text-[11px] text-gray-500">
-                Foto-fouten zijn niet blokkerend — de persona blijft staan met initialen-avatar.
+                Foto- en galerij-fouten zijn niet blokkerend — de persona blijft staan met initialen-avatar.
               </p>
             </div>
             {isRunning ? (
@@ -592,7 +702,7 @@ function StepRow({ step }: { step: Step }) {
             errorText={step.profileError}
           />
           <Pill
-            label="Foto"
+            label="Avatar"
             icon="camera"
             state={
               step.photoState === "done"
@@ -606,6 +716,34 @@ function StepRow({ step }: { step: Step }) {
                       : "pending"
             }
             errorText={step.photoError}
+          />
+          <Pill
+            label={
+              step.galleryState === "running" ||
+              step.galleryState === "partial" ||
+              step.galleryState === "done"
+                ? `Galerij ${step.galleryDone}/${step.galleryTarget}`
+                : step.galleryState === "error"
+                  ? "Galerij"
+                  : step.galleryState === "skipped"
+                    ? "Galerij"
+                    : "Galerij"
+            }
+            icon="camera"
+            state={
+              step.galleryState === "done"
+                ? "done"
+                : step.galleryState === "partial"
+                  ? "running"
+                  : step.galleryState === "running"
+                    ? "running"
+                    : step.galleryState === "error"
+                      ? "error"
+                      : step.galleryState === "skipped"
+                        ? "skipped"
+                        : "pending"
+            }
+            errorText={step.galleryError}
           />
         </div>
 

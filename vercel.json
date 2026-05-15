@@ -4,6 +4,9 @@
     "app/api/admin/personas/[id]/regenerate-photo/route.ts": {
       "maxDuration": 60
     },
+    "app/api/admin/personas/[id]/append-gallery-photo/route.ts": {
+      "maxDuration": 60
+    },
     "app/api/admin/personas/test-photo/route.ts": {
       "maxDuration": 60
     },

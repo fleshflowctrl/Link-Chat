@@ -68,6 +68,9 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
   const [testPhotoUrl, setTestPhotoUrl] = useState<string | null>(null);
   const [testBusy, setTestBusy] = useState(false);
   const [testErr, setTestErr] = useState<string | null>(null);
+  const [galleryBusy, setGalleryBusy] = useState(false);
+  const [galleryProgress, setGalleryProgress] = useState<{ done: number; total: number } | null>(null);
+  const [galleryErr, setGalleryErr] = useState<string | null>(null);
 
   const set = <K extends keyof PersonaFormValues>(key: K, val: PersonaFormValues[K]) => {
     setV((prev) => ({ ...prev, [key]: val }));
@@ -149,6 +152,52 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleGenerateGalleryPhotos(count = 3) {
+    if (!v.id || mode !== "edit") return;
+    setGalleryErr(null);
+    setGalleryBusy(true);
+    setGalleryProgress({ done: 0, total: count });
+    const offset = Math.floor(Math.random() * 1000);
+    let lastError: string | null = null;
+    let success = 0;
+    for (let i = 0; i < count; i++) {
+      try {
+        const res = await fetch(
+          `/api/admin/personas/${encodeURIComponent(v.id)}/append-gallery-photo`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ variant: offset + i }),
+          },
+        );
+        const data: {
+          ok?: boolean;
+          gallery_url?: string;
+          gallery_urls?: string[];
+          error?: string;
+        } = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok || !data.gallery_url) {
+          lastError = data.error ?? `HTTP ${res.status}`;
+          continue;
+        }
+        success += 1;
+        setGalleryProgress({ done: success, total: count });
+        if (Array.isArray(data.gallery_urls)) {
+          set("gallery_urls", data.gallery_urls);
+        } else {
+          set("gallery_urls", [...v.gallery_urls, data.gallery_url]);
+        }
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+      }
+    }
+    if (success === 0 && lastError) setGalleryErr(lastError);
+    else if (success < count && lastError)
+      setGalleryErr(`${success}/${count} gelukt — laatste fout: ${lastError}`);
+    setGalleryBusy(false);
+    router.refresh();
   }
 
   async function handleGenerateTestPhoto() {
@@ -306,11 +355,11 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
             </div>
           </div>
 
-          <Field label="Galerij" hint="extra foto's op haar profielpagina">
+          <Field label="Galerij" hint="extra foto's op haar profielpagina (min. 3 aanbevolen)">
             <div className="space-y-3">
               {v.gallery_urls.length === 0 ? (
                 <p className="text-xs text-gray-400">
-                  Nog geen foto's. Voeg minimaal 1 toe — dating-app cards voelen leeg
+                  Nog geen foto's. Voeg minimaal 3 toe — dating-app cards voelen leeg
                   zonder galerij.
                 </p>
               ) : (
@@ -333,6 +382,38 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
                   ))}
                 </div>
               )}
+
+              {mode === "edit" && v.id ? (
+                <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-lavender/30 to-white p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-900">
+                        <SparkleIcon className="h-3.5 w-3.5 text-primary" />
+                        AI-galerij genereren
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-gray-600">
+                        Gebruikt haar foto-stijl + seed, zodat alle galerij-foto's
+                        van dezelfde persoon zijn maar in andere settings (full-body,
+                        candid, activiteit). ~10-30s per foto.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateGalleryPhotos(3)}
+                      disabled={galleryBusy}
+                      className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white shadow-pill transition-all hover:bg-primarySoft disabled:opacity-50"
+                    >
+                      {galleryBusy
+                        ? `Genereren… ${galleryProgress?.done ?? 0}/${galleryProgress?.total ?? 3}`
+                        : "Genereer 3 extra foto's"}
+                    </button>
+                  </div>
+                  {galleryErr ? (
+                    <p className="mt-2 text-[11px] text-rose-600">{galleryErr}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <ImageUploadField
                 personaId={v.id}
                 slot="gallery"
