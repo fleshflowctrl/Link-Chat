@@ -36,18 +36,24 @@ const HAIR_COLORS = [
   "donkergrijs haar met grijze plukken",
 ] as const;
 
+// Hair styles — only medium-length (shoulder length) or long. Never
+// pixie cuts, never very short, never bobs above the shoulder. Operator
+// rule: meiden moeten altijd middellang of lang haar hebben.
 const HAIR_STYLES = [
   "schouderlang en steil",
-  "lang met losse golven",
-  "een korte bob",
-  "een hoge slordige knot",
-  "een lage paardenstaart",
-  "in twee vlechtjes",
-  "kort pixie-cut",
-  "krullend en opgebonden",
-  "lang en rommelig samengebonden",
-  "een half-up half-down met knot",
-  "blunt cut net boven de schouders",
+  "schouderlang met lichte golven",
+  "schouderlang en samengebonden in een lage staart",
+  "lang en steil tot halverwege de rug",
+  "lang met losse golven over de schouders",
+  "lang met natuurlijke krullen",
+  "lang en in een hoge slordige knot",
+  "lang en in een lage paardenstaart",
+  "lang en in twee losse vlechten",
+  "lang en in een half-up half-down met knot",
+  "schouderlang en in een half-up clip",
+  "schouderlang met een blunt cut net op de schouders",
+  "lang en losjes opgestoken",
+  "lang en gekruld in een rommelige bun",
 ] as const;
 
 const EYE_COLORS = [
@@ -469,8 +475,8 @@ const HAIR_COLORS_50_TO_64 = [
 const HAIR_COLORS_65PLUS = [
   "grijs haar",
   "wit-grijs haar",
-  "zilvergrijs kort haar",
-  "kort grijs haar met krullen",
+  "zilvergrijs haar",
+  "schouderlang grijs haar met krullen",
   "geverfd lichtbruin haar met grijze uitgroei",
   "donkergrijs haar",
 ] as const;

@@ -394,6 +394,14 @@ export function buildPersonaPhotoPrompt(args: {
   }
   promptParts.push(appearance);
   if (ageHint) promptParts.push(ageHint);
+  // Hard-coded hair length anchor — operator rule: ALL personas must
+  // have medium-length or long hair, never very short / pixie / buzz cut.
+  // This is end-loaded relative to `appearance` so it overrides any
+  // short-hair tokens the diffusion base might commit to from the seed
+  // alone.
+  promptParts.push(
+    "with medium-length to long hair reaching at least to the shoulders or longer, never short hair",
+  );
   if (build) promptParts.push(build);
   promptParts.push(bodyAnchors.positive);
   promptParts.push(`wearing ${style}`);
@@ -459,6 +467,10 @@ export function buildPersonaPhotoPrompt(args: {
     "smooth airbrushed skin, perfect symmetry, perfect composition, " +
     "studio portrait, magazine portrait, fashion editorial, photoshoot, " +
     "professional model pose, posed for camera, glamorous, " +
+    // operator rule: medium or long hair only, never short
+    "short hair, very short hair, pixie cut, buzz cut, shaved head, " +
+    "boy cut, undercut, crew cut, bowl cut, cropped hair, ear-length hair, " +
+    "above the ear hair, extremely short hairstyle, masculine haircut, " +
     // anti-styled / anti-professional — operator wants everyday phone
     // snaps, not curated content
     "professional photo, photoshoot, fashion shoot, model agency shot, " +

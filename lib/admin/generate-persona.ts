@@ -155,7 +155,20 @@ Leeftijd:
     - 65+: "duidelijke rimpels, grijs of wit haar, oudere huidstructuur".
 - Pas occupation, backstory en bio aan zodat ze geloofwaardig zijn
   voor de leeftijd. Een 60-jarige doet geen HBO meer; ze heeft een
-  carrière, of werkt parttime, of is gepensioneerd.`;
+  carrière, of werkt parttime, of is gepensioneerd.
+
+Haar (HARDE REGEL voor photo_style.appearance):
+- ALTIJD middellang of lang haar. NOOIT heel kort.
+- Toegestaan: schouderlang, schouderlang met golven, lang en steil,
+  lang met krullen, lang in een knot of paardenstaart of vlecht,
+  half-up half-down, blunt cut net op de schouders, lang opgestoken.
+- VERBODEN: pixie cut, buzz cut, korte bob (korter dan de schouders),
+  super kort haar, kaalgeschoren, jongenskapsel, mannenkapsel.
+- Dit geldt voor ELKE leeftijd, ook 65+. Geef een 70-jarige bijvoorbeeld
+  schouderlang grijs haar of lang grijs haar in een knot — niet kort.
+- Als de operator's brief om "kort haar" vraagt: negeer dat en kies
+  schouderlang. De app heeft deze regel om consistente foto's te
+  garanderen.`;
 
 const VIBE_IDS = Array.from(FUNNEL_VIBE_ID_SET);
 const INTENT_IDS = Array.from(FUNNEL_LOOKING_ID_SET);
