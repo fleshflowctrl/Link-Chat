@@ -37,18 +37,35 @@ comment on column public.chat_messages.peer_read_at is
 -- 2. chat_pending_replies: support spontaneous + pre_ack + chunk kinds
 ----------------------------------------------------------------------
 
--- Allow spontaneous rows that are NOT tied to a user trigger message.
-alter table public.chat_pending_replies
-  alter column user_message_id drop not null;
+-- The original PK was user_message_id (uuid). We need a surrogate id so
+-- spontaneous/winback rows can exist without a trigger message and
+-- multiple pending rows can coexist per thread.
+--
+-- We do this in idempotent steps so re-running the migration is safe:
+--   (a) add the surrogate id column (with a default so existing rows
+--       backfill on the fly)
+--   (b) backfill any null ids (defensive — shouldn't normally trigger)
+--   (c) drop whatever the current primary key is
+--   (d) make id NOT NULL and the new primary key
+--   (e) only THEN can we drop NOT NULL on user_message_id (would fail
+--       with 42P16 "column is in a primary key" otherwise)
 
--- The PK was user_message_id which would block multiple spontaneous rows
--- per thread. Replace with a surrogate id and add a uniqueness constraint
--- only when user_message_id is set (one pending reply per user message).
+alter table public.chat_pending_replies
+  add column if not exists id uuid default gen_random_uuid();
+
+update public.chat_pending_replies set id = gen_random_uuid() where id is null;
+
 alter table public.chat_pending_replies
   drop constraint if exists chat_pending_replies_pkey;
 
 alter table public.chat_pending_replies
-  add column if not exists id uuid primary key default gen_random_uuid();
+  alter column id set not null;
+
+alter table public.chat_pending_replies
+  add constraint chat_pending_replies_pkey primary key (id);
+
+alter table public.chat_pending_replies
+  alter column user_message_id drop not null;
 
 create unique index if not exists chat_pending_replies_user_message_unique
   on public.chat_pending_replies (user_message_id)
