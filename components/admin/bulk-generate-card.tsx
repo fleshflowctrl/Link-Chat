@@ -3,34 +3,32 @@
 /**
  * Auto-generate personas card.
  *
- * The operator types a count + a one-paragraph brief and clicks Generate.
- * We then loop the count, calling /api/admin/personas/generate-one once
- * per persona. Each call is independent so a single Vercel timeout
- * doesn't kill the whole batch — and we render per-persona progress as
- * we go.
+ * The flow runs in two phases per persona because Vercel caps function
+ * duration well below what Z-Image-Turbo cold-starts can take:
  *
- * Variation in a batch:
- *   - The brief is reused verbatim, but `index`/`total`/`exclude` are
- *     forwarded so Grok knows it should make this persona distinct from
- *     the ones already produced.
- *   - We push every successful id + display_name onto `exclude` before
- *     the next call, so the model can't repeat names.
+ *   Phase 1 (per persona, ~5-15s) — POST /api/admin/personas/generate-one
+ *     Grok writes the profile, we upload an initials placeholder avatar,
+ *     and the row is inserted. Fast and reliable.
  *
- * UX:
- *   - The card stays mounted while running, with a per-persona checklist.
- *   - When done, "Nieuwe batch" resets the form. The personas list is
- *     refreshed via router.refresh() so newly-created personas appear
- *     in the grid below.
- *   - Cancel uses a ref-flag (state would lag a render behind), so the
- *     loop stops between calls instead of mid-API-request.
+ *   Phase 2 (per persona, ~15-90s) — POST /api/admin/personas/{id}/regenerate-photo
+ *     Z-Image-Turbo on Hugging Face Spaces produces the real portrait,
+ *     we upload it and swap avatar_url. If the Space is cold or rate-
+ *     limited the call fails, the persona keeps her initials avatar,
+ *     and the operator can retry from her edit page.
+ *
+ * The UI shows both phases per persona. Phase 1 errors mark the persona
+ * as failed; phase 2 errors are non-blocking (the persona is still
+ * created, just without a real photo).
  */
 
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SparkleIcon, CheckIcon, XIcon } from "@/components/admin/icons";
+import { SparkleIcon, CheckIcon, XIcon, CameraIcon } from "@/components/admin/icons";
 
-type StepState = "pending" | "running" | "done" | "error";
+type ProfileState = "pending" | "running" | "done" | "error";
+type PhotoState = "pending" | "running" | "done" | "error" | "skipped";
+
 type StepResult = {
   id: string;
   display_name: string;
@@ -38,15 +36,21 @@ type StepResult = {
   city: string;
   occupation: string | null;
   avatar_url: string;
+  photo_pending?: boolean;
 };
+
 type Step = {
   index: number;
-  state: StepState;
+  profileState: ProfileState;
+  photoState: PhotoState;
   result?: StepResult;
-  error?: string;
+  realAvatarUrl?: string;
+  profileError?: string;
+  photoError?: string;
   warning?: string;
 };
-type Phase = "idle" | "running" | "done";
+
+type Phase = "idle" | "running-profiles" | "running-photos" | "done";
 
 const MAX_BATCH = 10;
 const MIN_BRIEF_LEN = 8;
@@ -55,23 +59,21 @@ export function BulkGenerateCard() {
   const router = useRouter();
   const [count, setCount] = useState(3);
   const [brief, setBrief] = useState("");
-  const [withAvatar, setWithAvatar] = useState(true);
+  const [withPhotos, setWithPhotos] = useState(true);
   const [phase, setPhase] = useState<Phase>("idle");
   const [steps, setSteps] = useState<Step[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  // Cancel-flag must be a ref — state updates batch and the loop reads
-  // them between awaits, so a state-based abort would lag.
   const abortRef = useRef(false);
 
-  function updateStep(index: number, patch: Partial<Step>) {
+  function patchStep(index: number, patch: Partial<Step>) {
     setSteps((arr) =>
       arr.map((s) => (s.index === index ? { ...s, ...patch } : s)),
     );
   }
 
   async function startBatch() {
-    if (phase === "running") return;
+    if (phase === "running-profiles" || phase === "running-photos") return;
     const trimmedBrief = brief.trim();
     if (trimmedBrief.length < MIN_BRIEF_LEN) {
       setGlobalError(
@@ -85,25 +87,30 @@ export function BulkGenerateCard() {
     const total = Math.max(1, Math.min(MAX_BATCH, count));
     const initial: Step[] = Array.from({ length: total }, (_, i) => ({
       index: i,
-      state: "pending",
+      profileState: "pending",
+      photoState: withPhotos ? "pending" : "skipped",
     }));
     setSteps(initial);
-    setPhase("running");
+    setPhase("running-profiles");
 
+    // Phase 1: profiles. We loop sequentially so Grok sees the full
+    // exclude list of names already used in this batch. We also keep a
+    // local successList so Phase 2 doesn't have to read React state.
     const exclude: string[] = [];
+    const successList: Array<{ index: number; persona: StepResult }> = [];
 
     for (let i = 0; i < total; i++) {
       if (abortRef.current) {
-        // Mark all remaining as cancelled-error so the user sees the abort.
         setSteps((arr) =>
           arr.map((s) =>
-            s.state === "pending" ? { ...s, state: "error", error: "Geannuleerd" } : s,
+            s.profileState === "pending"
+              ? { ...s, profileState: "error", profileError: "Geannuleerd" }
+              : s,
           ),
         );
         break;
       }
-
-      updateStep(i, { state: "running" });
+      patchStep(i, { profileState: "running" });
       try {
         const res = await fetch("/api/admin/personas/generate-one", {
           method: "POST",
@@ -113,7 +120,6 @@ export function BulkGenerateCard() {
             index: i,
             total,
             exclude,
-            with_avatar: withAvatar,
           }),
         });
         const data: {
@@ -124,30 +130,80 @@ export function BulkGenerateCard() {
         } = await res.json().catch(() => ({}));
 
         if (!res.ok || !data.ok || !data.persona) {
-          updateStep(i, {
-            state: "error",
-            error: data.error ?? `HTTP ${res.status}`,
+          patchStep(i, {
+            profileState: "error",
+            photoState: "skipped",
+            profileError: data.error ?? `HTTP ${res.status}`,
           });
           continue;
         }
 
-        updateStep(i, {
-          state: "done",
+        patchStep(i, {
+          profileState: "done",
           result: data.persona,
           warning: data.warning ?? undefined,
         });
+        successList.push({ index: i, persona: data.persona });
         exclude.push(data.persona.id);
         exclude.push(data.persona.display_name);
       } catch (e) {
-        updateStep(i, {
-          state: "error",
-          error: e instanceof Error ? e.message : String(e),
+        patchStep(i, {
+          profileState: "error",
+          photoState: "skipped",
+          profileError: e instanceof Error ? e.message : String(e),
         });
       }
     }
 
+    // Phase 2: photos. Sequential calls so the HF Space cold-starts on
+    // the first call and reuses the warm worker for the rest (5-15s
+    // per call instead of 60-90s). Each call has its own 60s server
+    // budget — failures are non-blocking, the persona keeps her
+    // initials avatar.
+    if (withPhotos && successList.length > 0 && !abortRef.current) {
+      setPhase("running-photos");
+      for (const { index: i, persona } of successList) {
+        if (abortRef.current) {
+          patchStep(i, { photoState: "skipped" });
+          continue;
+        }
+        patchStep(i, { photoState: "running" });
+        try {
+          const res = await fetch(
+            `/api/admin/personas/${encodeURIComponent(persona.id)}/regenerate-photo`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({}),
+            },
+          );
+          const data: {
+            ok?: boolean;
+            avatar_url?: string;
+            error?: string;
+          } = await res.json().catch(() => ({}));
+
+          if (!res.ok || !data.ok || !data.avatar_url) {
+            patchStep(i, {
+              photoState: "error",
+              photoError: data.error ?? `HTTP ${res.status}`,
+            });
+            continue;
+          }
+          patchStep(i, {
+            photoState: "done",
+            realAvatarUrl: data.avatar_url,
+          });
+        } catch (e) {
+          patchStep(i, {
+            photoState: "error",
+            photoError: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+    }
+
     setPhase("done");
-    // Refresh the page so newly-inserted personas show in the list below.
     router.refresh();
   }
 
@@ -162,8 +218,11 @@ export function BulkGenerateCard() {
     abortRef.current = true;
   }
 
-  const doneCount = steps.filter((s) => s.state === "done").length;
-  const errorCount = steps.filter((s) => s.state === "error").length;
+  const profilesDone = steps.filter((s) => s.profileState === "done").length;
+  const profilesError = steps.filter((s) => s.profileState === "error").length;
+  const photosDone = steps.filter((s) => s.photoState === "done").length;
+  const photosError = steps.filter((s) => s.photoState === "error").length;
+  const isRunning = phase === "running-profiles" || phase === "running-photos";
 
   return (
     <section className="mb-5 overflow-hidden rounded-2xl border border-black/5 bg-gradient-to-br from-white via-lavender/30 to-white shadow-sm">
@@ -176,9 +235,8 @@ export function BulkGenerateCard() {
             Auto-genereer personas met AI
           </h2>
           <p className="mt-0.5 text-xs text-gray-500">
-            Geef het aantal en een korte briefing — Grok schrijft de complete profielen
-            (identiteit, bio, persona-meta, chatstijl), en Z-Image-Turbo maakt automatisch
-            een avatar voor elke persona.
+            Twee fases: eerst schrijft Grok het profiel (snel), daarna maakt
+            Z-Image-Turbo de echte avatar (langzamer, kan op cold-start tot ~60s duren per foto).
           </p>
         </div>
       </div>
@@ -226,17 +284,17 @@ export function BulkGenerateCard() {
             <label className="flex items-center gap-2 text-xs text-gray-700">
               <input
                 type="checkbox"
-                checked={withAvatar}
-                onChange={(e) => setWithAvatar(e.target.checked)}
+                checked={withPhotos}
+                onChange={(e) => setWithPhotos(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
               />
               <span>
-                <span className="font-medium">Avatar mee-genereren</span>
-                <span className="ml-1 text-gray-500">(Z-Image-Turbo, ~15-30s per persona)</span>
+                <span className="font-medium">Echte foto&apos;s genereren met Z-Image-Turbo</span>
+                <span className="ml-1 text-gray-500">(fase 2; ~15-90s per persona, eerste call cold-start)</span>
               </span>
             </label>
             <p className="text-[11px] text-gray-500">
-              Zonder avatar gaat het sneller, maar moet je ze later handmatig uploaden.
+              Uit = enkel initialen-avatars. Aan = echte AI-portretten via Hugging Face.
             </p>
           </div>
 
@@ -263,15 +321,21 @@ export function BulkGenerateCard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-900">
-                {phase === "running"
-                  ? `Bezig… ${doneCount}/${steps.length} klaar${errorCount > 0 ? ` · ${errorCount} fout` : ""}`
-                  : `Klaar — ${doneCount} toegevoegd${errorCount > 0 ? `, ${errorCount} fout` : ""}`}
+                {phase === "running-profiles"
+                  ? `Fase 1 — profielen schrijven · ${profilesDone}/${steps.length}`
+                  : phase === "running-photos"
+                    ? `Fase 2 — foto's renderen · ${photosDone}/${profilesDone}`
+                    : `Klaar — ${profilesDone} profielen, ${photosDone} foto's${
+                        profilesError + photosError > 0
+                          ? ` · ${profilesError + photosError} fouten`
+                          : ""
+                      }`}
               </p>
               <p className="text-[11px] text-gray-500">
-                Personas worden direct opgeslagen in <code className="rounded bg-gray-100 px-1">chat_profiles</code>.
+                Foto-fouten zijn niet blokkerend — de persona blijft staan met initialen-avatar.
               </p>
             </div>
-            {phase === "running" ? (
+            {isRunning ? (
               <button
                 type="button"
                 onClick={cancel}
@@ -302,83 +366,124 @@ export function BulkGenerateCard() {
 }
 
 function StepRow({ step }: { step: Step }) {
+  const avatar = step.realAvatarUrl ?? step.result?.avatar_url ?? "";
   return (
     <li className="flex items-start gap-3 rounded-xl border border-black/5 bg-white px-3 py-2.5">
-      <StepIcon state={step.state} />
+      {/* Avatar */}
+      {avatar ? (
+        <span className="relative h-10 w-10 flex-none overflow-hidden rounded-lg bg-gray-100">
+          <Image src={avatar} alt={step.result?.display_name ?? ""} fill sizes="40px" className="object-cover" />
+        </span>
+      ) : (
+        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-gray-100">
+          <span className="text-[11px] font-semibold text-gray-400">#{step.index + 1}</span>
+        </span>
+      )}
+
       <div className="min-w-0 flex-1">
-        {step.state === "done" && step.result ? (
-          <div className="flex items-center gap-3">
-            {step.result.avatar_url ? (
-              <span className="relative h-9 w-9 flex-none overflow-hidden rounded-lg bg-gray-100">
-                <Image
-                  src={step.result.avatar_url}
-                  alt={step.result.display_name}
-                  fill
-                  sizes="36px"
-                  className="object-cover"
-                />
-              </span>
-            ) : null}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-gray-900">
-                {step.result.display_name}
-                <span className="ml-1.5 text-xs font-normal text-gray-500">
-                  · {step.result.age}, {step.result.city}
-                  {step.result.occupation ? ` · ${step.result.occupation}` : ""}
-                </span>
-              </p>
-              <code className="text-[11px] text-gray-500">{step.result.id}</code>
-              {step.warning ? (
-                <p className="mt-0.5 text-[11px] text-amber-700">⚠ {step.warning}</p>
-              ) : null}
-            </div>
-          </div>
-        ) : step.state === "error" ? (
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-rose-700">
-              Persona #{step.index + 1} — fout
-            </p>
-            <p className="mt-0.5 truncate text-xs text-rose-600">
-              {step.error || "Onbekende fout"}
-            </p>
-          </div>
-        ) : step.state === "running" ? (
+        {step.result ? (
+          <p className="truncate text-sm font-medium text-gray-900">
+            {step.result.display_name}
+            <span className="ml-1.5 text-xs font-normal text-gray-500">
+              · {step.result.age}, {step.result.city}
+              {step.result.occupation ? ` · ${step.result.occupation}` : ""}
+            </span>
+          </p>
+        ) : step.profileState === "error" ? (
+          <p className="text-sm font-medium text-rose-700">
+            Persona #{step.index + 1} — profiel faalde
+          </p>
+        ) : step.profileState === "running" ? (
           <p className="text-sm text-gray-700">
-            Persona #{step.index + 1} — Grok schrijft profiel + avatar genereren…
+            Persona #{step.index + 1} — profiel schrijven…
           </p>
         ) : (
           <p className="text-sm text-gray-400">Persona #{step.index + 1} — wacht</p>
         )}
+
+        {step.result ? (
+          <code className="block text-[11px] text-gray-500">{step.result.id}</code>
+        ) : null}
+
+        {/* Phase indicators */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+          <Pill
+            label="Profiel"
+            state={
+              step.profileState === "done"
+                ? "done"
+                : step.profileState === "running"
+                  ? "running"
+                  : step.profileState === "error"
+                    ? "error"
+                    : "pending"
+            }
+            errorText={step.profileError}
+          />
+          <Pill
+            label="Foto"
+            icon="camera"
+            state={
+              step.photoState === "done"
+                ? "done"
+                : step.photoState === "running"
+                  ? "running"
+                  : step.photoState === "error"
+                    ? "error"
+                    : step.photoState === "skipped"
+                      ? "skipped"
+                      : "pending"
+            }
+            errorText={step.photoError}
+          />
+        </div>
+
+        {step.warning ? (
+          <p className="mt-1 text-[11px] text-amber-700">⚠ {step.warning}</p>
+        ) : null}
       </div>
     </li>
   );
 }
 
-function StepIcon({ state }: { state: StepState }) {
-  if (state === "done") {
-    return (
-      <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-        <CheckIcon className="h-3 w-3" />
-      </span>
-    );
-  }
-  if (state === "error") {
-    return (
-      <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-rose-100 text-rose-700">
-        <XIcon className="h-3 w-3" />
-      </span>
-    );
-  }
-  if (state === "running") {
-    return (
-      <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center">
-        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-      </span>
-    );
-  }
+function Pill({
+  label,
+  icon,
+  state,
+  errorText,
+}: {
+  label: string;
+  icon?: "camera";
+  state: "pending" | "running" | "done" | "error" | "skipped";
+  errorText?: string;
+}) {
+  const cls = {
+    pending: "bg-gray-100 text-gray-500 ring-gray-200",
+    running: "bg-violet-50 text-violet-700 ring-violet-200",
+    done: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+    error: "bg-rose-50 text-rose-700 ring-rose-200",
+    skipped: "bg-gray-50 text-gray-400 ring-gray-200",
+  }[state];
+  const tip = state === "error" && errorText ? errorText : undefined;
   return (
-    <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center">
-      <span className="h-2 w-2 rounded-full bg-gray-300" />
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ring-inset ${cls}`}
+      title={tip}
+    >
+      {icon === "camera" ? <CameraIcon className="h-3 w-3" /> : null}
+      {state === "running" ? (
+        <span className="h-2 w-2 animate-spin rounded-full border-[1.5px] border-current border-r-transparent" />
+      ) : state === "done" ? (
+        <CheckIcon className="h-2.5 w-2.5" />
+      ) : state === "error" ? (
+        <XIcon className="h-2.5 w-2.5" />
+      ) : null}
+      <span>{label}</span>
+      {state === "error" && errorText ? (
+        <span className="ml-1 max-w-[160px] truncate text-[10px] opacity-80">
+          · {errorText.slice(0, 60)}
+        </span>
+      ) : null}
     </span>
   );
 }
