@@ -25,6 +25,7 @@
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import { FUNNEL_LOOKING_ID_SET, FUNNEL_VIBE_ID_SET } from "@/data/funnel";
 import {
+  applyAgeOverride,
   pickPersonaDiversifier,
   renderDiversifierBlock,
   type PersonaDiversifier,
@@ -130,7 +131,18 @@ Leeftijd:
 - De operator geeft een exacte leeftijd op (age = X). Gebruik die
   precies, NIET aanpassen. Pas wel bio/backstory/occupation passend
   bij die leeftijd aan (een 19-jarige is hoogstwaarschijnlijk student;
-  een 38-jarige heeft waarschijnlijk al een carrière of kinderen).`;
+  een 38-jarige heeft waarschijnlijk al een carrière of kinderen;
+  een 55-jarige werkt al lang of is al opa/oma; een 65+'er is
+  waarschijnlijk gepensioneerd).
+- VERPLICHT bij oudere leeftijden (45+): photo_style.appearance MOET
+  expliciet leeftijdspassende fysieke kenmerken bevatten. Geen
+  "rustige glimlach met sproetjes" meer — wel "rimpels rond ogen en
+  mond", "grijs of zout-en-peper haar", "mature huidstructuur",
+  "ouderdomsvlekjes" (afhankelijk van leeftijd). Als je dat weglaat
+  produceert het diffusion-model namelijk alsnog een 25-jarige.
+- Pas occupation, backstory en bio aan zodat ze geloofwaardig zijn
+  voor de leeftijd. Een 60-jarige doet geen HBO meer; ze heeft een
+  carrière, of werkt parttime, of is gepensioneerd.`;
 
 const VIBE_IDS = Array.from(FUNNEL_VIBE_ID_SET);
 const INTENT_IDS = Array.from(FUNNEL_LOOKING_ID_SET);
@@ -260,7 +272,11 @@ function coerce(raw: unknown): GeneratedPersona | null {
   const age = (() => {
     const n = Number(r.age);
     if (!Number.isFinite(n)) return NaN;
-    return Math.max(19, Math.min(60, Math.round(n)));
+    // 18-99 — wide range so a senior persona (60+) survives the coerce
+    // step. The route always overrides with the operator's forced_age
+    // anyway, but the cap matters when generate-persona is used
+    // standalone or when forced_age is omitted.
+    return Math.max(18, Math.min(99, Math.round(n)));
   })();
   if (!id || !display_name || !Number.isFinite(age)) return null;
 
@@ -382,9 +398,16 @@ export async function generatePersonaFromBrief(
   // is exactly what the operator complained about ("ze lijken op
   // elkaar"). With them we force a distinct visual + narrative
   // fingerprint per persona.
-  const diversifier =
+  let diversifier =
     args.diversifier ??
     pickPersonaDiversifier({ index: idx, extraSeed: brief.length });
+  // For 50+ personas, override the hair colour and add age-skin cues
+  // because the default HAIR_COLORS palette is skewed to the 20-40
+  // range — a 65-year-old described as "platinablond" then becomes
+  // visually inconsistent with the diffusion age anchor.
+  if (forcedAge !== null && forcedAge >= 50) {
+    diversifier = applyAgeOverride(diversifier, forcedAge);
+  }
 
   const userParts: string[] = [];
   userParts.push(`Brief van de operator: ${brief}`);

@@ -247,6 +247,59 @@ export function pickPersonaDiversifier(opts: {
   };
 }
 
+/** Age-appropriate hair colour palettes. Default HAIR_COLORS is skewed
+ * toward the 20-40 range; for older personas we replace the pick with
+ * something believable so a 65-year-old doesn't end up described as
+ * "platinablond". This composes with the diffusion age-anchor for a
+ * doubly-correct look. */
+const HAIR_COLORS_50PLUS = [
+  "grijs haar met enkele plukken donker",
+  "zout-en-peper haar",
+  "donkergrijs haar",
+  "zilvergrijs haar",
+  "kort grijs haar",
+  "geverfd kastanjebruin haar met grijze uitgroei",
+  "donkerblond haar met grijze plukken bij de slapen",
+] as const;
+
+const HAIR_COLORS_60PLUS = [
+  "wit haar",
+  "wit-grijs haar",
+  "zilvergrijs kort haar",
+  "kort grijs haar met krullen",
+  "geverfd lichtbruin haar met grijze uitgroei",
+] as const;
+
+/** Returns an age-overridden diversifier when the picked hair colour
+ * clashes with the persona's age (e.g. platinablond on a 65-year-old).
+ * Otherwise returns the input unchanged. */
+export function applyAgeOverride(
+  d: PersonaDiversifier,
+  age: number,
+): PersonaDiversifier {
+  if (age < 50) return d;
+  // Deterministic-but-varied: pick one of the age-appropriate colours
+  // based on the existing hair_color string so two personas with the
+  // same age don't all get the same grey.
+  let hash = 0;
+  for (let i = 0; i < d.hair_color.length; i++) {
+    hash = (hash * 31 + d.hair_color.charCodeAt(i)) >>> 0;
+  }
+  const palette = age >= 60 ? HAIR_COLORS_60PLUS : HAIR_COLORS_50PLUS;
+  const newHair = palette[hash % palette.length]!;
+  // Skin gets nudged toward age-appropriate cues. We don't override if
+  // the original already mentions wrinkles/age — just append a marker.
+  const skinHasAge = /rimpel|ouderdom|wrinkle|age/i.test(d.skin);
+  const ageSkin = age >= 60
+    ? "duidelijke rimpels en ouderdomsvlekjes, dunne huid"
+    : "fijne rimpels rond ogen en mond, mature huidstructuur";
+  return {
+    ...d,
+    hair_color: newHair,
+    skin: skinHasAge ? d.skin : `${d.skin}, ${ageSkin}`,
+  };
+}
+
 /** Render a diversifier as a Grok-friendly bullet list that becomes
  * required ingredients for the persona. */
 export function renderDiversifierBlock(d: PersonaDiversifier): string {

@@ -48,6 +48,64 @@ export type PersonaPhotoStyle = {
   body_type?: "slim" | "average" | "plus";
 };
 
+/** Age-tier prompt anchors. Diffusion bases (Z-Image-Turbo included)
+ * are heavily skewed toward 20-30 year old subjects — most training
+ * data is "young attractive woman", so without explicit anchors a
+ * "55-jarige Nederlandse vrouw" still renders as someone in their late
+ * 20s. We brute-force the tier in two ways:
+ *
+ *   1. Positive prompt names concrete physical age markers ("grey
+ *      hair, fine lines around eyes and mouth, age spots, mature
+ *      face"). The model needs concrete tokens, not just numbers.
+ *
+ *   2. Negative prompt explicitly rejects youthful features ("young
+ *      woman, twenties, smooth youthful skin, teenage") so the model
+ *      doesn't fall back to its default.
+ *
+ * "young" is intentionally minimal — it's the natural diffusion default
+ * and we don't need to push the model anywhere. Older tiers get
+ * progressively stronger anchors. */
+type AgeTier = "young" | "thirties" | "forties" | "fifties" | "sixties_plus";
+
+function ageToTier(age: number): AgeTier {
+  if (age < 30) return "young";
+  if (age < 40) return "thirties";
+  if (age < 50) return "forties";
+  if (age < 60) return "fifties";
+  return "sixties_plus";
+}
+
+const AGE_ANCHORS: Record<AgeTier, { positive: string; negative: string }> = {
+  young: {
+    positive: "",
+    negative: "",
+  },
+  thirties: {
+    positive:
+      "woman in her thirties, mature adult face, subtle fine lines around eyes when smiling, slightly looser skin compared to youth, settled adult features",
+    negative:
+      "teenager, twenties, very young, youthful babyface, college-aged, freshly out of high school",
+  },
+  forties: {
+    positive:
+      "woman in her forties, middle-aged face, visible fine lines around eyes and mouth, mature skin texture with slight loss of elasticity, possibly a few grey hairs at the temples, mature adult features, no longer young",
+    negative:
+      "young woman, twenties, smooth youthful skin, teenage, college-aged, twentysomething, fresh-faced, porcelain skin, youthful",
+  },
+  fifties: {
+    positive:
+      "woman in her fifties, clearly middle-aged to older face, deeper wrinkles around eyes mouth and forehead, looser jawline starting to soften, grey or salt-and-pepper hair (or dyed-but-aged hair), age spots possible on hands and chest, mature older skin texture, distinctly not young, post-menopausal mature woman, lines around lips and forehead",
+    negative:
+      "young woman, twenties, thirties, smooth skin, youthful, fresh face, college-aged, teenage, twentysomething, plump cheeks, taut skin, instagram filter, smooth airbrushed skin, jonge vrouw",
+  },
+  sixties_plus: {
+    positive:
+      "older woman in her sixties or seventies, clearly elderly face, deep wrinkles across forehead cheeks and around eyes, soft sagging jowls and neck skin, white or grey hair often shorter style or pinned up, prominent age spots, weathered mature skin texture, thinning hair, lines around the lips, older woman senior citizen, distinctly elderly, grandmother age, post-retirement age",
+    negative:
+      "young woman, middle-aged, twenties, thirties, forties, smooth skin, youthful, fresh face, taut skin, instagram filter, dark hair without grey, plump cheeks, jonge vrouw, vrouw van middelbare leeftijd",
+  },
+};
+
 /** Body-type prompt anchors — keep these on the "shape" axis only, never
  * mix in attractiveness words. The two levers compose so any combination
  * (slim+plain, plus+striking, etc.) renders correctly. */
@@ -127,6 +185,20 @@ function hashSeed(input: string): number {
  * — explicit photo_style values always take precedence. The body field
  * is left to the body-type anchor in buildPersonaPhotoPrompt so we don't
  * double-write it; here we set only appearance/style/vibe. */
+/** Concrete age cues by tier. Used both in deriveDefaults (when the
+ * operator hasn't supplied a custom appearance) and as fallback hints
+ * when the Grok-generated appearance might still be 25-coded. */
+function ageHairAndSkinHint(age: number): string {
+  if (age < 30) return "";
+  if (age < 40)
+    return "lichte rimpeltjes rond de ogen, volwassen volwassen gezicht, mogelijk een enkele grijze haar";
+  if (age < 50)
+    return "fijne rimpels rond ogen en mond, volwassen huidstructuur, mogelijk grijze haren bij de slapen";
+  if (age < 60)
+    return "duidelijke rimpels rond ogen en mond, mature huidstructuur, grijs of zout-en-peper haar, lichte jowls aan het begin van de kaak, ouderdomsvlekjes mogelijk";
+  return "diepe rimpels op voorhoofd, wangen en rond de ogen, grijs of wit haar, hangende kaaklijn en hals, ouderdomsvlekken op handen en borst, dun ouder haar";
+}
+
 function deriveDefaults(
   profile: ChatProfileRow,
   attractiveness: NonNullable<PersonaPhotoStyle["attractiveness"]>,
@@ -135,13 +207,26 @@ function deriveDefaults(
   const cityHint = (profile.city ?? "").toLowerCase();
   const isDutchish = !cityHint || /amsterdam|rotterdam|utrecht|nederland|netherlands|den haag|the hague/i.test(cityHint);
 
+  // Age-aware style/vibe defaults — the appearance string itself stays
+  // age-agnostic here because the age cue is added as a separate
+  // prompt-part in buildPersonaPhotoPrompt (so even Grok's custom
+  // appearance gets a concrete grey-hair-or-not token alongside it).
+  const styleByAge = (young: string, mature: string): string =>
+    age >= 50 ? mature : young;
+
   if (attractiveness === "average") {
     return {
       appearance: isDutchish
         ? `${age}-jarige Nederlandse vrouw, alledaags gezicht, regelmatige trekken, natuurlijke huid met sproeten of kleine onvolmaaktheden, glimlach met asymmetrie, haar gewoon naar achter`
         : `${age}-year-old ordinary-looking woman, average everyday face, regular features`,
-      style: "casual alledaagse outfit, gewoon t-shirt of trui en spijkerbroek, geen statement-stuk",
-      vibe: "rustig, gewoon, een beetje verlegen, alledaags moment, geen pose",
+      style: styleByAge(
+        "casual alledaagse outfit, gewoon t-shirt of trui en spijkerbroek, geen statement-stuk",
+        "comfortabele alledaagse kleren passend bij haar leeftijd, blouse of zachte trui, geen jeugdmode",
+      ),
+      vibe: styleByAge(
+        "rustig, gewoon, een beetje verlegen, alledaags moment, geen pose",
+        "rustig, ervaren, comfortabel met zichzelf, alledaags moment",
+      ),
     };
   }
   if (attractiveness === "plain") {
@@ -149,7 +234,10 @@ function deriveDefaults(
       appearance: isDutchish
         ? `${age}-jarige Nederlandse vrouw, onopvallend gezicht, onregelmatige trekken, lichte acne of vlekjes, fletse huid, asymmetrische glimlach, eenvoudige haar zonder styling`
         : `${age}-year-old plain-looking woman, irregular features, blemished skin`,
-      style: "simpele alledaagse kleren, vaak iets te ruim of niet helemaal passend, geen mode-bewustzijn",
+      style: styleByAge(
+        "simpele alledaagse kleren, vaak iets te ruim of niet helemaal passend, geen mode-bewustzijn",
+        "simpele kleren passend bij haar leeftijd, soms iets te ruim of saai, geen mode-bewustzijn",
+      ),
       vibe: "ingetogen, niet glamoureus, oprecht awkward candid moment",
     };
   }
@@ -157,8 +245,14 @@ function deriveDefaults(
     appearance: isDutchish
       ? `natuurlijke schoonheid, ${age}-jarige Nederlandse vrouw, rustige glimlach, lichte sproetjes, haar in een half-knot of losjes neergelaten`
       : `natural-looking ${age}-year-old woman, soft smile, light makeup, expressive eyes`,
-    style: "casual everyday outfit, denim, comfortable, modern girl-next-door",
-    vibe: "warm, een beetje verlegen, oprecht, candid moment",
+    style: styleByAge(
+      "casual everyday outfit, denim, comfortable, modern girl-next-door",
+      "verzorgde leeftijdspassende outfit, een mooie blouse of zachte coltrui, denim of kokerbroek",
+    ),
+    vibe: styleByAge(
+      "warm, een beetje verlegen, oprecht, candid moment",
+      "warm, gracieus ouder, zelfverzekerd, oprechte candid",
+    ),
   };
 }
 
@@ -203,6 +297,17 @@ export function buildPersonaPhotoPrompt(args: {
   const anchors = ATTRACTIVENESS_ANCHORS[attractiveness];
   const bodyAnchors = BODY_TYPE_ANCHORS[bodyType];
 
+  // Age tier — drives explicit anti-young anchors for 30+ subjects.
+  // Without this the diffusion model defaults to "twentysomething face"
+  // regardless of what `appearance` says, which is what the operator
+  // hit with a 55-65 batch coming out as 30-year-olds.
+  const personaAge =
+    typeof profile.age === "number" && Number.isFinite(profile.age)
+      ? profile.age
+      : 25;
+  const ageTier = ageToTier(personaAge);
+  const ageAnchors = AGE_ANCHORS[ageTier];
+
   const defaults = deriveDefaults(profile, attractiveness);
 
   const appearance = (customStyle.appearance ?? defaults.appearance).trim();
@@ -228,11 +333,26 @@ export function buildPersonaPhotoPrompt(args: {
   // For non-striking attractiveness we frontload the realism anchor so
   // the model commits before the scene/style descriptors lure it back
   // toward "instagram girl". Diffusion is heavily order-sensitive.
+  // Concrete physical age cue (e.g. "grijs haar, fijne rimpels rond
+  // ogen en mond, ouderdomsvlekjes"). We attach this directly after
+  // appearance so the cue lands together with face descriptors. Even
+  // when Grok wrote a 25-coded appearance for a 60-year-old, this
+  // injects the older-age tokens explicitly into the prompt.
+  const ageHint = ageHairAndSkinHint(personaAge);
+
   const promptParts: string[] = [];
+  // Age anchor frontloads ABOVE the realism/appearance anchors for
+  // anything past mid-20s — diffusion is order-sensitive and we need
+  // the model to commit to "older woman" before it sees "soft glimlach,
+  // sproetjes" (which it would otherwise parse as 25-year-old features).
+  if (ageAnchors.positive) {
+    promptParts.push(ageAnchors.positive);
+  }
   if (attractiveness !== "striking") {
     promptParts.push(anchors.positive);
   }
   promptParts.push(appearance);
+  if (ageHint) promptParts.push(ageHint);
   if (build) promptParts.push(build);
   promptParts.push(bodyAnchors.positive);
   promptParts.push(`wearing ${style}`);
@@ -240,6 +360,12 @@ export function buildPersonaPhotoPrompt(args: {
   promptParts.push(vibe);
   if (attractiveness === "striking") {
     promptParts.push(anchors.positive);
+  }
+  // Re-assert age at the end too — diffusion U-net commitment phase
+  // weighs both early and late tokens. For older subjects we want
+  // every chance to keep the model on track.
+  if (ageAnchors.positive) {
+    promptParts.push(ageAnchors.positive);
   }
 
   // Per-shot framing — supplied by a scene template. Without these,
@@ -270,6 +396,7 @@ export function buildPersonaPhotoPrompt(args: {
   const negParts = [baseNegative];
   if (anchors.negative) negParts.push(anchors.negative);
   if (bodyAnchors.negative) negParts.push(bodyAnchors.negative);
+  if (ageAnchors.negative) negParts.push(ageAnchors.negative);
   const negativePrompt = negParts.join(", ");
 
   return { prompt, seed, negativePrompt };

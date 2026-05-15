@@ -57,7 +57,9 @@ type BodyType = "slim" | "average" | "plus";
 const MAX_BATCH = 10;
 const MIN_BRIEF_LEN = 8;
 const AGE_FLOOR = 18;
-const AGE_CEILING = 65;
+// 80 so seniors stay reachable. The diffusion + Grok pipeline both
+// support it; the upper cap is purely a safeguard against typos.
+const AGE_CEILING = 80;
 
 const ATTRACTIVENESS_OPTIONS: Array<{
   id: Attractiveness;
