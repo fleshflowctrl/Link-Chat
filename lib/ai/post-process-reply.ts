@@ -39,6 +39,95 @@ export function endsWithQuestion(s: string): boolean {
   return /[?\uFF1F]\s*$/.test(s.trim());
 }
 
+/** Multi-message separator emitted by Grok when prompt's allowMultiMessage
+ * is on. We split on this BEFORE other postprocessing so each chunk is
+ * cleaned independently. */
+export const MULTI_MESSAGE_SEPARATOR = "<<<>>>";
+const MULTI_SPLIT_RE = /\n*\s*<<<>>>\s*\n*/g;
+
+/** Split a Grok reply into 1-N chat bubbles. The model is told to use
+ * `<<<>>>` on its own line to separate bubbles. We tolerate surrounding
+ * whitespace. Empty chunks are dropped. Output array preserves order. */
+export function splitMultiMessage(raw: string): string[] {
+  if (!raw) return [];
+  const parts = raw
+    .split(MULTI_SPLIT_RE)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  if (parts.length === 0) return [raw.trim()].filter((p) => p.length > 0);
+  // Safety: if Grok went wild and produced too many chunks, fold extras
+  // into the last bubble so we don't spam the user.
+  if (parts.length > 4) {
+    const head = parts.slice(0, 3);
+    const tail = parts.slice(3).join(" ");
+    return [...head, tail];
+  }
+  return parts;
+}
+
+const ABBREV_TABLE: Array<[RegExp, string]> = [
+  [/\beven\b/g, "ff"],
+  [/\bnatuurlijk\b/gi, "tuurlijk"],
+  [/\becht\b/g, "egt"],
+  [/\bweet niet\b/gi, "wn"],
+  [/\biets\b/g, "ies"],
+  [/\bgisteren\b/gi, "gister"],
+  [/\bvandaag\b/g, "vandag"],
+];
+
+/** Apply a small humanisation pass: lowercase first letter sometimes, drop
+ * trailing period sometimes, and at most ONE casual abbreviation. Inputs
+ * the model already wrote casually (e.g. starts with lowercase, ends with
+ * "?", contains a typo) are mostly left alone — the goal is to fix the
+ * model's residual neatness, not to caricature.
+ *
+ * Each transformation is gated on a probability so personas don't all read
+ * identical. Skip entirely for very short messages and for messages that
+ * already feel chat-y (no terminal period, no leading capital). */
+export function humanizeChatText(raw: string): string {
+  if (!raw || raw.length < 8) return raw;
+  let s = raw;
+
+  // 1. Lowercase first character ~30% of the time, only if it's currently a
+  // capital and not part of an obvious proper noun (we keep capitals when
+  // followed by all-lowercase second letter and the leading "word" is >3
+  // chars; shorter capitalised words are often names like "Ik", "Ja").
+  if (Math.random() < 0.3) {
+    const m = s.match(/^([A-ZÀ-Ý])([a-zà-ÿ])/);
+    if (m && m[0].length === 2) {
+      // Avoid lowercasing "Ik " / "Ja " / "Ja," / proper-name openers
+      const firstWordEnd = s.search(/[\s,.!?]/);
+      const firstWord = firstWordEnd > 0 ? s.slice(0, firstWordEnd) : s;
+      if (firstWord.length >= 3 && firstWord !== firstWord.toUpperCase()) {
+        s = s[0].toLowerCase() + s.slice(1);
+      }
+    }
+  }
+
+  // 2. Drop a single terminal period ~45% of the time. We never touch ?, !,
+  // …, ..., or multi-period (.. or ...).
+  if (Math.random() < 0.45) {
+    s = s.replace(/(?<![.!?])\.(\s*)$/, "$1");
+  }
+
+  // 3. At most one abbreviation per message, ~20% chance. Pick a random
+  // entry from the table that *matches* this message; if none match, skip.
+  if (Math.random() < 0.2) {
+    const eligible = ABBREV_TABLE.filter(([re]) => re.test(s));
+    if (eligible.length > 0) {
+      const [re, repl] = eligible[Math.floor(Math.random() * eligible.length)];
+      // Reset lastIndex on global regex before single replace
+      re.lastIndex = 0;
+      const match = re.exec(s);
+      if (match) {
+        s = s.slice(0, match.index) + repl + s.slice(match.index + match[0].length);
+      }
+    }
+  }
+
+  return s;
+}
+
 export function postProcessReply(raw: string): string {
   if (!raw) return "";
   let s = raw.replace(/\r\n/g, "\n").trim();
@@ -81,6 +170,9 @@ export function postProcessReply(raw: string): string {
     const lastSpace = cut.lastIndexOf(" ");
     s = (lastSpace > 200 ? cut.slice(0, lastSpace) : cut).replace(/[,.;:!?\s]+$/, "") + "\u2026";
   }
+
+  // Final humanisation pass — catches Grok's residual tidy formatting.
+  s = humanizeChatText(s.trim());
 
   return s.trim();
 }

@@ -218,6 +218,10 @@ export interface ChatMessage {
   minuteOfDay: number;
   /** When set, a ❤️-style badge overlaps the bottom-left of this bubble */
   reactionBadge?: string;
+  /** ISO timestamp at which the AI peer read this user message. Drives the
+   * "Read 14:32" indicator under user-side bubbles. Never set on peer-side
+   * messages (those use the user's chat_reads). */
+  peerReadAt?: string;
 }
 
 /** Full Maya ↔ you demo thread */

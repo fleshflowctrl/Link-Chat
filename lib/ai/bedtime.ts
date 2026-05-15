@@ -22,9 +22,11 @@
  *     a natural goodnight reply ("ik ga zo slapen, spreken we morgen weer").
  */
 
-const BEDTIME_MIN_MINUTE = 1 * 60 + 45; // 01:45
-const BEDTIME_MAX_MINUTE = 3 * 60 + 35; // 03:35
-const BEDTIME_SPAN = BEDTIME_MAX_MINUTE - BEDTIME_MIN_MINUTE; // 110 minutes
+/** Bedtime window depends on the day: people stay up later on weekends. */
+const BEDTIME_WEEKDAY_MIN = 1 * 60 + 45; // 01:45
+const BEDTIME_WEEKDAY_MAX = 3 * 60 + 0;  // 03:00
+const BEDTIME_WEEKEND_MIN = 2 * 60 + 30; // 02:30
+const BEDTIME_WEEKEND_MAX = 4 * 60 + 0;  // 04:00
 
 /** Window before bedtime in which she's "winding down" — the system prompt
  * gets a goodnight hint. 60 minutes is a comfortable lead-in: any longer
@@ -32,9 +34,13 @@ const BEDTIME_SPAN = BEDTIME_MAX_MINUTE - BEDTIME_MIN_MINUTE; // 110 minutes
  * never land in the approach window. */
 const APPROACH_WINDOW_MS = 60 * 60_000;
 
-/** Wake-up window after bedtime (in 24h decimal hours, persona-local). */
-const WAKE_HOUR_MIN = 7.5;
-const WAKE_HOUR_MAX = 9.0;
+/** Wake-up window depends on the day: people sleep in on weekends.
+ * (Days are picked from the bedtime calendar date — i.e. the morning AFTER
+ * the bedtime, so a Friday-night bedtime maps to Saturday wake-up.) */
+const WAKE_WEEKDAY_MIN = 7.25; // 07:15
+const WAKE_WEEKDAY_MAX = 9.0;  // 09:00
+const WAKE_WEEKEND_MIN = 9.0;  // 09:00
+const WAKE_WEEKEND_MAX = 11.5; // 11:30
 
 export type BedtimePhase = "awake" | "approaching" | "asleep";
 
@@ -122,18 +128,37 @@ function dateAtLocalWallClock(
   return candidate;
 }
 
-/** Map (personaId, ymd) → minute-of-day in [BEDTIME_MIN_MINUTE, BEDTIME_MAX_MINUTE]. */
+/** Day-of-week for ymd in tz. 0 = Sunday, 6 = Saturday. */
+function weekdayOf(ymd: string): number {
+  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** A "weekend night" is a night where she stays up later AND sleeps in: the
+ * bedtime falls on Sat or Sun in tz (so Fri-night -> Sat morning, or Sat-
+ * night -> Sun morning). Returns true if the *bedtime calendar date* is
+ * Saturday or Sunday in tz. */
+function isWeekendNight(bedtimeYmd: string): boolean {
+  const dow = weekdayOf(bedtimeYmd);
+  return dow === 6 || dow === 0; // Sat or Sun
+}
+
+/** Map (personaId, ymd) → minute-of-day in the appropriate bedtime window. */
 function bedtimeMinuteFor(personaId: string, ymd: string): number {
   const h = fnv1a(`${personaId}|${ymd}`);
-  return BEDTIME_MIN_MINUTE + (h % BEDTIME_SPAN);
+  const weekend = isWeekendNight(ymd);
+  const lo = weekend ? BEDTIME_WEEKEND_MIN : BEDTIME_WEEKDAY_MIN;
+  const hi = weekend ? BEDTIME_WEEKEND_MAX : BEDTIME_WEEKDAY_MAX;
+  return lo + (h % (hi - lo));
 }
 
 /** Wake-up minute-of-day, deterministic per persona+night so the wake time
- * doesn't drift between recomputations. */
+ * doesn't drift between recomputations. Weekend mornings she sleeps in. */
 function wakeMinuteFor(personaId: string, ymd: string): number {
   const h = fnv1a(`wake|${personaId}|${ymd}`);
-  const minMin = WAKE_HOUR_MIN * 60;
-  const maxMin = WAKE_HOUR_MAX * 60;
+  const weekend = isWeekendNight(ymd);
+  const minMin = (weekend ? WAKE_WEEKEND_MIN : WAKE_WEEKDAY_MIN) * 60;
+  const maxMin = (weekend ? WAKE_WEEKEND_MAX : WAKE_WEEKDAY_MAX) * 60;
   return Math.floor(minMin + (h % Math.floor(maxMin - minMin)));
 }
 

@@ -201,6 +201,26 @@ function silenceLabel(ms: number | undefined): string | null {
   return `${days} dagen stil geweest`;
 }
 
+/** Relationship stage — how the persona's tone evolves with the user as the
+ * thread ages in real days. Used in addition to paceStage (turn-based). The
+ * combination gives a 2D matrix of where we are: a 4-day-old chat with 200
+ * turns is "established", but a 4-day-old chat with 5 turns is still "early". */
+function relationshipStage(daysActive: number, turnIndex: number): string {
+  if (daysActive < 1) {
+    return "vandaag begonnen — alles is nog open, beleefdheid en lichte spanning, geen pet-names of ‘we’-taal";
+  }
+  if (daysActive < 4) {
+    return "eerste paar dagen — durft te plagen en kleine kwetsbaarheden te delen, callbacks naar gisteren mogen, geen geforceerde intimiteit";
+  }
+  if (daysActive < 14 || turnIndex < 80) {
+    return "tweede week — meer eigen routines en gewoontes (‘koffie is nog te warm’, ‘net van werk’), pet-names mogen mild (‘jij’, ‘gekkie’), inside jokes verdiepen";
+  }
+  if (daysActive < 60 || turnIndex < 250) {
+    return "vertrouwd — ze opent makkelijker, deelt kleine onzekerheden, pet-names natuurlijk (‘jij’, ‘scat’, ‘mannetje’), routines komen terug, callbacks van weken terug zijn welkom";
+  }
+  return "ingeburgerd — al een hele tijd in elkaars leven, schrijft als iemand die je echt kent: korte updates, ongedwongen, vaak terloops, soms opvallend stil zonder ongemak";
+}
+
 /** Pacing stage — long chats should feel different than first turn. */
 function paceStage(turnIndex: number): string {
   if (turnIndex < 4) return "opening — kort, warm, één haakje, niet te veel willen";
@@ -288,6 +308,31 @@ export type BuildPromptOptions = {
   bedtimePhase?: "awake" | "approaching" | "asleep";
   /** Minutes until bedtime when bedtimePhase === "approaching", else null. */
   minutesUntilBedtime?: number | null;
+  /** Days since the FIRST user message in this thread. Drives relationship
+   * stage (drift over time — longer chats feel more familiar/intimate). */
+  daysActive?: number;
+  /** Recent phrases this persona has overused. Passed to Grok as a
+   * "vermijd-list" so she stops repeating "echt waar?" / "haha" / etc. */
+  bannedPhrases?: string[];
+  /** Structured memory extracted from earlier turns: { facts_about_her,
+   * facts_about_us, open_loops, inside_jokes, callback_hooks }. Optional —
+   * falls back to threadSummary when missing. */
+  structuredFacts?: {
+    facts_about_her?: string[];
+    facts_about_us?: string[];
+    open_loops?: string[];
+    inside_jokes?: string[];
+    callback_hooks?: string[];
+  } | null;
+  /** Multi-message hint: when true, prompt instructs Grok to optionally
+   * split the reply into 2-3 short bubbles using the `<<<>>>` separator.
+   * Used for casual back-and-forth turns; suppressed for emotionally
+   * heavy or goodnight messages. */
+  allowMultiMessage?: boolean;
+  /** Pre-ack hint: when true, Grok knows the FIRST chunk should be a quick
+   * reaction ("oh wow", "🥺", "wacht echt?") sent in 5-10s, with the real
+   * reply landing as a later chunk. */
+  preAckMode?: boolean;
 };
 
 /**
@@ -402,6 +447,8 @@ export function buildGrokSystemPrompt(
   const silence = silenceLabel(opts.userSilenceMs);
   const turnIndex = typeof opts.turnIndex === "number" ? opts.turnIndex : 0;
   const stage = paceStage(turnIndex);
+  const daysActive = typeof opts.daysActive === "number" && opts.daysActive >= 0 ? opts.daysActive : 0;
+  const relStage = relationshipStage(daysActive, turnIndex);
 
   bits.push("");
   bits.push("Live context (laat dit subtiel je toon kleuren — niet hardop melden tenzij natuurlijk):");
@@ -410,7 +457,8 @@ export function buildGrokSystemPrompt(
   if (silence) {
     bits.push(`- Tussen haar vorige bericht en dit nieuwe zat: ${silence}. Reageer daar passend op (niet zeurig, wel oprecht).`);
   }
-  bits.push(`- Fase van het gesprek: ${stage}.`);
+  bits.push(`- Fase van het gesprek (turn-based): ${stage}.`);
+  bits.push(`- Relatie-fase (kalenderdagen): jullie kennen elkaar nu ~${daysActive < 1 ? "minder dan een dag" : daysActive === 1 ? "1 dag" : `${daysActive} dagen`}. ${relStage}.`);
 
   // Bedtime context: when she's about to go to bed in real life, her last
   // reply of the night should warmly close the conversation and suggest
@@ -429,6 +477,86 @@ export function buildGrokSystemPrompt(
     bits.push(
       "- Je bent net wakker. Haar bericht is binnengekomen terwijl je sliep. Reageer alsof je net je telefoon checkt — kort, warm, zonder uitgebreid uit te leggen waarom je traag was. Een terloopse \"goeiemorgen\" of \"net wakker\" mag, maar dwing het niet.",
     );
+  }
+
+  // Structured memory — sharper than a prose summary because facts/loops
+  // are individually addressable. Open-loops are the highest-leverage
+  // entries here ("you said you'd tell me about X"); when present, lean
+  // hard on closing them naturally.
+  const sf = opts.structuredFacts;
+  if (sf && (sf.facts_about_her?.length || sf.facts_about_us?.length || sf.open_loops?.length || sf.inside_jokes?.length || sf.callback_hooks?.length)) {
+    bits.push("");
+    bits.push("Wat je over haar én over jullie weet (gebruik voor scherpe callbacks; nooit hardop opnoemen, nooit tegenspreken):");
+    if (sf.facts_about_her?.length) {
+      bits.push(`- Over haar: ${sf.facts_about_her.slice(0, 10).map((s) => `"${s.trim()}"`).join("; ")}.`);
+    }
+    if (sf.facts_about_us?.length) {
+      bits.push(`- Over jullie samen: ${sf.facts_about_us.slice(0, 8).map((s) => `"${s.trim()}"`).join("; ")}.`);
+    }
+    if (sf.open_loops?.length) {
+      bits.push(`- Open loops (dingen die nog niet zijn afgemaakt — pak er één natuurlijk op als het past): ${sf.open_loops.slice(0, 6).map((s) => `"${s.trim()}"`).join("; ")}.`);
+    }
+    if (sf.inside_jokes?.length) {
+      bits.push(`- Inside jokes / terugkerende beelden tussen jullie: ${sf.inside_jokes.slice(0, 6).map((s) => `"${s.trim()}"`).join("; ")}.`);
+    }
+    if (sf.callback_hooks?.length) {
+      bits.push(`- Mogelijke callbacks (alleen als ze natuurlijk passen): ${sf.callback_hooks.slice(0, 8).map((s) => `"${s.trim()}"`).join("; ")}.`);
+    }
+  }
+
+  // Anti-loop: if a phrase has been used recently, ban it. Real people
+  // don't repeat their catchphrases every reply; AIs do. The list is
+  // computed by the route from the persona's recent peer messages.
+  const banned = (opts.bannedPhrases ?? [])
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 2 && p.length <= 40)
+    .slice(0, 12);
+  if (banned.length) {
+    bits.push("");
+    bits.push(
+      `Vermijd deze frasen of patronen in dit antwoord (je hebt ze recent al gebruikt): ${banned.map((p) => `"${p}"`).join(", ")}. Kies iets anders, ook als de eerste impuls naar één van deze frasen gaat. Variatie is wat je menselijk maakt.`,
+    );
+  }
+
+  // Photo-in-thread reminder — when the user just sent an image, the
+  // dialogue history will include a vision message; the prompt nudges
+  // Grok to respond to what's actually visible (a real person would
+  // notice details), not just acknowledge "leuke foto".
+  // (We can't tell from here whether the latest message is an image
+  // because this builder doesn't see the dialogue; we always include the
+  // hint — Grok ignores it when there's no photo to react to.)
+  bits.push("");
+  bits.push(
+    "Als haar laatste bericht een foto bevat: reageer alsof je echt naar de foto kijkt. Pak één concreet detail op (kleding, achtergrond, stemming, gezichtsuitdrukking) en reageer daar specifiek op — niet generiek 'mooie foto'. Plagerig en warm mag.",
+  );
+
+  // Multi-message instruction — let Grok decide whether the reply naturally
+  // splits into 2-3 short bubbles (like real people texting), or stays one
+  // message. Output uses an explicit separator the post-processor splits on.
+  if (opts.allowMultiMessage) {
+    bits.push("");
+    if (opts.preAckMode) {
+      bits.push(
+        [
+          "Bericht-vorm voor dit antwoord:",
+          "- Haar laatste bericht voelt emotioneel of belangrijk — begin daarom met een KORTE, snelle eerste reactie (één-twee woorden of een kleine emoji-only respons, bv. ‘oh wow’, ‘🥺’, ‘wacht echt?’).",
+          "- Daarna één lege regel + de echte inhoudelijke reactie. Splits eventueel die inhoudelijke reactie nog in 1-2 sub-berichten.",
+          "- Gebruik tussen elk afzonderlijk bericht UITSLUITEND deze separator op een eigen regel: <<<>>>",
+          "- Geen markdown, geen labels, gewoon de tekst van elk bericht met <<<>>> ertussen.",
+        ].join("\n"),
+      );
+    } else {
+      bits.push(
+        [
+          "Bericht-vorm voor dit antwoord:",
+          "- Echte mensen sturen vaak 2 of 3 korte berichten achter elkaar in plaats van één lange. Doe dat hier ALS het natuurlijk past — vooral bij speelse, casual of energieke beurten. Bij serieuze of kwetsbare beurten blijft één bericht beter.",
+          "- Wanneer je splitst: max 3 bubbels, elk kort (1 zin of een afmaking). De volgende bubbel pakt iets anders op (een gedachte erbij, een vraag, een grapje).",
+          "- Gebruik tussen elk bericht UITSLUITEND deze separator op een eigen regel: <<<>>>",
+          "- Geen markdown, geen labels, gewoon de tekst van elk bericht met <<<>>> ertussen.",
+          "- Niet altijd splitsen — kies bewust per beurt.",
+        ].join("\n"),
+      );
+    }
   }
 
   bits.push("");

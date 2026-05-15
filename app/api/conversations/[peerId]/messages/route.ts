@@ -8,6 +8,10 @@ import {
 import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
 import { processDuePendingReplies } from "@/lib/ai/pending-replies";
 import {
+  maybeScheduleSpontaneous,
+  maybeScheduleWinback,
+} from "@/lib/ai/spontaneous";
+import {
   computeReplyPacing,
   sleep,
   SYNC_DELAY_THRESHOLD_MS,
@@ -68,6 +72,32 @@ export async function GET(
     } catch (e) {
       console.warn(
         "[conversations/messages GET] processDuePending threw",
+        peerId,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+
+    // Lazy winback check: when the user opens the thread (or the home
+    // screen polls), if she's been silent for >22h and we don't have a
+    // winback queued yet, maybe schedule one. This piggybacks on existing
+    // traffic so we don't need a cron job.
+    try {
+      const { data: histForWinback } = await supabase
+        .from("chat_messages")
+        .select("id, sender, created_at")
+        .eq("peer_id", peerId)
+        .eq("owner_user_id", user.id)
+        .order("created_at", { ascending: true });
+      if (histForWinback) {
+        await maybeScheduleWinback(supabase, {
+          ownerUserId: user.id,
+          peerId,
+          history: histForWinback as unknown as ChatMessageRow[],
+        });
+      }
+    } catch (e) {
+      console.warn(
+        "[conversations/messages GET] maybeScheduleWinback threw",
         peerId,
         e instanceof Error ? e.message : String(e),
       );
@@ -281,6 +311,12 @@ export async function POST(
         await sleep(remaining);
       }
       peerMessage = messageRowToUi(result.assistantRow);
+      // If Grok produced a multi-bubble reply, the additional chunks are
+      // already queued via chat_pending_replies (kind='chunk'). Surface
+      // their earliest scheduled_at so the client arms a poll timer.
+      if (result.additionalChunks > 0 && result.nextChunkAt) {
+        nextPendingAt = result.nextChunkAt;
+      }
     }
   } else {
     // Async flow: queue a pending row, return immediately, let the client
@@ -295,6 +331,7 @@ export async function POST(
         peer_id: peerId,
         scheduled_at: scheduledAt,
         status: "pending",
+        kind: "reply",
       });
     if (queueErr) {
       // Fall back to sync delivery so the chat doesn't silently die. This is
@@ -313,12 +350,32 @@ export async function POST(
       });
       if (result.ok) {
         peerMessage = messageRowToUi(result.assistantRow);
+        if (result.additionalChunks > 0 && result.nextChunkAt) {
+          nextPendingAt = result.nextChunkAt;
+        }
       } else {
         warning = result.error;
       }
     } else {
       nextPendingAt = scheduledAt;
     }
+  }
+
+  // 5. After delivering (or queuing) the reply, maybe schedule a spontaneous
+  //    follow-up. This is fire-and-forget — failures are logged, not raised.
+  try {
+    await maybeScheduleSpontaneous(supabase, {
+      ownerUserId: user.id,
+      peerId,
+      triggerUserMessageId: insertedUser.id,
+      history,
+    });
+  } catch (e) {
+    console.warn(
+      "[conversations/messages POST] maybeScheduleSpontaneous threw",
+      peerId,
+      e instanceof Error ? e.message : String(e),
+    );
   }
 
   return NextResponse.json({

@@ -9,10 +9,32 @@ const XAI_FETCH_TIMEOUT_MS = Math.min(
   300_000,
 );
 
+/** Text part of a multimodal message. */
+export type GrokTextPart = { type: "text"; text: string };
+
+/** Image part of a multimodal user message. xAI vision models follow the
+ * OpenAI shape: { type: "image_url", image_url: { url: string, detail?: ... } }. */
+export type GrokImagePart = {
+  type: "image_url";
+  image_url: { url: string; detail?: "low" | "high" | "auto" };
+};
+
+export type GrokContentPart = GrokTextPart | GrokImagePart;
+
 export type GrokInputMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  /** Plain string for ordinary turns; array of content parts when the
+   * message includes a photo (only `user` role uses image parts). */
+  content: string | GrokContentPart[];
 };
+
+function contentToPlainText(content: string | GrokContentPart[]): string {
+  if (typeof content === "string") return content;
+  return content
+    .map((p) => (p.type === "text" ? p.text : "[photo]"))
+    .join(" ")
+    .trim();
+}
 
 function xaiFetchSignal(): AbortSignal {
   return AbortSignal.timeout(XAI_FETCH_TIMEOUT_MS);
@@ -32,7 +54,7 @@ function buildResponsesPayload(
 ) {
   const systemChunks = input
     .filter((m) => m.role === "system")
-    .map((m) => m.content.trim())
+    .map((m) => contentToPlainText(m.content).trim())
     .filter(Boolean);
   const dialogue = input.filter((m) => m.role !== "system");
   const maxOut = Math.min(
@@ -188,6 +210,10 @@ function defaultChatTemperature(): number {
   return Number.isFinite(n) ? Math.min(2, Math.max(0, n)) : 0.8;
 }
 
+function hasImagePart(input: GrokInputMessage[]): boolean {
+  return input.some((m) => Array.isArray(m.content) && m.content.some((p) => p.type === "image_url"));
+}
+
 export async function grokResponsesComplete(
   input: GrokInputMessage[],
   options?: GrokCompleteOptions,
@@ -196,7 +222,12 @@ export async function grokResponsesComplete(
   if (!key) {
     return { ok: false, error: "Missing XAI_API_KEY" };
   }
-  const model = process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
+  // When the conversation contains an image, prefer a vision-capable model
+  // if the operator configured one; otherwise fall through to the default
+  // (which on grok-4.x is multimodal-capable as of 2025).
+  const visionModel = process.env.XAI_VISION_MODEL?.trim();
+  const baseModel = process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
+  const model = hasImagePart(input) && visionModel ? visionModel : baseModel;
 
   const opts: GrokCompleteOptions = {
     temperature: options?.temperature ?? defaultChatTemperature(),

@@ -63,6 +63,9 @@ export type ChatMessageRow = {
   reaction_emoji: string | null;
   gift_credits: number | null;
   created_at: string;
+  /** Timestamp at which the AI peer "saw" this user message. Powers the
+   * "Read at HH:MM" indicator. NULL until she's processed the message. */
+  peer_read_at?: string | null;
 };
 
 export function isoToThreadTimeLabel(iso: string | null): string {
@@ -191,5 +194,6 @@ export function messageRowToUi(row: ChatMessageRow): ChatMessage {
     timeLabel,
     minuteOfDay,
     reactionBadge: row.reaction_emoji ?? undefined,
+    peerReadAt: row.peer_read_at ?? undefined,
   };
 }

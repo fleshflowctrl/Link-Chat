@@ -1,21 +1,25 @@
 /**
  * Async pending-reply delivery for AI peer chats.
  *
- * Long human-style pauses (10/20/30 minutes, sleep cycles) are scheduled in
- * `chat_pending_replies` and delivered later via this helper. The helper is
- * called from three places:
+ * Multiple kinds of pending rows now coexist:
+ *   - 'reply'       — standard delayed AI reply to a user message
+ *   - 'chunk'       — 2nd/3rd bubble of a multi-message reply (no Grok call,
+ *                     just insert the precomputed payload_text)
+ *   - 'spontaneous' — AI initiates after the user has gone silent for a
+ *                     while (~30-90 min). Triggers a fresh Grok call.
+ *   - 'winback'     — AI re-engages after 1-3 days of inactivity. Same as
+ *                     spontaneous but with a longer-time-gap framing.
+ *   - 'pre_ack'     — reserved (not yet emitted)
  *
- *   1. POST /messages — after queueing a new pending row, also process any
- *      already-due rows so a user who's been away catches up immediately.
- *   2. GET /messages — process due rows before returning the message list.
- *   3. POST /poll-pending — fired by a client-side timer when scheduled_at
- *      hits, so the reply lands at the right wall-clock moment.
- *
- * Coalescing: if multiple user messages have piled up while she was "away",
- * we still call Grok ONCE with the full latest history and produce ONE peer
- * reply (mirroring how a real person reads several texts then sends one
- * answer). All due rows are marked done and linked to that single
- * assistant_message_id, except the trigger row which is the oldest one.
+ * Workflow:
+ *   - Find all due pending rows for this thread, oldest first.
+ *   - Process 'chunk' rows first, individually (each is independent and
+ *     just an insert).
+ *   - Then for 'reply' / 'spontaneous' / 'winback': coalesce the reply-type
+ *     rows into a single Grok call (real people don't reply twice when they
+ *     come back to a stack of messages); spontaneous and winback are still
+ *     separate Grok calls because their *reason* for sending differs from a
+ *     queued reply.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -26,9 +30,14 @@ import type {
 import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
 
 type PendingRow = {
-  user_message_id: string;
+  id: string;
+  user_message_id: string | null;
+  parent_user_message_id: string | null;
   scheduled_at: string;
   status: string;
+  kind: "reply" | "chunk" | "spontaneous" | "winback" | "pre_ack";
+  payload_text: string | null;
+  attempts?: number;
 };
 
 export type ProcessDueResult = {
@@ -39,13 +48,8 @@ export type ProcessDueResult = {
 
 /**
  * Process all `pending` rows for this thread whose `scheduled_at` is in the
- * past. Generates ONE Grok reply (coalesced), inserts ONE peer message, and
- * marks all processed rows as `done` (or `superseded` if multiple were due).
- *
- * Returns the new peer message(s) — usually zero or one — plus the earliest
- * still-pending scheduled_at so the client can set its next timer.
- *
- * Safe to call repeatedly; idempotent against rows already marked done.
+ * past. Returns the new peer messages produced (chunk inserts + at most one
+ * coalesced reply) plus the earliest still-pending scheduled_at.
  */
 export async function processDuePendingReplies(
   supabase: SupabaseClient,
@@ -56,11 +60,11 @@ export async function processDuePendingReplies(
   },
 ): Promise<ProcessDueResult> {
   const nowIso = new Date().toISOString();
+  const newPeerMessages: ChatMessageRow[] = [];
 
-  // Find due pending rows for this thread, ordered oldest-first.
   const { data: dueRows, error: dueErr } = await supabase
     .from("chat_pending_replies")
-    .select("user_message_id, scheduled_at, status")
+    .select("id, user_message_id, parent_user_message_id, scheduled_at, status, kind, payload_text")
     .eq("owner_user_id", args.ownerUserId)
     .eq("peer_id", args.peerId)
     .eq("status", "pending")
@@ -72,8 +76,6 @@ export async function processDuePendingReplies(
   }
 
   const due = (dueRows ?? []) as PendingRow[];
-  const newPeerMessages: ChatMessageRow[] = [];
-
   if (due.length === 0) {
     return {
       newPeerMessages,
@@ -81,126 +83,254 @@ export async function processDuePendingReplies(
     };
   }
 
-  // Lock all due rows by flipping to 'processing'. Concurrent callers (rare
-  // but possible: user navigates GET messages and timer fires simultaneously)
-  // will then see 0 due rows and skip.
-  const dueIds = due.map((r) => r.user_message_id);
-  const { data: lockedRows, error: lockErr } = await supabase
-    .from("chat_pending_replies")
-    .update({ status: "processing", updated_at: nowIso })
-    .in("user_message_id", dueIds)
-    .eq("owner_user_id", args.ownerUserId)
-    .eq("status", "pending")
-    .select("user_message_id");
+  // Split by kind for separate handling.
+  const chunkRows = due.filter((r) => r.kind === "chunk");
+  const replyRows = due.filter((r) => r.kind === "reply");
+  const spontaneousRows = due.filter((r) => r.kind === "spontaneous" || r.kind === "winback");
 
-  if (lockErr) {
-    console.warn("[pending-replies] lock update", args.peerId, lockErr.message);
-    return {
-      newPeerMessages,
-      nextPendingAt: await earliestPendingAt(supabase, args.ownerUserId, args.peerId),
-    };
-  }
-
-  const actuallyLocked = ((lockedRows ?? []) as Array<{ user_message_id: string }>).map(
-    (r) => r.user_message_id,
-  );
-
-  if (actuallyLocked.length === 0) {
-    // Lost the race to another caller — they'll handle delivery.
-    return {
-      newPeerMessages,
-      nextPendingAt: await earliestPendingAt(supabase, args.ownerUserId, args.peerId),
-    };
-  }
-
-  // Pull the latest full thread history NOW (not at scheduling time) so Grok
-  // sees any user messages that arrived during the wait.
-  const { data: historyRows, error: histErr } = await supabase
-    .from("chat_messages")
-    .select("*")
-    .eq("peer_id", args.peerId)
-    .eq("owner_user_id", args.ownerUserId)
-    .order("created_at", { ascending: true });
-
-  if (histErr || !historyRows) {
-    // Mark rows back to pending + bump attempts so they retry on next poll.
-    await supabase
+  // ----- 1. Chunk rows: lock each, insert payload_text as peer message -----
+  if (chunkRows.length > 0) {
+    const ids = chunkRows.map((r) => r.id);
+    const { data: lockedChunks } = await supabase
       .from("chat_pending_replies")
-      .update({
-        status: "pending",
-        attempts: (due[0] as unknown as { attempts?: number }).attempts ?? 0,
-        error: histErr?.message ?? "history fetch failed",
-        updated_at: new Date().toISOString(),
-      })
-      .in("user_message_id", actuallyLocked);
-    return {
-      newPeerMessages,
-      nextPendingAt: await earliestPendingAt(supabase, args.ownerUserId, args.peerId),
-    };
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .in("id", ids)
+      .eq("owner_user_id", args.ownerUserId)
+      .eq("status", "pending")
+      .select("id, payload_text");
+
+    const locked = (lockedChunks ?? []) as Array<{ id: string; payload_text: string | null }>;
+    for (const ch of locked) {
+      const text = (ch.payload_text ?? "").trim();
+      if (!text) {
+        await supabase
+          .from("chat_pending_replies")
+          .update({ status: "failed", error: "empty payload", updated_at: new Date().toISOString() })
+          .eq("id", ch.id);
+        continue;
+      }
+      const { data: inserted, error: insErr } = await supabase
+        .from("chat_messages")
+        .insert({
+          peer_id: args.peerId,
+          sender: "peer",
+          kind: "text",
+          body: text,
+          owner_user_id: args.ownerUserId,
+        })
+        .select("*")
+        .single();
+      if (insErr || !inserted) {
+        await supabase
+          .from("chat_pending_replies")
+          .update({
+            status: "failed",
+            error: (insErr?.message ?? "insert failed").slice(0, 500),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", ch.id);
+        continue;
+      }
+      await supabase
+        .from("chat_pending_replies")
+        .update({
+          status: "done",
+          assistant_message_id: (inserted as ChatMessageRow).id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", ch.id);
+      newPeerMessages.push(inserted as ChatMessageRow);
+    }
   }
 
-  const history = historyRows as ChatMessageRow[];
-  const triggerId = actuallyLocked[0]; // oldest due row drives logging/turn-index
-
-  const result = await generatePeerReply(supabase, {
-    profile: args.profile,
-    history,
-    ownerUserId: args.ownerUserId,
-    peerId: args.peerId,
-    options: { triggerUserMessageId: triggerId },
-  });
-
-  const finishedAt = new Date().toISOString();
-
-  if (!result.ok) {
-    // Mark all locked rows failed (with error); they won't be retried unless
-    // we explicitly re-queue them. Most failures here are Grok outages —
-    // safer to surface than to spin forever.
-    await supabase
+  // ----- 2. Reply rows: coalesce into ONE Grok call -----
+  if (replyRows.length > 0) {
+    const ids = replyRows.map((r) => r.id);
+    const { data: lockedReplies } = await supabase
       .from("chat_pending_replies")
-      .update({
-        status: "failed",
-        error: result.error.slice(0, 500),
-        updated_at: finishedAt,
-      })
-      .in("user_message_id", actuallyLocked);
-    return {
-      newPeerMessages,
-      nextPendingAt: await earliestPendingAt(supabase, args.ownerUserId, args.peerId),
-    };
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .in("id", ids)
+      .eq("owner_user_id", args.ownerUserId)
+      .eq("status", "pending")
+      .select("id, user_message_id");
+
+    const locked = (lockedReplies ?? []) as Array<{ id: string; user_message_id: string | null }>;
+    if (locked.length > 0) {
+      const triggerId = locked[0].user_message_id ?? null;
+
+      const { data: historyRows, error: histErr } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("peer_id", args.peerId)
+        .eq("owner_user_id", args.ownerUserId)
+        .order("created_at", { ascending: true });
+
+      if (histErr || !historyRows) {
+        await supabase
+          .from("chat_pending_replies")
+          .update({
+            status: "pending",
+            error: histErr?.message ?? "history fetch failed",
+            updated_at: new Date().toISOString(),
+          })
+          .in("id", locked.map((r) => r.id));
+      } else {
+        const result = await generatePeerReply(supabase, {
+          profile: args.profile,
+          history: historyRows as ChatMessageRow[],
+          ownerUserId: args.ownerUserId,
+          peerId: args.peerId,
+          options: { triggerUserMessageId: triggerId ?? undefined },
+        });
+
+        const finishedAt = new Date().toISOString();
+        if (!result.ok) {
+          await supabase
+            .from("chat_pending_replies")
+            .update({
+              status: "failed",
+              error: result.error.slice(0, 500),
+              updated_at: finishedAt,
+            })
+            .in("id", locked.map((r) => r.id));
+        } else {
+          // First locked row -> done with assistant link; rest -> superseded.
+          await supabase
+            .from("chat_pending_replies")
+            .update({
+              status: "done",
+              assistant_message_id: result.assistantRow.id,
+              updated_at: finishedAt,
+            })
+            .eq("id", locked[0].id);
+
+          if (locked.length > 1) {
+            await supabase
+              .from("chat_pending_replies")
+              .update({
+                status: "superseded",
+                assistant_message_id: result.assistantRow.id,
+                updated_at: finishedAt,
+              })
+              .in("id", locked.slice(1).map((r) => r.id));
+          }
+          newPeerMessages.push(result.assistantRow);
+        }
+      }
+    }
   }
 
-  // Trigger row -> done with assistant_message_id. Other rows -> superseded
-  // (their reply was coalesced into this one — they aren't going to fire
-  // again).
-  await supabase
-    .from("chat_pending_replies")
-    .update({
-      status: "done",
-      assistant_message_id: result.assistantRow.id,
-      updated_at: finishedAt,
-    })
-    .eq("user_message_id", triggerId)
-    .eq("owner_user_id", args.ownerUserId);
-
-  if (actuallyLocked.length > 1) {
-    await supabase
+  // ----- 3. Spontaneous / winback rows: separate Grok calls (if user
+  //         hasn't replied since the row was queued, it still fires) -----
+  for (const row of spontaneousRows) {
+    const { data: lockedRow } = await supabase
       .from("chat_pending_replies")
-      .update({
-        status: "superseded",
-        assistant_message_id: result.assistantRow.id,
-        updated_at: finishedAt,
-      })
-      .in("user_message_id", actuallyLocked.slice(1))
-      .eq("owner_user_id", args.ownerUserId);
-  }
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .eq("status", "pending")
+      .select("id, kind, parent_user_message_id")
+      .maybeSingle();
 
-  newPeerMessages.push(result.assistantRow);
+    if (!lockedRow) continue;
+
+    const { data: historyRows } = await supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("peer_id", args.peerId)
+      .eq("owner_user_id", args.ownerUserId)
+      .order("created_at", { ascending: true });
+
+    if (!historyRows) {
+      await supabase
+        .from("chat_pending_replies")
+        .update({
+          status: "pending",
+          error: "history fetch failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      continue;
+    }
+
+    // If the user has replied since this row was queued (their last message
+    // is more recent than the row's parent_user_message_id), the spontaneous
+    // is no longer needed — supersede.
+    let userHasRepliedSince = false;
+    if (row.parent_user_message_id) {
+      const parentIdx = (historyRows as ChatMessageRow[]).findIndex((r) => r.id === row.parent_user_message_id);
+      if (parentIdx >= 0) {
+        for (let i = parentIdx + 1; i < historyRows.length; i++) {
+          if ((historyRows as ChatMessageRow[])[i].sender === "me") {
+            userHasRepliedSince = true;
+            break;
+          }
+        }
+      }
+    } else {
+      // No parent — winback after total silence; user activity since queue
+      // means they came back already. Use last user msg vs row scheduled_at.
+      const lastUserAt = lastUserMessageAt(historyRows as ChatMessageRow[]);
+      if (lastUserAt && lastUserAt > new Date(row.scheduled_at).getTime()) {
+        userHasRepliedSince = true;
+      }
+    }
+
+    if (userHasRepliedSince) {
+      await supabase
+        .from("chat_pending_replies")
+        .update({
+          status: "superseded",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      continue;
+    }
+
+    const result = await generatePeerReply(supabase, {
+      profile: args.profile,
+      history: historyRows as ChatMessageRow[],
+      ownerUserId: args.ownerUserId,
+      peerId: args.peerId,
+      options: { forceSingleMessage: true },
+    });
+
+    const finishedAt = new Date().toISOString();
+    if (!result.ok) {
+      await supabase
+        .from("chat_pending_replies")
+        .update({
+          status: "failed",
+          error: result.error.slice(0, 500),
+          updated_at: finishedAt,
+        })
+        .eq("id", row.id);
+    } else {
+      await supabase
+        .from("chat_pending_replies")
+        .update({
+          status: "done",
+          assistant_message_id: result.assistantRow.id,
+          updated_at: finishedAt,
+        })
+        .eq("id", row.id);
+      newPeerMessages.push(result.assistantRow);
+    }
+  }
 
   return {
     newPeerMessages,
     nextPendingAt: await earliestPendingAt(supabase, args.ownerUserId, args.peerId),
   };
+}
+
+function lastUserMessageAt(history: ChatMessageRow[]): number | null {
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].sender === "me") {
+      const t = new Date(history[i].created_at).getTime();
+      if (Number.isFinite(t)) return t;
+    }
+  }
+  return null;
 }
 
 async function earliestPendingAt(

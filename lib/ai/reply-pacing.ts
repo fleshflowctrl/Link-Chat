@@ -224,6 +224,24 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   // 7. Mild jitter ±10% so two consecutive replies never share a delay.
   let total = (raw + typingBonus + readingBonus) * (0.9 + Math.random() * 0.2);
 
+  // 7b. Nightcap: between 22:00 and bedtime she's more likely on the couch
+  // with her phone, half-watching something. Replies stretch a bit and the
+  // distribution skews longer. We multiply by 1.3-1.7x — small enough to
+  // stay within the bucket buckets, big enough to be felt.
+  const msUntilBedtime = bedtime.bedtime.getTime() - now.getTime();
+  const nightcapWindow = 4 * 60 * 60_000; // 4h before bedtime ≈ from ~22:30
+  if (
+    bedtime.phase === "awake" &&
+    msUntilBedtime > 0 &&
+    msUntilBedtime < nightcapWindow
+  ) {
+    // Closer to bedtime → larger multiplier, peaks around 1.6x in the last
+    // hour before approach window kicks in.
+    const proximity = 1 - msUntilBedtime / nightcapWindow; // 0 at 4h before, 1 at bedtime
+    const factor = 1.25 + proximity * 0.35; // 1.25 - 1.6
+    total *= factor;
+  }
+
   // 8. Approaching-bedtime clamp: if her bedtime is within the next hour,
   // ensure the reply lands at least 60s before bedtime so the goodnight
   // message has time to land before she "drops her phone". Without this

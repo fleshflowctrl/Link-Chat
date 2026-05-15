@@ -67,6 +67,36 @@ function annotateMessages(msgs: ChatMessage[]): Annotated[] {
   });
 }
 
+/** Format a peer-read timestamp as a short HH:MM (today) or "gisteren" /
+ * "5 dec" for older messages. iMessage shows just "Read 14:32"; we mirror
+ * that pattern. */
+function formatReadTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString("nl-NL", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    d.getFullYear() === yesterday.getFullYear() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getDate() === yesterday.getDate();
+  if (isYesterday) {
+    return `gisteren ${d.toLocaleTimeString("nl-NL", { hour: "numeric", minute: "2-digit", hour12: false })}`;
+  }
+  return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+}
+
 function nowClock(): { timeLabel: string; minuteOfDay: number } {
   const d = new Date();
   const timeLabel = d.toLocaleTimeString("nl-NL", {
@@ -152,9 +182,19 @@ function PeerTypingBubble({ avatarUrl }: { avatarUrl: string }) {
   );
 }
 
-function ReadReceipt({ phase }: { phase: "single" | "double" }) {
+function ReadReceipt({
+  phase,
+  read,
+}: {
+  phase: "single" | "double";
+  /** When true, the peer has actually read this message — show a saturated
+   * primary-coloured double tick (real-WhatsApp blue). When false, message
+   * is delivered but unread → muted grey ticks. */
+  read?: boolean;
+}) {
+  const colour = read ? "text-primary" : "text-inkMuted/70";
   return (
-    <span className="inline-flex items-center gap-0.5 text-primary">
+    <span className={`inline-flex items-center gap-0.5 ${colour}`}>
       {phase === "single" ? (
         <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
       ) : (
@@ -202,6 +242,10 @@ export function ChatConversationView({
    * OR while a scheduled async reply is being delivered. Renders a typing-bubble
    * at the bottom so the wait feels human, not laggy. */
   const [peerTyping, setPeerTyping] = useState(false);
+  /** Real people don't type continuously — they pause to think, get
+   * distracted, restart. We flicker the typing bubble on/off in random
+   * intervals while peerTyping is true. */
+  const [typingFlickerOff, setTypingFlickerOff] = useState(false);
   /** ISO timestamp when the next async-scheduled AI reply should land, or null
    * if nothing is queued. Set by POST /messages (when a long pause was
    * scheduled), GET /messages (catch-up), and POST /poll-pending. The timer
@@ -266,6 +310,17 @@ export function ChatConversationView({
 
   const annotated = useMemo(() => annotateMessages(messages), [messages]);
 
+  /** The id of the LAST user-side message that the persona has read.
+   * "Gelezen 14:32" appears only beneath this one; older read messages
+   * just get the saturated double-tick without a timestamp. */
+  const lastReadUserMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.sender === "me" && m.peerReadAt) return m.id;
+    }
+    return null;
+  }, [messages]);
+
   const scrollToBottom = useCallback(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, []);
@@ -280,6 +335,36 @@ export function ChatConversationView({
   useEffect(() => {
     if (peerTyping) scrollToBottom();
   }, [peerTyping, scrollToBottom]);
+
+  // Typing-flicker effect: while peerTyping is true, randomly pause the
+  // bubble for 1-3s every 4-12s. Mimics how real people type for a beat,
+  // tap into the wrong app, look away, then come back. The bubble re-
+  // appears even though Grok is still cooking under the hood.
+  useEffect(() => {
+    if (!peerTyping) {
+      setTypingFlickerOff(false);
+      return;
+    }
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      const onMs = 4000 + Math.random() * 8000;
+      window.setTimeout(() => {
+        if (cancelled) return;
+        setTypingFlickerOff(true);
+        const offMs = 1000 + Math.random() * 2500;
+        window.setTimeout(() => {
+          if (cancelled) return;
+          setTypingFlickerOff(false);
+          tick();
+        }, offMs);
+      }, onMs);
+    };
+    tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [peerTyping]);
 
   /**
    * Trigger delivery of any due async-scheduled AI reply. Hits the dedicated
@@ -1225,7 +1310,13 @@ export function ChatConversationView({
                         <span>{msg.timeLabel}</span>
                         <ReadReceipt
                           phase={readPhase[msg.id] ?? "double"}
+                          read={Boolean(msg.peerReadAt)}
                         />
+                      </p>
+                    )}
+                    {msg.id === lastReadUserMessageId && msg.peerReadAt && (
+                      <p className="mt-0.5 pr-0.5 text-right text-[10px] font-medium text-primary">
+                        Gelezen {formatReadTime(msg.peerReadAt)}
                       </p>
                     )}
                   </div>
@@ -1234,7 +1325,9 @@ export function ChatConversationView({
             </motion.div>
           ))}
           <AnimatePresence>
-            {peerTyping && <PeerTypingBubble avatarUrl={meta.avatarUrl} />}
+            {peerTyping && !typingFlickerOff && (
+              <PeerTypingBubble avatarUrl={meta.avatarUrl} />
+            )}
           </AnimatePresence>
         </div>
         <div ref={endRef} className="h-1 shrink-0" aria-hidden />
