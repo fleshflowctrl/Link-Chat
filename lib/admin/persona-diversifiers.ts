@@ -118,35 +118,143 @@ const NL_REGIONS = [
   "Assen",
 ] as const;
 
-const OCCUPATION_FIELDS = [
-  "studeert pedagogiek en werkt parttime in de kinderopvang",
-  "verpleegkundige op de afdeling cardiologie",
-  "freelance grafisch ontwerper",
-  "barista in een specialty-koffiebar",
-  "junior copywriter bij een reclamebureau",
-  "fysiotherapeut in opleiding",
-  "doet de master psychologie en is studentassistent",
-  "werkt op een basisschool als juf",
-  "freelance fotograaf, vooral bruiloften",
-  "klantenservice bij een verzekeraar",
-  "yoga-instructeur en deeltijd serveerster",
-  "verkoopadviseur in een kledingwinkel",
-  "junior data-analist bij een fintech",
-  "social-media manager bij een kledingmerk",
-  "tandartsassistente",
-  "huidtherapeut in een kleine praktijk",
-  "doet HBO journalistiek en schrijft voor de schoolkrant",
-  "nail-tech met eigen studio aan huis",
-  "kapster in een buurtsalon",
-  "sportief actief als personal trainer",
-  "horecamedewerker in een bistro",
-  "magazijnmedewerker met avondopleiding",
-  "starter bij een uitgeverij, redactie",
-  "junior recruiter",
-  "stagiair bij een advocatenkantoor",
-  "verzorgende in een bejaardentehuis",
-  "make-up artist freelance",
-] as const;
+/** Body shape tier — duplicated here from persona-payload to keep this
+ * module self-contained. */
+type BodyType = "slim" | "average" | "plus";
+
+/** Constraints on which (body_type, age) combinations a given occupation
+ * fits. A fitness instructor can't be plus-size; a "junior copywriter"
+ * can't be 60. Defaults are unrestricted. */
+type OccupationOption = {
+  text: string;
+  /** Compatible body types. Default: all three. */
+  bodyTypes?: ReadonlyArray<BodyType>;
+  /** Min age (inclusive). Default: 18. */
+  ageMin?: number;
+  /** Max age (inclusive). Default: 99. */
+  ageMax?: number;
+};
+
+const OCCUPATION_FIELDS: ReadonlyArray<OccupationOption> = [
+  // --- Pretty universal: any body type, broad age range ---------------
+  { text: "verpleegkundige op de afdeling cardiologie", ageMin: 22 },
+  { text: "freelance grafisch ontwerper", ageMin: 22 },
+  { text: "barista in een specialty-koffiebar", ageMin: 18, ageMax: 35 },
+  { text: "werkt op een basisschool als juf", ageMin: 23 },
+  { text: "freelance fotograaf, vooral bruiloften", ageMin: 22 },
+  { text: "klantenservice bij een verzekeraar", ageMin: 19 },
+  { text: "verkoopadviseur in een kledingwinkel", ageMin: 19, ageMax: 45 },
+  { text: "social-media manager bij een kledingmerk", ageMin: 22, ageMax: 40 },
+  { text: "tandartsassistente", ageMin: 20 },
+  { text: "huidtherapeut in een kleine praktijk", ageMin: 24 },
+  { text: "nail-tech met eigen studio aan huis", ageMin: 21 },
+  { text: "kapster in een buurtsalon", ageMin: 21 },
+  { text: "horecamedewerker in een bistro", ageMin: 19, ageMax: 45 },
+  { text: "magazijnmedewerker met avondopleiding", ageMin: 18, ageMax: 35 },
+  { text: "verzorgende in een bejaardentehuis", ageMin: 22 },
+  { text: "make-up artist freelance", ageMin: 21 },
+
+  // --- Junior / student-coded: hard age cap so 50+ doesn't get them ---
+  { text: "studeert pedagogiek en werkt parttime in de kinderopvang", ageMin: 18, ageMax: 26 },
+  { text: "junior copywriter bij een reclamebureau", ageMin: 22, ageMax: 30 },
+  { text: "fysiotherapeut in opleiding", ageMin: 19, ageMax: 26 },
+  { text: "doet de master psychologie en is studentassistent", ageMin: 22, ageMax: 28 },
+  { text: "junior data-analist bij een fintech", ageMin: 22, ageMax: 30 },
+  { text: "doet HBO journalistiek en schrijft voor de schoolkrant", ageMin: 18, ageMax: 25 },
+  { text: "starter bij een uitgeverij, redactie", ageMin: 22, ageMax: 30 },
+  { text: "junior recruiter", ageMin: 22, ageMax: 30 },
+  { text: "stagiair bij een advocatenkantoor", ageMin: 19, ageMax: 25 },
+
+  // --- Body-type sensitive: physical professions can't be plus --------
+  // Operator brief: "een fitness instructeur kan niet dik zijn en moet
+  // eigenlijk altijd wel slank zijn". Same for dance / modelling / pro
+  // sports — these careers self-select on body type in the real world.
+  {
+    text: "yoga-instructeur en deeltijd serveerster",
+    bodyTypes: ["slim", "average"],
+    ageMin: 22,
+    ageMax: 50,
+  },
+  {
+    text: "sportief actief als personal trainer",
+    bodyTypes: ["slim", "average"],
+    ageMin: 22,
+    ageMax: 50,
+  },
+  {
+    text: "fitness instructeur in een sportschool",
+    bodyTypes: ["slim", "average"],
+    ageMin: 22,
+    ageMax: 50,
+  },
+  {
+    text: "danslerares bij een dansschool",
+    bodyTypes: ["slim", "average"],
+    ageMin: 22,
+    ageMax: 50,
+  },
+  {
+    text: "professioneel model voor een agency",
+    bodyTypes: ["slim"],
+    ageMin: 18,
+    ageMax: 35,
+  },
+  {
+    text: "loopt halve marathons en werkt als hardloop-coach",
+    bodyTypes: ["slim", "average"],
+    ageMin: 25,
+    ageMax: 55,
+  },
+
+  // --- Senior-friendly (40+, 50+, 65+) -------------------------------
+  // The occupation pool was previously skewed toward 20-30 jobs. For
+  // older personas we need believable mid-/late-career roles.
+  { text: "kapster met eigen salon, al 20 jaar", ageMin: 40 },
+  { text: "wijkverpleegkundige met meer dan 15 jaar ervaring", ageMin: 38 },
+  { text: "juf op een basisschool, al 15 jaar voor de klas", ageMin: 38 },
+  { text: "manager bij een verzekeraar", ageMin: 35 },
+  { text: "office manager bij een advocatenkantoor", ageMin: 35 },
+  { text: "boekhouder voor een MKB-bedrijfje", ageMin: 35 },
+  { text: "praktijkmanager bij een huisartsenpraktijk", ageMin: 38 },
+  { text: "secretaresse bij een notariskantoor, al jaren", ageMin: 38 },
+  { text: "thuiszorgmedewerker met flexibele uren", ageMin: 30 },
+  { text: "vrijwilligerswerk bij de voedselbank, parttime in de zorg", ageMin: 50 },
+  { text: "gepensioneerd verpleegkundige, doet vrijwilligerswerk", ageMin: 62 },
+  { text: "zelfstandig verkoper op de markt", ageMin: 35 },
+  { text: "hovenier met eigen klein bedrijf", ageMin: 30 },
+  { text: "eigenaar van een kleine boetiek in het centrum", ageMin: 35 },
+];
+
+/** Pick the best-fitting occupation given body type and age constraints.
+ * Falls back to the unrestricted pool if no match (defensive — unlikely
+ * given how broad most entries are). */
+function pickOccupation(
+  rand: () => number,
+  bodyType: BodyType | undefined,
+  age: number | undefined,
+): string {
+  const candidates = OCCUPATION_FIELDS.filter((opt) => {
+    if (bodyType && opt.bodyTypes && !opt.bodyTypes.includes(bodyType)) return false;
+    if (typeof age === "number") {
+      if (typeof opt.ageMin === "number" && age < opt.ageMin) return false;
+      if (typeof opt.ageMax === "number" && age > opt.ageMax) return false;
+    }
+    return true;
+  });
+  // Defensive fallback: if filters somehow leave us with nothing (e.g.
+  // age 95 + plus body type, beyond our seniors), we drop the body-type
+  // filter first, then the age filter, before giving up entirely.
+  const pool = candidates.length > 0
+    ? candidates
+    : OCCUPATION_FIELDS.filter((opt) => {
+        if (typeof age !== "number") return true;
+        if (typeof opt.ageMin === "number" && age < opt.ageMin) return false;
+        if (typeof opt.ageMax === "number" && age > opt.ageMax) return false;
+        return true;
+      });
+  const finalPool = pool.length > 0 ? pool : OCCUPATION_FIELDS;
+  return finalPool[Math.floor(rand() * finalPool.length)]!.text;
+}
 
 const VIBE_LEANS = [
   "rustig en dromerig, denkt graag voor zichzelf",
@@ -219,7 +327,11 @@ function pickFromArray<T>(arr: readonly T[], rand: () => number): T {
 /** Produce a fully-populated diversifier set. The seed mixes the
  * persona's batch index with `Date.now()` so two batches with the same
  * brief still produce different combos, but within a single batch each
- * index lands on a distinct hash bucket. */
+ * index lands on a distinct hash bucket.
+ *
+ * `bodyType` and `age` constrain the occupation pool — a fitness
+ * instructor can't be plus-size, a "junior copywriter" can't be 60.
+ * Pass them when known so the pick lands in a believable combination. */
 export function pickPersonaDiversifier(opts: {
   /** 0-based index in the current batch — keeps spread even within a
    * single Date.now() millisecond. */
@@ -227,6 +339,10 @@ export function pickPersonaDiversifier(opts: {
   /** Optional extra entropy (e.g. brief hash) so two operators clicking
    * "generate" simultaneously also get different results. */
   extraSeed?: number;
+  /** Body type (slim/average/plus) — filters the occupation pool. */
+  bodyType?: BodyType;
+  /** Persona age — filters the occupation pool. */
+  age?: number;
 }): PersonaDiversifier {
   const seed =
     ((opts.index | 0) * 0x9e3779b1) ^
@@ -240,7 +356,7 @@ export function pickPersonaDiversifier(opts: {
     skin: pickFromArray(SKIN_DETAILS, rand),
     face_shape: pickFromArray(FACE_SHAPES, rand),
     region: pickFromArray(NL_REGIONS, rand),
-    occupation_field: pickFromArray(OCCUPATION_FIELDS, rand),
+    occupation_field: pickOccupation(rand, opts.bodyType, opts.age),
     vibe_lean: pickFromArray(VIBE_LEANS, rand),
     style_aesthetic: pickFromArray(STYLE_AESTHETICS, rand),
     height: pickFromArray(HEIGHT_HINTS, rand),

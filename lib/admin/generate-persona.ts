@@ -126,6 +126,12 @@ Lichaamsbouw (body_type — onafhankelijk van attractiveness):
 - VERPLICHT: zet exact dezelfde waarde door in photo_style.body_type.
 - Pas appearance + build aan zodat ze bij body_type passen (een "plus"
   vrouw kan niet beschreven worden als "slank en sportief").
+- Beroep moet logisch matchen met body_type. Een fitness instructeur,
+  yoga-docent, danseres, professioneel model, hardloop-coach of pro-
+  atleet kan NIET "plus" zijn — die beroepen self-selecteren in de
+  echte wereld op slank/atletisch postuur. Voor "plus" personas kies
+  je een beroep dat past bij élk lichaam (zorg, onderwijs, kantoor,
+  retail, horeca, creatief, etc.).
 
 Leeftijd:
 - De operator geeft een exacte leeftijd op (age = X). Gebruik die
@@ -405,9 +411,20 @@ export async function generatePersonaFromBrief(
   // is exactly what the operator complained about ("ze lijken op
   // elkaar"). With them we force a distinct visual + narrative
   // fingerprint per persona.
+  //
+  // bodyType + forcedAge are passed in so the picked occupation lands
+  // in a believable combination — a fitness instructor can't be plus-
+  // size, a "junior copywriter" can't be 60. Operator request: "een
+  // dik persoon kan geen fitness instructeur zijn, dat is totaal niet
+  // logisch — werk moet wel logisch passen bij het profiel".
   let diversifier =
     args.diversifier ??
-    pickPersonaDiversifier({ index: idx, extraSeed: brief.length });
+    pickPersonaDiversifier({
+      index: idx,
+      extraSeed: brief.length,
+      bodyType,
+      age: forcedAge ?? undefined,
+    });
   // For 50+ personas, override the hair colour and add age-skin cues
   // because the default HAIR_COLORS palette is skewed to the 20-40
   // range — a 65-year-old described as "platinablond" then becomes
