@@ -417,6 +417,14 @@ export function buildPersonaPhotoPrompt(args: {
         "breasts fully visible with nipples, vagina/pussy clearly visible and exposed, " +
         "legs spread wide, explicit nudity, no hands covering breasts or vagina",
     );
+    // Self-taken explicit photo: MUST look like she took it herself.
+    // This overrides the generic camera/capture later in the prompt.
+    promptParts.push(
+      "mirror selfie taken by the woman herself, she is holding her own phone, " +
+        "arm extended or phone visible in the mirror reflection, selfie angle from her hand, " +
+        "amateur bedroom or bathroom mirror selfie, real self-taken nude photo from her personal camera roll, " +
+        "her own arm and hand visible in frame or reflection, casual unposed self-portrait",
+    );
   } else {
     promptParts.push(`wearing ${style}`);
   }
@@ -433,10 +441,24 @@ export function buildPersonaPhotoPrompt(args: {
   // because the model sees no instruction to vary. Falling back to the
   // legacy defaults preserves backwards-compat for older callers.
   const cam = args.cameraStyle ?? {};
-  const camera = (cam.camera ?? "casual phone selfie or candid snapshot").trim();
+  let camera = (cam.camera ?? "casual phone selfie or candid snapshot").trim();
   const backdrop = (cam.backdrop ?? "").trim();
-  const lighting = (cam.lighting ?? "soft natural lighting").trim();
-  const capture = (cam.capture ?? "shot on iPhone, slight grain, intimate everyday moment").trim();
+  let lighting = (cam.lighting ?? "soft natural lighting").trim();
+  let capture = (cam.capture ?? "shot on iPhone, slight grain, intimate everyday moment").trim();
+
+  // For explicit nudes we force a strong self-taken mirror-selfie look
+  // so it is obvious that *she* took the photo (not a third party).
+  if (isExplicitNude) {
+    camera =
+      "close-up mirror selfie taken by the woman herself, phone held in her own hand, " +
+      "arm extended or clearly visible, phone camera reflection visible in the mirror, " +
+      "selfie angle, amateur self-taken nude";
+    lighting = "soft bedroom or bathroom lighting, mirror reflection, casual home environment";
+    capture =
+      "shot by herself on her own iPhone, real amateur mirror selfie, slightly imperfect framing and angle, " +
+      "from her personal camera roll, unedited self-portrait, natural phone photo";
+  }
+
   promptParts.push(camera);
   if (backdrop) promptParts.push(`background: ${backdrop}`);
   promptParts.push(lighting);
@@ -444,22 +466,30 @@ export function buildPersonaPhotoPrompt(args: {
 
   // Anti-AI / pro-EVERYDAY-amateur anchors. End-loaded because diffusion
   // weights later tokens slightly higher for "look-and-feel" terms.
-  // Operator's two repeated complaints:
-  //   1. "het ziet er ook te ai uit"  (doll-like, plastic, posed)
-  //   2. "moet gewoon dagelijkse foto's zijn, geen professionele foto's"
-  // So we don't just push "amateur"; we push "Wednesday afternoon nothing
-  // happening, daily life, boring iPhone moment". The point is to make
-  // the model commit to a TONE, not a styled aesthetic.
-  promptParts.push(
-    "ordinary everyday iPhone snapshot from her camera roll, totally unedited, " +
-      "boring weekday moment, daily life, nothing special happening, " +
-      "real candid not posed, slightly imperfect framing, slightly off-center, " +
-      "natural skin pores and small skin texture, no filter, no beauty filter, " +
-      "no portrait mode bokeh, no shallow depth of field, " +
-      "normal phone camera dynamic range, slight ISO noise, slight grain, " +
-      "shot quickly in 2 seconds, regular phone photo not a photoshoot, " +
-      "captured by a friend on their phone, looks like it was just sent in a group chat",
-  );
+  // For explicit nudes we add an extra strong self-taken anchor so the
+  // model cannot fall back to "someone else took this photo".
+  if (isExplicitNude) {
+    promptParts.push(
+      "ordinary everyday iPhone mirror selfie from her own camera roll, totally unedited, " +
+        "real self-taken amateur nude photo, slightly imperfect framing and angle, " +
+        "her own hand and arm visible holding the phone or reflected in the mirror, " +
+        "natural skin pores and small skin texture, no filter, no beauty filter, " +
+        "normal phone camera dynamic range, slight ISO noise, slight grain, " +
+        "shot quickly by herself in her bedroom or bathroom, regular phone photo not a photoshoot, " +
+        "clearly taken by the woman in the photo, selfie, self-portrait",
+    );
+  } else {
+    promptParts.push(
+      "ordinary everyday iPhone snapshot from her camera roll, totally unedited, " +
+        "boring weekday moment, daily life, nothing special happening, " +
+        "real candid not posed, slightly imperfect framing, slightly off-center, " +
+        "natural skin pores and small skin texture, no filter, no beauty filter, " +
+        "no portrait mode bokeh, no shallow depth of field, " +
+        "normal phone camera dynamic range, slight ISO noise, slight grain, " +
+        "shot quickly in 2 seconds, regular phone photo not a photoshoot, " +
+        "captured by a friend on their phone, looks like it was just sent in a group chat",
+    );
+  }
 
   promptParts.push("photorealistic, high detail, no text, no watermark, no logo");
 
@@ -500,7 +530,10 @@ export function buildPersonaPhotoPrompt(args: {
     "full makeup, contoured face, styled hair, blow-dry, " +
     "duplicate person, multiple women, twins, identical twins, " +
     // anti-clothing (especially important for explicit nudes)
-    "wearing clothes, shirt, top, jeans, pants, bra, panties, underwear, dress, jacket, hoodie, leggings, skirt, clothing, dressed, partially clothed";
+    "wearing clothes, shirt, top, jeans, pants, bra, panties, underwear, dress, jacket, hoodie, leggings, skirt, clothing, dressed, partially clothed, " +
+    // anti-third-person / studio for explicit nudes
+    "third person view, photographer, someone else took the photo, external camera, professional studio nude, studio lighting, " +
+    "no phone visible, no mirror, no selfie, no arm visible, not self-taken";
   const negParts = [baseNegative];
   if (anchors.negative) negParts.push(anchors.negative);
   if (bodyAnchors.negative) negParts.push(bodyAnchors.negative);
