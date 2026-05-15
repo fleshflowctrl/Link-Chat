@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Image from "next/image";
 import { notFound, redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
@@ -7,6 +7,8 @@ import {
   emptyPersonaFormValues,
   type PersonaFormValues,
 } from "@/components/admin/persona-form";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { ArchiveIcon } from "@/components/admin/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -115,9 +117,9 @@ function rowToFormValues(row: RowFromDb): PersonaFormValues {
   };
 }
 
-export default async function AdminEditPersonaPage(
-  props: { params: { id: string } },
-) {
+export default async function AdminEditPersonaPage(props: {
+  params: { id: string };
+}) {
   const auth = await requireAdmin();
   if (!auth.ok) {
     if (auth.status === 401) redirect(`/login?next=/admin/personas/${props.params.id}/edit`);
@@ -155,18 +157,34 @@ export default async function AdminEditPersonaPage(
   const initial = rowToFormValues(data as RowFromDb);
 
   return (
-    <div>
-      <div className="mb-6">
-        <Link href="/admin/personas" className="text-xs text-gray-500 hover:text-gray-900">
-          ← Personas
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-          {initial.display_name || initial.id}
-        </h1>
-        <p className="mt-1 text-sm text-gray-600">
-          ID <code className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px]">{initial.id}</code>
-        </p>
-      </div>
+    <div className="mx-auto max-w-7xl">
+      <AdminPageHeader
+        crumbs={[
+          { href: "/admin/personas", label: "Personas" },
+          { label: initial.display_name || initial.id },
+        ]}
+        title={initial.display_name || initial.id}
+        description={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            <code className="rounded-md bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700 ring-1 ring-inset ring-black/5">
+              {initial.id}
+            </code>
+            {initial.is_archived ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 ring-1 ring-inset ring-rose-200">
+                <ArchiveIcon className="h-3 w-3" />
+                Gearchiveerd
+              </span>
+            ) : null}
+          </span>
+        }
+        actions={
+          initial.avatar_url ? (
+            <div className="relative h-12 w-12 overflow-hidden rounded-xl ring-1 ring-black/5">
+              <Image src={initial.avatar_url} alt="" fill sizes="48px" className="object-cover" />
+            </div>
+          ) : null
+        }
+      />
       <PersonaForm mode="edit" initial={initial} idLocked />
     </div>
   );

@@ -84,16 +84,16 @@ export default async function AdminThreadDetailPage({
   const peerAvatar = profile?.avatar_url ?? "";
 
   return (
-    <div>
+    <div className="mx-auto max-w-5xl">
       <Link
         href="/admin/messages"
-        className="text-sm text-gray-600 hover:text-gray-900"
+        className="inline-flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-gray-900"
       >
         ← Alle berichten
       </Link>
 
-      <div className="mt-4 flex items-center gap-4 rounded-2xl border border-black/5 bg-white p-5">
-        <div className="relative h-14 w-14 overflow-hidden rounded-full bg-gray-100">
+      <div className="mt-4 flex items-center gap-4 rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
+        <div className="relative h-14 w-14 overflow-hidden rounded-full bg-gray-100 ring-1 ring-black/5">
           {peerAvatar ? (
             <Image
               src={peerAvatar}
@@ -105,7 +105,7 @@ export default async function AdminThreadDetailPage({
           ) : null}
         </div>
         <div className="min-w-0">
-          <p className="text-lg font-semibold tracking-tight">{peerName}</p>
+          <p className="font-display text-lg font-semibold tracking-tight">{peerName}</p>
           <p className="mt-0.5 text-sm text-gray-600">
             Gebruiker:{" "}
             <span className="font-medium text-gray-900">
@@ -113,7 +113,7 @@ export default async function AdminThreadDetailPage({
             </span>
           </p>
         </div>
-        <span className="ml-auto rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+        <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           {messages.length} berichten
         </span>
       </div>

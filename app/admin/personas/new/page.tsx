@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { PersonaForm, emptyPersonaFormValues } from "@/components/admin/persona-form";
+import { AdminPageHeader } from "@/components/admin/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -18,22 +18,15 @@ export default async function AdminNewPersonaPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-baseline justify-between">
-        <div>
-          <Link
-            href="/admin/personas"
-            className="text-xs text-gray-500 hover:text-gray-900"
-          >
-            ← Personas
-          </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">Nieuwe persona</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Vul minimaal naam, leeftijd, stad, bio en avatar in. De rest verfijnt
-            de persona — backstory en persona-diepte voeden direct de AI-systeemprompt.
-          </p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-7xl">
+      <AdminPageHeader
+        crumbs={[
+          { href: "/admin/personas", label: "Personas" },
+          { label: "Nieuw" },
+        ]}
+        title="Nieuwe persona"
+        description="Vul minimaal naam, leeftijd, stad, bio en avatar in. De rest verfijnt — backstory en persona-diepte voeden direct de AI-systeemprompt en maken haar herkenbaar als een echt persoon."
+      />
       <PersonaForm mode="create" initial={emptyPersonaFormValues()} />
     </div>
   );

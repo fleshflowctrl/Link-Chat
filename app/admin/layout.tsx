@@ -1,36 +1,30 @@
-import Link from "next/link";
+import { requireAdmin } from "@/lib/auth/require-admin";
+import { AdminSidebarNav, AdminMobileNav } from "@/components/admin/sidebar-nav";
 
 export const metadata = {
   title: "whisper · admin",
   robots: { index: false, follow: false },
 };
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Best-effort lookup for the sidebar — page-level requireAdmin() still
+  // gates each route, so an unauthenticated visitor never gets here.
+  const auth = await requireAdmin();
+  const adminEmail = auth.ok ? auth.email : null;
+
   return (
-    <div className="min-h-screen bg-[#F5F3EE] text-gray-900">
-      <header className="border-b border-black/5 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/admin/messages" className="text-lg font-semibold tracking-tight">
-            whisper · admin
-          </Link>
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/admin/personas" className="text-gray-600 hover:text-gray-900">
-              Personas
-            </Link>
-            <Link href="/admin/messages" className="text-gray-600 hover:text-gray-900">
-              Berichten
-            </Link>
-            <Link href="/discover" className="text-gray-600 hover:text-gray-900">
-              ← Terug naar app
-            </Link>
-          </nav>
+    <div className="min-h-screen bg-canvas text-ink">
+      <div className="flex min-h-screen">
+        <AdminSidebarNav adminEmail={adminEmail} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <AdminMobileNav />
+          <main className="flex-1 px-4 py-6 sm:px-8 sm:py-10 lg:px-10">{children}</main>
         </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
+      </div>
     </div>
   );
 }

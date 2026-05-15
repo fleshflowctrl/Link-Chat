@@ -4,6 +4,8 @@ import Image from "next/image";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import type { AdminThreadSummary } from "@/app/api/admin/threads/route";
+import { AdminPageHeader } from "@/components/admin/page-header";
+import { ChatBubbleIcon } from "@/components/admin/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -165,23 +167,21 @@ export default async function AdminMessagesPage() {
   const { threads, diagnostics } = await loadThreads();
 
   return (
-    <div>
-      <div className="mb-6 flex items-baseline justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Berichten</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Alle gesprekken van alle gebruikers, met de meest recente bovenaan.
+    <div className="mx-auto max-w-7xl">
+      <AdminPageHeader
+        crumbs={[{ label: "Admin" }, { label: "Berichten" }]}
+        title="Berichten"
+        description={
+          <>
+            Alle gesprekken van alle gebruikers, meest recent bovenaan.
             {diagnostics.serviceConfigured ? (
               <span className="ml-1 text-gray-500">
                 ({diagnostics.rawMessageCount} berichten in totaal)
               </span>
             ) : null}
-          </p>
-        </div>
-        <span className="text-xs text-gray-500">
-          Ingelogd als {auth.email ?? auth.userId}
-        </span>
-      </div>
+          </>
+        }
+      />
 
       {diagnostics.error && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -190,19 +190,22 @@ export default async function AdminMessagesPage() {
       )}
 
       {threads.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-600">
-          Er zijn nog geen berichten. Zodra een gebruiker chat verschijnt het
-          hier.
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center">
+          <ChatBubbleIcon className="mb-3 h-8 w-8 text-gray-300" />
+          <p className="text-sm font-medium text-gray-700">Nog geen berichten</p>
+          <p className="mt-1 max-w-md text-xs text-gray-500">
+            Zodra een gebruiker chat met een persona verschijnt het gesprek hier.
+          </p>
         </div>
       ) : (
-        <ul className="divide-y divide-black/5 overflow-hidden rounded-2xl border border-black/5 bg-white">
+        <ul className="divide-y divide-black/5 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
           {threads.map((t) => (
             <li key={`${t.ownerUserId}-${t.peerId}`}>
               <Link
                 href={`/admin/messages/${t.ownerUserId}/${t.peerId}`}
                 className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50"
               >
-                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-1 ring-black/5">
                   {t.peerAvatarUrl ? (
                     <Image
                       src={t.peerAvatarUrl}
@@ -232,7 +235,7 @@ export default async function AdminMessagesPage() {
                     {t.lastMessagePreview}
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                   {t.messageCount}
                 </span>
               </Link>
