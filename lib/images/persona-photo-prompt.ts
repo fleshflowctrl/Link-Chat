@@ -404,7 +404,20 @@ export function buildPersonaPhotoPrompt(args: {
   );
   if (build) promptParts.push(build);
   promptParts.push(bodyAnchors.positive);
-  promptParts.push(`wearing ${style}`);
+
+  // If the scene description contains explicit nude keywords, override
+  // the persona's normal "wearing X" style so the model actually generates
+  // nudity instead of the default outfit.
+  const isExplicitNude =
+    /naakt|naakte|naaktfoto|topless|bloot|naakt.*bed|naakt.*spiegel|naakt.*liggend|naakt.*knie/i.test(
+      cleanScene,
+    );
+  if (isExplicitNude) {
+    promptParts.push("completely nude, no clothes, bare skin, naked body");
+  } else {
+    promptParts.push(`wearing ${style}`);
+  }
+
   if (shotPose) promptParts.push(`pose: ${shotPose}`);
   promptParts.push(`scene: ${cleanScene}`);
   promptParts.push(vibe);
