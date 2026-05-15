@@ -40,6 +40,10 @@ import {
   reviseDraftIfWorthIt,
 } from "@/lib/ai/draft-revise";
 import { getBedtimeContext } from "@/lib/ai/bedtime";
+import { extractPhotoDirective } from "@/lib/ai/photo-directive";
+import { generatePersonaPhoto } from "@/lib/images/generate-photo";
+import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
+import { uploadPersonaPhoto } from "@/lib/images/upload-photo";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
@@ -436,7 +440,22 @@ export async function generatePeerReply(
 
   // ----- Multi-message split + post-process -----
   const rawChunks = allowMultiMessage ? splitMultiMessage(draftText) : [draftText];
-  const cleanedChunks = rawChunks
+
+  // Photo directives can appear in any chunk. We extract them up front
+  // so the visible chunk text stays clean, and we collect the scenes
+  // along with their chunk-index so each photo arrives RIGHT AFTER the
+  // text chunk it was attached to (preserves narrative flow).
+  type PhotoIntent = { afterChunkIndex: number; scene: string };
+  const photoIntents: PhotoIntent[] = [];
+  const directiveStrippedChunks = rawChunks.map((c, idx) => {
+    const ext = extractPhotoDirective(c);
+    if (ext.scene) {
+      photoIntents.push({ afterChunkIndex: idx, scene: ext.scene });
+    }
+    return ext.cleanText;
+  });
+
+  const cleanedChunks = directiveStrippedChunks
     .map((c) => postProcessReply(c))
     .filter((c) => c.length > 0);
 
@@ -514,38 +533,67 @@ export async function generatePeerReply(
     .eq("sender", "me")
     .is("peer_read_at", null);
 
-  // ----- Schedule additional chunks (chunk[1..]) -----
+  // ----- Schedule additional chunks (chunk[1..]) + photos -----
+  // Both flow through the same chat_pending_replies queue with different
+  // `kind` values. Times are interleaved so each photo lands right after
+  // the text chunk it was attached to: text, [photo], next text, etc.
   let additionalChunks = 0;
   let nextChunkAt: string | null = null;
-  if (cleanedChunks.length > 1) {
-    const baseTime = Date.now();
-    let cursor = baseTime;
-    const rowsToInsert: Array<{
-      owner_user_id: string;
-      peer_id: string;
-      user_message_id: string | null;
-      parent_user_message_id: string | null;
-      scheduled_at: string;
-      status: "pending";
-      kind: "chunk";
-      payload_text: string;
-    }> = [];
-    for (let i = 1; i < cleanedChunks.length; i++) {
-      const text = cleanedChunks[i];
-      // Inter-bubble delay: 2-5s base + ~50ms/char typing time, capped at 8s.
-      const inter = Math.min(8000, 2000 + Math.random() * 3000 + Math.min(text.length * 50, 4000));
-      cursor += inter;
-      rowsToInsert.push({
-        owner_user_id: args.ownerUserId,
-        peer_id: args.peerId,
-        user_message_id: null,
-        parent_user_message_id: triggerId ?? null,
-        scheduled_at: new Date(cursor).toISOString(),
-        status: "pending",
-        kind: "chunk",
-        payload_text: text,
-      });
+  type PendingInsert = {
+    owner_user_id: string;
+    peer_id: string;
+    user_message_id: string | null;
+    parent_user_message_id: string | null;
+    scheduled_at: string;
+    status: "pending";
+    kind: "chunk" | "photo";
+    payload_text: string;
+  };
+  const rowsToInsert: PendingInsert[] = [];
+
+  if (cleanedChunks.length > 1 || photoIntents.length > 0) {
+    let cursor = Date.now();
+
+    // Walk the chunks in order; after each chunk (including chunk[0],
+    // which is delivered immediately), interleave any photo intents that
+    // were attached to that chunk, then schedule the next chunk.
+    for (let i = 0; i < cleanedChunks.length; i++) {
+      // Photos attached to chunk i — add a small "took the photo" delay.
+      const photosForThisChunk = photoIntents.filter((p) => p.afterChunkIndex === i);
+      for (const photo of photosForThisChunk) {
+        // 4-12s "she just typed, now she's snapping the photo"
+        const photoDelay = 4000 + Math.random() * 8000;
+        cursor += photoDelay;
+        rowsToInsert.push({
+          owner_user_id: args.ownerUserId,
+          peer_id: args.peerId,
+          user_message_id: null,
+          parent_user_message_id: triggerId ?? null,
+          scheduled_at: new Date(cursor).toISOString(),
+          status: "pending",
+          kind: "photo",
+          payload_text: photo.scene,
+        });
+      }
+
+      // Next text chunk (skip i=0, that's already inserted as peer message).
+      if (i + 1 < cleanedChunks.length) {
+        const text = cleanedChunks[i + 1];
+        const inter = Math.min(8000, 2000 + Math.random() * 3000 + Math.min(text.length * 50, 4000));
+        cursor += inter;
+        rowsToInsert.push({
+          owner_user_id: args.ownerUserId,
+          peer_id: args.peerId,
+          user_message_id: null,
+          parent_user_message_id: triggerId ?? null,
+          scheduled_at: new Date(cursor).toISOString(),
+          status: "pending",
+          kind: "chunk",
+          payload_text: text,
+        });
+      }
     }
+
     if (rowsToInsert.length > 0) {
       const { error: chIns } = await supabase
         .from("chat_pending_replies")
@@ -555,7 +603,7 @@ export async function generatePeerReply(
         nextChunkAt = rowsToInsert[0].scheduled_at;
       } else {
         console.warn(
-          "[generate-peer-reply] chunk schedule failed",
+          "[generate-peer-reply] chunk/photo schedule failed",
           args.peerId,
           chIns.message,
         );

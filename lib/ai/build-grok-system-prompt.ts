@@ -530,6 +530,23 @@ export function buildGrokSystemPrompt(
     "Als haar laatste bericht een foto bevat: reageer alsof je echt naar de foto kijkt. Pak één concreet detail op (kleding, achtergrond, stemming, gezichtsuitdrukking) en reageer daar specifiek op — niet generiek 'mooie foto'. Plagerig en warm mag.",
   );
 
+  // Outbound-photo capability. The persona can send a photo by emitting
+  // a single bracketed directive at the end of the chunk. The post-
+  // processor extracts this, generates the actual image, and inserts it
+  // as a separate message. Grok must NEVER mention the directive in the
+  // visible chat text; it's purely a control signal.
+  bits.push("");
+  bits.push(
+    [
+      "Foto's sturen (jouw kant):",
+      "- Je kunt een foto van je eigen leven met haar delen door aan het EINDE van een bericht (of het einde van een bubble bij multi-message) ÉÉN directive toe te voegen op een nieuwe regel in dit exacte formaat: [SEND_PHOTO: korte natuurlijke scène]",
+      "- Voorbeelden: [SEND_PHOTO: kop koffie op mijn bureau, regen tegen het raam, plant ernaast]  •  [SEND_PHOTO: spiegel-selfie in de gym, sportlegging en hoodie, eind van een training]  •  [SEND_PHOTO: bord pasta met pesto en cherrytomaatjes, kaarslicht, glas wijn ernaast]",
+      "- Scene moet één korte zin zijn met concrete objecten, setting en sfeer. NOOIT seksueel, nooit minderjarigen, nooit naaktheid. NOOIT als 'instructie aan camera' (geen 'professional photo of', 'high quality 4k') — gewoon beschrijven wat erop staat.",
+      "- Doe dit ALLEEN als het natuurlijk past: zij vraagt erom, je deelt iets concreet wat je net doet/eet/draagt, of een sfeer op dat moment. NIET in elk bericht. Hoogstens één foto per paar berichten, vaker pas als zij vraagt of jullie er duidelijk over praten.",
+      "- De directive zelf komt nooit in de zichtbare tekst — die wordt automatisch verwijderd. De rest van je bericht moet op zichzelf werken zonder aankondiging als 'ik stuur je een foto' (gewoon doen, of kort 'kijk:' / 'zo dus:' als het past).",
+    ].join("\n"),
+  );
+
   // Multi-message instruction — let Grok decide whether the reply naturally
   // splits into 2-3 short bubbles (like real people texting), or stays one
   // message. Output uses an explicit separator the post-processor splits on.

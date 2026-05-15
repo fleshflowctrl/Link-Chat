@@ -28,6 +28,9 @@ import type {
   ChatProfileRow,
 } from "@/lib/chat/map-rows";
 import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
+import { generatePersonaPhoto } from "@/lib/images/generate-photo";
+import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
+import { uploadPersonaPhoto } from "@/lib/images/upload-photo";
 
 type PendingRow = {
   id: string;
@@ -35,7 +38,7 @@ type PendingRow = {
   parent_user_message_id: string | null;
   scheduled_at: string;
   status: string;
-  kind: "reply" | "chunk" | "spontaneous" | "winback" | "pre_ack";
+  kind: "reply" | "chunk" | "spontaneous" | "winback" | "pre_ack" | "photo";
   payload_text: string | null;
   attempts?: number;
 };
@@ -85,6 +88,7 @@ export async function processDuePendingReplies(
 
   // Split by kind for separate handling.
   const chunkRows = due.filter((r) => r.kind === "chunk");
+  const photoRows = due.filter((r) => r.kind === "photo");
   const replyRows = due.filter((r) => r.kind === "reply");
   const spontaneousRows = due.filter((r) => r.kind === "spontaneous" || r.kind === "winback");
 
@@ -139,6 +143,114 @@ export async function processDuePendingReplies(
           updated_at: new Date().toISOString(),
         })
         .eq("id", ch.id);
+      newPeerMessages.push(inserted as ChatMessageRow);
+    }
+  }
+
+  // ----- 1b. Photo rows: generate via image backend, upload, insert -----
+  // Each photo row carries the scene description in payload_text. We build
+  // the persona-anchored prompt fresh so the persona stays visually
+  // consistent across photos. Failures (Space cold-start, rate limit, etc.)
+  // mark the row as failed without affecting the rest of the pipeline.
+  if (photoRows.length > 0) {
+    const ids = photoRows.map((r) => r.id);
+    const { data: lockedPhotos } = await supabase
+      .from("chat_pending_replies")
+      .update({ status: "processing", updated_at: new Date().toISOString() })
+      .in("id", ids)
+      .eq("owner_user_id", args.ownerUserId)
+      .eq("status", "pending")
+      .select("id, payload_text");
+
+    const locked = (lockedPhotos ?? []) as Array<{ id: string; payload_text: string | null }>;
+    for (const ph of locked) {
+      const scene = (ph.payload_text ?? "").trim();
+      if (!scene) {
+        await supabase
+          .from("chat_pending_replies")
+          .update({ status: "failed", error: "empty scene", updated_at: new Date().toISOString() })
+          .eq("id", ph.id);
+        continue;
+      }
+
+      const { prompt, seed } = buildPersonaPhotoPrompt({
+        profile: args.profile,
+        scene,
+      });
+
+      const gen = await generatePersonaPhoto({ prompt, seed });
+      if (!gen.ok) {
+        console.warn(
+          "[pending-replies] photo gen failed",
+          args.peerId,
+          gen.error,
+        );
+        await supabase
+          .from("chat_pending_replies")
+          .update({
+            status: "failed",
+            error: `gen: ${gen.error}`.slice(0, 500),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", ph.id);
+        continue;
+      }
+
+      const up = await uploadPersonaPhoto(supabase, {
+        ownerUserId: args.ownerUserId,
+        peerId: args.peerId,
+        bytes: gen.bytes,
+        mime: gen.mime,
+      });
+      if (!up.ok) {
+        console.warn(
+          "[pending-replies] photo upload failed",
+          args.peerId,
+          up.error,
+        );
+        await supabase
+          .from("chat_pending_replies")
+          .update({
+            status: "failed",
+            error: `upload: ${up.error}`.slice(0, 500),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", ph.id);
+        continue;
+      }
+
+      const { data: inserted, error: insErr } = await supabase
+        .from("chat_messages")
+        .insert({
+          peer_id: args.peerId,
+          sender: "peer",
+          kind: "image",
+          body: null,
+          image_url: up.publicUrl,
+          owner_user_id: args.ownerUserId,
+        })
+        .select("*")
+        .single();
+      if (insErr || !inserted) {
+        await supabase
+          .from("chat_pending_replies")
+          .update({
+            status: "failed",
+            error: (insErr?.message ?? "insert failed").slice(0, 500),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", ph.id);
+        continue;
+      }
+
+      await supabase
+        .from("chat_pending_replies")
+        .update({
+          status: "done",
+          assistant_message_id: (inserted as ChatMessageRow).id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", ph.id);
       newPeerMessages.push(inserted as ChatMessageRow);
     }
   }
