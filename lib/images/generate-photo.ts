@@ -101,12 +101,36 @@ async function fetchUrl(url: string): Promise<{ bytes: Buffer; mime: string } | 
   }
 }
 
+/** Z-Image-Turbo's documented JS API uses a named-parameters object, not
+ * a positional array. See https://huggingface.co/spaces/mrfakename/Z-Image-Turbo
+ * → "Use via API" → JavaScript tab. The `/generate_image` endpoint
+ * signature is:
+ *   { prompt, height, width, num_inference_steps, seed, randomize_seed }
+ * and returns [image, used_seed].
+ *
+ * Older versions of @gradio/client accepted a positional array for any
+ * endpoint, but newer Spaces (built on Gradio 5+) reject anything that
+ * isn't the named-object form — which is what was happening to us:
+ * connect succeeds, predict silently hangs until Vercel's timeout fires.
+ *
+ * We try `/generate_image` first; if the Space exposes only the
+ * `/generate_image_1` variant (which appears on some versions of this
+ * Space when the Hardware tier is changed) we fall back to that. */
+type GradioClient = {
+  predict: (
+    endpoint: string,
+    payload: Record<string, unknown>,
+  ) => Promise<{ data: unknown[] }>;
+};
+
 async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GeneratePhotoResult> {
   const seed = opts.seed ?? Math.floor(Math.random() * 0xffffffff);
 
   // Lazy import — keeps the @gradio/client dep out of bundles that don't
   // need image generation, and lets us swap clients later.
-  let Client: { connect: (id: string, opts?: Record<string, unknown>) => Promise<{ predict: (endpoint: string | number, payload: unknown[]) => Promise<{ data: unknown[] }> }> };
+  let Client: {
+    connect: (id: string, opts?: Record<string, unknown>) => Promise<GradioClient>;
+  };
   try {
     const mod = await import("@gradio/client");
     Client = (mod as unknown as { Client: typeof Client }).Client;
@@ -118,9 +142,12 @@ async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GenerateP
     };
   }
 
-  let app: Awaited<ReturnType<typeof Client.connect>>;
+  let app: GradioClient;
   try {
     const hfToken = process.env.HF_TOKEN?.trim();
+    // The newer @gradio/client uses `hf_token`, older one uses `hf_token`
+    // already too — both accept the key. We pass it whenever set so the
+    // operator's HF account quota is used (and ZeroGPU prio if Pro).
     app = await Client.connect(HF_SPACE, hfToken ? { hf_token: hfToken } : undefined);
   } catch (e) {
     return {
@@ -130,31 +157,37 @@ async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GenerateP
     };
   }
 
-  // The Space's generate_image signature is:
-  //   (prompt, height, width, num_inference_steps, seed, randomize_seed)
-  // No api_name is set so we pass by index. @gradio/client also
-  // accepts the function name path "/generate_image" on most versions.
-  const payload = [
-    opts.prompt,
-    opts.height ?? DEFAULTS.height,
-    opts.width ?? DEFAULTS.width,
-    opts.steps ?? DEFAULTS.steps,
+  const payload: Record<string, unknown> = {
+    prompt: opts.prompt,
+    height: opts.height ?? DEFAULTS.height,
+    width: opts.width ?? DEFAULTS.width,
+    num_inference_steps: opts.steps ?? DEFAULTS.steps,
     seed,
-    false, // randomize_seed = false → use the seed we passed
-  ];
+    randomize_seed: false, // we pass an explicit seed for visual consistency
+  };
 
-  let result: { data: unknown[] };
-  try {
-    // Try named endpoint first, fall back to index 0
+  let result: { data: unknown[] } | null = null;
+  let lastErr: string | null = null;
+
+  // Try the documented endpoint name first, then the variant that some
+  // copies of the Space expose. Both have identical signatures.
+  for (const endpoint of ["/generate_image", "/generate_image_1"]) {
     try {
-      result = await app.predict("/generate_image", payload);
-    } catch {
-      result = await app.predict(0, payload);
+      result = await app.predict(endpoint, payload);
+      break;
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+      // If predict throws because the endpoint doesn't exist we want to
+      // try the next one; for transient errors (queue full, timeout)
+      // there's not much value in retrying the alternate so we still
+      // try it as a soft retry.
     }
-  } catch (e) {
+  }
+
+  if (!result) {
     return {
       ok: false,
-      error: `Predict failed: ${e instanceof Error ? e.message : String(e)}`,
+      error: `Predict failed on /generate_image and /generate_image_1: ${lastErr ?? "unknown"}`,
       backend: "hf-space",
     };
   }
