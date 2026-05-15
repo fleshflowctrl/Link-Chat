@@ -5,6 +5,7 @@ import { AdminPageHeader } from "@/components/admin/page-header";
 import { PersonasList, type PersonaListRow } from "@/components/admin/personas-list";
 import { MigrationBanner } from "@/components/admin/migration-banner";
 import { BulkGenerateCard } from "@/components/admin/bulk-generate-card";
+import { ImageBackendStatus } from "@/components/admin/image-backend-status";
 import { probeDbHealth, type DbHealthReport } from "@/lib/admin/db-health";
 
 export const dynamic = "force-dynamic";
@@ -104,6 +105,8 @@ export default async function AdminPersonasPage() {
           {error}
         </div>
       ) : null}
+
+      <ImageBackendStatus />
 
       <BulkGenerateCard />
 
