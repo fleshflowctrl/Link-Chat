@@ -51,15 +51,39 @@ type Step = {
 };
 
 type Phase = "idle" | "running-profiles" | "running-photos" | "done";
+type Attractiveness = "striking" | "average" | "plain";
 
 const MAX_BATCH = 10;
 const MIN_BRIEF_LEN = 8;
+
+const ATTRACTIVENESS_OPTIONS: Array<{
+  id: Attractiveness;
+  label: string;
+  hint: string;
+}> = [
+  {
+    id: "plain",
+    label: "Gewoon",
+    hint: "onopvallend, niet-perfect — voor balans in de feed",
+  },
+  {
+    id: "average",
+    label: "Normaal",
+    hint: "alledaagse Nederlandse vrouw — aanbevolen default",
+  },
+  {
+    id: "striking",
+    label: "Knap",
+    hint: "model-look, fotogeniek — gebruik spaarzaam",
+  },
+];
 
 export function BulkGenerateCard() {
   const router = useRouter();
   const [count, setCount] = useState(3);
   const [brief, setBrief] = useState("");
   const [withPhotos, setWithPhotos] = useState(true);
+  const [attractiveness, setAttractiveness] = useState<Attractiveness>("average");
   const [phase, setPhase] = useState<Phase>("idle");
   const [steps, setSteps] = useState<Step[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -120,6 +144,7 @@ export function BulkGenerateCard() {
             index: i,
             total,
             exclude,
+            attractiveness,
           }),
         });
         const data: {
@@ -277,6 +302,33 @@ export function BulkGenerateCard() {
               <p className="mt-1 text-[11px] text-gray-400">
                 Hoe specifieker, hoe meer karakter. Houd het wel onder 3-4 zinnen.
               </p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white p-3 ring-1 ring-black/5">
+            <p className="mb-2 text-xs font-medium text-gray-700">
+              Aantrekkelijkheid <span className="text-gray-400">— alle vrouwen knap = scammy</span>
+            </p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {ATTRACTIVENESS_OPTIONS.map((opt) => {
+                const active = attractiveness === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setAttractiveness(opt.id)}
+                    className={
+                      "rounded-lg border px-3 py-2 text-left transition-colors " +
+                      (active
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-gray-200 bg-white text-gray-700 hover:border-gray-300")
+                    }
+                  >
+                    <div className="text-sm font-semibold">{opt.label}</div>
+                    <div className="text-[10px] leading-tight text-gray-500">{opt.hint}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

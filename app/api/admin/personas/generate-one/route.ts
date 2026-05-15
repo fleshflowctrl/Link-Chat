@@ -27,6 +27,10 @@ type GenerateBody = {
   /** ids/names already produced in this batch — Grok is asked to pick
    * something different so a single batch yields varied personas. */
   exclude?: string[];
+  /** Visual attractiveness tier — propagates to Grok's persona text and
+   * to the photo prompt. Default "average" so a fresh discovery feed
+   * doesn't feel like a model agency catalog. */
+  attractiveness?: "striking" | "average" | "plain";
 };
 
 /** Resolve a slug that doesn't collide with an existing chat_profiles row.
@@ -80,9 +84,19 @@ export async function POST(req: Request) {
   const index = Number.isFinite(body.index) ? Number(body.index) : 0;
   const total = Math.max(1, Math.min(20, Number(body.total) || 1));
   const exclude = Array.isArray(body.exclude) ? body.exclude.slice(0, 12).map(String) : [];
+  const attractiveness =
+    body.attractiveness === "striking" || body.attractiveness === "plain"
+      ? body.attractiveness
+      : "average";
 
   // 1) Generate the persona text/JSON via Grok.
-  const generated = await generatePersonaFromBrief({ brief, index, total, exclude });
+  const generated = await generatePersonaFromBrief({
+    brief,
+    index,
+    total,
+    exclude,
+    attractiveness,
+  });
   if (!generated.ok) {
     return NextResponse.json(
       { error: `Generatie faalde: ${generated.error}` },

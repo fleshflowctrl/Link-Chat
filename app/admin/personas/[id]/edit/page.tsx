@@ -103,6 +103,12 @@ function rowToFormValues(row: RowFromDb): PersonaFormValues {
       style: typeof ps.style === "string" ? ps.style : "",
       vibe: typeof ps.vibe === "string" ? ps.vibe : "",
       seed: typeof ps.seed === "number" ? String(ps.seed) : "",
+      attractiveness:
+        ps.attractiveness === "striking" ||
+        ps.attractiveness === "average" ||
+        ps.attractiveness === "plain"
+          ? ps.attractiveness
+          : "",
     },
     persona_meta: {
       languages: asStrArr(pm.languages).length ? asStrArr(pm.languages) : empty.persona_meta.languages,

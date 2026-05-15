@@ -24,6 +24,9 @@ export type PhotoStyleForm = {
   style: string;
   vibe: string;
   seed: string;
+  /** Realism lever: drives diffusion-prompt anchors so the discovery
+   * feed has a believable mix of looks. */
+  attractiveness: "" | "striking" | "average" | "plain";
 };
 
 export type PersonaMetaForm = {
@@ -118,7 +121,7 @@ export function emptyPersonaFormValues(): PersonaFormValues {
       quirks: [],
       talks_less_about: [],
     },
-    photo_style: { appearance: "", build: "", style: "", vibe: "", seed: "" },
+    photo_style: { appearance: "", build: "", style: "", vibe: "", seed: "", attractiveness: "" },
     persona_meta: {
       languages: ["nl"],
       personality_traits: [],

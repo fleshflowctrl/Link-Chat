@@ -81,7 +81,8 @@ Schema (alle velden verplicht tenzij gemarkeerd):
     "build": "string",                        // 1 zin: lichaamsbouw / lengte
     "style": "string",                        // 1 zin: outfit / aesthetic
     "vibe": "string",                         // 1 zin: mood/energie in foto's
-    "seed": 12345                              // willekeurig getal 1000–999999
+    "seed": 12345,                            // willekeurig getal 1000–999999
+    "attractiveness": "average"               // exact "striking" | "average" | "plain" — wordt door operator opgegeven
   }
 }
 
@@ -94,7 +95,22 @@ Regels:
 - Schrijf bio, looking_for, backstory, daily_rhythm, voice_style en goals in het Nederlands.
 - Personality_traits zijn ook Nederlands.
 - Geen placeholders zoals "TODO", "lorem ipsum" of "[vul aan]".
-- Geen mannelijke namen tenzij de brief expliciet om mannen vraagt.`;
+- Geen mannelijke namen tenzij de brief expliciet om mannen vraagt.
+
+Aantrekkelijkheid (zeer belangrijk voor realisme):
+- De operator geeft een attractiveness-niveau door (striking | average | plain).
+  Pas appearance, build, style en vibe daarop aan, en zorg dat ook bio en
+  persoonlijkheid bij het niveau passen. Een dating-app waarin alle vrouwen
+  modellen zijn voelt als scam.
+- "striking" = mooie, fotogenieke vrouw. Modeleske trekken, zelfvertrouwen.
+- "average" = alledaagse Nederlandse vrouw. Niet model-mooi, niet onaantrekkelijk.
+  Concreet: regelmatige trekken, sproetjes of vlekjes, gewone huid, half-up
+  haar, geen styling van een visagist. Bio en stijl mogen ook gewoon zijn —
+  geen "glamour fashion girl" maar "doet net of m'n studie haar uitvalt".
+- "plain" = onopvallend, niet-perfect. Onregelmatige trekken, asymmetrie,
+  fletse huid, kleine acne of littekens, eenvoudige kleren die niet altijd
+  perfect zitten. Persoonlijkheid is vaak warmer/oprechter ter compensatie.
+- VERPLICHT: zet exact dezelfde waarde door in photo_style.attractiveness.`;
 
 const VIBE_IDS = Array.from(FUNNEL_VIBE_ID_SET);
 const INTENT_IDS = Array.from(FUNNEL_LOOKING_ID_SET);
@@ -103,6 +119,14 @@ const STATUS_VARIANTS = ["active", "online", "new", "popular", "replied", "quiet
 const REPLY_LENGTHS = ["short", "medium", "variable"] as const;
 const PUNCTUATIONS = ["casual", "clean"] as const;
 const ICON_OPTIONS = ["caring", "romantic", "playful", "warm", "listener"] as const;
+
+export type AttractivenessLevel = "striking" | "average" | "plain";
+
+const ATTRACTIVENESS_VALUES: readonly AttractivenessLevel[] = [
+  "striking",
+  "average",
+  "plain",
+] as const;
 
 export type GeneratedPersona = {
   id: string;
@@ -142,6 +166,7 @@ export type GeneratedPersona = {
     style: string;
     vibe: string;
     seed: number;
+    attractiveness: AttractivenessLevel;
   };
 };
 
@@ -154,6 +179,9 @@ export type GeneratePersonaArgs = {
   /** Already-generated ids/display_names in this session — Grok is asked to
    * pick something different. */
   exclude?: string[];
+  /** Attractiveness tier for this persona. Defaults to "average" so a
+   * fresh discovery feed feels realistic. */
+  attractiveness?: AttractivenessLevel;
 };
 
 const SLUG_RE = /^[a-z][a-z0-9_-]{2,23}$/;
@@ -262,6 +290,7 @@ function coerce(raw: unknown): GeneratedPersona | null {
         if (Number.isFinite(n) && n > 0) return Math.floor(n) >>> 0;
         return Math.floor(1000 + Math.random() * 998_999);
       })(),
+      attractiveness: pickEnum(ps.attractiveness, ATTRACTIVENESS_VALUES, "average"),
     },
   };
 }
@@ -294,9 +323,16 @@ export async function generatePersonaFromBrief(
   const idx = typeof args.index === "number" ? args.index : 0;
   const total = typeof args.total === "number" ? args.total : 1;
   const excludeList = (args.exclude ?? []).slice(0, 12);
+  const attractiveness: AttractivenessLevel =
+    args.attractiveness && ATTRACTIVENESS_VALUES.includes(args.attractiveness)
+      ? args.attractiveness
+      : "average";
 
   const userParts: string[] = [];
   userParts.push(`Brief van de operator: ${brief}`);
+  userParts.push(
+    `Aantrekkelijkheid (verplicht): ${attractiveness}. Stem appearance/build/style/vibe daarop af, en zet photo_style.attractiveness ook op "${attractiveness}".`,
+  );
   if (total > 1) {
     userParts.push(
       `Dit is persona #${idx + 1} van ${total}. Maak haar duidelijk anders dan de andere ${total - 1} in deze batch — variatie in stad, leeftijd, beroep en vibe-mix.`,
@@ -361,5 +397,12 @@ export async function generatePersonaFromBrief(
       rawText: grok.text,
     };
   }
+
+  // Force the attractiveness level the operator chose, even if Grok
+  // ignored the hint and produced a different value. The diffusion
+  // anchors keyed off this field are what actually drive the photo
+  // result, so it must be authoritative on the operator's choice.
+  persona.photo_style.attractiveness = attractiveness;
+
   return { ok: true, persona, rawText: grok.text };
 }

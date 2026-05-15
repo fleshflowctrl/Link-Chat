@@ -132,7 +132,21 @@ type PhotoStyle = {
   style?: string;
   vibe?: string;
   seed?: number;
+  /** Visual attractiveness tier the photo-prompt builder should bias
+   * toward. Default is "average" because making every persona model-tier
+   * makes the discovery feed feel like a scam. The tiers are NOT moral
+   * judgements — they're realism levers:
+   *   "striking" — model-tier, glossy, polished
+   *   "average"  — gemiddelde Nederlandse vrouw, alledaags, herkenbaar
+   *   "plain"    — onopvallend, niet-perfect, maar warm en authentiek */
+  attractiveness?: "striking" | "average" | "plain";
 };
+
+const ATTRACTIVENESS = new Set<NonNullable<PhotoStyle["attractiveness"]>>([
+  "striking",
+  "average",
+  "plain",
+]);
 
 function asPhotoStyle(v: unknown): PhotoStyle | null {
   if (!v || typeof v !== "object") return null;
@@ -151,6 +165,10 @@ function asPhotoStyle(v: unknown): PhotoStyle | null {
   } else if (typeof o.seed === "string" && o.seed.trim()) {
     const n = Number(o.seed);
     if (Number.isFinite(n)) out.seed = Math.floor(n) >>> 0;
+  }
+  const attr = asString(o.attractiveness, 16).toLowerCase();
+  if (ATTRACTIVENESS.has(attr as PhotoStyle["attractiveness"] & string)) {
+    out.attractiveness = attr as PhotoStyle["attractiveness"];
   }
   return Object.keys(out).length > 0 ? out : null;
 }
