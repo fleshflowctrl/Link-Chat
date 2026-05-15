@@ -98,6 +98,8 @@ export async function POST(req: Request, ctx: RouteCtx) {
       backdrop: template.backdrop,
       lighting: template.lighting,
       capture: template.capture,
+      outfit: template.outfit,
+      pose: template.pose,
     },
   });
 

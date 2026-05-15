@@ -29,6 +29,18 @@ export type SceneTemplate = {
   backdrop: string;
   lighting: string;
   capture: string;
+  /** Specific outfit for this shot. When present this OVERRIDES the
+   * persona's `photo_style.style` anchor for this photo only — without
+   * this, every gallery shot ends up with the same "denim jacket"
+   * because the persona-level style locks the wardrobe. Each template
+   * must specify its own outfit so a 3-photo gallery actually shows
+   * three different outfits. Keep it concrete: "blue sundress with
+   * thin straps", not "casual summer". */
+  outfit: string;
+  /** Specific pose / body language. Same reason as `outfit`: without
+   * an explicit pose token diffusion keeps falling back to the same
+   * arms-crossed shoulder shot. */
+  pose: string;
   /** Avatar = mostly face visible. Gallery = wider / activity shot.
    * Mixed = either works. */
   kind: "avatar" | "gallery" | "mixed";
@@ -43,6 +55,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "modern Dutch living room interior, plants, soft cushions",
     lighting: "soft window daylight, warm tones",
     capture: "phone selfie",
+    outfit: "oversized cream knit sweater, hair loosely down",
+    pose: "head tilted slightly to one side, soft closed-mouth smile, free hand near face",
     kind: "avatar",
   },
   {
@@ -51,6 +65,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "bedroom mirror, slightly cluttered shelf with books and small plants",
     lighting: "indoor warm overhead light, slight underexposure",
     capture: "mirror selfie",
+    outfit: "fitted black tank top and high-waist blue jeans, simple silver necklace",
+    pose: "one hand on hip, other holding phone at chest height, weight on one leg",
     kind: "avatar",
   },
   {
@@ -59,6 +75,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "Amsterdam-style café interior, warm wood and brass, blurred patrons behind",
     lighting: "warm interior tungsten light, low-key cozy",
     capture: "iPhone candid",
+    outfit: "soft beige cardigan over a white t-shirt, hair in a loose low ponytail",
+    pose: "elbows on the table, both hands cupped around the coffee mug, leaning forward, mid-conversation laugh",
     kind: "avatar",
   },
   {
@@ -67,6 +85,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "Dutch terrace with parasols, parked bikes, brick facade behind",
     lighting: "late afternoon golden hour",
     capture: "phone candid by friend",
+    outfit: "olive linen button-up shirt rolled at the sleeves, small gold hoop earrings",
+    pose: "looking off-camera mid-laugh, head thrown slightly back, glass raised partway",
     kind: "avatar",
   },
   {
@@ -75,6 +95,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "car interior, blurred windshield with daylight",
     lighting: "natural daylight through the windshield",
     capture: "phone selfie",
+    outfit: "burgundy leather jacket over a plain white tee, sunglasses pushed up on her head",
+    pose: "seatbelt across her chest, looking slightly up into the camera, lips slightly parted",
     kind: "avatar",
   },
   {
@@ -83,6 +105,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "Dutch garden or apartment balcony, planted pots, brick wall",
     lighting: "late afternoon natural light",
     capture: "phone candid by friend",
+    outfit: "loose striped long-sleeve shirt and dark green corduroy trousers",
+    pose: "leaning forward on the railing with both forearms, looking out and slightly toward the camera",
     kind: "avatar",
   },
   {
@@ -91,6 +115,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "Amsterdam street with bike lane and tram rails behind",
     lighting: "natural daylight, soft overcast",
     capture: "phone candid by friend",
+    outfit: "yellow rain jacket, plain dark jeans, small canvas tote slung over the shoulder",
+    pose: "one foot down at the curb, hands on the handlebars, head turned over the shoulder",
     kind: "avatar",
   },
   {
@@ -99,6 +125,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "living room with string lights and other guests blurred behind",
     lighting: "warm interior with soft fairy lights",
     capture: "phone candid by friend",
+    outfit: "small black satin slip dress, simple gold chain, hair clipped half-up",
+    pose: "leaning against a doorframe, glass raised mid-toast, mouth open in laugh",
     kind: "avatar",
   },
   {
@@ -107,6 +135,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "urban Dutch backdrop — old brick wall or canal bridge",
     lighting: "soft afternoon light",
     capture: "phone candid by friend",
+    outfit: "rust-coloured trench coat over a soft grey turtleneck, hair tucked behind one ear",
+    pose: "leaning back against the wall, hands in coat pockets, calm closed-mouth half-smile",
     kind: "avatar",
   },
   {
@@ -115,6 +145,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "park bench with coffee cart visible behind, urban green",
     lighting: "midday natural light, soft shadows",
     capture: "phone candid by friend",
+    outfit: "chunky cream cable-knit sweater and blue plaid scarf",
+    pose: "sitting cross-legged on the bench, takeaway cup in both hands, head tipped slightly down",
     kind: "avatar",
   },
 
@@ -122,18 +154,22 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
 
   {
     scene: "op een bankje in het Vondelpark, leunt naar achter en lacht naar de camera",
-    camera: "full body shot from a few meters away, taken by a friend, wide framing",
+    camera: "full body shot from a few meters away, taken by a friend, wide framing, full length visible from head to feet",
     backdrop: "Vondelpark autumn leaves on the ground, trees behind",
     lighting: "golden hour late afternoon, warm soft light",
     capture: "DSLR by friend",
+    outfit: "long sage-green wool coat over a cream sweater, dark jeans and brown ankle boots, knit beanie",
+    pose: "sitting on the bench leaning back with both arms spread along the backrest, legs crossed at the ankles, head tipped back laughing",
     kind: "gallery",
   },
   {
     scene: "wandelend over een Amsterdamse gracht, kijkt opzij naar iets in de verte",
-    camera: "candid three-quarter shot from the side, off-center composition, walking pose",
+    camera: "candid three-quarter shot from the side, off-center composition, walking pose, mid-stride",
     backdrop: "Dutch canal with houseboats and bridge, leaning brick canal houses",
     lighting: "overcast soft daylight",
     capture: "candid phone by friend",
+    outfit: "denim jumpsuit cinched at the waist, white sneakers, leather crossbody bag",
+    pose: "captured mid-step walking, looking sideways and slightly down, hand brushing hair from her face",
     kind: "gallery",
   },
   {
@@ -142,14 +178,18 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "Dutch street with bike lane, brick facades, other cyclists in distance",
     lighting: "natural daylight, slightly overcast",
     capture: "phone candid by friend",
+    outfit: "long floral midi dress over leggings, small white sneakers, oversized canvas tote in the front basket",
+    pose: "riding the bike, both hands on handlebars, body twisted at the waist to look back over her shoulder, hair flying",
     kind: "gallery",
   },
   {
     scene: "op het strand bij Scheveningen, blote voeten in het zand, kijkt uit over de zee",
-    camera: "wide three-quarter shot from slightly behind, full body, looking away from camera",
+    camera: "wide three-quarter shot from slightly behind, full body, looking away from camera, distant subject",
     backdrop: "Dutch North Sea coast, dunes, scattered shells, slightly windy",
     lighting: "soft overcast sea light, cool tones",
     capture: "phone candid by friend",
+    outfit: "loose oversized linen shirt over a black bikini top, rolled-up jeans, hair blowing in the wind",
+    pose: "standing barefoot in the wet sand, arms loosely crossed, head turned in profile looking at the horizon",
     kind: "gallery",
   },
   {
@@ -158,6 +198,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "small Dutch kitchen, ingredients on counter, hanging utensils",
     lighting: "warm interior evening light, slightly low ambient",
     capture: "phone candid by friend",
+    outfit: "white linen apron over a navy striped t-shirt and grey sweatpants, hair messy in a top bun",
+    pose: "leaning over a cutting board with a knife, focused on chopping, brow slightly furrowed, free hand steadying the food",
     kind: "gallery",
   },
   {
@@ -166,6 +208,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "bar interior at night, blurred colored lights and patrons behind",
     lighting: "moody night ambient with warm and neon accents",
     capture: "phone candid by friend",
+    outfit: "fitted red satin going-out top, black leather mini skirt, statement gold earrings, hair styled",
+    pose: "leaning on the bar with one elbow, glass held near her face, looking at someone off-camera and smirking",
     kind: "gallery",
   },
   {
@@ -174,6 +218,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "gym mirror, rack of dumbbells visible behind, gym equipment",
     lighting: "bright indoor fluorescent",
     capture: "mirror selfie",
+    outfit: "matching dark grey sports bra and high-waist leggings, white running shoes, hair in a tight ponytail",
+    pose: "standing front-facing in the mirror, phone held at chest, white towel draped around the neck, slightly flushed cheeks",
     kind: "gallery",
   },
   {
@@ -182,6 +228,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "cozy living room, blanket, side lamp, plants",
     lighting: "warm side lamp light, slightly low-key",
     capture: "phone candid",
+    outfit: "oversized soft pink hoodie and grey lounge shorts, fluffy socks, glasses on",
+    pose: "curled up sideways on the sofa with legs tucked beneath her, an open paperback in her lap, looking up over the top of her glasses",
     kind: "gallery",
   },
   {
@@ -190,6 +238,8 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "festival crowd, distant stage lights, dust haze",
     lighting: "evening festival lights, warm with cool stage accents",
     capture: "phone candid by friend",
+    outfit: "tie-dye cropped tee, denim cut-off shorts, fanny pack across chest, festival wristbands stacked on one arm",
+    pose: "both arms thrown up overhead, head tilted back, eyes closed laughing, mid-jump",
     kind: "gallery",
   },
   {
@@ -198,6 +248,59 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     backdrop: "rainy window with raindrops, plants on windowsill",
     lighting: "cool grey daylight from the window",
     capture: "phone candid",
+    outfit: "soft mustard cashmere sweater and black leggings, hair in a half-up clip",
+    pose: "sitting on the windowsill in profile, knees up, mug balanced on one knee, gaze fixed out at the rain",
+    kind: "gallery",
+  },
+  // --- Extra gallery variety so a 3-shot batch never repeats outfits/scenes
+  {
+    scene: "op de markt met een mandje verse bloemen, ruikt aan een boeket",
+    camera: "candid medium shot, slightly low angle, taken from across the stall",
+    backdrop: "Dutch outdoor flower market with wooden stalls, tulips and sunflowers behind",
+    lighting: "bright midday daylight, soft overcast",
+    capture: "phone candid by friend",
+    outfit: "cream knit cardigan over a small floral midi dress, simple white sneakers",
+    pose: "standing at an angle, both hands holding a bouquet up to her face, eyes closed inhaling, soft smile",
+    kind: "gallery",
+  },
+  {
+    scene: "wandeling in een bos in de herfst, schoppen door bladeren",
+    camera: "wide full body shot from the front, framed waist-up trees on both sides",
+    backdrop: "Dutch forest in autumn, orange and yellow leaves, soft mist",
+    lighting: "diffused autumn daylight",
+    capture: "phone candid by friend",
+    outfit: "long camel teddy coat, dark green corduroy trousers, brown chunky boots, beige beanie",
+    pose: "captured mid-stride walking forward, hands deep in coat pockets, looking down with a small grin, breath visible",
+    kind: "gallery",
+  },
+  {
+    scene: "thuis op de bank in lounge-kleren, kop thee, glimlacht naar de camera",
+    camera: "candid medium shot from above, slight downward angle, intimate framing",
+    backdrop: "messy living room, blanket on the sofa, plants and a half-finished book",
+    lighting: "warm low evening lamp light",
+    capture: "phone candid by partner",
+    outfit: "vintage band t-shirt several sizes too big and grey jogging shorts, no makeup, hair scraped back into a clip",
+    pose: "lying back on the sofa with legs draped over the armrest, mug balanced on her chest, looking up at the camera with a soft sleepy smile",
+    kind: "gallery",
+  },
+  {
+    scene: "in een museum, leunt naar voren bij een schilderij, geconcentreerd",
+    camera: "candid medium shot from the side, taken by friend behind her",
+    backdrop: "museum gallery wall with framed paintings, hardwood floor",
+    lighting: "soft museum spotlight, slightly warm",
+    capture: "phone candid by friend",
+    outfit: "fitted black turtleneck, wide-leg taupe trousers, small leather shoulder bag",
+    pose: "standing in profile, arms crossed loosely, head tilted as she studies the artwork, weight on one hip",
+    kind: "gallery",
+  },
+  {
+    scene: "in een trein bij het raam, kijkt naar buiten naar het landschap",
+    camera: "candid medium shot from the seat opposite, framed shoulders-up",
+    backdrop: "Dutch train interior, blurred countryside through the window",
+    lighting: "natural daylight from the window, gentle motion of light",
+    capture: "phone candid by friend",
+    outfit: "soft chunky knit beige sweater, blue jeans, small earbuds in",
+    pose: "head leaning against the window, one hand resting on her chin, eyes following the view outside, faint reflective smile",
     kind: "gallery",
   },
 ] as const;

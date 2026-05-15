@@ -77,7 +77,7 @@ export async function POST(req: Request, ctx: RouteCtx) {
   });
   const scene = (body.scene ?? "").trim() || template.scene;
 
-  const { prompt, seed } = buildPersonaPhotoPrompt({
+  const { prompt, seed: anchorSeed, negativePrompt } = buildPersonaPhotoPrompt({
     profile: persona as Parameters<typeof buildPersonaPhotoPrompt>[0]["profile"],
     scene,
     cameraStyle: {
@@ -85,7 +85,36 @@ export async function POST(req: Request, ctx: RouteCtx) {
       backdrop: template.backdrop,
       lighting: template.lighting,
       capture: template.capture,
+      // Per-shot outfit + pose REPLACE the persona-level style anchor
+      // for this single photo. Without this, all 3 gallery shots end
+      // up with the same jacket because the persona's style locks the
+      // wardrobe. With this, each shot has its own outfit + pose.
+      outfit: template.outfit,
+      pose: template.pose,
     },
+  });
+
+  // Gallery shots use a per-variant seed offset so the diffusion noise
+  // pattern actually differs between the 3 photos. Same seed + same
+  // appearance produces near-identical compositions even when scene/
+  // outfit prompts differ — the symptom the operator hit ("zelfde
+  // pose elke foto"). The appearance + age + body anchors are strong
+  // enough to keep the same-person feel across the offset.
+  const variantOffset =
+    typeof body.variant === "number" && Number.isFinite(body.variant)
+      ? Math.floor(body.variant) * 7919 // prime so offsets don't align
+      : Math.floor(Math.random() * 1_000_000);
+  const seed = (anchorSeed + variantOffset) >>> 0;
+
+  // Light log so it's clearer in the server console which template +
+  // seed produced the shot, in case the operator wants to retry a
+  // specific variant.
+  console.log("[append-gallery-photo]", {
+    persona: ctx.params.id,
+    variant: body.variant,
+    template: template.scene.slice(0, 60),
+    seed,
+    negPromptChars: negativePrompt.length,
   });
 
   const photo = await generatePersonaPhoto({ prompt, seed });

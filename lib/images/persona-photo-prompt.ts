@@ -290,6 +290,22 @@ export type CameraStyle = {
   lighting?: string;
   /** Capture-device feel. e.g. "DSLR by friend" or "phone selfie" */
   capture?: string;
+  /** Concrete outfit for THIS shot. When provided, completely replaces
+   * the persona's `photo_style.style` anchor for this single photo.
+   *
+   * Why we override instead of compose: if both the persona-level
+   * style ("casual denim, oversized sweater") and a per-shot outfit
+   * ("red satin going-out top") are in the prompt, diffusion
+   * compromises and paints denim with a red accent — the result is
+   * "same jacket every shot" because the persona-level token wins on
+   * weight. Replacing yields three visibly different outfits in a
+   * 3-photo gallery, which is what makes it look like a real photo
+   * roll instead of one selfie copy-pasted three times. */
+  outfit?: string;
+  /** Concrete body language / pose for this shot. Same reasoning as
+   * `outfit` — without an explicit pose token diffusion settles into
+   * its default arms-by-side / shoulder-shot composition. */
+  pose?: string;
 };
 
 export function buildPersonaPhotoPrompt(args: {
@@ -332,7 +348,13 @@ export function buildPersonaPhotoPrompt(args: {
   // Operator-supplied build wins; otherwise the body-type anchor
   // provides the silhouette description so we don't double-anchor.
   const build = (customStyle.build ?? "").trim();
-  const style = (customStyle.style ?? defaults.style).trim();
+  // Per-shot outfit (from a scene template) REPLACES the persona-level
+  // style anchor for this photo. This is what makes a 3-photo gallery
+  // actually show 3 different outfits instead of "denim jacket × 3".
+  const cam0 = args.cameraStyle ?? {};
+  const shotOutfit = (cam0.outfit ?? "").trim();
+  const style = shotOutfit || (customStyle.style ?? defaults.style).trim();
+  const shotPose = (cam0.pose ?? "").trim();
   const vibe = (customStyle.vibe ?? defaults.vibe).trim();
 
   const seed = typeof customStyle.seed === "number" ? customStyle.seed : hashSeed(profile.id);
@@ -375,6 +397,7 @@ export function buildPersonaPhotoPrompt(args: {
   if (build) promptParts.push(build);
   promptParts.push(bodyAnchors.positive);
   promptParts.push(`wearing ${style}`);
+  if (shotPose) promptParts.push(`pose: ${shotPose}`);
   promptParts.push(`scene: ${cleanScene}`);
   promptParts.push(vibe);
   if (attractiveness === "striking") {
@@ -395,6 +418,22 @@ export function buildPersonaPhotoPrompt(args: {
   promptParts.push(lighting);
   promptParts.push(capture);
 
+  // Anti-AI / pro-amateur anchors. These end-load the prompt because
+  // diffusion gives slight extra weight to later tokens for "look-and-
+  // feel" terms. Without these, gallery photos look studio-clean and
+  // perfectly composed — the operator's "het ziet er ook te ai uit"
+  // signal. We push for imperfect amateur snapshots specifically:
+  //  - slight motion / focus issues an iPhone shot would have
+  //  - real skin texture, no filtering
+  //  - average phone-camera dynamic range, not HDR
+  //  - imperfect framing/composition like a friend actually took it
+  promptParts.push(
+    "amateur unedited smartphone photo, real candid moment, slightly imperfect framing, " +
+      "natural skin pores and small skin texture, no filter, no beauty filter, " +
+      "no portrait mode bokeh, normal phone camera dynamic range, slight ISO noise, " +
+      "shot quickly without posing, captured by a friend not a photographer",
+  );
+
   promptParts.push("photorealistic, high detail, no text, no watermark, no logo");
 
   const prompt = promptParts.filter(Boolean).join(", ");
@@ -402,10 +441,22 @@ export function buildPersonaPhotoPrompt(args: {
   // Negative prompt — base + tier-specific anti-glam terms + body-type
   // counterweights. We keep "ugly" out on purpose; we want realistic,
   // not deformed.
+  //
+  // The expanded anti-AI block is deliberate: operator reported "het
+  // ziet er ook te ai uit", which usually means doll-like skin, perfect
+  // symmetry, plastic-render finish. We push hard against those
+  // specific failure modes here.
   const baseNegative =
     "deformed, distorted, blurry, lowres, extra fingers, mutated hands, " +
     "watermark, signature, text, logo, harsh studio lighting, " +
-    "ai-generated look, plastic skin, oversaturated";
+    "ai-generated look, ai art, ai render, ai illustration, generative art, " +
+    "plastic skin, doll-like, porcelain doll, cgi, 3d render, octane render, " +
+    "digital painting, illustration, anime, cartoon, stylised, " +
+    "oversaturated, hdr, overprocessed, instagram filter, beauty filter, " +
+    "smooth airbrushed skin, perfect symmetry, perfect composition, " +
+    "studio portrait, magazine portrait, fashion editorial, photoshoot, " +
+    "professional model pose, posed for camera, glamorous, " +
+    "duplicate person, multiple women, twins, identical twins";
   const negParts = [baseNegative];
   if (anchors.negative) negParts.push(anchors.negative);
   if (bodyAnchors.negative) negParts.push(bodyAnchors.negative);
