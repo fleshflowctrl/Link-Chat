@@ -29,6 +29,7 @@ import {
   type StructuredMemoryRow,
   type StructuredFacts,
 } from "@/lib/ai/structured-memory";
+import { refreshUserChatPersonaIfNeeded } from "@/lib/ai/user-cross-chat-profile";
 import {
   endsWithQuestion,
   hasEmoji,
@@ -298,9 +299,11 @@ export async function generatePeerReply(
     return { facts: cleanFacts, prefix_messages_count: sfPrefix };
   })();
 
-  // Refresh both in parallel — prose summary is cheap (only fires on long
-  // threads), structured memory fires every ~12 new messages.
-  const [memory, structured] = await Promise.all([
+  // Refresh all three in parallel — prose summary is cheap (only fires on
+  // long threads), structured memory fires every ~12 new messages, and
+  // the cross-conversation user profile fires every ~8 new user messages
+  // across all his threads.
+  const [memory, structured, userCrossChatProfile] = await Promise.all([
     refreshThreadSummaryIfNeeded(args.history, prevMemory).catch((): ThreadMemoryRow => ({
       summary: prevMemory?.summary ?? "",
       prefix_messages_count: prevMemory?.prefix_messages_count ?? 0,
@@ -308,6 +311,7 @@ export async function generatePeerReply(
     refreshStructuredMemoryIfNeeded(args.history, prevStructured).catch(
       (): StructuredMemoryRow => prevStructured ?? { facts: {}, prefix_messages_count: 0 },
     ),
+    refreshUserChatPersonaIfNeeded(supabase, args.ownerUserId).catch(() => null),
   ]);
 
   // Try to write both prose summary and structured facts. If the
@@ -456,6 +460,18 @@ export async function generatePeerReply(
     daysActive,
     bannedPhrases,
     structuredFacts: hasAnyFacts(structured.facts) ? structured.facts : null,
+    userCrossChatProfile: userCrossChatProfile
+      ? {
+          summary: userCrossChatProfile.summary,
+          traits: userCrossChatProfile.traits,
+          topics: userCrossChatProfile.topics,
+          flirt_level: userCrossChatProfile.flirt_level,
+          communication_pace: userCrossChatProfile.communication_pace,
+          message_length: userCrossChatProfile.message_length,
+          wants: userCrossChatProfile.wants,
+          avoids: userCrossChatProfile.avoids,
+        }
+      : null,
     // Burst implies multi.
     allowMultiMessage: allowMultiMessage || burstMode,
     burstMode,

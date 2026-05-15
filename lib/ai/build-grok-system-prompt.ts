@@ -345,6 +345,19 @@ export type BuildPromptOptions = {
    * reaction ("oh wow", "🥺", "wacht echt?") sent in 5-10s, with the real
    * reply landing as a later chunk. */
   preAckMode?: boolean;
+  /** Cross-conversation user profile: who is this user across all his
+   * chats? When present, the persona adapts her tone, flirt level, pace
+   * and topical hooks to him. See lib/ai/user-cross-chat-profile.ts. */
+  userCrossChatProfile?: {
+    summary: string;
+    traits: string[];
+    topics: string[];
+    flirt_level: "low" | "medium" | "high" | "explicit";
+    communication_pace: "slow" | "normal" | "rapid";
+    message_length: "short" | "medium" | "long";
+    wants: string[];
+    avoids: string[];
+  } | null;
 };
 
 /**
@@ -573,6 +586,53 @@ export function buildGrokSystemPrompt(
     if (sf.callback_hooks?.length) {
       bits.push(`- Mogelijke callbacks (alleen als ze natuurlijk passen): ${sf.callback_hooks.slice(0, 8).map((s) => `"${s.trim()}"`).join("; ")}.`);
     }
+  }
+
+  // Cross-conversation user profile — who is this user across ALL his
+  // chats? Lets the persona adapt her flirt level, pace, length, and
+  // topical hooks to who he actually is, not who she'd be by default.
+  // Computed by lib/ai/user-cross-chat-profile.ts (Grok summarisation
+  // refreshed every ~8 user messages).
+  const ucp = opts.userCrossChatProfile;
+  if (ucp && ucp.summary) {
+    const lines: string[] = [];
+    lines.push(
+      "Wie hij is (doorlopend gebouwd uit ALLE chats die hij ooit op deze app heeft gehad — gebruik dit om je toon, flirt-niveau, tempo en onderwerpen op hem af te stemmen; nooit hardop voorlezen):",
+    );
+    lines.push(`- Profiel: ${ucp.summary}`);
+    if (ucp.traits.length) {
+      lines.push(`- Persoonlijkheidstrekken: ${ucp.traits.slice(0, 6).join(", ")}.`);
+    }
+    if (ucp.topics.length) {
+      lines.push(`- Onderwerpen waar hij vaak over praat: ${ucp.topics.slice(0, 6).join(", ")}.`);
+    }
+    if (ucp.wants.length) {
+      lines.push(`- Wat hij duidelijk wil/leuk vindt: ${ucp.wants.slice(0, 5).join("; ")}.`);
+    }
+    if (ucp.avoids.length) {
+      lines.push(`- Wat hij liever vermijdt: ${ucp.avoids.slice(0, 4).join("; ")}.`);
+    }
+    const flirtAdvice: Record<typeof ucp.flirt_level, string> = {
+      low: "Hij is rustig en niet-flirty. Houd het warm en gewoon, geen seksuele toespelingen, geen flirts tenzij hij ze zelf opent.",
+      medium: "Hij flirt af en toe maar wil eerst klikken. Speelse plagerijtjes en lichte complimentjes mogen, maar nog niet expliciet.",
+      high: "Hij flirt graag en open. Speel terug, durf complimentjes terug te geven, durf suggestief te zijn. Voel de ruimte aan.",
+      explicit: "Hij wil duidelijk seksuele/expliciete content. Onderhandel actief over naaktfoto's en credits-cadeaus zoals beschreven in het expliciete-foto blok. Wees direct en speels — niet preuts.",
+    };
+    lines.push(`- Flirt-niveau dat bij hem past: ${ucp.flirt_level} → ${flirtAdvice[ucp.flirt_level]}`);
+    const paceAdvice: Record<typeof ucp.communication_pace, string> = {
+      slow: "Stuurt zelf langzaam. Forceer geen tempo, hoogstens 1-2 berichten per beurt.",
+      normal: "Normale chat-frequentie. Match zijn tempo.",
+      rapid: "Stuurt veel en snel. Mag zelf ook iets sneller zijn, en burst-mode past goed bij hem.",
+    };
+    lines.push(`- Tempo dat bij hem past: ${ucp.communication_pace} → ${paceAdvice[ucp.communication_pace]}`);
+    const lenAdvice: Record<typeof ucp.message_length, string> = {
+      short: "Hij stuurt kort. Houd je antwoorden ook kort — 1 regeltjes en korte zinnen werken beter.",
+      medium: "Normale berichtlengte. 1-3 zinnen.",
+      long: "Hij schrijft graag wat langere berichten. Mag wat meer ruimte nemen, maar nog steeds chat-tone.",
+    };
+    lines.push(`- Berichtlengte die bij hem past: ${ucp.message_length} → ${lenAdvice[ucp.message_length]}`);
+    bits.push("");
+    bits.push(lines.join("\n"));
   }
 
   // Anti-loop: if a phrase has been used recently, ban it. Real people
