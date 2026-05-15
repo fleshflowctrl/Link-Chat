@@ -40,6 +40,7 @@ import {
   reviseDraftIfWorthIt,
 } from "@/lib/ai/draft-revise";
 import { getBedtimeContext } from "@/lib/ai/bedtime";
+import { getWorkContext } from "@/lib/ai/work-schedule";
 import { extractPhotoDirective } from "@/lib/ai/photo-directive";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
@@ -345,11 +346,26 @@ export async function generatePeerReply(
     }
     return null;
   })();
+  const personaTz = personaTimeZone(args.profile);
   const bedtime = getBedtimeContext({
     now: new Date(),
-    timeZone: personaTimeZone(args.profile),
+    timeZone: personaTz,
     personaId: args.peerId,
     peerLastReplyAt: peerLastReplyAtForBedtime,
+  });
+  // Work-context: derived from chat_profiles.occupation. Drives the
+  // prompt-hint that tells Grok to reference her current work-state
+  // ("ik moet zo werken", "tussen lessen door even"). Pacing
+  // (computeReplyPacing) does its own getWorkContext call to clamp
+  // the reply into break/end-of-shift windows; this one is for
+  // prompt content only. Both should agree because both pass the
+  // same persona id + tz + occupation.
+  const workCtx = getWorkContext({
+    now: new Date(),
+    timeZone: personaTz,
+    personaId: args.peerId,
+    occupation:
+      (args.profile as ChatProfileRow & { occupation?: string | null }).occupation ?? null,
   });
 
   // ----- New realism inputs -----
@@ -381,6 +397,7 @@ export async function generatePeerReply(
     userSilenceMs: userSilenceMs ?? undefined,
     bedtimePhase: bedtime.phase,
     minutesUntilBedtime: bedtime.minutesUntilBedtime,
+    workPromptHint: workCtx.promptHint,
     daysActive,
     bannedPhrases,
     structuredFacts: hasAnyFacts(structured.facts) ? structured.facts : null,

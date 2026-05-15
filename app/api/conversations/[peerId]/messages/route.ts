@@ -266,6 +266,8 @@ export async function POST(
   //    calling Grok). For sync flow we'll re-compute with replyChars after
   //    Grok returns; for async flow the typing-bonus is negligible relative
   //    to the multi-minute pause, so the initial estimate is good enough.
+  const personaOccupation =
+    (p as ChatProfileRow & { occupation?: string | null }).occupation ?? null;
   const initialPacing = computeReplyPacing({
     personaId: peerId,
     turnIndex: priorAssistantTurns,
@@ -273,6 +275,7 @@ export async function POST(
     replyChars: 0,
     nowLocal: new Date(),
     peerLastReplyAt: lastPeerReplyAt(history),
+    occupation: personaOccupation,
   });
   const initialDelayMs = initialPacing.delayMs;
 
@@ -304,6 +307,7 @@ export async function POST(
         replyChars: result.finalText.length,
         nowLocal: new Date(),
         peerLastReplyAt: lastPeerReplyAt(history),
+        occupation: personaOccupation,
       });
       const elapsed = Date.now() - t0;
       const remaining = Math.max(0, finalPacing.delayMs - elapsed);

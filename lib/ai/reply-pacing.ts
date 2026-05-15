@@ -59,12 +59,21 @@ export type PacingInput = {
   /** When the persona last replied in this thread, if ever. Drives engagement state
    * and "already-said-goodnight" detection. */
   peerLastReplyAt?: Date | null;
+  /** Free-form occupation string from chat_profiles. Drives the work-
+   * schedule classifier so during work hours replies cluster around
+   * breaks and end-of-shift instead of dropping at random times.
+   * Pass null/empty to skip work-schedule logic (legacy callers). */
+  occupation?: string | null;
 };
 
 import {
   getBedtimeContext,
   type BedtimePhase,
 } from "@/lib/ai/bedtime";
+import {
+  getWorkContext,
+  type WorkPhase,
+} from "@/lib/ai/work-schedule";
 
 export type PacingResult = {
   /** Wall-clock delay before her reply lands. */
@@ -74,6 +83,12 @@ export type PacingResult = {
   bedtimePhase: BedtimePhase;
   /** Minutes until her bedtime when phase === "approaching", else null. */
   minutesUntilBedtime: number | null;
+  /** Work phase at scheduling time — pass to the prompt builder so her
+   * reply naturally references her current work context (about to start
+   * a shift, on break, ending the day). */
+  workPhase: WorkPhase;
+  /** Free-form Dutch hint for the prompt builder. Empty when off. */
+  workPromptHint: string;
 };
 
 /** Replies whose target delay is within this threshold are delivered
@@ -147,7 +162,13 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   const tz = opts.timeZone ?? defaultTimeZone();
 
   if (isPacingDisabled()) {
-    return { delayMs: 0, bedtimePhase: "awake", minutesUntilBedtime: null };
+    return {
+      delayMs: 0,
+      bedtimePhase: "awake",
+      minutesUntilBedtime: null,
+      workPhase: "off",
+      workPromptHint: "",
+    };
   }
 
   const bedtime = getBedtimeContext({
@@ -157,10 +178,20 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
     peerLastReplyAt: opts.peerLastReplyAt ?? null,
   });
 
+  // Work-context. Even when the persona is "off" (no occupation, weekend,
+  // outside shift) we still resolve this so the result fields are
+  // populated for the prompt builder.
+  const work = getWorkContext({
+    now,
+    timeZone: tz,
+    personaId: opts.personaId,
+    occupation: opts.occupation ?? null,
+  });
+
   // 1. Hook mode: first 3 turns are always snappy. We never override this,
-  // even during bedtime — if she just opened your chat at 02:00, she's still
-  // in the "hooked-on-you" phase and answers fast. Sleep mode kicks in for
-  // turn 4+.
+  // even during bedtime or work — if she just opened your chat at 02:00 or
+  // during her lunch shift, she's still in the "hooked-on-you" phase and
+  // answers fast. Sleep / work mode kicks in for turn 4+.
   if (turnIndex < HOOK_TURN_LIMIT) {
     const base = 600 + Math.min(userChars * 8, 600);
     const jitter = Math.random() * 600 - 300;
@@ -168,6 +199,8 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
       delayMs: clampMs(base + jitter, 400, 1800),
       bedtimePhase: bedtime.phase,
       minutesUntilBedtime: bedtime.minutesUntilBedtime,
+      workPhase: work.phase,
+      workPromptHint: work.promptHint,
     };
   }
 
@@ -178,7 +211,31 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
       delayMs: clampMs(delay, 3 * 60_000, HARD_CAP_MS),
       bedtimePhase: "asleep",
       minutesUntilBedtime: null,
+      workPhase: work.phase,
+      workPromptHint: work.promptHint,
     };
+  }
+
+  // 2b. Working: she's mid-shift and her phone is away. Schedule the
+  //     reply for the next break / end-of-shift instead of dropping it
+  //     into the middle of her workday. Pacing layer alone handles
+  //     this; prompt-builder gets the work hint so the eventual reply
+  //     references it ("zat in een vergadering" / "tussen lessen door").
+  if (work.phase === "working") {
+    const delay = work.nextAvailableAt.getTime() - now.getTime();
+    if (delay > 60_000) {
+      return {
+        // 30s jitter so two pending replies don't all fire at the
+        // exact same break-minute.
+        delayMs: clampMs(delay + Math.random() * 30_000, 60_000, HARD_CAP_MS),
+        bedtimePhase: bedtime.phase,
+        minutesUntilBedtime: bedtime.minutesUntilBedtime,
+        workPhase: work.phase,
+        workPromptHint: work.promptHint,
+      };
+    }
+    // Less than a minute until the next break — fall through to normal
+    // pacing so the reply lands naturally as the break starts.
   }
 
   // 3. Engagement state from peerLastReplyAt.
@@ -242,6 +299,15 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
     total *= factor;
   }
 
+  // 7c. Break / lunch dial-down: she's chatting on a short break. Replies
+  //     stay snappy but the heavy-tail buckets (>5 min) would push past
+  //     the break; clamp so the reply lands well before break ends.
+  if (work.phase === "break" || work.phase === "lunch_break") {
+    const msUntilBackToWork = work.phaseEndsAt.getTime() - now.getTime();
+    const maxBeforeBack = Math.max(15_000, msUntilBackToWork - 30_000);
+    if (total > maxBeforeBack) total = maxBeforeBack;
+  }
+
   // 8. Approaching-bedtime clamp: if her bedtime is within the next hour,
   // ensure the reply lands at least 60s before bedtime so the goodnight
   // message has time to land before she "drops her phone". Without this
@@ -253,10 +319,21 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
     if (total > maxBeforeBed) total = maxBeforeBed;
   }
 
+  // 8b. Approaching-work clamp: same idea — if her shift starts within the
+  //     approach window, ensure the reply lands at least 60s before
+  //     start so a "ik moet zo werken" goodbye fits naturally.
+  if (work.phase === "approaching_work") {
+    const msUntilWork = work.phaseEndsAt.getTime() - now.getTime();
+    const maxBeforeWork = Math.max(15_000, msUntilWork - 60_000);
+    if (total > maxBeforeWork) total = maxBeforeWork;
+  }
+
   return {
     delayMs: clampMs(total, 5_000, HARD_CAP_MS),
     bedtimePhase: bedtime.phase,
     minutesUntilBedtime: bedtime.minutesUntilBedtime,
+    workPhase: work.phase,
+    workPromptHint: work.promptHint,
   };
 }
 

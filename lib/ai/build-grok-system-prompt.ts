@@ -308,6 +308,12 @@ export type BuildPromptOptions = {
   bedtimePhase?: "awake" | "approaching" | "asleep";
   /** Minutes until bedtime when bedtimePhase === "approaching", else null. */
   minutesUntilBedtime?: number | null;
+  /** Free-form Dutch hint about her current work-context, derived from
+   * `chat_profiles.occupation`. Empty string when she's "off" (no
+   * schedule, weekend, after hours). When non-empty it's appended to
+   * the instructions block so the reply naturally references "ik moet
+   * zo werken", "tussen lessen door", "lunchpauze even", etc. */
+  workPromptHint?: string;
   /** Days since the FIRST user message in this thread. Drives relationship
    * stage (drift over time — longer chats feel more familiar/intimate). */
   daysActive?: number;
@@ -525,6 +531,17 @@ export function buildGrokSystemPrompt(
     bits.push(
       "- Je bent net wakker. Haar bericht is binnengekomen terwijl je sliep. Reageer alsof je net je telefoon checkt — kort, warm, zonder uitgebreid uit te leggen waarom je traag was. Een terloopse \"goeiemorgen\" of \"net wakker\" mag, maar dwing het niet.",
     );
+  }
+
+  // Work context — derived from her occupation. When non-empty, drives
+  // her current message to reference work realistically (e.g. "ik moet
+  // zo aan de les", "tussen patiënten door even", "nog half uurtje dan
+  // ben ik vrij"). The pacing layer has already scheduled the message
+  // to land in the right window; the prompt makes the words match the
+  // window. Empty hint = she's off, no work talk forced.
+  const workHint = (opts.workPromptHint ?? "").trim();
+  if (workHint) {
+    bits.push(workHint);
   }
 
   // Structured memory — sharper than a prose summary because facts/loops
