@@ -98,8 +98,12 @@ export function BulkGenerateCard() {
   const [withPhotos, setWithPhotos] = useState(true);
   const [attractiveness, setAttractiveness] = useState<Attractiveness>("average");
   const [bodyType, setBodyType] = useState<BodyType>("average");
-  const [ageMin, setAgeMin] = useState(22);
-  const [ageMax, setAgeMax] = useState(30);
+  // Age inputs are kept as raw strings so the user can type "" → "2" → "25"
+  // without the field clamping every keystroke back to AGE_FLOOR. We clamp
+  // on blur (so a stray value gets fixed visually) and again at submit
+  // time (server also clamps as a defensive measure).
+  const [ageMinStr, setAgeMinStr] = useState("22");
+  const [ageMaxStr, setAgeMaxStr] = useState("30");
   const [phase, setPhase] = useState<Phase>("idle");
   const [steps, setSteps] = useState<Step[]>([]);
   const [globalError, setGlobalError] = useState<string | null>(null);
@@ -111,6 +115,20 @@ export function BulkGenerateCard() {
       arr.map((s) => (s.index === index ? { ...s, ...patch } : s)),
     );
   }
+
+  /** Parse the raw text in an age input. Empty / non-numeric falls back
+   * to the supplied default; values outside [floor, ceiling] are clamped
+   * silently. Used both in the body of startBatch (for the JSON we send
+   * the server) and in the onBlur handlers (so the input shows the
+   * clamped value once the user leaves the field). */
+  function parseAge(raw: string, fallback: number): number {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.max(AGE_FLOOR, Math.min(AGE_CEILING, Math.round(n)));
+  }
+
+  const ageMinNum = parseAge(ageMinStr, 22);
+  const ageMaxNum = parseAge(ageMaxStr, 30);
 
   async function startBatch() {
     if (phase === "running-profiles" || phase === "running-photos") return;
@@ -162,8 +180,8 @@ export function BulkGenerateCard() {
             exclude,
             attractiveness,
             body_type: bodyType,
-            age_min: Math.min(ageMin, ageMax),
-            age_max: Math.max(ageMin, ageMax),
+            age_min: Math.min(ageMinNum, ageMaxNum),
+            age_max: Math.max(ageMinNum, ageMaxNum),
           }),
         });
         const data: {
@@ -384,8 +402,8 @@ export function BulkGenerateCard() {
             <p className="mb-2 text-xs font-medium text-gray-700">
               Leeftijdsrange{" "}
               <span className="text-gray-400">
-                — server kiest per persona random binnen [{Math.min(ageMin, ageMax)}–
-                {Math.max(ageMin, ageMax)}]
+                — server kiest per persona random binnen [{Math.min(ageMinNum, ageMaxNum)}–
+                {Math.max(ageMinNum, ageMaxNum)}]
               </span>
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -393,15 +411,12 @@ export function BulkGenerateCard() {
                 <span className="w-12 text-gray-500">Min</span>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={AGE_FLOOR}
                   max={AGE_CEILING}
-                  value={ageMin}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    if (Number.isFinite(n)) {
-                      setAgeMin(Math.max(AGE_FLOOR, Math.min(AGE_CEILING, Math.round(n))));
-                    }
-                  }}
+                  value={ageMinStr}
+                  onChange={(e) => setAgeMinStr(e.target.value)}
+                  onBlur={() => setAgeMinStr(String(parseAge(ageMinStr, 22)))}
                   className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
                 />
               </label>
@@ -409,15 +424,12 @@ export function BulkGenerateCard() {
                 <span className="w-12 text-gray-500">Max</span>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={AGE_FLOOR}
                   max={AGE_CEILING}
-                  value={ageMax}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    if (Number.isFinite(n)) {
-                      setAgeMax(Math.max(AGE_FLOOR, Math.min(AGE_CEILING, Math.round(n))));
-                    }
-                  }}
+                  value={ageMaxStr}
+                  onChange={(e) => setAgeMaxStr(e.target.value)}
+                  onBlur={() => setAgeMaxStr(String(parseAge(ageMaxStr, 30)))}
                   className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
                 />
               </label>

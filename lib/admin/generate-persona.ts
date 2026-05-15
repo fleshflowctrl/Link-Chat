@@ -397,8 +397,13 @@ export async function generatePersonaFromBrief(
     { role: "user" as const, content: userParts.join("\n\n") },
   ];
 
+  // Slightly cooler than the chat persona temperature: 0.85 keeps
+  // batch personas distinct (different cities, occupations, bios) while
+  // significantly reducing the rate of malformed JSON output that would
+  // force us into the repair-call path. Repair retries add ~15s and
+  // were the main reason Vercel hit the 30s ceiling.
   const grok = await grokResponsesComplete(messages, {
-    temperature: 0.95,
+    temperature: 0.85,
     maxOutputTokens: 2048,
   });
   if (!grok.ok) {

@@ -17,8 +17,11 @@ export const runtime = "nodejs";
  * blowing the 60s function budget when combined with Grok + DB writes
  * (which is what produced the 504 errors the operator was seeing).
  *
- * 30s gives Grok plenty of headroom for the JSON repair retry. */
-export const maxDuration = 30;
+ * Why 60 here instead of 30: a single Grok turn is usually 5-15s, but
+ * when xAI is under load + we hit the JSON-repair retry path (~+15s)
+ * + a cold-start eats 5s, the original 30s budget would 504 even
+ * though the call would have succeeded with another few seconds. */
+export const maxDuration = 60;
 
 type GenerateBody = {
   brief?: string;
