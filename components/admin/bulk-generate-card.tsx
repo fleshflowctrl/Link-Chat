@@ -224,6 +224,12 @@ export function BulkGenerateCard() {
     // initials avatar.
     if (withPhotos && successList.length > 0 && !abortRef.current) {
       setPhase("running-photos");
+      // Random batch-level offset so different bulk-runs cycle through
+      // the scene-template set differently. Combined with `variant`
+      // below this guarantees no two personas in the same batch land
+      // on the same template (assuming the avatar pool is >= batch
+      // size, which it is at MAX_BATCH=10).
+      const batchOffset = Math.floor(Math.random() * 1000);
       for (const { index: i, persona } of successList) {
         if (abortRef.current) {
           patchStep(i, { photoState: "skipped" });
@@ -236,7 +242,14 @@ export function BulkGenerateCard() {
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({}),
+              body: JSON.stringify({
+                slot: "avatar",
+                // batchOffset + index produces a strictly-increasing
+                // value per persona so the deterministic
+                // pickSceneTemplate hash lands on a fresh bucket per
+                // persona in the batch.
+                variant: batchOffset + i,
+              }),
             },
           );
           const data: {

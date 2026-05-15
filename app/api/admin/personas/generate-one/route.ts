@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
@@ -135,6 +136,14 @@ export async function POST(req: Request) {
 
   // 2) Resolve a unique slug.
   const uniqueId = await resolveUniqueId(service, generated.persona.id);
+
+  // 2b) Force a crypto-random photo seed. Grok occasionally writes the
+  //     same seed value across personas (it likes round numbers like
+  //     12345/54321), and the diffusion seed drives identity — same
+  //     seed = same face. Overriding with crypto.randomInt guarantees
+  //     batch-wide seed uniqueness so two personas in one batch can't
+  //     accidentally share a face.
+  generated.persona.photo_style.seed = randomInt(100_000, 999_999_999);
 
   // 3) Upload the initials placeholder avatar so the validator's required
   //    avatar_url is satisfied. Z-Image-Turbo replaces this in phase 2.

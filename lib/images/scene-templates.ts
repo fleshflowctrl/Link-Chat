@@ -77,6 +77,46 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
     capture: "phone selfie",
     kind: "avatar",
   },
+  {
+    scene: "in haar tuin of op het balkon, leunt op het hek, lichte glimlach",
+    camera: "candid medium shot at three-quarter angle, taken by friend",
+    backdrop: "Dutch garden or apartment balcony, planted pots, brick wall",
+    lighting: "late afternoon natural light",
+    capture: "phone candid by friend",
+    kind: "avatar",
+  },
+  {
+    scene: "op de fiets stilstaand voor een verkeerslicht, hoofd half gedraaid naar de camera",
+    camera: "candid medium shot from the side, slight angle, framed from waist up",
+    backdrop: "Amsterdam street with bike lane and tram rails behind",
+    lighting: "natural daylight, soft overcast",
+    capture: "phone candid by friend",
+    kind: "avatar",
+  },
+  {
+    scene: "op een feestje thuis met vrienden, glas in haar hand, lacht naar de camera",
+    camera: "candid medium shot, taken at eye level by a friend, slight bokeh",
+    backdrop: "living room with string lights and other guests blurred behind",
+    lighting: "warm interior with soft fairy lights",
+    capture: "phone candid by friend",
+    kind: "avatar",
+  },
+  {
+    scene: "uitstapje in de stad, leunt tegen een muur of brug, kijkt rustig in de camera",
+    camera: "candid three-quarter shot from across, head and shoulders framing",
+    backdrop: "urban Dutch backdrop — old brick wall or canal bridge",
+    lighting: "soft afternoon light",
+    capture: "phone candid by friend",
+    kind: "avatar",
+  },
+  {
+    scene: "op een bankje voor een koffiekarretje, papieren beker in haar hand",
+    camera: "candid medium shot from the side, head tilted slightly toward camera",
+    backdrop: "park bench with coffee cart visible behind, urban green",
+    lighting: "midday natural light, soft shadows",
+    capture: "phone candid by friend",
+    kind: "avatar",
+  },
 
   // --- Gallery / activity (full-body, action, varied locations) --------
 
@@ -162,30 +202,49 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
   },
 ] as const;
 
-/** Pick a scene template using a deterministic hash so the same persona
- * + slot always produces the same template (idempotent for retries),
- * but different personas / slots cycle through the variety.
+function candidatesForSlot(slot: "avatar" | "gallery"): readonly SceneTemplate[] {
+  return slot === "avatar"
+    ? SCENE_TEMPLATES.filter((t) => t.kind === "avatar" || t.kind === "mixed")
+    : SCENE_TEMPLATES;
+}
+
+/** Pick a scene template.
  *
- * Bias toward avatar-style templates when `slot === "avatar"` so the
- * profile photo is always face-forward (recognizable). For "gallery"
- * we pick from the full set so backdrops and angles vary. */
+ * Two selection modes, picked by which arg the caller provides:
+ *
+ *   - `variant: number`  →  round-robin: `variant % candidates.length`.
+ *     Use this in bulk-generate so a batch of N personas walks the
+ *     template list in order (variant = batchOffset + index) and no
+ *     two personas in the batch can land on the same template
+ *     (assuming N ≤ candidates.length). This is the right behaviour
+ *     for batches because hash-based selection still gets birthday-
+ *     paradox collisions at 10/11.
+ *
+ *   - `variant` omitted   →  deterministic hash on `personaId|slot`.
+ *     Use this in single-shot retries (edit page "regenerate") so the
+ *     same persona always lands on the same template until the
+ *     operator explicitly cycles. Different personas spread through
+ *     the set via the hash.
+ *
+ * `slot` always restricts the candidate set: "avatar" filters to
+ * face-forward shots so the profile photo is recognisable, "gallery"
+ * uses the full list with full-body and activity shots. */
 export function pickSceneTemplate(opts: {
   personaId: string;
-  /** Distinguishes the avatar from gallery shots so a persona's avatar
-   * is always face-forward and her gallery has full-body variety. */
   slot: "avatar" | "gallery";
-  /** Optional integer to advance the rotation (e.g. retry counter or
-   * gallery photo index). */
+  /** When provided: round-robin index (modulo'd by candidate count).
+   * When omitted: hash on personaId. */
   variant?: number;
 }): SceneTemplate {
-  const variant = Math.max(0, Math.floor(opts.variant ?? 0));
-  const candidates = (
-    opts.slot === "avatar"
-      ? SCENE_TEMPLATES.filter((t) => t.kind === "avatar" || t.kind === "mixed")
-      : SCENE_TEMPLATES
-  );
-  // Deterministic 32-bit hash so id+slot+variant maps to a stable index.
-  const key = `${opts.personaId}|${opts.slot}|${variant}`;
+  const candidates = candidatesForSlot(opts.slot);
+  if (typeof opts.variant === "number" && Number.isFinite(opts.variant)) {
+    const v = ((Math.floor(opts.variant) % candidates.length) + candidates.length) %
+      candidates.length;
+    return candidates[v]!;
+  }
+  // Hash on persona id alone — single-shot retries should map to the
+  // same template until the operator bumps `variant`.
+  const key = `${opts.personaId}|${opts.slot}`;
   let h = 2166136261;
   for (let i = 0; i < key.length; i++) {
     h ^= key.charCodeAt(i);

@@ -24,6 +24,11 @@
 
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import { FUNNEL_LOOKING_ID_SET, FUNNEL_VIBE_ID_SET } from "@/data/funnel";
+import {
+  pickPersonaDiversifier,
+  renderDiversifierBlock,
+  type PersonaDiversifier,
+} from "@/lib/admin/persona-diversifiers";
 
 const SYSTEM_PROMPT = `Je genereert een persona voor een Nederlandse AI-dating-app.
 
@@ -210,6 +215,11 @@ export type GeneratePersonaArgs = {
   /** Force this exact age (e.g. operator's range narrowed to one value).
    * If set, takes precedence over the brief and Grok cannot drift. */
   forced_age?: number;
+  /** Optional pre-picked diversifier set. When omitted we pick one from
+   * args.index so each batch persona gets a distinct visual fingerprint
+   * (hair colour, eye colour, region, etc.). Operators can also feed in
+   * a manually constructed one for fully reproducible single-shot calls. */
+  diversifier?: PersonaDiversifier;
 };
 
 const SLUG_RE = /^[a-z][a-z0-9_-]{2,23}$/;
@@ -365,6 +375,17 @@ export async function generatePersonaFromBrief(
       ? Math.max(18, Math.min(99, Math.round(args.forced_age)))
       : null;
 
+  // Build a diversifier — either from the caller, or freshly picked
+  // using the persona's batch index as the seed. Without these
+  // ingredients Grok converges on its statistical median (blond,
+  // half-knot, Amsterdam, marketing student) for every persona, which
+  // is exactly what the operator complained about ("ze lijken op
+  // elkaar"). With them we force a distinct visual + narrative
+  // fingerprint per persona.
+  const diversifier =
+    args.diversifier ??
+    pickPersonaDiversifier({ index: idx, extraSeed: brief.length });
+
   const userParts: string[] = [];
   userParts.push(`Brief van de operator: ${brief}`);
   userParts.push(
@@ -378,11 +399,12 @@ export async function generatePersonaFromBrief(
       `Leeftijd (verplicht, exact): ${forcedAge}. Pas bio/backstory/occupation aan zodat ze passen bij deze leeftijd.`,
     );
   }
+  // Diversifier always goes in — these are the concrete details that
+  // keep batch personas distinct.
+  userParts.push(renderDiversifierBlock(diversifier));
   if (total > 1) {
     userParts.push(
-      `Dit is persona #${idx + 1} van ${total}. Maak haar duidelijk anders dan de andere ${total - 1} in deze batch — variatie in stad, beroep en vibe-mix.${
-        forcedAge !== null ? "" : " Ook leeftijd mag variëren."
-      }`,
+      `Dit is persona #${idx + 1} van ${total}. De diversifier-details hierboven maken haar uniek — gebruik ze ook letterlijk in appearance/style/city. Andere personas in de batch krijgen een ANDERE diversifier-set, dus geen sjabloon-output.`,
     );
   }
   if (excludeList.length > 0) {
