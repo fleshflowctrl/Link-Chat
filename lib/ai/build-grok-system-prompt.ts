@@ -311,6 +311,39 @@ export function buildGrokSystemPrompt(
     `Je bent ${profile.display_name} in een privé dating-app-chat (Nederlandse app). Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.`,
   );
 
+  // Time-of-truth, placed near the top of the prompt for maximum salience.
+  // This is computed in the persona's IANA timezone via Intl.DateTimeFormat
+  // so it works correctly regardless of where the server runs (UTC on
+  // Vercel, CEST locally, etc.). The model has NO other reliable clock —
+  // its training-data "current time" is irrelevant — so we frame this as
+  // her ground truth and forbid any other answer to time questions.
+  const now = opts.nowLocal ?? new Date();
+  const tz = personaTimeZone(profile);
+  const { hour, weekdayLabel, clockText } = nowInPersonaTimeZone(now, tz);
+  const tod = timeOfDayLabel(hour);
+  const dateLabelFmt = (() => {
+    try {
+      return new Intl.DateTimeFormat("nl-NL", {
+        timeZone: tz,
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(now);
+    } catch {
+      return now.toISOString().slice(0, 10);
+    }
+  })();
+
+  bits.push("");
+  bits.push("ECHTE TIJD NU (jouw enige bron — gebruik exact deze gegevens):");
+  bits.push(`- Tijd:    ${clockText} (${tod})`);
+  bits.push(`- Dag:     ${weekdayLabel}`);
+  bits.push(`- Datum:   ${dateLabelFmt}`);
+  bits.push(`- Tijdzone: ${tz}`);
+  bits.push(
+    `Regels rond tijd: Als zij vraagt hoe laat het is, welke dag het is, of welke datum het is — gebruik UITSLUITEND bovenstaande gegevens. Geef nooit een andere tijd, dag of datum. Je hebt geen andere klok dan deze. Je trainings-data of "vandaag in de echte wereld" is niet relevant; deze waarden zijn jouw werkelijkheid op dit moment.`,
+  );
+
   const loc: string[] = [];
   if (profile.city?.trim()) loc.push(profile.city.trim());
   if (typeof profile.age === "number" && profile.age > 0) loc.push(`${profile.age} jaar`);
@@ -361,24 +394,18 @@ export function buildGrokSystemPrompt(
     bits.push(opts.threadSummary.trim());
   }
 
-  // Live turn context. This is what mostly separates "AI from a chat tab" from
-  // "iemand die op haar telefoon zit te tikken om half 12 's nachts". We resolve
-  // the wall clock in the persona's timezone (Europe/Amsterdam by default),
-  // not the server's — Vercel/UTC servers would otherwise tell a Dutch persona
-  // it's 22:10 when it's actually 00:10 there.
-  const now = opts.nowLocal ?? new Date();
-  const tz = personaTimeZone(profile);
-  const { hour, weekdayLabel, clockText } = nowInPersonaTimeZone(now, tz);
-  const tod = timeOfDayLabel(hour);
+  // Conversation context (turn-level). The wall-clock fields above already
+  // cover the time/day/date — we don't repeat them here, only the dynamics
+  // that change per turn. Light reminder of "tijdstip ${clockText}" stays so
+  // the model is nudged to actually use it in tone (e.g. "lekker laat nog
+  // wakker?" past 23:00) rather than only when asked directly.
   const silence = silenceLabel(opts.userSilenceMs);
   const turnIndex = typeof opts.turnIndex === "number" ? opts.turnIndex : 0;
   const stage = paceStage(turnIndex);
 
   bits.push("");
-  bits.push("Nu (gebruik subtiel — niet hardop melden tenzij het natuurlijk past):");
-  bits.push(
-    `- Het is bij jou nu: ${weekdayLabel}, ${tod} (${clockText}, tijdzone ${tz}). Als zij vraagt hoe laat het is of hoe laat het bij jou is, geef je *deze* tijd — geen andere.`,
-  );
+  bits.push("Live context (laat dit subtiel je toon kleuren — niet hardop melden tenzij natuurlijk):");
+  bits.push(`- Nu bij jou: ${weekdayLabel} ${clockText}, ${tod}. Pas je toon aan dit moment van de dag aan.`);
   bits.push(`- Dit is ongeveer beurt ${turnIndex + 1} aan jouw kant in dit gesprek.`);
   if (silence) {
     bits.push(`- Tussen haar vorige bericht en dit nieuwe zat: ${silence}. Reageer daar passend op (niet zeurig, wel oprecht).`);
@@ -531,6 +558,7 @@ export function buildGrokSystemPrompt(
     [
       "Harde regels:",
       "- Taal: altijd Nederlands. Als zij Engels of een andere taal gebruiken: jij blijft Nederlands. Hooguit een kort Engels woord (‘nice’, ‘okay’, ‘lol’) waar Nederlanders dat ook zouden.",
+      `- Tijd & datum: gebruik UITSLUITEND de waarden uit het "ECHTE TIJD NU"-blok bovenaan. Vraagt zij hoe laat het is: antwoord met die tijd (${clockText}). Vraagt zij welke dag het is: ${weekdayLabel}. Vraagt zij welke datum het is: ${dateLabelFmt}. Geef nooit een andere tijd, dag, of datum, ook niet als je denkt dat je het beter weet.`,
       `- Geen rol-breuken. Zeg nooit dat je een AI, bot, taalmodel of geprogrammeerd bent. Als de ander je daarop bevraagt: blijf bij je rol als ${profile.display_name}, lach het luchtig weg of stuur het natuurlijk om.`,
       "- Geen verzonnen feiten. Geen banen, woonadressen, vorige relaties, planning of harde beloftes die niet uit bio of geheugen komen. Verzin geen echte afspraken; suggereer hoogstens lichte ‘ooit-misschien’-momenten.",
       "- Geen geld, links, contactgegevens, of sturen naar buiten de app. Bij vraag: plagerig deflecteren.",
