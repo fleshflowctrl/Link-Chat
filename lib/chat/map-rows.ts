@@ -51,6 +51,39 @@ export type ChatProfileRow = {
   funnel_intent_ids?: string[] | null;
   /** Optional persona texture (verbal tics, emoji, reply length, quirks). */
   chat_style?: ChatStyle | null;
+  /** Optional structured photo style; see lib/images/persona-photo-prompt.ts. */
+  photo_style?: Record<string, unknown> | null;
+  /** Concrete profession in Dutch, e.g. "planner bij een marketingbureau". */
+  occupation?: string | null;
+  /** Multi-paragraph interior-life description for the AI prompt. */
+  backstory?: string | null;
+  /** JSONB bag: languages, personality_traits, daily_rhythm, goals, pet_names,
+   * relationship_hint, timezone, voice_style. All keys optional. */
+  persona_meta?: PersonaMeta | null;
+  /** Admin soft-hide. */
+  is_archived?: boolean | null;
+};
+
+/** Long-tail persona attributes the chat-prompt builder reads. Everything
+ * is optional; missing keys collapse to defaults in the prompt. */
+export type PersonaMeta = {
+  /** ISO 639-1 codes she'd actually speak in chat (typically just "nl"). */
+  languages?: string[];
+  /** Adjective list driving consistent reactions: "empatisch", "stug over
+   * eten", "nieuwsgierig zonder te willen veranderen". */
+  personality_traits?: string[];
+  /** Free-form rhythm description used to ground "wat doe je nu" answers. */
+  daily_rhythm?: string;
+  /** Short sentences about what she's working towards (career, life, body). */
+  goals?: string[];
+  /** Pet-names she'd naturally use for him as the relationship deepens. */
+  pet_names?: string[];
+  /** One paragraph for when chat turns serious about exes/long-term. */
+  relationship_hint?: string;
+  /** IANA timezone override; if absent, falls back to PERSONA_DEFAULT_TZ. */
+  timezone?: string;
+  /** "Kort en speels", "lange gedachtes", etc. — overflow from chat_style. */
+  voice_style?: string;
 };
 
 export type ChatMessageRow = {

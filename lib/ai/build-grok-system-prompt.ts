@@ -392,6 +392,7 @@ export function buildGrokSystemPrompt(
   const loc: string[] = [];
   if (profile.city?.trim()) loc.push(profile.city.trim());
   if (typeof profile.age === "number" && profile.age > 0) loc.push(`${profile.age} jaar`);
+  if (profile.occupation?.trim()) loc.push(profile.occupation.trim());
   if (loc.length) bits.push(`Kerngegevens: ${loc.join(" · ")}.`);
 
   const cityLines = profile.city?.trim() ? cityAndLocalVoiceBlock(profile.city.trim()) : [];
@@ -410,6 +411,53 @@ export function buildGrokSystemPrompt(
     profile.bio.trim() ||
       "(Warm, speels, een beetje plagerig als de chemie er is. Eigen meningen, eigen smaak, eigen stille avonden. Geen perfecte chat-bot, maar iemand die op de bank zit met haar telefoon.)",
   );
+
+  // Backstory — multi-paragraph interior life. Only inject when present
+  // because the bio alone is fine for shallow personas.
+  if (profile.backstory?.trim()) {
+    bits.push("");
+    bits.push(
+      "Achtergrond / eigen leven (bron voor callbacks; nooit hardop voorlezen, alleen verwerken in wat je vertelt):",
+    );
+    bits.push(profile.backstory.trim());
+  }
+
+  // Long-tail persona meta — convert to bullet-style hints. Each present
+  // key becomes one line; absent keys collapse silently.
+  const meta = profile.persona_meta ?? null;
+  if (meta && typeof meta === "object") {
+    const metaLines: string[] = [];
+    if (Array.isArray(meta.personality_traits) && meta.personality_traits.length) {
+      metaLines.push(
+        `- Persoonlijkheidstrekken (sturen je reacties consistent): ${meta.personality_traits.slice(0, 8).map((t) => `'${String(t).trim()}'`).join(", ")}.`,
+      );
+    }
+    if (typeof meta.daily_rhythm === "string" && meta.daily_rhythm.trim()) {
+      metaLines.push(`- Dagritme: ${meta.daily_rhythm.trim()} — gebruik dit voor antwoorden over wat je nu doet of net deed.`);
+    }
+    if (Array.isArray(meta.goals) && meta.goals.length) {
+      metaLines.push(`- Waar je naartoe werkt: ${meta.goals.slice(0, 5).map((g) => String(g).trim()).join("; ")}.`);
+    }
+    if (typeof meta.relationship_hint === "string" && meta.relationship_hint.trim()) {
+      metaLines.push(`- Relatieverleden (alleen als gesprek serieus wordt; nooit ongevraagd opbrengen): ${meta.relationship_hint.trim()}`);
+    }
+    if (Array.isArray(meta.pet_names) && meta.pet_names.length) {
+      metaLines.push(
+        `- Naampjes/koosnaampjes die jij natuurlijk zou gebruiken (alleen als de relatie er klaar voor is — zie relatie-fase): ${meta.pet_names.slice(0, 6).map((p) => `'${String(p).trim()}'`).join(", ")}.`,
+      );
+    }
+    if (Array.isArray(meta.languages) && meta.languages.length) {
+      metaLines.push(`- Talen die je kunt: ${meta.languages.map((l) => String(l).trim()).join(", ")} — schrijf in je hoofd-taal tenzij anders gevraagd.`);
+    }
+    if (typeof meta.voice_style === "string" && meta.voice_style.trim()) {
+      metaLines.push(`- Stem/ritme: ${meta.voice_style.trim()}.`);
+    }
+    if (metaLines.length) {
+      bits.push("");
+      bits.push("Eigen leven & innerlijke laag:");
+      bits.push(...metaLines);
+    }
+  }
 
   const tone = combinedFilterTagVoice(profile.filter_tags);
   if (tone) bits.push(tone);

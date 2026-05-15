@@ -18,6 +18,9 @@ export default function AdminLayout({
             whisper · admin
           </Link>
           <nav className="flex items-center gap-6 text-sm">
+            <Link href="/admin/personas" className="text-gray-600 hover:text-gray-900">
+              Personas
+            </Link>
             <Link href="/admin/messages" className="text-gray-600 hover:text-gray-900">
               Berichten
             </Link>
