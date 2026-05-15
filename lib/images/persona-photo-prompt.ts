@@ -418,20 +418,23 @@ export function buildPersonaPhotoPrompt(args: {
   promptParts.push(lighting);
   promptParts.push(capture);
 
-  // Anti-AI / pro-amateur anchors. These end-load the prompt because
-  // diffusion gives slight extra weight to later tokens for "look-and-
-  // feel" terms. Without these, gallery photos look studio-clean and
-  // perfectly composed — the operator's "het ziet er ook te ai uit"
-  // signal. We push for imperfect amateur snapshots specifically:
-  //  - slight motion / focus issues an iPhone shot would have
-  //  - real skin texture, no filtering
-  //  - average phone-camera dynamic range, not HDR
-  //  - imperfect framing/composition like a friend actually took it
+  // Anti-AI / pro-EVERYDAY-amateur anchors. End-loaded because diffusion
+  // weights later tokens slightly higher for "look-and-feel" terms.
+  // Operator's two repeated complaints:
+  //   1. "het ziet er ook te ai uit"  (doll-like, plastic, posed)
+  //   2. "moet gewoon dagelijkse foto's zijn, geen professionele foto's"
+  // So we don't just push "amateur"; we push "Wednesday afternoon nothing
+  // happening, daily life, boring iPhone moment". The point is to make
+  // the model commit to a TONE, not a styled aesthetic.
   promptParts.push(
-    "amateur unedited smartphone photo, real candid moment, slightly imperfect framing, " +
+    "ordinary everyday iPhone snapshot from her camera roll, totally unedited, " +
+      "boring weekday moment, daily life, nothing special happening, " +
+      "real candid not posed, slightly imperfect framing, slightly off-center, " +
       "natural skin pores and small skin texture, no filter, no beauty filter, " +
-      "no portrait mode bokeh, normal phone camera dynamic range, slight ISO noise, " +
-      "shot quickly without posing, captured by a friend not a photographer",
+      "no portrait mode bokeh, no shallow depth of field, " +
+      "normal phone camera dynamic range, slight ISO noise, slight grain, " +
+      "shot quickly in 2 seconds, regular phone photo not a photoshoot, " +
+      "captured by a friend on their phone, looks like it was just sent in a group chat",
   );
 
   promptParts.push("photorealistic, high detail, no text, no watermark, no logo");
@@ -456,6 +459,17 @@ export function buildPersonaPhotoPrompt(args: {
     "smooth airbrushed skin, perfect symmetry, perfect composition, " +
     "studio portrait, magazine portrait, fashion editorial, photoshoot, " +
     "professional model pose, posed for camera, glamorous, " +
+    // anti-styled / anti-professional — operator wants everyday phone
+    // snaps, not curated content
+    "professional photo, photoshoot, fashion shoot, model agency shot, " +
+    "vogue, instagram, content creator photo, influencer photo, " +
+    "carefully composed, golden hour magic, dramatic lighting, " +
+    "color graded, lightroom preset, vsco, film simulation, " +
+    "pinterest aesthetic, cottagecore, soft girl aesthetic, " +
+    "DSLR, mirrorless camera, professional camera, telephoto lens, " +
+    "shallow depth of field, bokeh background, blurred background, " +
+    "stylish outfit, fashion outfit, designer clothing, dressed up, " +
+    "full makeup, contoured face, styled hair, blow-dry, " +
     "duplicate person, multiple women, twins, identical twins";
   const negParts = [baseNegative];
   if (anchors.negative) negParts.push(anchors.negative);
