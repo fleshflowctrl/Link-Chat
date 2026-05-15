@@ -14,6 +14,7 @@ import {
 } from "@/lib/chat/map-rows";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+import { computePeerOnlineNow } from "@/lib/chat/online-status";
 
 export type ThreadMeta = {
   name: string;
@@ -183,21 +184,30 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
         "body" | "created_at" | "kind" | "image_url" | "reaction_emoji" | "sender"
       > & { gift_credits: number | null }
     >();
+    /** Most recent message authored by the peer (sender === "peer") per
+     * peer-id. Drives the live online dot — if she sent a bubble in the
+     * last few minutes she's "Nu online" in the inbox too. */
+    const lastPeerMsgAtByPeer = new Map<string, string>();
     const peerOrder: string[] = [];
 
     for (const row of allMsgs ?? []) {
       const pid = row.peer_id as string;
-      if (!pid || latestByPeer.has(pid)) continue;
-      latestByPeer.set(pid, {
-        body: row.body as string | null,
-        created_at: row.created_at as string,
-        kind: (row.kind as string) || "text",
-        image_url: row.image_url as string | null,
-        reaction_emoji: row.reaction_emoji as string | null,
-        gift_credits: (row as { gift_credits?: number | null }).gift_credits ?? null,
-        sender: (row.sender as string) ?? "me",
-      });
-      peerOrder.push(pid);
+      if (!pid) continue;
+      if (!latestByPeer.has(pid)) {
+        latestByPeer.set(pid, {
+          body: row.body as string | null,
+          created_at: row.created_at as string,
+          kind: (row.kind as string) || "text",
+          image_url: row.image_url as string | null,
+          reaction_emoji: row.reaction_emoji as string | null,
+          gift_credits: (row as { gift_credits?: number | null }).gift_credits ?? null,
+          sender: (row.sender as string) ?? "me",
+        });
+        peerOrder.push(pid);
+      }
+      if (row.sender === "peer" && !lastPeerMsgAtByPeer.has(pid)) {
+        lastPeerMsgAtByPeer.set(pid, row.created_at as string);
+      }
     }
 
     if (peerOrder.length === 0) {
@@ -231,6 +241,7 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
       lastReadByPeer.set(r.peer_id as string, r.last_read_at as string);
     }
 
+    const now = new Date();
     return peerOrder
       .map((id) => {
         const row = byId.get(id);
@@ -246,6 +257,17 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
         } else {
           thread.unreadCount = 0;
         }
+        // Live online state — overrides the legacy chat_profiles.online_now
+        // boolean with a bedtime/work/recency-aware computation.
+        const lastPeerAtIso = lastPeerMsgAtByPeer.get(id);
+        const lastPeerAt = lastPeerAtIso ? new Date(lastPeerAtIso) : null;
+        const liveOnline = computePeerOnlineNow({
+          now,
+          profile: row,
+          lastPeerMessageAt: lastPeerAt,
+        });
+        thread.onlineNow = liveOnline;
+        thread.showOnlineDot = liveOnline;
         return thread;
       })
       .filter((t): t is MessageThread => t != null);
@@ -300,12 +322,6 @@ export async function fetchConversationServer(
   }
 
   const p = profile as ChatProfileRow;
-  const meta: ThreadMeta = {
-    name: p.display_name,
-    avatarUrl: p.avatar_url,
-    verified: p.verified,
-    onlineNow: p.online_now,
-  };
 
   const { data: msgs, error: msgError } = await supabase
     .from("chat_messages")
@@ -317,12 +333,38 @@ export async function fetchConversationServer(
   if (msgError) {
     return {
       messages: [],
-      meta,
+      meta: {
+        name: p.display_name,
+        avatarUrl: p.avatar_url,
+        verified: p.verified,
+        onlineNow: computePeerOnlineNow({ profile: p, lastPeerMessageAt: null }),
+      },
       useSupabase: true,
     };
   }
 
   const list = (msgs ?? []) as ChatMessageRow[];
+
+  // Find her most recent message in this thread to drive a realistic
+  // online-state. If she just spoke, the dot should be green; otherwise
+  // the persona's bedtime/work context decides.
+  let lastPeerMessageAt: Date | null = null;
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (list[i].sender === "peer") {
+      const t = new Date(list[i].created_at);
+      if (!Number.isNaN(t.getTime())) {
+        lastPeerMessageAt = t;
+      }
+      break;
+    }
+  }
+
+  const meta: ThreadMeta = {
+    name: p.display_name,
+    avatarUrl: p.avatar_url,
+    verified: p.verified,
+    onlineNow: computePeerOnlineNow({ profile: p, lastPeerMessageAt }),
+  };
 
   return {
     messages: list.map(messageRowToUi),

@@ -217,6 +217,20 @@ export function ChatConversationView({
 }) {
   const router = useRouter();
   const meta = threadMeta;
+  /** Last time we saw the peer "do something" in-session (a new bubble
+   * landed, or the typing indicator turned on). Used to render the
+   * header dot live: if she just texted, she's online — full stop. */
+  const [lastPeerActivityMs, setLastPeerActivityMs] = useState<number | null>(
+    null,
+  );
+  /** Tick that drives "online → offline" decay after 4 min of silence
+   * even if no other state changes. Without this the header would freeze
+   * on "Nu online" forever. */
+  const [, setOnlineTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setOnlineTick((n) => (n + 1) & 0x7fffffff), 30_000);
+    return () => clearInterval(id);
+  }, []);
   /** Ids that skip entry animation — SSR baseline, then full list after API sync. */
   const [skipEntryAnimateIds, setSkipEntryAnimateIds] = useState(
     () => new Set(initialMessages.map((m) => m.id)),
@@ -528,6 +542,8 @@ export function ChatConversationView({
     if (last.sender !== "peer") return;
     if (lastReadPeerIdRef.current === last.id) return;
     lastReadPeerIdRef.current = last.id;
+    // She just spoke → she's online right now.
+    setLastPeerActivityMs(Date.now());
     // Bump the override too so the inbox doesn't show a stale "unread" while
     // the user is actively reading new replies.
     const o = getThreadPreviewOverride(chatId);
@@ -540,6 +556,22 @@ export function ChatConversationView({
     });
     void markReadOnServer();
   }, [messages, markReadOnServer, chatId]);
+
+  // Typing indicator → she has the app open right now → online.
+  useEffect(() => {
+    if (peerTyping) setLastPeerActivityMs(Date.now());
+  }, [peerTyping]);
+
+  // Derived live online flag. While she's typing or sent something within
+  // the last 4 minutes she's "Nu online", otherwise we trust the server's
+  // (bedtime/work-aware) flag. The 30s tick effect makes this re-render so
+  // the dot can flip back to offline on its own after silence.
+  const HARD_ONLINE_WINDOW_MS = 4 * 60_000;
+  const liveOnlineNow =
+    peerTyping ||
+    (lastPeerActivityMs !== null &&
+      Date.now() - lastPeerActivityMs <= HARD_ONLINE_WINDOW_MS) ||
+    meta.onlineNow;
 
   /** Clear funnel “unread” bump once the thread is opened. */
   useEffect(() => {
@@ -562,7 +594,7 @@ export function ChatConversationView({
         name: meta.name,
         avatarUrl: meta.avatarUrl,
         verified: meta.verified,
-        showOnlineDot: meta.onlineNow,
+        showOnlineDot: liveOnlineNow,
         unreadCount: 0,
       });
     } catch {
@@ -678,7 +710,7 @@ export function ChatConversationView({
           name: meta.name,
           avatarUrl: meta.avatarUrl,
           verified: meta.verified,
-          showOnlineDot: meta.onlineNow,
+          showOnlineDot: liveOnlineNow,
           unreadCount: 0,
         });
         return;
@@ -707,7 +739,7 @@ export function ChatConversationView({
         name: meta.name,
         avatarUrl: meta.avatarUrl,
         verified: meta.verified,
-        showOnlineDot: meta.onlineNow,
+        showOnlineDot: liveOnlineNow,
         unreadCount: 0,
       });
 
@@ -804,7 +836,7 @@ export function ChatConversationView({
           name: meta.name,
           avatarUrl: meta.avatarUrl,
           verified: meta.verified,
-          showOnlineDot: meta.onlineNow,
+          showOnlineDot: liveOnlineNow,
         });
       } catch (e) {
         console.error("[chat] send failed", e);
@@ -867,7 +899,7 @@ export function ChatConversationView({
         name: meta.name,
         avatarUrl: meta.avatarUrl,
         verified: meta.verified,
-        showOnlineDot: meta.onlineNow,
+        showOnlineDot: liveOnlineNow,
         unreadCount: 0,
       });
 
@@ -951,7 +983,7 @@ export function ChatConversationView({
         name: meta.name,
         avatarUrl: meta.avatarUrl,
         verified: meta.verified,
-        showOnlineDot: meta.onlineNow,
+        showOnlineDot: liveOnlineNow,
         unreadCount: 0,
       });
 
@@ -1040,7 +1072,7 @@ export function ChatConversationView({
               />
             )}
           </div>
-          {meta.onlineNow ? (
+          {liveOnlineNow ? (
             <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-inkMuted">
               <span className="h-2 w-2 shrink-0 rounded-full bg-accentGreen shadow-[0_0_0_2px_rgba(124,92,255,0.12)]" />
               <span className="font-medium text-primary">Nu online</span>
