@@ -29,12 +29,13 @@ const DEFAULTS = {
   steps: 9,     // 9 == 8 DiT forwards (recommended in Space)
 };
 
-/** Words/phrases that must never end up in the prompt — Z-Image-Turbo has
- * its own NSFW safety but we pre-filter at the boundary anyway. */
+/** Words/phrases that must never end up in the prompt.
+ * We only hard-block child exploitation and violence/gore.
+ * Nudity / adult content is allowed when the persona's system prompt
+ * explicitly gates it (user sent photo + 100-credit gift first). */
 const PROMPT_BLOCKLIST = [
-  /nude|naked|nsfw|sexual|topless|underwear|bikini|lingerie/i,
-  /child|minor|teen|underage/i,
-  /violence|gore|blood/i,
+  /child|minor|teen|underage|under.?18|loli|shota/i,
+  /violence|gore|blood|rape|non.?consent/i,
 ];
 
 export type GeneratePhotoResult =
