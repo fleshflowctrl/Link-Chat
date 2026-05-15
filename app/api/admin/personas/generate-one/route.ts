@@ -5,6 +5,7 @@ import { parsePersonaPayload } from "@/lib/admin/persona-payload";
 import { generatePersonaFromBrief } from "@/lib/admin/generate-persona";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
+import { uploadFallbackAvatar } from "@/lib/admin/fallback-avatar";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -145,17 +146,37 @@ export async function POST(req: Request) {
     }
   }
 
-  // If we have no avatar (either because withAvatar=false or the backend
-  // failed) we fall back to a 1x1 placeholder so the validator passes; the
-  // admin can still open the persona and upload a real avatar manually.
-  // We use a built-in pixel hosted in Supabase so it works offline; if no
-  // placeholder env var is set we use a transparent data URL alternative
-  // by leaving avatar_url empty and rejecting the create — but that
-  // surfaces a worse UX, so we pick the placeholder path.
+  // If the avatar pipeline above didn't produce a URL (toggle off, HF
+  // Spaces cold-start, rate-limit, missing IMAGE_BACKEND, etc.) we still
+  // want persona creation to succeed. We synthesize a tiny initials SVG
+  // ourselves and upload it to the same chat-images bucket — that yields
+  // a real https URL the validator accepts, and the operator can later
+  // replace it via the persona's edit page (the "Genereer testfoto"
+  // button on photo_style does exactly that).
   if (!avatarUrl) {
-    const placeholder = process.env.ADMIN_PERSONA_PLACEHOLDER_AVATAR_URL?.trim();
-    if (placeholder && /^https?:\/\//i.test(placeholder)) {
-      avatarUrl = placeholder;
+    const fallback = await uploadFallbackAvatar(
+      service,
+      uniqueId,
+      generated.persona.display_name,
+    );
+    if (fallback.ok) {
+      avatarUrl = fallback.url;
+      // Make sure the operator notices the persona was created with a
+      // placeholder so they can regenerate the real photo later.
+      if (!avatarWarning) {
+        avatarWarning =
+          withAvatar
+            ? "Foto-backend onbeschikbaar — initialen-avatar gebruikt, regenereer later via 'Genereer testfoto'."
+            : "Initialen-avatar gebruikt (avatar-toggle stond uit).";
+      }
+    } else {
+      // Last-resort env-driven placeholder, mostly for local debugging.
+      const placeholder = process.env.ADMIN_PERSONA_PLACEHOLDER_AVATAR_URL?.trim();
+      if (placeholder && /^https?:\/\//i.test(placeholder)) {
+        avatarUrl = placeholder;
+      } else {
+        avatarWarning = `Geen avatar beschikbaar (${fallback.error}).`;
+      }
     }
   }
 

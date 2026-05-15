@@ -24,6 +24,14 @@ const nextConfig = {
       },
       ...supabasePatterns,
     ],
+    // We host fallback initials-avatars as SVG in the chat-images bucket
+    // (see lib/admin/fallback-avatar.ts). Allowing SVG through next/image
+    // is normally risky because of script-in-SVG XSS; the CSP below
+    // sandboxes any rendered SVG so embedded scripts can't execute.
+    // Combined with our remote-pattern allow-list (only Unsplash + our
+    // own Supabase project), this is safe.
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   /** Fewer native file watchers + polling (see `npm run dev`) — avoids macOS EMFILE / dev crashes on save. */
   webpack: (config, { dev }) => {
