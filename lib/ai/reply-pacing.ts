@@ -15,8 +15,7 @@
  * Strategy (in priority order):
  *   1. **First reply** — turn 0 is always 1-3 minutes (async). Nobody answers
  *      a brand-new match in under two seconds.
- *   2. **Early hook** — turns 1-2 stay relatively quick (15-90s) once she's
- *      in the thread, but not instant.
+ *   2. **Early hook** — turns 1-2 are 30-90s once she's in the thread.
  *   2. **Bedtime context** (see lib/ai/bedtime.ts) — each persona has a
  *      *random-but-deterministic* bedtime per night in [01:45, 03:35]. If
  *      `now` is past her bedtime she's asleep; reply scheduled for the
