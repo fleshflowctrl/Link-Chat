@@ -102,6 +102,12 @@ export default function NudesAdminPage() {
 
     setGeneratingId(null);
     setProgress(null);
+
+    // Auto-open modal so user immediately sees the new nude photos
+    const updatedPersona = personas.find((pp) => pp.id === personaId);
+    if (updatedPersona) {
+      setModalPersona(updatedPersona);
+    }
   }
 
   async function removePhoto(personaId: string, url: string) {
@@ -213,7 +219,36 @@ export default function NudesAdminPage() {
                     </div>
                     {p.city && <div className="text-sm text-white/50">{p.city}</div>}
 
-                    <div className="mt-5 flex flex-col gap-2">
+                    {/* Small nude preview strip so user can immediately see generated photos */}
+                    {p.gallery_urls.length > 0 && (
+                      <div className="mt-3 flex gap-1.5 overflow-hidden">
+                        {p.gallery_urls.slice(-3).map((url, idx) => (
+                          <div
+                            key={idx}
+                            className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg ring-1 ring-white/10"
+                            onClick={() => openModal(p)}
+                          >
+                            <Image
+                              src={url}
+                              alt=""
+                              fill
+                              className="object-cover"
+                              sizes="56px"
+                            />
+                          </div>
+                        ))}
+                        {p.gallery_urls.length > 3 && (
+                          <div
+                            className="flex h-14 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white/10 text-[11px] text-white/70 ring-1 ring-white/10"
+                            onClick={() => openModal(p)}
+                          >
+                            +{p.gallery_urls.length - 3}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-4 flex flex-col gap-2">
                       <button
                         onClick={() => void generateNudes(p.id)}
                         disabled={isGenerating || !!generatingId}
