@@ -93,10 +93,26 @@ export function CollectionView() {
     set: ContentSet;
     index: number;
   } | null>(null);
-  const [chatPhotoViewer, setChatPhotoViewer] = useState<{
-    group: ChatPhotoGroup;
-    index: number;
-  } | null>(null);
+  // Convert a chat photo group into a ContentSet so we can reuse
+  // the exact same card + PhotoViewer as the bought exclusive content.
+  function chatGroupToContentSet(group: ChatPhotoGroup): ContentSet {
+    const firstPhoto = group.photos[0]?.imageUrl || group.avatarUrl;
+    return {
+      id: `chat-${group.peerId}`,
+      creatorId: group.peerId,
+      creatorName: group.name,
+      creatorAge: 0,
+      creatorCity: "",
+      creatorAvatar: group.avatarUrl,
+      coverPhoto: firstPhoto,
+      photos: group.photos.map((p) => p.imageUrl),
+      title: `Chat met ${group.name}`,
+      description: "Ontgrendelde foto's uit de chat",
+      credits: 50,
+      category: "exclusive",
+      previewCount: 1,
+    };
+  }
 
   useEffect(() => {
     if (!userKey) return;
@@ -200,53 +216,28 @@ export function CollectionView() {
         )}
       </div>
 
-      {/* Chat-unlocked photos section */}
+      {/* Chat-unlocked photos — rendered with the exact same card layout
+          as the bought exclusive content for full visual consistency. */}
       {chatPhotoGroups.length > 0 && (
         <div className="mt-8 px-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-[15px] font-bold text-ink">Chatfoto's</h2>
             <span className="text-[12px] text-gray-500">
-              {chatPhotoGroups.reduce((sum, g) => sum + g.photos.length, 0)} foto's
+              {chatPhotoGroups.length} profielen
             </span>
           </div>
 
-          <div className="space-y-6">
-            {chatPhotoGroups.map((group) => (
-              <div key={group.peerId}>
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gray-200 ring-1 ring-black/[0.06]">
-                    <Image
-                      src={group.avatarUrl}
-                      alt=""
-                      fill
-                      className="object-cover"
-                      sizes="32px"
-                    />
-                  </div>
-                  <span className="font-semibold text-ink">{group.name}</span>
-                  <span className="text-[12px] text-gray-500">· {group.photos.length} foto's</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {group.photos.slice(0, 6).map((photo, idx) => (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      onClick={() => setChatPhotoViewer({ group, index: idx })}
-                      className="relative aspect-square overflow-hidden rounded-xl bg-gray-100 active:opacity-90"
-                    >
-                      <Image
-                        src={photo.imageUrl}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 430px) 30vw, 140px"
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 gap-3">
+            {chatPhotoGroups.map((group) => {
+              const syntheticSet = chatGroupToContentSet(group);
+              return (
+                <CollectionCard
+                  key={group.peerId}
+                  set={syntheticSet}
+                  onOpen={(s) => setViewTarget({ set: s, index: 0 })}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -258,27 +249,6 @@ export function CollectionView() {
             startIndex={viewTarget.index}
             onClose={() => setViewTarget(null)}
           />
-        )}
-        {chatPhotoViewer && (
-          <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90">
-            <div className="relative h-full w-full max-w-[430px]">
-              <button
-                onClick={() => setChatPhotoViewer(null)}
-                className="absolute right-4 top-4 z-10 rounded-full bg-white/90 px-4 py-1 text-[13px] font-semibold text-ink"
-              >
-                Sluiten
-              </button>
-              <div className="flex h-full items-center justify-center">
-                <Image
-                  src={chatPhotoViewer.group.photos[chatPhotoViewer.index].imageUrl}
-                  alt=""
-                  width={800}
-                  height={1200}
-                  className="max-h-[90vh] w-auto object-contain"
-                />
-              </div>
-            </div>
-          </div>
         )}
       </AnimatePresence>
     </div>
