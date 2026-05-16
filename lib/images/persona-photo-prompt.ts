@@ -151,8 +151,21 @@ const ATTRACTIVENESS_ANCHORS: Record<
 > = {
   striking: {
     positive:
-      "naturally beautiful, photogenic, expressive eyes, healthy radiant skin, well-proportioned features",
-    negative: "",
+      "naturally pretty in a real-person way, attractive but not model-tier, " +
+      "expressive eyes, healthy skin with visible pores and small natural blemishes or freckles, " +
+      "well-proportioned but slightly asymmetric features, " +
+      "looks like the prettiest girl in the friend group, not a fashion model",
+    // Even for "striking" personas we push back against the magazine-
+    // cover aesthetic — the operator wants pretty but believable, not
+    // photoshoot-perfect.
+    negative:
+      "supermodel, fashion model, magazine cover, vogue, runway, " +
+      "professional model pose, model agency, beauty pageant, " +
+      "perfectly symmetric face, flawless poreless skin, airbrushed skin, " +
+      "porcelain skin, glassy skin, photoshop retouch, " +
+      "perfectly contoured face, full glam makeup, false eyelashes, " +
+      "perfectly styled hair, salon blowout, " +
+      "perfectly white teeth, hollywood smile, perfect lips",
   },
   // NOTE on "average": diffusion bases for Z-Image-Turbo are heavily
   // skewed toward attractive faces (LAION/AVA-style training data), so
@@ -491,15 +504,43 @@ export function buildPersonaPhotoPrompt(args: {
         "clearly taken by the woman in the photo, selfie, self-portrait",
     );
   } else {
+    // STRONG everyday-iPhone realism block. Loaded with concrete phone-
+    // camera artifacts that diffusion bases otherwise smooth out:
+    //  - flat dynamic range / blown highlights / muddy shadows
+    //  - lens flare from streetlights, sun, or windows
+    //  - autofocus-confused subject, slight motion blur
+    //  - sensor noise in low light, banding in fluorescents
+    //  - normal phone white balance drift (cool indoors, warm under lamps)
+    //  - tilted horizon, slightly off-center, finger in corner
+    //  - sun in face causing squint, eyes half-closed mid-blink
+    // Also pushes against the "model agency face" diffusion default.
     promptParts.push(
+      // Camera & artifact realism
       "ordinary everyday iPhone snapshot from her camera roll, totally unedited, " +
-        "boring weekday moment, daily life, nothing special happening, " +
         "real candid not posed, slightly imperfect framing, slightly off-center, " +
-        "natural skin pores and small skin texture, no filter, no beauty filter, " +
+        "natural skin with visible pores small blemishes and uneven skin tone, " +
+        "no filter, no beauty filter, no instagram filter, no airbrushing, no skin smoothing, " +
         "no portrait mode bokeh, no shallow depth of field, " +
-        "normal phone camera dynamic range, slight ISO noise, slight grain, " +
-        "shot quickly in 2 seconds, regular phone photo not a photoshoot, " +
-        "captured by a friend on their phone, looks like it was just sent in a group chat",
+        "flat phone camera dynamic range with slightly blown highlights and muddy shadow detail, " +
+        "occasional lens flare or light streak from a streetlight or sun or window, " +
+        "natural unfixed white balance, slightly cool tones indoors or warm tones under tungsten, " +
+        "slight ISO noise especially in shadows, slight grain, " +
+        "subtle chromatic aberration on bright edges, " +
+        "horizon slightly tilted, framing slightly clumsy, " +
+        // Face / pose realism — push hard against "model looking at camera with perfect smile"
+        "ordinary face not photogenic, naturally asymmetric features, " +
+        "real human eyes with under-eye shadows or tiredness, " +
+        "expression caught mid-moment not posed, mouth slightly relaxed not full smile, " +
+        "may be looking slightly away or down or past the camera not direct eye contact, " +
+        "may be squinting from sun or bright light, may be mid-blink or eyes half closed, " +
+        // Body realism — counters diffusion "ideal body" tendency
+        "real woman body with normal proportions, normal arm width with some softness, " +
+        "normal not-flat stomach if visible, soft natural shoulders, real hip width, " +
+        "normal collarbones not sculpted, no visible six pack, " +
+        // Capture context
+        "shot quickly in 2 seconds while distracted, regular phone photo not a photoshoot, " +
+        "captured by a friend on their phone or a quick mirror selfie, " +
+        "looks like it was just sent in a group chat or whatsapp",
     );
   }
 
@@ -518,11 +559,17 @@ export function buildPersonaPhotoPrompt(args: {
   const baseNegative =
     "deformed, distorted, blurry, lowres, extra fingers, mutated hands, " +
     "watermark, signature, text, logo, harsh studio lighting, " +
+    // Anti-AI failure modes — these are the dead giveaways
     "ai-generated look, ai art, ai render, ai illustration, generative art, " +
-    "plastic skin, doll-like, porcelain doll, cgi, 3d render, octane render, " +
+    "midjourney style, stable diffusion artifacts, dall-e style, " +
+    "plastic skin, waxy skin, doll-like, porcelain doll, mannequin face, " +
+    "cgi, 3d render, octane render, unreal engine, blender render, " +
     "digital painting, illustration, anime, cartoon, stylised, " +
-    "oversaturated, hdr, overprocessed, instagram filter, beauty filter, " +
-    "smooth airbrushed skin, perfect symmetry, perfect composition, " +
+    "oversaturated, hdr, overprocessed, vibrant colors, punchy colors, " +
+    "instagram filter, beauty filter, snapchat filter, vsco filter, " +
+    "smooth airbrushed skin, flawless skin, poreless skin, even skin tone, " +
+    "perfect symmetry, perfectly even features, ideal proportions, " +
+    "perfect composition, rule of thirds, perfectly framed, " +
     "studio portrait, magazine portrait, fashion editorial, photoshoot, " +
     "professional model pose, posed for camera, glamorous, " +
     // operator rule: medium or long hair only, never short
@@ -533,20 +580,39 @@ export function buildPersonaPhotoPrompt(args: {
     // snaps, not curated content
     "professional photo, photoshoot, fashion shoot, model agency shot, " +
     "vogue, instagram, content creator photo, influencer photo, " +
-    "carefully composed, golden hour magic, dramatic lighting, " +
+    "carefully composed, golden hour magic, dramatic lighting, cinematic lighting, " +
+    "rim lighting, three-point lighting, ring light, " +
     "color graded, lightroom preset, vsco, film simulation, " +
     "pinterest aesthetic, cottagecore, soft girl aesthetic, " +
-    "DSLR, mirrorless camera, professional camera, telephoto lens, " +
-    "shallow depth of field, bokeh background, blurred background, " +
-    "stylish outfit, fashion outfit, designer clothing, dressed up, " +
-    "full makeup, contoured face, styled hair, blow-dry, " +
-    "duplicate person, multiple women, twins, identical twins, " +
-    // anti-clothing (especially important for explicit nudes)
+    "DSLR, mirrorless camera, professional camera, telephoto lens, prime lens, " +
+    "shallow depth of field, bokeh background, blurred background, creamy bokeh, " +
+    "stylish outfit, fashion outfit, designer clothing, dressed up, runway outfit, " +
+    "full makeup, contoured face, highlight makeup, false eyelashes, " +
+    "styled hair, blow-dry, salon hair, professionally styled hair, " +
+    // anti-perfect-body — push against diffusion's "ideal body" default
+    "perfect body, ideal body, model body, victoria's secret body, " +
+    "fitness model body, six pack abs, sculpted abs, defined waist, " +
+    "perfectly flat stomach, hourglass figure, perfect curves, " +
+    "perfectly toned arms, sculpted shoulders, defined collarbones, " +
+    // anti-perfect-face features
+    "perfectly straight nose, sharp jawline, defined cheekbones, " +
+    "high cheekbones, big eyes, doe eyes, full lips, plump lips, " +
+    "perfectly white teeth, perfectly straight teeth, hollywood smile, " +
+    "duplicate person, multiple women, twins, identical twins";
+
+  // Negative tokens that ONLY apply to explicit nude shots — pushing
+  // "no phone visible" or "wearing clothes" into a regular gallery photo
+  // would force a phone into every friend-taken candid shot or strip
+  // the persona's outfit. Keep these gated behind isExplicitNude.
+  const explicitNegative =
+    // anti-clothing
     "wearing clothes, shirt, top, jeans, pants, bra, panties, underwear, dress, jacket, hoodie, leggings, skirt, clothing, dressed, partially clothed, " +
     // anti-third-person / studio for explicit nudes
     "third person view, photographer, someone else took the photo, external camera, professional studio nude, studio lighting, " +
     "no phone visible, no mirror, no selfie, no arm visible, not self-taken";
+
   const negParts = [baseNegative];
+  if (isExplicitNude) negParts.push(explicitNegative);
   if (anchors.negative) negParts.push(anchors.negative);
   if (bodyAnchors.negative) negParts.push(bodyAnchors.negative);
   if (ageAnchors.negative) negParts.push(ageAnchors.negative);
