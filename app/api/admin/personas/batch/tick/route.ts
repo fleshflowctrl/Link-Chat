@@ -54,6 +54,14 @@ export async function POST(req: Request) {
   if (result.kind === "stopped") {
     return NextResponse.json({ ok: true, stopped: true, reason: result.reason });
   }
+  if (result.kind === "waiting") {
+    // Some earlier item is still in flight. Don't immediately chain to
+    // another tick — that would busy-loop hitting `waiting` again. The
+    // UI heartbeat (POST /batch/[id]) and Vercel cron sweep will wake
+    // us back up once the in-flight unit either resolves or the stuck
+    // recovery threshold fires.
+    return NextResponse.json({ ok: true, waiting: true, reason: result.reason });
+  }
   if (result.moreWork) {
     const baseUrl = resolveBaseUrl(req);
     await triggerNextTick(baseUrl, batchId);

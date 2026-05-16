@@ -18,6 +18,15 @@
     },
     "app/api/admin/personas/batch/start/route.ts": {
       "maxDuration": 30
+    },
+    "app/api/admin/personas/batch/cron/route.ts": {
+      "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/admin/personas/batch/cron",
+      "schedule": "* * * * *"
+    }
+  ]
 }

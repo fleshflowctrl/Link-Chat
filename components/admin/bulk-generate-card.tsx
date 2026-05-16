@@ -69,6 +69,7 @@ type BatchSnapshot = {
   with_photos: boolean;
   gallery_target: number;
   last_error: string | null;
+  updated_at: string | null;
   items: BatchItem[];
 };
 
@@ -154,7 +155,11 @@ export function BulkGenerateCard() {
   const [submitting, setSubmitting] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const lastRefreshRef = useRef<number>(0);
+  // Wallclock of the last time the SERVER reported progress (a change
+  // in batch.updated_at). Distinct from "last successful poll" — we
+  // want to detect a stalled worker, not a healthy idle polling loop.
+  const lastProgressAtRef = useRef<number>(0);
+  const lastUpdatedAtRef = useRef<string | null>(null);
 
   function parseAge(raw: string, fallback: number): number {
     const n = Number(raw);
@@ -239,7 +244,13 @@ export function BulkGenerateCard() {
       if (cancelled) return;
       if (!snap) return;
       setBatch(snap);
-      lastRefreshRef.current = Date.now();
+      // Only treat this as "progress" if the server's updated_at moved.
+      // Without this check, the heartbeat below would never fire because
+      // every successful poll would look like fresh activity.
+      if (snap.updated_at && snap.updated_at !== lastUpdatedAtRef.current) {
+        lastUpdatedAtRef.current = snap.updated_at;
+        lastProgressAtRef.current = Date.now();
+      }
       if (snap.status === "done" || snap.status === "cancelled" || snap.status === "failed") {
         writeStoredBatchId(null);
         router.refresh();
@@ -252,23 +263,24 @@ export function BulkGenerateCard() {
     };
   }, [batchId, batch, fetchBatch, router]);
 
-  // If a poll shows nothing has moved in ~90s (Vercel worst-case
-  // function timeout), nudge the worker to resume by POSTing to the
-  // batch route. This makes the UI self-healing if a tick was dropped.
+  // If the server hasn't reported progress in ~90s, nudge the worker
+  // to resume by POSTing to the batch route. This makes the UI
+  // self-healing if a tick was dropped before triggering its successor.
   useEffect(() => {
     if (!batchId || !batch) return;
     if (batch.status !== "pending" && batch.status !== "running") return;
     let cancelled = false;
     const handle = window.setInterval(async () => {
       if (cancelled) return;
-      const since = Date.now() - (lastRefreshRef.current || 0);
+      const seenAt = lastProgressAtRef.current;
+      const since = seenAt > 0 ? Date.now() - seenAt : 0;
       if (since < 90_000) return;
       try {
         await fetch(`/api/admin/personas/batch/${encodeURIComponent(batchId)}`, {
           method: "POST",
           cache: "no-store",
         });
-        lastRefreshRef.current = Date.now();
+        lastProgressAtRef.current = Date.now();
       } catch {
         // swallow — next poll will retry
       }
@@ -319,7 +331,8 @@ export function BulkGenerateCard() {
       setBatchId(id);
       const snap = await fetchBatch(id);
       setBatch(snap);
-      lastRefreshRef.current = Date.now();
+      lastProgressAtRef.current = Date.now();
+      lastUpdatedAtRef.current = snap?.updated_at ?? null;
     } catch (e) {
       setGlobalError(e instanceof Error ? e.message : String(e));
     } finally {

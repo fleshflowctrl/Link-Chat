@@ -112,6 +112,13 @@ create table if not exists public.chat_persona_batch_items (
 create index if not exists chat_persona_batch_items_progress_idx
   on public.chat_persona_batch_items (batch_id, idx);
 
+-- Safety net for environments that applied an earlier draft of this
+-- migration before `gallery_attempts` was added. Without it, the
+-- worker fails to write the column and gallery items stay 'running'
+-- forever. `if not exists` makes this a no-op for fresh databases.
+alter table public.chat_persona_batch_items
+  add column if not exists gallery_attempts int not null default 0;
+
 comment on table public.chat_persona_batch_items is
   'Per-persona progress within a chat_persona_batches job. Worker picks the lowest-idx item with any pending phase and processes ONE unit (profile, avatar, or one gallery photo) per /batch/tick invocation.';
 
