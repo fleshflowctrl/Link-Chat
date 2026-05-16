@@ -1,64 +1,34 @@
 /**
- * Clear or re-bind browser-local caches when the Supabase user changes.
- *
- * Without this, logging out / signing up as a new account in the same
- * browser leaks the previous user's inbox previews (whisper_thread_previews)
- * and credits balance (whisper_credits_active_user) into the next session.
+ * Re-bind in-memory client state when the Supabase user changes.
+ * All durable data lives in Supabase — nothing is written to localStorage.
  */
 
 import {
   initCreditsStore,
+  refreshCreditsFromServer,
   resetCreditsToGuest,
-  resetCreditsForNewUser,
 } from "@/lib/credits-store";
-import {
-  clearAllThreadPreviewStorage,
-  switchThreadPreviewsUser,
-} from "@/lib/thread-preview-store";
+import { clearThreadPreviews } from "@/lib/thread-preview-store";
+import { refreshSessionFromServer } from "@/lib/session-sync";
 
-const LEGACY_CREDITS_KEY = "whisper_credits";
-
-/** Call after sign-out so the next visitor starts clean. */
 export function clearClientCachesOnLogout(): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(LEGACY_CREDITS_KEY);
-  } catch {
-    /* ignore */
-  }
-  clearAllThreadPreviewStorage();
-  switchThreadPreviewsUser("guest");
+  clearThreadPreviews();
   resetCreditsToGuest();
 }
 
-/**
- * Call after login or signup once we know the Supabase user id.
- * Re-binds per-user caches and pulls credits from the server.
- */
-export function hydrateClientSessionForUser(userId: string): void {
-  if (typeof window === "undefined") return;
-  if (!userId) return;
-  switchThreadPreviewsUser(userId);
-  initCreditsStore();
+export function hydrateClientSessionForUser(_userId: string): void {
+  clearThreadPreviews();
+  void refreshSessionFromServer();
 }
 
-/** Funnel signup: wipe cross-account leftovers, then seed this user. */
 export function prepareNewAccountClientSession(
-  userId: string,
-  startingCredits: number,
-): void {
-  if (typeof window === "undefined") return;
-  clearAllThreadPreviewStorage();
-  try {
-    localStorage.removeItem(LEGACY_CREDITS_KEY);
-  } catch {
-    /* ignore */
-  }
-  switchThreadPreviewsUser(userId);
-  resetCreditsForNewUser(userId, startingCredits);
+  _userId: string,
+  _startingCredits: number,
+) {
+  clearThreadPreviews();
+  void refreshCreditsFromServer();
 }
 
-/** Resolve the current user id from the credits API (cheap, already exists). */
 export async function fetchAuthenticatedUserId(): Promise<string | null> {
   try {
     const res = await fetch("/api/me/credits", { cache: "no-store" });
@@ -75,7 +45,6 @@ export async function fetchAuthenticatedUserId(): Promise<string | null> {
   }
 }
 
-/** Login / auth callback: switch caches to whoever is signed in now. */
 export async function hydrateClientSessionFromServer(): Promise<void> {
   const userId = await fetchAuthenticatedUserId();
   if (userId) {
@@ -83,4 +52,9 @@ export async function hydrateClientSessionFromServer(): Promise<void> {
   } else {
     clearClientCachesOnLogout();
   }
+}
+
+/** @deprecated Use hydrateClientSessionForUser */
+export function initCreditsStoreOnLogin(): void {
+  initCreditsStore();
 }

@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   BadgeCheck,
   Link2,
@@ -10,15 +17,14 @@ import {
   Pin,
 } from "lucide-react";
 import {
-  getThreadMeta,
   sortThreadsByRecency,
   type MessageThread,
   type MessagePreviewType,
 } from "@/data/messages";
 import { hydrateClientSessionForUser } from "@/lib/client-user-session";
+import { WHISPER_THREADS_REFETCH } from "@/lib/session-sync";
 import {
   getThreadPreviewsSnapshot,
-  setThreadPreview,
   subscribeThreadPreviews,
 } from "@/lib/thread-preview-store";
 import { CreditsPill } from "@/components/ui/credits-pill";
@@ -311,85 +317,39 @@ export function MessagesView({
   initialThreads?: MessageThread[];
 }) {
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
-  const [serverThreads, setServerThreads] = useState<MessageThread[] | null>(
-    initialThreads ?? null,
+  const [serverThreads, setServerThreads] = useState<MessageThread[]>(
+    initialThreads ?? [],
   );
 
-  /** Pull this user's real threads from the backend. */
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/me/threads", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then(
-        (
-          json: {
-            ok?: boolean;
-            threads?: MessageThread[];
-            userId?: string;
-          } | null,
-        ) => {
-          if (cancelled || !json?.ok) return;
-          if (json.userId) {
-            hydrateClientSessionForUser(json.userId);
-          }
-          setServerThreads(json.threads ?? []);
-        },
-      )
-      .catch(() => {
-        /* keep whatever we already have */
-      });
-    return () => {
-      cancelled = true;
-    };
+  /** Inbox list from Supabase only (/api/me/threads). */
+  const loadThreads = useCallback(async () => {
+    try {
+      const r = await fetch("/api/me/threads", { cache: "no-store" });
+      if (!r.ok) return;
+      const json = (await r.json()) as {
+        ok?: boolean;
+        threads?: MessageThread[];
+        userId?: string;
+      };
+      if (!json.ok) return;
+      if (json.userId) {
+        hydrateClientSessionForUser(json.userId);
+      }
+      setServerThreads(json.threads ?? []);
+    } catch {
+      /* keep previous list */
+    }
   }, []);
 
-  /**
-   * Sync the in-memory inbox cache with the server thread list.
-   *
-   * Per-thread unread state:
-   *   - If the user already has an override AND the override's lastActivityAt
-   *     is at least as recent as the server's, keep their override (they've
-   *     read up to that point).
-   *   - Otherwise the thread is unread iff the latest message is from the peer.
-   *
-   * That way, opening /messages does NOT mark every thread as read — bold
-   * styling stays until the user actually opens the specific chat (which
-   * sets unreadCount = 0 in `chat-conversation-view`).
-   */
   useEffect(() => {
-    if (!serverThreads) return;
-    const { byId } = getThreadPreviewsSnapshot();
+    void loadThreads();
+  }, [loadThreads]);
 
-    for (const t of serverThreads) {
-      const o = byId[t.id];
-      // Server is authoritative for unread state (chat_reads table). The only
-      // exception: if the user has an override that's NEWER than the server's
-      // last activity (they just sent or read in-session), keep their value.
-      const overrideUpToDate =
-        o?.lastActivityAt &&
-        t.lastActivityAt &&
-        new Date(o.lastActivityAt).getTime() >
-          new Date(t.lastActivityAt).getTime();
-
-      const unread =
-        overrideUpToDate && o?.unreadCount !== undefined
-          ? o.unreadCount
-          : (t.unreadCount ?? 0);
-
-      setThreadPreview(t.id, {
-        lastMessage: t.lastMessage ?? o?.lastMessage ?? "",
-        timestampLabel: t.timestampLabel ?? o?.timestampLabel ?? "",
-        lastActivityAt: t.lastActivityAt ?? o?.lastActivityAt,
-        name: t.name ?? o?.name,
-        avatarUrl: t.avatarUrl ?? o?.avatarUrl,
-        verified: t.verified ?? o?.verified,
-        showOnlineDot: t.showOnlineDot ?? o?.showOnlineDot,
-        unreadCount: unread,
-      });
-    }
-  // runs whenever the server thread list changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverThreads]);
+  useEffect(() => {
+    const onRefetch = () => void loadThreads();
+    window.addEventListener(WHISPER_THREADS_REFETCH, onRefetch);
+    return () => window.removeEventListener(WHISPER_THREADS_REFETCH, onRefetch);
+  }, [loadThreads]);
 
   /**
    * Persist the inbox scroll position across navigations to a chat and back.
@@ -428,8 +388,7 @@ export function MessagesView({
     return () => main.removeEventListener("scroll", onScroll);
   }, []);
 
-  /** Server is the source of truth; never show legacy mock threads in the inbox. */
-  const source = serverThreads ?? [];
+  const source = serverThreads;
   const previews = useSyncExternalStore(
     subscribeThreadPreviews,
     getThreadPreviewsSnapshot,
@@ -446,9 +405,15 @@ export function MessagesView({
 
     for (const t of normalized) {
       const o = previews.byId[t.id];
+      const overrideUpToDate =
+        o?.lastActivityAt &&
+        t.lastActivityAt &&
+        new Date(o.lastActivityAt).getTime() >
+          new Date(t.lastActivityAt).getTime();
+
       byId.set(
         t.id,
-        o
+        o && overrideUpToDate
           ? mergePreview(
               t,
               o.lastMessage,
@@ -460,38 +425,8 @@ export function MessagesView({
       );
     }
 
-    // Only merge orphan local previews while the server list is still
-    // loading. Once `serverThreads` is set (even to []), the API is the
-    // only source of thread ids — otherwise the previous account's
-    // localStorage previews leak onto page 2 (/messages).
-    if (serverThreads === null) {
-      for (const id of Object.keys(previews.byId)) {
-        if (byId.has(id)) continue;
-        const o = previews.byId[id];
-        if (!o) continue;
-        if (!o.lastMessage || !o.lastMessage.trim()) continue;
-        const stub = getThreadMeta(id);
-        byId.set(
-          id,
-          normalizeThread({
-            id,
-            name: o.name ?? stub.name,
-            avatarUrl: o.avatarUrl ?? stub.avatarUrl,
-            verified: o.verified ?? stub.verified,
-            showOnlineDot: o.showOnlineDot ?? stub.onlineNow,
-            lastMessage: o.lastMessage,
-            timestampLabel: o.timestampLabel,
-            lastActivityAt:
-              o.lastActivityAt ?? new Date().toISOString(),
-            messageType: "text",
-            unreadCount: o.unreadCount ?? 1,
-          }),
-        );
-      }
-    }
-
     return Array.from(byId.values());
-  }, [normalized, previews.byId, previews.version, serverThreads]);
+  }, [normalized, previews.byId, previews.version]);
 
   const sorted = useMemo(() => sortThreadsByRecency(merged), [merged]);
 

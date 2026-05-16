@@ -9,7 +9,8 @@ import {
   getCreditsSnapshot,
   subscribeCredits,
 } from "@/lib/credits-store";
-import { readCachedUnlocks, writeCachedUnlocks } from "@/lib/unlocks/cache";
+import { WHISPER_UNLOCKS_REFETCH } from "@/lib/session-sync";
+import { fetchUnlockSetIds } from "@/lib/unlocks/fetch-unlocks";
 
 /**
  * "Mijn collectie" preview box on the `/me` page.
@@ -19,8 +20,7 @@ import { readCachedUnlocks, writeCachedUnlocks } from "@/lib/unlocks/cache";
  *    a count, and a chevron — tapping navigates to `/me/collection`, which
  *    contains the full grid + viewer.
  *
- *  Hydrates instantly from the per-user localStorage cache of unlocks, then
- *  re-syncs against `/api/me/unlocks`.
+ *  Loads unlocks from Supabase via `/api/me/unlocks`.
  */
 export function MyExclusiveContent() {
   const credits = useSyncExternalStore(
@@ -33,23 +33,23 @@ export function MyExclusiveContent() {
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
-    if (!userKey) return;
-    setUnlockedIds(new Set(readCachedUnlocks(userKey)));
-    if (userKey === "guest") return;
+    if (!userKey || userKey === "guest") {
+      setUnlockedIds(new Set());
+      return;
+    }
 
     let cancelled = false;
-    void fetch("/api/me/unlocks", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { ok?: boolean; setIds?: string[] } | null) => {
-        if (cancelled || !data?.ok || !Array.isArray(data.setIds)) return;
-        setUnlockedIds(new Set(data.setIds));
-        writeCachedUnlocks(userKey, data.setIds);
-      })
-      .catch(() => {
-        /* keep cached state */
+    const load = () => {
+      void fetchUnlockSetIds().then((ids) => {
+        if (!cancelled) setUnlockedIds(new Set(ids));
       });
+    };
+    load();
+    const onRefetch = () => load();
+    window.addEventListener(WHISPER_UNLOCKS_REFETCH, onRefetch);
     return () => {
       cancelled = true;
+      window.removeEventListener(WHISPER_UNLOCKS_REFETCH, onRefetch);
     };
   }, [userKey]);
 

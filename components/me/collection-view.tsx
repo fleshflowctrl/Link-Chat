@@ -12,7 +12,8 @@ import {
   getCreditsSnapshot,
   subscribeCredits,
 } from "@/lib/credits-store";
-import { readCachedUnlocks, writeCachedUnlocks } from "@/lib/unlocks/cache";
+import { WHISPER_UNLOCKS_REFETCH } from "@/lib/session-sync";
+import { fetchUnlockSetIds } from "@/lib/unlocks/fetch-unlocks";
 import { PhotoViewer } from "@/components/links/photo-viewer";
 
 type ChatPhotoGroup = {
@@ -76,8 +77,7 @@ function CollectionCard({
  * signed-in user has unlocked. Tapping a card opens the same full-screen
  * PhotoViewer used by `/links` after a fresh purchase.
  *
- * Hydrates instantly from the per-user localStorage cache and re-syncs
- * against `/api/me/unlocks`.
+ * Loads unlocked sets from Supabase via `/api/me/unlocks`.
  */
 export function CollectionView() {
   const credits = useSyncExternalStore(
@@ -115,23 +115,23 @@ export function CollectionView() {
   }
 
   useEffect(() => {
-    if (!userKey) return;
-    setUnlockedIds(new Set(readCachedUnlocks(userKey)));
-    if (userKey === "guest") return;
+    if (!userKey || userKey === "guest") {
+      setUnlockedIds(new Set());
+      return;
+    }
 
     let cancelled = false;
-    void fetch("/api/me/unlocks", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { ok?: boolean; setIds?: string[] } | null) => {
-        if (cancelled || !data?.ok || !Array.isArray(data.setIds)) return;
-        setUnlockedIds(new Set(data.setIds));
-        writeCachedUnlocks(userKey, data.setIds);
-      })
-      .catch(() => {
-        /* keep cached state */
+    const load = () => {
+      void fetchUnlockSetIds().then((ids) => {
+        if (!cancelled) setUnlockedIds(new Set(ids));
       });
+    };
+    load();
+    const onRefetch = () => load();
+    window.addEventListener(WHISPER_UNLOCKS_REFETCH, onRefetch);
     return () => {
       cancelled = true;
+      window.removeEventListener(WHISPER_UNLOCKS_REFETCH, onRefetch);
     };
   }, [userKey]);
 

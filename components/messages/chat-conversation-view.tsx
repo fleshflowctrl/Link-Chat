@@ -26,6 +26,7 @@ import {
 import { WHISPER_USER_KEY } from "@/data/funnel";
 import { type ChatMessage } from "@/data/messages";
 import type { ThreadMeta } from "@/lib/chat/server-data";
+import { requestThreadsRefetch } from "@/lib/session-sync";
 import {
   getThreadPreviewOverride,
   setThreadPreview,
@@ -842,6 +843,7 @@ export function ChatConversationView({
           verified: meta.verified,
           showOnlineDot: liveOnlineNow,
         });
+        requestThreadsRefetch();
       } catch (e) {
         console.error("[chat] send failed", e);
         setAssistantError(
@@ -949,6 +951,7 @@ export function ChatConversationView({
           return additions.length === 0 ? replaced : [...replaced, ...additions];
         });
         setNextPendingAt(data.nextPendingAt ?? null);
+        requestThreadsRefetch();
       } catch (e) {
         console.error("[chat] send image failed", e);
         setAssistantError(
@@ -1019,6 +1022,7 @@ export function ChatConversationView({
           );
           return data.peerMessage ? [...replaced, data.peerMessage] : replaced;
         });
+        requestThreadsRefetch();
         return { ok: true as const, newBalance: data.newBalance };
       } catch (e) {
         console.error("[chat] send gift failed", e);

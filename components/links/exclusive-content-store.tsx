@@ -16,7 +16,8 @@ import {
   initCreditsStore,
   subscribeCredits,
 } from "@/lib/credits-store";
-import { readCachedUnlocks, writeCachedUnlocks } from "@/lib/unlocks/cache";
+import { requestUnlocksRefetch, WHISPER_UNLOCKS_REFETCH } from "@/lib/session-sync";
+import { fetchUnlockSetIds } from "@/lib/unlocks/fetch-unlocks";
 import { PhotoViewer } from "@/components/links/photo-viewer";
 
 /* ─────────────────────────── helpers ────────────────────────────── */
@@ -278,29 +279,28 @@ export function ExclusiveContentStore() {
   const balance = credits.balance;
   const userKey = credits.userKey;
 
-  /** Hydrate from per-user cache instantly, then re-sync with server. */
   useEffect(() => {
     initCreditsStore();
   }, []);
 
   useEffect(() => {
-    if (!userKey) return;
-    setUnlockedIds(new Set(readCachedUnlocks(userKey)));
-    if (userKey === "guest") return;
+    if (!userKey || userKey === "guest") {
+      setUnlockedIds(new Set());
+      return;
+    }
 
     let cancelled = false;
-    void fetch("/api/me/unlocks", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { ok?: boolean; setIds?: string[] } | null) => {
-        if (cancelled || !data?.ok || !Array.isArray(data.setIds)) return;
-        setUnlockedIds(new Set(data.setIds));
-        writeCachedUnlocks(userKey, data.setIds);
-      })
-      .catch(() => {
-        /* keep cached state */
+    const load = () => {
+      void fetchUnlockSetIds().then((ids) => {
+        if (!cancelled) setUnlockedIds(new Set(ids));
       });
+    };
+    load();
+    const onRefetch = () => load();
+    window.addEventListener(WHISPER_UNLOCKS_REFETCH, onRefetch);
     return () => {
       cancelled = true;
+      window.removeEventListener(WHISPER_UNLOCKS_REFETCH, onRefetch);
     };
   }, [userKey]);
 
@@ -351,7 +351,7 @@ export function ExclusiveContentStore() {
 
       if (Array.isArray(data.setIds)) {
         setUnlockedIds(new Set(data.setIds));
-        writeCachedUnlocks(userKey, data.setIds);
+        requestUnlocksRefetch();
       }
       if (typeof data.balance === "number") {
         applyServerCreditsUpdate(data.balance);
