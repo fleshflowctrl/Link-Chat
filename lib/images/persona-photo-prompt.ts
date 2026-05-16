@@ -56,40 +56,6 @@ export function stripBlurPhrases(input: string | undefined | null): string {
     /\bsoft\s+focus\b/gi,
     /\bsoft\s+background\b/gi,
     /\bhazy\s+soft\s+edges\b/gi,
-    /\bhazy\s+background\b/gi,
-    /\bsoftly\s+blurred\b/gi,
-    /\bsoft\s+blurred\b/gi,
-    /\bdreamy\s+soft\b/gi,
-    /\bsmooth\s+background\b/gi,
-    /\bcreamy\s+backdrop\b/gi,
-    /\bcreamy\s+background\b/gi,
-    /\b85\s*mm\s+(portrait\s+)?lens\b/gi,
-    /\btelephoto\s+lens\b/gi,
-    /\bprime\s+lens\b/gi,
-    // Distance / atmosphere tokens — diffusion treats these as
-    // "render with atmospheric perspective blur" cues, which compounds
-    // with the model's portrait-mode bias and shows up in renders as
-    // background bokeh even though the prompt never said "bokeh"
-    // outright. We aggressively strip them; the very rare legit use
-    // (e.g. "distant cathedral bell" as audio metaphor) is acceptable
-    // collateral because templates are visual-only by definition.
-    /\b(in\s+the\s+)?distant\b/gi,
-    /\bin\s+the\s+distance\b/gi,
-    /\bfar\s+away\b/gi,
-    /\bfar\s+behind\b/gi,
-    /\bstretching\s+(out\s+)?(into|behind|towards?)\b/gi,
-    /\bextending\s+into\s+the\s+distance\b/gi,
-    /\bfading\s+into\b/gi,
-    /\bsilhouettes?\b/gi,
-    /\bvague\s+(figures|shapes|forms|outlines|crowd|silhouettes?)\b/gi,
-    /\babstract\s+shapes\b/gi,
-    /\b(moody\s+)?atmospheric\b/gi,
-    /\b(slightly\s+)?hazy\b/gi,
-    /\bmisty\b/gi,
-    /\bbarely\s+visible\b/gi,
-    /\ba\s+sense\s+of\b/gi,
-    /\bhints?\s+of\b/gi,
-    /\bsoftly\s+lit\s+background\b/gi,
   ];
   let out = input;
   for (const re of killers) out = out.replace(re, "");
@@ -489,49 +455,6 @@ export function buildPersonaPhotoPrompt(args: {
   const ageHint = ageHairAndSkinHint(personaAge);
 
   const promptParts: string[] = [];
-
-  // 0. HARD DEEP-FOCUS FRONT-LOAD.
-  //
-  // Z-Image-Turbo (our render backend) is a distilled DiT model with
-  // guidance_scale = 0 and **no negative_prompt support at all** — its
-  // pipeline silently ignores the negative-prompt string. Everything
-  // we say about "no bokeh / no blurred background" via the negative
-  // path is therefore wasted on this backend; all blur control has to
-  // happen via the *positive* prompt.
-  //
-  // Diffusion bases trained on photography metadata have a strong
-  // learned bias toward portrait-mode bokeh whenever there is a
-  // distinct subject and a recognisable background (people on a
-  // platform, shoppers in an aisle, crowd on a street). To override
-  // that bias we front-load concrete photographic instructions that
-  // the model recognises from EXIF-tagged training data:
-  //   - wide-angle phone main camera (24mm equivalent) → inherent
-  //     deep field of view
-  //   - f/8–f/11 narrow aperture → deep depth of field
-  //   - hyperfocal distance → everything sharp from 1m to infinity
-  //   - "snapshot" / "casual phone photo" framing → consumer-camera
-  //     pretraining samples which keep deep focus by default
-  // Phrased entirely as POSITIVE descriptors ("tack sharp", "every
-  // detail visible") because Turbo models can't reliably parse "no X"
-  // negation.
-  // Instruction-style framing — Z-Image-Turbo is documented to follow
-  // written instructions unusually well (Z-Image authors: "trained for
-  // bilingual prompts and follows written instructions unusually well").
-  // We exploit that by stating the deep-focus requirement as an
-  // explicit directive instead of just descriptor tokens. Mentioning
-  // concrete reference styles the model has seen in pretraining
-  // (tourist photo, vlog screenshot, dashcam, security camera, GoPro)
-  // — all of which are deep-focus by their optical nature — gives
-  // the diffusion sampler something to compose toward instead of
-  // falling back to its portrait-photo prior.
-  promptParts.push(
-    "This photo must look like an ordinary tourist snapshot or a screenshot from a GoPro or a casual vlog frame — NOT like a DSLR portrait, NOT like an Instagram photoshoot, NOT like a 85mm lens portrait. " +
-      "The camera is an iPhone main wide-angle camera (24mm equivalent), held quickly at chest or eye level by a friend or by the woman herself. " +
-      "The aperture is narrow (f/8) and the field of view is wide. Every single thing in the frame stays sharp: the woman, the people behind her, the cars, the shop signs, the trees, the building windows, the texture of the pavement — ALL fully in focus and clearly recognisable. " +
-      "The background is rendered with the same crisp detail as the subject. No part of the photo is soft, hazy, or out of focus. There is no portrait-mode background separation, no creamy backdrop, no blurred crowd. " +
-      "Think wide-angle phone snapshot, tourist photo, dashcam frame, security camera still, GoPro photo, vlog still.",
-  );
-
   // Age anchor frontloads ABOVE the realism/appearance anchors for
   // anything past mid-20s — diffusion is order-sensitive and we need
   // the model to commit to the right age bracket before it sees the
@@ -611,15 +534,6 @@ export function buildPersonaPhotoPrompt(args: {
   }
 
   if (shotPose) promptParts.push(`pose: ${shotPose}`);
-  // Middle-load deep-focus reminder, dropped in right before scene/
-  // backdrop description so the model has a fresh deep-focus
-  // directive at exactly the token position where it's about to
-  // commit to a composition. Without this the front-load fades by
-  // the time the model decides whether to apply portrait-mode bokeh
-  // to the background it's about to paint.
-  promptParts.push(
-    "remember: wide-angle phone snapshot, deep focus across the entire frame, every background element rendered sharply and fully detailed, no portrait-mode separation between subject and background",
-  );
   promptParts.push(`scene: ${cleanScene}`);
   promptParts.push(vibe);
   if (attractiveness === "striking") {
@@ -641,12 +555,9 @@ export function buildPersonaPhotoPrompt(args: {
     "casual phone selfie or candid snapshot";
   const backdrop = stripBlurPhrases(cam.backdrop);
   let lighting = stripBlurPhrases(cam.lighting) || "soft natural lighting";
-  // Capture defaults explicitly mention wide-angle/f-stop so even a
-  // template that omits its own capture line still steers the model
-  // away from portrait-mode bokeh.
   let capture =
     stripBlurPhrases(cam.capture) ||
-    "shot on iPhone main wide-angle camera at f/8, full deep focus across the frame, slight grain, intimate everyday moment";
+    "shot on iPhone, slight grain, intimate everyday moment";
 
   // For explicit nudes we force a strong self-taken mirror-selfie look
   // so it is obvious that *she* took the photo (not a third party).
@@ -729,19 +640,6 @@ export function buildPersonaPhotoPrompt(args: {
     );
   }
 
-  // End-loaded deep-focus reinforcer. Diffusion bases weigh late tokens
-  // slightly higher for "look-and-feel" terms, so we close the prompt
-  // with another wide-angle / deep-DoF directive. Same theme as the
-  // front-load, phrased differently so the model treats it as two
-  // independent constraints instead of a duplicate. This is the
-  // second of the two anchors keeping portrait-mode bokeh out.
-  promptParts.push(
-    "phone snapshot aesthetic, wide-angle deep focus everywhere, " +
-      "all background elements remain sharp and clearly recognisable, " +
-      "no portrait-mode background separation, " +
-      "subject does not pop out against a soft background, " +
-      "every face, sign, vehicle and object in the background is rendered with full detail"
-  );
   promptParts.push("photorealistic, high detail, no text, no watermark, no logo");
 
   const prompt = promptParts.filter(Boolean).join(", ");

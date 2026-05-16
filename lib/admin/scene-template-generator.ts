@@ -44,14 +44,9 @@ Output STRIKT geldige JSON, niets anders. Geen markdown-fences, geen toelichting
 Velden uitgelegd:
 - scene (Nederlands of mix NL/EN, 1 zin): WAT ze aan het doen is en WAAR. Concrete activiteit, geen abstracte sfeer. Bijv: "kleedkamer mirror selfie voordat ze de deur uitgaat", "vakantiekiekje voor de Belém-toren in Lissabon", "snelle stadsparkselfie op een doordeweekse middag".
 - camera (Engels): camera-afstand/hoek/framing. Concrete diffusion-tokens. Bijv: "regular phone snapshot full body from a few meters away, slight tilt", "phone selfie close-up, head and shoulders fill the frame", "full body mirror selfie with phone clearly visible at face height".
-- backdrop (Engels): zichtbare achtergrond. STRIKTE eisen om het diffusion-model te dwingen alles scherp te renderen i.p.v. portrait-mode bokeh toe te passen:
-    * MINIMAAL 3 concreet benoemde objecten met zichtbaar detail (kleur + vorm + herkenbaar kenmerk). Niet "people walking" maar "two women in red and beige raincoats, one man in a dark blue puffer jacket holding a black umbrella".
-    * Alles binnen ~3-5 meter van het onderwerp. Geen "extending into the distance", geen "stretching far behind", geen "in the background somewhere".
-    * GEEN afstand/sfeer-woorden: NOOIT "distant", "in the distance", "far away", "silhouettes", "figures", "shapes", "vague", "atmospheric", "softly lit", "hazy", "misty", "abstract", "a sense of", "hints of", "barely visible", "fading into" — die woorden zijn directe instructies voor het model om te blurren.
-    * Sluit ALTIJD af met een expliciet scherpte-token zoals "every object clearly visible and sharp", "all elements rendered in full detail", "background fully detailed and crisp".
-    Bijv: "narrow old European street at night, warm yellow streetlight glow, dark stone wall with graffiti tags two meters left, a closed wooden door with iron hinges three meters back, every brick and detail clearly visible and sharp".
+- backdrop (Engels): zichtbare achtergrond. Specifieke locatie-details (gebouw, straat, natuurelement, kleuren). Bijv: "narrow old European street at night, warm yellow streetlight glow, dark stone wall and a closed wooden door".
 - lighting (Engels): licht-mood. Concrete licht-tokens, geen "natural lighting". Bijv: "harsh streetlight from behind/side, strong lens flare cutting across the face", "soft warm window daylight, glowy on the cheek", "bright sunny midday, sharp clear blue tones".
-- capture (Engels): apparaat-feel. MOET expliciet "iPhone main wide-angle camera" / "phone wide-angle 24mm" / "deep focus" / "everything sharp" tokens bevatten — anders defaultet het diffusion-model naar portrait-mode bokeh. Bijv: "iPhone main wide-angle camera at f/8, full deep focus across the frame, unedited, visible streetlight lens flare", "iPhone wide-angle main camera, every detail in the background still sharp, unedited mirror selfie", "iPhone main camera wide-angle, deep focus snapshot taken by a friend, unedited". NOOIT "85mm portrait lens", "DSLR", "telephoto", "shot on Leica", "soft glow background", "creamy background" of welk synoniem voor shallow depth of field dan ook.
+- capture (Engels): apparaat-feel. Bijv: "iPhone snapshot, unedited, visible streetlight lens flare across the frame", "iPhone mirror selfie, unedited, phone reflection visible", "iPhone snapshot taken by a friend, unedited".
 - outfit (Engels): exacte kleding voor DEZE foto. Geen "casual outfit" — concreet: kleur + type + accessoires + haar. Bijv: "sleeveless burgundy or wine-red top, regular dark jeans, simple silver wristwatch, hair loose past shoulders".
 - pose (Engels): lichaamshouding voor DEZE foto. Concreet: handen, gezichtsrichting, smile/no smile, ogen op camera ja/nee. Bijv: "standing relaxed on the sidewalk, arms loose at her sides, neutral half-smile, looking flatly at the camera not posing".
 - kind: één van "avatar" | "gallery" | "mixed".
@@ -64,18 +59,7 @@ HARDE REGELS:
 - Geen studio-shoots, geen fashion-photography, geen "golden hour magic". Alles moet eruitzien als een doodgewone iPhone-snapshot of mirror-selfie of friend-snap.
 - Geen explicit content. Geen naakt, geen topless, geen lingerie-shoots. (Aparte templates daarvoor bestaan elders.)
 - VARIATIE is het hele doel: per batch een mix van outdoor/indoor, dag/avond, selfie/friend-snap/mirror, verschillende seizoenen, verschillende landen/steden, verschillende outfits.
-- ABSOLUUT NOOIT BLUR EN NOOIT AFSTANDS-SFEER. Twee categorieën verboden tokens in ALLE velden (scene/camera/backdrop/lighting/capture/outfit/pose):
-
-  Categorie 1 — directe blur-tokens:
-  "blur", "blurry", "blurred", "out of focus", "out-of-focus", "defocused", "bokeh", "shallow depth of field", "shallow DoF", "portrait mode", "soft focus", "motion blur", "creamy bokeh", "lens blur", "soft background", "soft blurred", "softly blurred", "dreamy soft", "smooth background", "creamy backdrop", "soft glow background", "blurry-far".
-
-  Categorie 2 — afstands/sfeer-tokens die het model óók als "blur dit" interpreteert:
-  "distant", "in the distance", "far away", "far behind", "stretching out behind", "extending into the distance", "fading into", "silhouettes", "figures", "vague shapes", "vague forms", "abstract shapes", "atmospheric", "moody atmospheric", "hazy", "misty", "barely visible", "a sense of", "hints of", "softly lit background".
-
-  Vervang ze door concreet positioneren met benoemde objecten op een vaste afstand: niet "people in the distance" maar "three pedestrians 4 meters back wearing red, navy and beige coats". Niet "atmospheric crowd" maar "five shoppers within 3 meters, one in a green hoodie pushing a metal cart, two chatting near the produce section". Niet "softly lit shelves stretching out behind" maar "supermarket shelves 2 meters back fully stocked with colorful product packaging clearly visible".
-
-  Achtergrond-objecten (mensen, voertuigen, gebouwen, schappen) moeten ALTIJD herkenbaar, dichtbij EN scherp beschreven worden, NIET als sfeerelement. Templates die toch tokens uit categorie 1 of 2 bevatten worden silently geweigerd.
-- IEDERE template MOET in het capture-veld expliciet noemen: "iPhone main wide-angle camera" of "phone wide-angle 24mm" + "deep focus" / "everything sharp" / "background fully detailed". Dit is een harde technische eis — zonder die tokens valt het diffusion-model terug op portrait-mode bokeh en dat is een instant reject.
+- ABSOLUUT NOOIT BLUR. Gebruik NERGENS in scene/camera/backdrop/lighting/capture/outfit/pose de termen: "blur", "blurry", "blurred", "out of focus", "out-of-focus", "defocused", "bokeh", "shallow depth of field", "shallow DoF", "portrait mode", "soft focus", "motion blur", "creamy bokeh", "lens blur" of welk synoniem dan ook. Iedere foto moet eruitzien als een gewone iPhone-snapshot met ALLES scherp van voor- tot achtergrond. Schrijf "in the distance" of "distant" in plaats van "blurry-far", schrijf "small in the background" in plaats van "out-of-focus", en gebruik "even exposure" of "natural daylight" in plaats van "soft focus". Templates die toch blur-termen bevatten worden silently geweigerd.
 
 VERPLICHTE VARIATIE BINNEN ÉÉN RESPONSE:
 - Geen twee templates met dezelfde locatie-type. Niet 3× "cafe terras", niet 5× "strand".
