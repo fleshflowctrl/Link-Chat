@@ -215,9 +215,14 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
     setNudeProgress({ done: 0, total: 3 });
 
     const NUDE_SCENES = [
-      "naakte spiegel selfie in slaapkamer, staand, telefoon in eigen hand, borsten en kutje volledig zichtbaar, amateur self-taken, real personal photo",
-      "naakte spiegel selfie liggend op bed met knieën opgetrokken en benen gespreid, kutje en borsten close-up, zacht natuurlijk licht, self-taken",
-      "naakte badkamer spiegel selfie staand op tenen, telefoon laag gehouden, borsten en kont zichtbaar, real amateur self-taken photo",
+      // 1. Extreme low angle from below, standing over camera, full body visible, looking down
+      "extreme low angle from below, naakt staand boven de camera, volle body in beeld, borsten en kutje duidelijk zichtbaar van onderaf, telefoon in hand, amateur self-taken, real personal photo, harsh phone flash lighting",
+
+      // 2. From behind on all fours / doggy style, looking back over shoulder, ass and pussy visible
+      "from behind on all fours, naakt op handen en knieën met rug gebogen, kont en kutje volledig zichtbaar, kijkend over schouder naar camera, spiegel in achtergrond, telefoon in hand, amateur self-taken, real personal photo, warm bedroom lighting",
+
+      // 3. Lying on back with legs pulled back and spread wide, extreme close-up from above
+      "lying on back with legs pulled back and spread wide, naakt op bed met knieën tegen borst en benen wijd open, extreme close-up van bovenaf, kutje en borsten volledig in beeld, telefoon hoog in hand, amateur self-taken, real personal photo, soft natural window light",
     ];
 
     let lastError: string | null = null;
@@ -232,7 +237,7 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
               scene: NUDE_SCENES[i],
-              variant: 9000 + i, // high offset so it doesn't collide with normal variants
+              variant: 12000 + i * 777, // large spread to force visual divergence
             }),
           },
         );
