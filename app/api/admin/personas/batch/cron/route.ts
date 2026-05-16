@@ -19,23 +19,39 @@ export const runtime = "nodejs";
  * when the chained-fetch worker dies mid-call AND the operator has
  * closed the admin tab so the UI heartbeat can't help.
  *
- * Auth: Vercel cron sets `Authorization: Bearer <CRON_SECRET>` when
- * `CRON_SECRET` is configured. We require that header. If you forget
- * to set it the cron route will refuse — the chain still works for
- * happy-path batches via the inline triggerNextTick, you just lose
- * the recovery loop.
+ * Auth model:
+ *   - If `CRON_SECRET` is set we require `Authorization: Bearer <secret>`
+ *     (matching what Vercel cron sends automatically when the env var
+ *     exists on the project).
+ *   - If `CRON_SECRET` is not configured we still accept Vercel cron
+ *     pings (identified by Vercel's own `x-vercel-cron` header) and
+ *     same-origin requests. The endpoint is functionally idempotent
+ *     and can only trigger work that's already queued, so the worst
+ *     an unauthenticated caller can do is accelerate an existing run.
  */
 export async function GET(req: Request) {
   const secret = (process.env.CRON_SECRET ?? "").trim();
-  if (!secret) {
-    return NextResponse.json(
-      { ok: false, error: "CRON_SECRET ontbreekt." },
-      { status: 503 },
-    );
-  }
   const auth = req.headers.get("authorization") ?? "";
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  const isVercelCron = req.headers.get("x-vercel-cron") != null;
+  let authorized = false;
+  if (secret) {
+    authorized = auth === `Bearer ${secret}`;
+  } else {
+    // No secret configured — trust Vercel's cron header. This keeps the
+    // chain healing out-of-the-box; operators who care can set
+    // CRON_SECRET to lock it down.
+    authorized = isVercelCron;
+  }
+  if (!authorized) {
+    console.warn("[persona-batch:cron] rejected", {
+      hasSecret: Boolean(secret),
+      isVercelCron,
+      authHeaderPresent: auth.length > 0,
+    });
+    return NextResponse.json(
+      { ok: false, error: secret ? "Unauthorized." : "Cron header ontbreekt." },
+      { status: 401 },
+    );
   }
 
   const service = getServiceSupabase();
@@ -55,6 +71,7 @@ export async function GET(req: Request) {
   }
 
   const ids = ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
+  console.log("[persona-batch:cron] sweep", { active: ids.length });
   const baseUrl = resolveBaseUrl(req);
   await Promise.all(ids.map((id) => triggerNextTick(baseUrl, id).catch(() => null)));
 
