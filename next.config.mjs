@@ -15,6 +15,11 @@ try {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    // sharp is a native addon — keep it out of the webpack bundle on
+    // server routes that call generatePersonaPhoto (Vercel / local).
+    serverComponentsExternalPackages: ["sharp"],
+  },
   images: {
     remotePatterns: [
       {

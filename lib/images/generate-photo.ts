@@ -17,7 +17,14 @@
  * The function never throws. On any backend error it returns
  * `{ ok: false, error }` so the caller can deliver the text reply without
  * the photo and log the failure.
+ *
+ * Every successful render passes through `applyPhonePhotoFinish` — a
+ * uniform micro-blur + grain overlay that narrows the sharp-subject /
+ * soft-background gap portrait-biased models produce. See
+ * lib/images/phone-photo-finish.ts. Disable with PHONE_PHOTO_FINISH=0.
  */
+
+import { applyPhonePhotoFinish } from "@/lib/images/phone-photo-finish";
 
 const HF_SPACE = "mrfakename/Z-Image-Turbo";
 
@@ -211,6 +218,15 @@ async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GenerateP
   return { ok: true, bytes: buf.bytes, mime: buf.mime, seed: usedSeed, backend: "hf-space" };
 }
 
+/** Run the phone-snapshot finish pass on any successful backend result. */
+async function withPhoneFinish(
+  result: GeneratePhotoResult,
+): Promise<GeneratePhotoResult> {
+  if (!result.ok) return result;
+  const finished = await applyPhonePhotoFinish(result.bytes, result.mime);
+  return { ...result, bytes: finished.bytes, mime: finished.mime };
+}
+
 async function generateViaStub(_opts: GeneratePhotoOptions): Promise<GeneratePhotoResult> {
   // No actual generation — used to disable the feature without changing
   // call sites. The directive will be silently dropped upstream.
@@ -241,18 +257,26 @@ export async function generatePersonaPhoto(
     steps: opts.steps ?? DEFAULTS.steps,
   };
 
+  let result: GeneratePhotoResult;
   switch (backend) {
     case "hf-space":
-      return generateViaHfSpace(sized);
+      result = await generateViaHfSpace(sized);
+      break;
     case "stub":
-      return generateViaStub(sized);
+      result = await generateViaStub(sized);
+      break;
     case "fal":
     case "replicate":
       // Stubs for now — wire these up when paid backend creds land.
-      return {
+      result = {
         ok: false,
         error: `${backend} backend not yet implemented (placeholder)`,
         backend,
       };
+      break;
+    default:
+      result = { ok: false, error: "Unknown backend", backend: "none" };
   }
+
+  return withPhoneFinish(result);
 }
