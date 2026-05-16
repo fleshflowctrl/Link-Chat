@@ -117,6 +117,14 @@ export function SceneTemplatesPage() {
 
   const [rejectTarget, setRejectTarget] = useState<TemplateRow | null>(null);
 
+  // Bulk-select state. Persists across pages and filter changes so the
+  // operator can flick through a few pages, checkboxing the obvious
+  // bad ones, and then bulk-delete once at the end.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [selectAllLoading, setSelectAllLoading] = useState(false);
+
   const refreshStats = useCallback(async () => {
     setStatsLoading(true);
     try {
@@ -263,6 +271,112 @@ export function SceneTemplatesPage() {
     [refreshStats],
   );
 
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+    setBulkError(null);
+  }, []);
+
+  // Master checkbox: select/deselect every visible row on the current
+  // page. Doesn't reach into other pages — for that the operator uses
+  // the "Selecteer alle X" link in the action bar.
+  const visibleRowIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const allVisibleSelected =
+    visibleRowIds.length > 0 &&
+    visibleRowIds.every((id) => selectedIds.has(id));
+  const someVisibleSelected =
+    !allVisibleSelected && visibleRowIds.some((id) => selectedIds.has(id));
+
+  const togglePageSelection = useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const id of visibleRowIds) next.delete(id);
+      } else {
+        for (const id of visibleRowIds) next.add(id);
+      }
+      return next;
+    });
+  }, [allVisibleSelected, visibleRowIds]);
+
+  const selectAllMatching = useCallback(async () => {
+    if (selectAllLoading) return;
+    setSelectAllLoading(true);
+    setBulkError(null);
+    try {
+      const url = new URL(
+        "/api/admin/scene-templates",
+        window.location.origin,
+      );
+      url.searchParams.set("kind", filterKind);
+      url.searchParams.set("state", filterState);
+      url.searchParams.set("idsOnly", "1");
+      const res = await fetch(url.toString(), { cache: "no-store" });
+      const data = (await res.json()) as {
+        ok: boolean;
+        ids?: string[];
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !Array.isArray(data.ids)) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of data.ids ?? []) next.add(id);
+        return next;
+      });
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSelectAllLoading(false);
+    }
+  }, [selectAllLoading, filterKind, filterState]);
+
+  const bulkDelete = useCallback(async () => {
+    if (bulkDeleting) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const confirmed = window.confirm(
+      `Weet je zeker dat je ${ids.length} template${ids.length === 1 ? "" : "s"} definitief wilt verwijderen?\n\nDit is een harde delete — de templates zijn weg, niet alleen afgewezen.`,
+    );
+    if (!confirmed) return;
+    setBulkDeleting(true);
+    setBulkError(null);
+    try {
+      const res = await fetch("/api/admin/scene-templates/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", ids }),
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        deleted?: number;
+        error?: string;
+      };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      // Remove the deleted rows from local state and clear selection.
+      setRows((prev) => prev.filter((r) => !selectedIds.has(r.id)));
+      setSelectedIds(new Set());
+      await refreshStats();
+      // Reload the current page so totals/pagination stay correct.
+      await loadList(page);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [bulkDeleting, selectedIds, refreshStats, loadList, page]);
+
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
@@ -380,6 +494,18 @@ export function SceneTemplatesPage() {
       <section className="rounded-3xl border border-black/5 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 px-6 py-4">
           <div className="flex items-center gap-2">
+            {listOpen && rows.length > 0 ? (
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                ref={(el) => {
+                  if (el) el.indeterminate = someVisibleSelected;
+                }}
+                onChange={togglePageSelection}
+                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                title="Selecteer alle op deze pagina"
+              />
+            ) : null}
             <CameraIcon className="h-5 w-5 text-gray-400" />
             <h2 className="text-base font-semibold text-gray-900">
               Alle templates
@@ -458,6 +584,8 @@ export function SceneTemplatesPage() {
                 <TemplateRowItem
                   key={row.id}
                   row={row}
+                  selected={selectedIds.has(row.id)}
+                  onToggleSelect={() => toggleSelected(row.id)}
                   onChanged={onTemplateChanged}
                   onRequestReject={() => setRejectTarget(row)}
                 />
@@ -502,6 +630,54 @@ export function SceneTemplatesPage() {
           }}
         />
       ) : null}
+
+      {selectedIds.size > 0 ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 px-4 py-3 shadow-[0_-8px_20px_-12px_rgba(0,0,0,0.25)] backdrop-blur">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-gray-900">
+                {selectedIds.size} geselecteerd
+              </span>
+              {total > visibleRowIds.length && selectedIds.size < total ? (
+                <button
+                  type="button"
+                  onClick={() => void selectAllMatching()}
+                  disabled={selectAllLoading}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {selectAllLoading
+                    ? "Bezig…"
+                    : `Selecteer alle ${total} in deze filter`}
+                </button>
+              ) : null}
+              {bulkError ? (
+                <span className="text-xs text-rose-700">{bulkError}</span>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={clearSelection}
+                disabled={bulkDeleting}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              >
+                Selectie wissen
+              </button>
+              <button
+                type="button"
+                onClick={() => void bulkDelete()}
+                disabled={bulkDeleting}
+                className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-pill transition hover:bg-rose-700 disabled:opacity-60"
+              >
+                <TrashIcon className="h-4 w-4" />
+                {bulkDeleting
+                  ? "Verwijderen…"
+                  : `Verwijder ${selectedIds.size}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -539,10 +715,14 @@ function StatBadge({
 
 function TemplateRowItem({
   row,
+  selected,
+  onToggleSelect,
   onChanged,
   onRequestReject,
 }: {
   row: TemplateRow;
+  selected: boolean;
+  onToggleSelect: () => void;
   onChanged: (next: TemplateRow) => void;
   onRequestReject: () => void;
 }) {
@@ -625,8 +805,16 @@ function TemplateRowItem({
   }, [row.id, testPreset, testRendering]);
 
   return (
-    <li className="px-6 py-4">
+    <li className={`px-6 py-4 ${selected ? "bg-primary/5" : ""}`}>
       <div className="flex items-start justify-between gap-4">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelect}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-primary focus:ring-primary"
+          aria-label={`Selecteer template ${row.template_id.slice(0, 8)}`}
+        />
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}

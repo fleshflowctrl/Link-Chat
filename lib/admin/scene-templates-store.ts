@@ -270,6 +270,58 @@ export async function rejectTemplate(
   return rowToTemplateRow(data as Row);
 }
 
+/** Hard delete one or more templates. Used by the bulk-delete UI when
+ * the operator wants to remove obviously-bad templates without writing
+ * a per-template rejection reason. Returns the number of rows actually
+ * removed (best-effort — Supabase doesn't always populate `count` on
+ * delete responses so we count the returned ids).
+ *
+ * Note: rows in `chat_persona_photo_templates` that reference the
+ * deleted template_id are *not* cleaned up (no FK constraint). Those
+ * orphan rows are harmless — the picker only uses them to avoid
+ * reusing a template inside one persona, so orphans just mean those
+ * personas continue to skip a template_id that no longer exists. */
+export async function deleteTemplates(
+  service: SupabaseClient,
+  ids: string[],
+): Promise<{ deleted: number }> {
+  if (!Array.isArray(ids) || ids.length === 0) return { deleted: 0 };
+  // Cap at a sane batch size so a hostile payload can't OOM the DB.
+  const safeIds = ids.slice(0, 5000);
+  const { data, error } = await service
+    .from(SCENE_TEMPLATES_TABLE)
+    .delete()
+    .in("id", safeIds)
+    .select("id");
+  if (error) throw error;
+  return { deleted: Array.isArray(data) ? data.length : 0 };
+}
+
+/** Variant of listTemplates that returns only ids, without pagination.
+ * Used by the admin UI's "select all matching filter" button so the
+ * operator can bulk-act on every row in a filtered view (e.g. delete
+ * all rejected templates) without paging through them.
+ *
+ * Capped at 10k ids to protect the JSON payload size.
+ */
+export async function listTemplateIds(
+  service: SupabaseClient,
+  opts: Omit<ListOpts, "page" | "pageSize"> = {},
+): Promise<string[]> {
+  let q = service
+    .from(SCENE_TEMPLATES_TABLE)
+    .select("id")
+    .order("created_at", { ascending: false })
+    .limit(10_000);
+  if (opts.kind && opts.kind !== "any") q = q.eq("kind", opts.kind);
+  if (opts.category) q = q.eq("category", opts.category);
+  if (opts.state === "active") q = q.eq("is_active", true);
+  if (opts.state === "rejected") q = q.eq("is_active", false);
+  const { data, error } = await q;
+  if (error) throw error;
+  return ((data ?? []) as Array<{ id: string }>).map((r) => r.id);
+}
+
 export async function restoreTemplate(
   service: SupabaseClient,
   id: string,
