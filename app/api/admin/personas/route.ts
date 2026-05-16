@@ -6,7 +6,7 @@ import { parsePersonaPayload } from "@/lib/admin/persona-payload";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireAdmin();
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -22,9 +22,15 @@ export async function GET() {
 
   // select("*") tolerates partial migrations — missing columns just
   // come back undefined instead of failing the whole query.
-  const { data, error } = await service
-    .from("chat_profiles")
-    .select("*")
+  let query = service.from("chat_profiles").select("*");
+
+  // Optional filter used by the dedicated Nudes page
+  const { searchParams } = new URL(req.url);
+  if (searchParams.get("only_ai") === "true") {
+    query = query.eq("is_ai", true);
+  }
+
+  const { data, error } = await query
     .order("home_sort", { ascending: true })
     .order("display_name", { ascending: true });
 
