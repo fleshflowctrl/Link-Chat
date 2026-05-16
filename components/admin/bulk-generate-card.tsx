@@ -188,10 +188,27 @@ export function BulkGenerateCard() {
     }
   }, []);
 
+  // Fire a single worker tick. Cheap on the server — if the batch is
+  // already chained the new tick just hits "waiting" and returns. We
+  // use this on page mount and whenever the UI heartbeat fires.
+  const kickWorker = useCallback(async (id: string) => {
+    try {
+      await fetch(`/api/admin/personas/batch/${encodeURIComponent(id)}`, {
+        method: "POST",
+        cache: "no-store",
+      });
+    } catch {
+      // ignored — next heartbeat retries
+    }
+  }, []);
+
   // On mount, check if there's an active batch we should reconnect to.
   // We prefer localStorage (so the operator who started a batch sees it
   // immediately), but fall back to the server's "most recent active"
   // lookup in case they cleared storage or started on a different tab.
+  // Whenever we attach to an active batch we IMMEDIATELY prod the
+  // worker so a chain that died while the tab was closed resumes
+  // before the operator has a chance to think "stuck".
   useEffect(() => {
     let cancelled = false;
     async function discover() {
@@ -202,6 +219,11 @@ export function BulkGenerateCard() {
         if (snap && (snap.status === "pending" || snap.status === "running" || snap.status === "done" || snap.status === "cancelled" || snap.status === "failed")) {
           setBatchId(stored);
           setBatch(snap);
+          lastUpdatedAtRef.current = snap.updated_at ?? null;
+          lastProgressAtRef.current = Date.now();
+          if (snap.status === "pending" || snap.status === "running") {
+            void kickWorker(stored);
+          }
           // If the operator is returning to a finished batch we still
           // show it (so they can read the summary), but drop the
           // storage pointer so the next visit starts fresh.
@@ -221,6 +243,11 @@ export function BulkGenerateCard() {
         setBatchId(data.batch.id);
         setBatch(snap);
         writeStoredBatchId(data.batch.id);
+        lastUpdatedAtRef.current = snap.updated_at ?? null;
+        lastProgressAtRef.current = Date.now();
+        if (snap.status === "pending" || snap.status === "running") {
+          void kickWorker(data.batch.id);
+        }
       } catch {
         // No active batch — that's fine, show the form.
       }
@@ -229,7 +256,7 @@ export function BulkGenerateCard() {
     return () => {
       cancelled = true;
     };
-  }, [fetchBatch]);
+  }, [fetchBatch, kickWorker]);
 
   // Poll for batch progress while the run is in flight. We refresh the
   // router once when the batch transitions to a terminal state so the
@@ -263,9 +290,10 @@ export function BulkGenerateCard() {
     };
   }, [batchId, batch, fetchBatch, router]);
 
-  // If the server hasn't reported progress in ~90s, nudge the worker
-  // to resume by POSTing to the batch route. This makes the UI
-  // self-healing if a tick was dropped before triggering its successor.
+  // If the server hasn't reported progress in ~30s, nudge the worker
+  // to resume by POSTing to the batch route. 30s is comfortably above
+  // a single photo-gen call but tight enough that a dropped chain
+  // doesn't sit visibly stuck.
   useEffect(() => {
     if (!batchId || !batch) return;
     if (batch.status !== "pending" && batch.status !== "running") return;
@@ -274,22 +302,15 @@ export function BulkGenerateCard() {
       if (cancelled) return;
       const seenAt = lastProgressAtRef.current;
       const since = seenAt > 0 ? Date.now() - seenAt : 0;
-      if (since < 90_000) return;
-      try {
-        await fetch(`/api/admin/personas/batch/${encodeURIComponent(batchId)}`, {
-          method: "POST",
-          cache: "no-store",
-        });
-        lastProgressAtRef.current = Date.now();
-      } catch {
-        // swallow — next poll will retry
-      }
-    }, 15_000);
+      if (since < 30_000) return;
+      await kickWorker(batchId);
+      lastProgressAtRef.current = Date.now();
+    }, 5_000);
     return () => {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [batchId, batch]);
+  }, [batchId, batch, kickWorker]);
 
   async function startBatch() {
     if (submitting) return;
@@ -440,7 +461,24 @@ export function BulkGenerateCard() {
         return `Persona ${currentIdx! + 1}/${batch.total} — galerij ${currentItem.gallery_done + 1}/${batch.gallery_target} (${personaLabel})…`;
       }
     }
-    return `Persona ${profilesDone + 1}/${batch.total} — klaarzetten…`;
+    // No item is currently in 'running' state — the chain is either
+    // between ticks or the worker died and we're waiting for the next
+    // heartbeat to wake it. Find the lowest item that still has any
+    // work pending so the operator knows what's queued up.
+    const nextPending = items.find(
+      (i) =>
+        i.profile_state === "pending" ||
+        i.photo_state === "pending" ||
+        (i.gallery_state !== "done" &&
+          i.gallery_state !== "error" &&
+          i.gallery_state !== "skipped" &&
+          i.gallery_done < batch.gallery_target),
+    );
+    if (nextPending) {
+      const label = nextPending.display_name ?? `persona #${nextPending.idx + 1}`;
+      return `Persona ${nextPending.idx + 1}/${batch.total} — wachten op worker (${label})…`;
+    }
+    return "Klaarzetten…";
   })();
 
   return (

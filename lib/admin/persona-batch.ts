@@ -31,22 +31,29 @@ import {
   type BodyType,
 } from "@/lib/admin/persona-ops";
 
-/** Dynamic import of @vercel/functions because its `waitUntil` only
- * exists in the Vercel runtime. We still want the worker to work in
- * `next dev` (Node) where waitUntil is a no-op equivalent. */
+/** Hand a fire-and-forget promise to Vercel's runtime so it stays
+ * alive long enough for the I/O to complete after our handler has
+ * returned its response. Locally (next dev) we just await the
+ * promise inline because there's no risk of the function getting
+ * frozen mid-flight. */
 async function vercelWaitUntil(p: Promise<unknown>): Promise<void> {
-  try {
-    const mod = await import("@vercel/functions");
-    if (typeof mod.waitUntil === "function") {
-      mod.waitUntil(p);
-      return;
+  // `process.env.VERCEL` is set on every Vercel deployment (preview +
+  // production). Outside that, `@vercel/functions`'s waitUntil throws
+  // because there's no request context — so we hard-gate on the env.
+  if (process.env.VERCEL) {
+    try {
+      const mod = await import("@vercel/functions");
+      if (typeof mod.waitUntil === "function") {
+        mod.waitUntil(p);
+        return;
+      }
+    } catch {
+      // ignore — fall through to inline await
     }
-  } catch {
-    // not on Vercel — fall through
   }
-  // Fallback: await the promise inline. Caller already throttles us via
-  // Promise.race so this just means we wait for the trigger fetch to
-  // finish before returning the response.
+  // Local dev / non-Vercel host: just wait for the fetch to round-trip.
+  // The trigger fetch returns quickly (the new tick endpoint validates
+  // its token, schedules the work, and responds in <100ms).
   await p.catch(() => undefined);
 }
 
