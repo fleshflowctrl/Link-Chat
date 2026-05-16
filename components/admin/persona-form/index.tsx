@@ -72,6 +72,10 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
   const [galleryProgress, setGalleryProgress] = useState<{ done: number; total: number } | null>(null);
   const [galleryErr, setGalleryErr] = useState<string | null>(null);
 
+  const [nudeBusy, setNudeBusy] = useState(false);
+  const [nudeProgress, setNudeProgress] = useState<{ done: number; total: number } | null>(null);
+  const [nudeErr, setNudeErr] = useState<string | null>(null);
+
   const set = <K extends keyof PersonaFormValues>(key: K, val: PersonaFormValues[K]) => {
     setV((prev) => ({ ...prev, [key]: val }));
   };
@@ -197,6 +201,71 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
     else if (success < count && lastError)
       setGalleryErr(`${success}/${count} gelukt — laatste fout: ${lastError}`);
     setGalleryBusy(false);
+    router.refresh();
+  }
+
+  /** Generate exactly 3 explicit nude photos for this persona.
+   *  Uses strong explicit scene descriptions so the prompt builder triggers
+   *  full-frontal nudity + self-taken mirror selfie styling.
+   */
+  async function handleGenerateNudePhotos() {
+    if (!v.id || mode !== "edit") return;
+    setNudeErr(null);
+    setNudeBusy(true);
+    setNudeProgress({ done: 0, total: 3 });
+
+    const NUDE_SCENES = [
+      "naakte spiegel selfie in slaapkamer, staand, telefoon in eigen hand, borsten en kutje volledig zichtbaar, amateur self-taken, real personal photo",
+      "naakte spiegel selfie liggend op bed met knieën opgetrokken en benen gespreid, kutje en borsten close-up, zacht natuurlijk licht, self-taken",
+      "naakte badkamer spiegel selfie staand op tenen, telefoon laag gehouden, borsten en kont zichtbaar, real amateur self-taken photo",
+    ];
+
+    let lastError: string | null = null;
+    let success = 0;
+
+    for (let i = 0; i < 3; i++) {
+      try {
+        const res = await fetch(
+          `/api/admin/personas/${encodeURIComponent(v.id)}/append-gallery-photo`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              scene: NUDE_SCENES[i],
+              variant: 9000 + i, // high offset so it doesn't collide with normal variants
+            }),
+          },
+        );
+        const data: {
+          ok?: boolean;
+          gallery_url?: string;
+          gallery_urls?: string[];
+          error?: string;
+        } = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.ok || !data.gallery_url) {
+          lastError = data.error ?? `HTTP ${res.status}`;
+          continue;
+        }
+
+        success += 1;
+        setNudeProgress({ done: success, total: 3 });
+
+        if (Array.isArray(data.gallery_urls)) {
+          set("gallery_urls", data.gallery_urls);
+        } else {
+          set("gallery_urls", [...v.gallery_urls, data.gallery_url]);
+        }
+      } catch (e) {
+        lastError = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    if (success === 0 && lastError) setNudeErr(lastError);
+    else if (success < 3 && lastError)
+      setNudeErr(`${success}/3 gelukt — laatste fout: ${lastError}`);
+
+    setNudeBusy(false);
     router.refresh();
   }
 
@@ -407,9 +476,24 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
                         ? `Genereren… ${galleryProgress?.done ?? 0}/${galleryProgress?.total ?? 3}`
                         : "Genereer 3 extra foto's"}
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={handleGenerateNudePhotos}
+                      disabled={nudeBusy || galleryBusy}
+                      className="shrink-0 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-pill transition-all hover:bg-rose-700 disabled:opacity-50"
+                      title="Genereert 3 expliciete naaktfoto's (spiegel selfies, full frontal). Wordt automatisch aan de galerij toegevoegd."
+                    >
+                      {nudeBusy
+                        ? `Naakt… ${nudeProgress?.done ?? 0}/3`
+                        : "Genereer 3 naaktfoto's"}
+                    </button>
                   </div>
                   {galleryErr ? (
                     <p className="mt-2 text-[11px] text-rose-600">{galleryErr}</p>
+                  ) : null}
+                  {nudeErr ? (
+                    <p className="mt-2 text-[11px] text-rose-600">{nudeErr}</p>
                   ) : null}
                 </div>
               ) : null}
