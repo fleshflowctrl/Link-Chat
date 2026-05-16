@@ -173,6 +173,11 @@ export async function processDuePendingReplies(
         continue;
       }
 
+      // Explicit nude photos are blurred and cost 50 credits to unlock.
+      const isExplicitNude =
+        /naakt|kutje|kut|borsten zichtbaar|gespreid|naakte|spiegel selfie.*naakt/i.test(scene);
+      const blurCost = isExplicitNude ? 50 : 0;
+
       const { prompt, seed } = buildPersonaPhotoPrompt({
         profile: args.profile,
         scene,
@@ -228,6 +233,7 @@ export async function processDuePendingReplies(
           body: null,
           image_url: up.publicUrl,
           owner_user_id: args.ownerUserId,
+          blur_cost: blurCost,
         })
         .select("*")
         .single();

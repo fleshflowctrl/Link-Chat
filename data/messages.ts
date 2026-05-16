@@ -212,6 +212,9 @@ export interface ChatMessage {
   imageUrl?: string;
   /** When kind === "gift": the credits amount sent. */
   giftCredits?: number;
+  /** If present and > 0, this image is blurred and costs this many credits
+   * to unlock (used for explicit nude photos from personas). */
+  blurCost?: number;
   /** Shown under bubble when meta row visible, e.g. "10:32 AM" */
   timeLabel: string;
   /** Minutes from midnight for grouping (0–1440) */

@@ -99,6 +99,9 @@ export type ChatMessageRow = {
   /** Timestamp at which the AI peer "saw" this user message. Powers the
    * "Read at HH:MM" indicator. NULL until she's processed the message. */
   peer_read_at?: string | null;
+  /** If > 0, this image is blurred and costs this many credits to unlock.
+   * Used for explicit nude photos sent by personas. */
+  blur_cost?: number | null;
 };
 
 export function isoToThreadTimeLabel(iso: string | null): string {
@@ -223,6 +226,10 @@ export function messageRowToUi(row: ChatMessageRow): ChatMessage {
     giftCredits:
       typeof row.gift_credits === "number" && row.gift_credits > 0
         ? row.gift_credits
+        : undefined,
+    blurCost:
+      typeof row.blur_cost === "number" && row.blur_cost > 0
+        ? row.blur_cost
         : undefined,
     timeLabel,
     minuteOfDay,

@@ -285,6 +285,10 @@ export function ChatConversationView({
     intent: "text" | "image" | "gift";
   } | null>(null);
 
+  /** Per-message blur unlock state for this chat session. */
+  const [unlockedBlurred, setUnlockedBlurred] = useState<Record<string, boolean>>({});
+  const [unlockBusy, setUnlockBusy] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     let cancelled = false;
     void fetch("/api/me/profile", { cache: "no-store" })
@@ -1247,13 +1251,61 @@ export function ChatConversationView({
                         ) : (
                           <span className="relative block w-[70%] min-w-[200px] max-w-[280px] overflow-hidden rounded-2xl rounded-bl-md bg-gray-100 shadow-sm ring-1 ring-black/[0.06] sm:max-w-[300px]">
                             {msg.imageUrl && (
-                              <Image
-                                src={msg.imageUrl}
-                                alt=""
-                                width={600}
-                                height={400}
-                                className="h-auto w-full object-cover"
-                              />
+                              <>
+                                {msg.blurCost && msg.blurCost > 0 && !unlockedBlurred[msg.id] ? (
+                                  <div className="relative">
+                                    <Image
+                                      src={msg.imageUrl}
+                                      alt=""
+                                      width={600}
+                                      height={400}
+                                      className="h-auto w-full object-cover blur-[14px] brightness-75"
+                                    />
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                                      <div className="rounded-full bg-white/95 px-4 py-1 text-[13px] font-semibold text-ink shadow">
+                                        Expliciete foto
+                                      </div>
+                                      <button
+                                        type="button"
+                                        disabled={!!unlockBusy[msg.id]}
+                                        onClick={async () => {
+                                          setUnlockBusy((b) => ({ ...b, [msg.id]: true }));
+                                          try {
+                                            const r = await fetch("/api/chat/unlock-photo", {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ messageId: msg.id }),
+                                            });
+                                            const j = await r.json();
+                                            if (j.ok) {
+                                              setUnlockedBlurred((u) => ({ ...u, [msg.id]: true }));
+                                            } else {
+                                              alert(j.error || "Ontgrendelen mislukt");
+                                            }
+                                          } finally {
+                                            setUnlockBusy((b) => {
+                                              const n = { ...b };
+                                              delete n[msg.id];
+                                              return n;
+                                            });
+                                          }
+                                        }}
+                                        className="mt-2 rounded-full bg-primary px-5 py-1.5 text-[13px] font-bold text-white shadow active:scale-[0.985]"
+                                      >
+                                        {unlockBusy[msg.id] ? "Bezig..." : `Ontgrendel voor ${msg.blurCost} credits`}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <Image
+                                    src={msg.imageUrl}
+                                    alt=""
+                                    width={600}
+                                    height={400}
+                                    className="h-auto w-full object-cover"
+                                  />
+                                )}
+                              </>
                             )}
                           </span>
                         )}
