@@ -15,6 +15,7 @@ import {
   type MessageThread,
   type MessagePreviewType,
 } from "@/data/messages";
+import { hydrateClientSessionForUser } from "@/lib/client-user-session";
 import {
   getThreadPreviewsSnapshot,
   setThreadPreview,
@@ -320,8 +321,17 @@ export function MessagesView({
     void fetch("/api/me/threads", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then(
-        (json: { ok?: boolean; threads?: MessageThread[] } | null) => {
+        (
+          json: {
+            ok?: boolean;
+            threads?: MessageThread[];
+            userId?: string;
+          } | null,
+        ) => {
           if (cancelled || !json?.ok) return;
+          if (json.userId) {
+            hydrateClientSessionForUser(json.userId);
+          }
           setServerThreads(json.threads ?? []);
         },
       )
@@ -450,36 +460,38 @@ export function MessagesView({
       );
     }
 
-    for (const id of Object.keys(previews.byId)) {
-      if (byId.has(id)) continue;
-      const o = previews.byId[id];
-      if (!o) continue;
-      // Don't surface visit-only stubs: only show a stub thread when the
-      // override carries a real message body. Empty previews are leftovers
-      // from "I opened the chat but never sent anything" and shouldn't
-      // appear in the inbox.
-      if (!o.lastMessage || !o.lastMessage.trim()) continue;
-      const stub = getThreadMeta(id);
-      byId.set(
-        id,
-        normalizeThread({
+    // Only merge orphan local previews while the server list is still
+    // loading. Once `serverThreads` is set (even to []), the API is the
+    // only source of thread ids — otherwise the previous account's
+    // localStorage previews leak onto page 2 (/messages).
+    if (serverThreads === null) {
+      for (const id of Object.keys(previews.byId)) {
+        if (byId.has(id)) continue;
+        const o = previews.byId[id];
+        if (!o) continue;
+        if (!o.lastMessage || !o.lastMessage.trim()) continue;
+        const stub = getThreadMeta(id);
+        byId.set(
           id,
-          name: o.name ?? stub.name,
-          avatarUrl: o.avatarUrl ?? stub.avatarUrl,
-          verified: o.verified ?? stub.verified,
-          showOnlineDot: o.showOnlineDot ?? stub.onlineNow,
-          lastMessage: o.lastMessage,
-          timestampLabel: o.timestampLabel,
-          lastActivityAt:
-            o.lastActivityAt ?? new Date().toISOString(),
-          messageType: "text",
-          unreadCount: o.unreadCount ?? 1,
-        }),
-      );
+          normalizeThread({
+            id,
+            name: o.name ?? stub.name,
+            avatarUrl: o.avatarUrl ?? stub.avatarUrl,
+            verified: o.verified ?? stub.verified,
+            showOnlineDot: o.showOnlineDot ?? stub.onlineNow,
+            lastMessage: o.lastMessage,
+            timestampLabel: o.timestampLabel,
+            lastActivityAt:
+              o.lastActivityAt ?? new Date().toISOString(),
+            messageType: "text",
+            unreadCount: o.unreadCount ?? 1,
+          }),
+        );
+      }
     }
 
     return Array.from(byId.values());
-  }, [normalized, previews.byId, previews.version]);
+  }, [normalized, previews.byId, previews.version, serverThreads]);
 
   const sorted = useMemo(() => sortThreadsByRecency(merged), [merged]);
 

@@ -21,7 +21,6 @@ let snapshot: Snapshot = {
   purchaseCount: 0,
 };
 const listeners = new Set<() => void>();
-let initialized = false;
 let serverSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 function emit() {
@@ -129,51 +128,39 @@ function setSnapshot(
   emit();
 }
 
-export function initCreditsStore() {
-  if (typeof window === "undefined") return;
-  if (initialized) return;
-  initialized = true;
+/** Pull balance from /api/me/credits — never trust ACTIVE_USER_KEY alone
+ * because it can still point at the previous account until this runs. */
+async function refreshCreditsFromServer(): Promise<void> {
+  const server = await fetchServerCredits();
+  if (!server) return;
 
-  // 1. Render fast with whatever local data we already have.
-  let activeUser: string;
-  try {
-    activeUser = localStorage.getItem(ACTIVE_USER_KEY) || "guest";
-  } catch {
-    activeUser = "guest";
-  }
-
-  const localBalance = readLocalBalance(activeUser);
-  if (localBalance !== null) {
-    setSnapshot(localBalance, activeUser);
-  } else {
+  if (server.userKey === "guest" || server.balance === null) {
     const fallback =
       readSignupCreditsFallback() ?? meProfile.stats.credits.value;
-    setSnapshot(fallback, activeUser);
+    setSnapshot(fallback, "guest", 0);
+    return;
   }
 
-  // 2. Sync from server in the background. This is the source of truth for
-  // logged-in users — the per-user balance lives in user_profiles.credits.
-  void fetchServerCredits().then((server) => {
-    if (!server) return;
+  const local = readLocalBalance(server.userKey);
+  const balance = server.balance ?? local ?? 0;
+  writeLocalBalance(server.userKey, balance);
+  setSnapshot(balance, server.userKey, server.purchaseCount);
+}
 
-    if (server.userKey !== snapshot.userKey) {
-      // Logged in as a different user (or just logged in). Switch contexts:
-      // load the fresh user's balance and don't carry over previous state.
-      const fresh = server.balance ?? readLocalBalance(server.userKey) ?? 0;
-      writeLocalBalance(server.userKey, fresh);
-      setSnapshot(fresh, server.userKey, server.purchaseCount);
-      return;
-    }
+export function initCreditsStore() {
+  if (typeof window === "undefined") return;
+  void refreshCreditsFromServer();
+}
 
-    if (server.balance !== null && server.balance !== snapshot.balance) {
-      writeLocalBalance(server.userKey, server.balance);
-      setSnapshot(server.balance, server.userKey, server.purchaseCount);
-    } else if (server.purchaseCount !== snapshot.purchaseCount) {
-      // Balance unchanged but the count drifted (e.g. just made a purchase
-      // on another device).
-      setSnapshot(snapshot.balance, snapshot.userKey, server.purchaseCount);
-    }
-  });
+/** After sign-out — don't show the previous user's balance. */
+export function resetCreditsToGuest() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(ACTIVE_USER_KEY);
+  } catch {
+    /* ignore */
+  }
+  setSnapshot(meProfile.stats.credits.value, "guest", 0);
 }
 
 export function getCreditsSnapshot(): Snapshot {

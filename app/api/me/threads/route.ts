@@ -133,5 +133,10 @@ export async function GET() {
         new Date(a.lastActivityAt ?? 0).getTime(),
     );
 
-  return NextResponse.json({ ok: true, threads, anonymous: false });
+  return NextResponse.json({
+    ok: true,
+    threads,
+    anonymous: false,
+    userId: user.id,
+  });
 }

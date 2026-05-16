@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { clearClientCachesOnLogout } from "@/lib/client-user-session";
 import { createClient } from "@/utils/supabase/client";
 
 export function SignOutButton() {
@@ -14,6 +15,7 @@ export function SignOutButton() {
       await fetch("/api/dev/bypass", { method: "DELETE" }).catch(() => {});
       const supabase = createClient();
       await supabase.auth.signOut();
+      clearClientCachesOnLogout();
       router.push("/login");
       router.refresh();
     } finally {

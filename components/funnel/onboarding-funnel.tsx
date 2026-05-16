@@ -46,7 +46,7 @@ import {
 } from "@/lib/funnel-match-picks";
 import { setThreadPreview } from "@/lib/thread-preview-store";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
-import { resetCreditsForNewUser } from "@/lib/credits-store";
+import { prepareNewAccountClientSession } from "@/lib/client-user-session";
 
 const STEP_TOTAL = 8;
 const MSG_MAX = 240;
@@ -417,21 +417,6 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
           }
         : { ...basePayload };
 
-      if (didFirstMessage && pid && pickedMatch) {
-        const meta = getThreadMeta(pid);
-        const sentAt = new Date().toISOString();
-        setThreadPreview(pid, {
-          lastMessage: msgTrim,
-          timestampLabel: "now",
-          lastActivityAt: sentAt,
-          name: meta.name,
-          avatarUrl: meta.avatarUrl,
-          verified: meta.verified,
-          showOnlineDot: meta.onlineNow,
-          unreadCount: 0,
-        });
-      }
-
       const enriched = {
         ...payload,
         signupVia: "email" as const,
@@ -446,14 +431,24 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       localStorage.setItem(ONBOARDED_KEY, "true");
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
 
-      // Clear any legacy global credits balance from previous test sessions
-      // and seed the per-user balance for this fresh account.
-      try {
-        localStorage.removeItem("whisper_credits");
-      } catch {
-        /* ignore */
+      if (signupResult.userId) {
+        prepareNewAccountClientSession(signupResult.userId, credits);
       }
-      resetCreditsForNewUser(signupResult.userId, credits);
+
+      if (didFirstMessage && pid && pickedMatch) {
+        const meta = getThreadMeta(pid);
+        const sentAt = new Date().toISOString();
+        setThreadPreview(pid, {
+          lastMessage: msgTrim,
+          timestampLabel: "now",
+          lastActivityAt: sentAt,
+          name: meta.name,
+          avatarUrl: meta.avatarUrl,
+          verified: meta.verified,
+          showOnlineDot: meta.onlineNow,
+          unreadCount: 0,
+        });
+      }
 
       const toast = signupResult.needsEmailConfirm
         ? "Account created — check your email to confirm ✨"

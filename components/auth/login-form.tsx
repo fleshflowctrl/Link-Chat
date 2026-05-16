@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
 import { createClient } from "@/utils/supabase/client";
 
 type LoginFormMode = "login" | "signup";
@@ -92,6 +93,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
         setMessage(error.message);
         return;
       }
+      await hydrateClientSessionFromServer();
       router.replace(nextPath);
       router.refresh();
       return;
@@ -110,6 +112,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
     }
 
     if (data.session) {
+      await hydrateClientSessionFromServer();
       router.replace(nextPath);
       router.refresh();
       return;

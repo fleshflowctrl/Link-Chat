@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
 import { createClient } from "@/utils/supabase/client";
 
 const EMAIL_OTP_TYPES = new Set([
@@ -58,6 +59,7 @@ export function AuthCallbackFinish() {
           return;
         }
 
+        await hydrateClientSessionFromServer();
         router.replace(next);
         router.refresh();
       } catch (e) {
