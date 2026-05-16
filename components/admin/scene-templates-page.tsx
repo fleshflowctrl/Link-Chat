@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import Image from "next/image";
+
 import {
   CameraIcon,
   CheckIcon,
@@ -10,6 +12,16 @@ import {
   TrashIcon,
   XIcon,
 } from "@/components/admin/icons";
+
+const TEST_PRESETS: Array<{ id: string; label: string }> = [
+  { id: "young-slim-striking", label: "24j · slank · striking" },
+  { id: "young-average", label: "26j · gemiddeld · average" },
+  { id: "young-plus-average", label: "27j · plus · average" },
+  { id: "mid-average", label: "38j · gemiddeld · average" },
+  { id: "mid-plus-average", label: "42j · plus · average" },
+  { id: "senior-average", label: "58j · gemiddeld · average" },
+  { id: "senior-plus", label: "65j · plus · average" },
+];
 
 type Kind = "avatar" | "gallery" | "mixed";
 
@@ -537,6 +549,18 @@ function TemplateRowItem({
   const [expanded, setExpanded] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
+  // Test-render state. Lives at row level so each row can have its
+  // own active preview without interfering with siblings.
+  const [testOpen, setTestOpen] = useState(false);
+  const [testPreset, setTestPreset] = useState<string>("mid-average");
+  const [testRendering, setTestRendering] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{
+    url: string;
+    subject: string;
+    seed: number;
+  } | null>(null);
+
   const onRestore = useCallback(async () => {
     if (restoring) return;
     setRestoring(true);
@@ -564,6 +588,41 @@ function TemplateRowItem({
       setRestoring(false);
     }
   }, [restoring, row.id, onChanged]);
+
+  const onTestRender = useCallback(async () => {
+    if (testRendering) return;
+    setTestRendering(true);
+    setTestError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/scene-templates/${encodeURIComponent(row.id)}/test-render`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ preset: testPreset }),
+        },
+      );
+      const data = (await res.json()) as {
+        ok: boolean;
+        url?: string;
+        subject?: string;
+        seed?: number;
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.url) {
+        throw new Error(data.error ?? `HTTP ${res.status}`);
+      }
+      setTestResult({
+        url: data.url,
+        subject: data.subject ?? "preview",
+        seed: data.seed ?? 0,
+      });
+    } catch (err) {
+      setTestError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTestRendering(false);
+    }
+  }, [row.id, testPreset, testRendering]);
 
   return (
     <li className="px-6 py-4">
@@ -604,6 +663,18 @@ function TemplateRowItem({
         </button>
 
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTestOpen((v) => !v)}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+              testOpen
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-gray-200 text-gray-700 hover:bg-gray-50"
+            }`}
+            title="Test render"
+          >
+            <CameraIcon className="h-3.5 w-3.5" />
+          </button>
           {row.is_active ? (
             <button
               type="button"
@@ -626,6 +697,80 @@ function TemplateRowItem({
           )}
         </div>
       </div>
+
+      {testOpen ? (
+        <div className="mt-3 rounded-2xl border border-black/5 bg-white p-4 ring-1 ring-black/5">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex-1 min-w-[200px] text-xs font-medium text-gray-700">
+              Test-persona
+              <select
+                value={testPreset}
+                onChange={(e) => setTestPreset(e.target.value)}
+                disabled={testRendering}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs"
+              >
+                {TEST_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() => void onTestRender()}
+              disabled={testRendering}
+              className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white shadow-pill transition hover:bg-primary/90 disabled:opacity-60"
+            >
+              {testRendering
+                ? "Renderen…"
+                : testResult
+                  ? "Opnieuw renderen"
+                  : "Genereer voorbeeld"}
+            </button>
+            {testResult ? (
+              <span className="text-[11px] text-gray-500">
+                seed {testResult.seed} · {testResult.subject}
+              </span>
+            ) : null}
+          </div>
+
+          {testError ? (
+            <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+              {testError}
+            </div>
+          ) : null}
+
+          {testRendering && !testResult ? (
+            <div className="mt-3 flex h-64 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 text-xs text-gray-500">
+              Diffusion model bezig… kan 20-40s duren
+            </div>
+          ) : null}
+
+          {testResult ? (
+            <div className="mt-3">
+              <div className="relative overflow-hidden rounded-xl ring-1 ring-black/5">
+                <Image
+                  src={testResult.url}
+                  alt={`Test render van ${row.scene.slice(0, 40)}`}
+                  width={512}
+                  height={640}
+                  className="h-auto w-full object-cover"
+                  unoptimized
+                />
+              </div>
+              <a
+                href={testResult.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1.5 inline-block text-[11px] text-gray-500 hover:text-gray-900"
+              >
+                open in nieuw tabblad ↗
+              </a>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {expanded ? (
         <div className="mt-3 grid gap-2 rounded-xl border border-black/5 bg-gray-50/50 p-3 text-xs sm:grid-cols-2">
