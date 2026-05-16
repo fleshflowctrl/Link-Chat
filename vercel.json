@@ -21,11 +21,21 @@
     },
     "app/api/admin/personas/batch/cron/route.ts": {
       "maxDuration": 30
+    },
+    "app/api/cron/chat-pending-replies/route.ts": {
+      "maxDuration": 120
+    },
+    "app/api/me/process-pending-replies/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
     {
       "path": "/api/admin/personas/batch/cron",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/chat-pending-replies",
       "schedule": "* * * * *"
     }
   ]

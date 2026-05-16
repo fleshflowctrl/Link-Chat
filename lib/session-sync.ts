@@ -26,11 +26,27 @@ export function requestDiscoveryPrefsRefetch(): void {
   window.dispatchEvent(new Event(WHISPER_DISCOVERY_PREFS_REFETCH));
 }
 
-/** Credits + inbox + unlocks + discovery — call after login or on visibility. */
+/** Deliver due AI chat replies for this user (works off the chat page). */
+export async function processPendingChatsFromServer(): Promise<void> {
+  try {
+    await fetch("/api/me/process-pending-replies", {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+  } catch {
+    /* network — cron will catch up */
+  }
+}
+
+/** Credits + inbox + unlocks + discovery + chat delivery — call after login or on visibility. */
 export async function refreshSessionFromServer(): Promise<void> {
   await syncPendingFunnelProfileIfNeeded();
-  await refreshCreditsFromServer();
-  await refreshDiscoveryPreferencesFromServer();
+  await Promise.all([
+    refreshCreditsFromServer(),
+    refreshDiscoveryPreferencesFromServer(),
+    processPendingChatsFromServer(),
+  ]);
   requestThreadsRefetch();
   requestUnlocksRefetch();
   requestDiscoveryPrefsRefetch();

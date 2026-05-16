@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { processPendingForOwner } from "@/lib/ai/process-pending-for-owner";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import {
@@ -27,6 +28,19 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ ok: true, threads: [], anonymous: true });
+  }
+
+  try {
+    await processPendingForOwner(supabase, {
+      ownerUserId: user.id,
+      maxThreads: 3,
+      scheduleWinback: true,
+    });
+  } catch (e) {
+    console.warn(
+      "[GET /api/me/threads] process pending",
+      e instanceof Error ? e.message : String(e),
+    );
   }
 
   const { data: msgs, error } = await supabase
