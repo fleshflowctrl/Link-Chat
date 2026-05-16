@@ -8,6 +8,11 @@ import type {
   FunnelGender,
   FunnelSeekingGender,
 } from "@/lib/funnel/save-funnel-account";
+import {
+  CHAT_MESSAGE_COST_CREDITS,
+  STARTING_USER_CREDITS,
+} from "@/lib/credits/pricing";
+import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -69,7 +74,7 @@ export async function POST(request: Request) {
   const creditsKeep =
     typeof existing?.credits === "number" && existing.credits >= 0
       ? existing.credits
-      : Math.max(0, Math.floor(body.startingCredits ?? 50));
+      : Math.max(0, Math.floor(body.startingCredits ?? STARTING_USER_CREDITS));
 
   const shouldWriteDemographics = !(existing?.looking_for ?? "").trim();
 
@@ -110,13 +115,30 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (!existingMsg) {
-      await supabase.from("chat_messages").insert({
+      const deduct = await deductUserCredits(
+        supabase,
+        user.id,
+        CHAT_MESSAGE_COST_CREDITS,
+      );
+      if (!deduct.ok) {
+        return bad(
+          deduct.reason === "insufficient"
+            ? `Niet genoeg credits voor je eerste bericht (${CHAT_MESSAGE_COST_CREDITS} nodig)`
+            : deduct.error ?? "Credits aftrekken mislukt",
+          deduct.reason === "insufficient" ? 402 : 500,
+        );
+      }
+      const { error: msgErr } = await supabase.from("chat_messages").insert({
         peer_id: peerId,
         sender: "me",
         kind: "text",
         body: firstMessage,
         owner_user_id: user.id,
       });
+      if (msgErr) {
+        await refundUserCredits(supabase, user.id, deduct.balanceBefore);
+        return bad("Eerste bericht opslaan mislukt", 500);
+      }
     }
   }
 

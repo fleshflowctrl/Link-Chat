@@ -37,6 +37,12 @@ import {
   setServerUnreadBaseline,
 } from "@/lib/messages-tab-badge";
 import { isPeerLiveInChat } from "@/lib/chat/online-status";
+import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
+import {
+  applyServerCreditsUpdate,
+  getCreditsSnapshot,
+  refreshCreditsFromServer,
+} from "@/lib/credits-store";
 import {
   formatReadTimeAmsterdam,
   nowAmsterdamClock,
@@ -605,6 +611,16 @@ export function ChatConversationView({
       if (!trimmed) return;
       if (blockIfNoProfilePhoto("text")) return;
 
+      if (useSupabase) {
+        const bal = getCreditsSnapshot().balance;
+        if (bal < CHAT_MESSAGE_COST_CREDITS) {
+          setAssistantError(
+            `Niet genoeg credits (${CHAT_MESSAGE_COST_CREDITS} per bericht). Ga naar Credits om op te waarderen.`,
+          );
+          return;
+        }
+      }
+
       if (!useSupabase) {
         const { timeLabel, minuteOfDay } = nowAmsterdamClock();
         const id = gid();
@@ -682,12 +698,16 @@ export function ChatConversationView({
           peerMessage?: ChatMessage | null;
           newPeerMessages?: ChatMessage[];
           nextPendingAt?: string | null;
+          newBalance?: number;
           warning?: string;
           error?: string;
         };
 
         if (!res.ok || !data.userMessage) {
           console.error("[chat]", data.error ?? res.status);
+          if (res.status === 402) {
+            void refreshCreditsFromServer();
+          }
           setAssistantError(
             typeof data.error === "string"
               ? data.error
@@ -701,6 +721,10 @@ export function ChatConversationView({
           });
           setInput(trimmed);
           return;
+        }
+
+        if (typeof data.newBalance === "number") {
+          applyServerCreditsUpdate(data.newBalance);
         }
 
         if (data.warning) {
@@ -789,6 +813,15 @@ export function ChatConversationView({
     async (publicUrl: string) => {
       if (!publicUrl) return;
       if (blockIfNoProfilePhoto("image")) return;
+      if (useSupabase) {
+        const bal = getCreditsSnapshot().balance;
+        if (bal < CHAT_MESSAGE_COST_CREDITS) {
+          setAssistantError(
+            `Niet genoeg credits (${CHAT_MESSAGE_COST_CREDITS} per bericht). Ga naar Credits om op te waarderen.`,
+          );
+          return;
+        }
+      }
       if (!useSupabase) {
         const { timeLabel, minuteOfDay } = nowAmsterdamClock();
         setMessages((prev) => [
@@ -845,13 +878,20 @@ export function ChatConversationView({
           peerMessage?: ChatMessage | null;
           newPeerMessages?: ChatMessage[];
           nextPendingAt?: string | null;
+          newBalance?: number;
           warning?: string;
           error?: string;
         };
         if (!res.ok || !data.userMessage) {
+          if (res.status === 402) {
+            void refreshCreditsFromServer();
+          }
           setAssistantError(data.error ?? `Foto versturen mislukt (${res.status})`);
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
           return;
+        }
+        if (typeof data.newBalance === "number") {
+          applyServerCreditsUpdate(data.newBalance);
         }
         setMessages((prev) => {
           const replaced = prev.map((m) =>
@@ -1476,6 +1516,11 @@ export function ChatConversationView({
               placeholder="Typ een bericht…"
               className="h-12 w-full rounded-full border-0 bg-white pl-4 pr-12 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none transition placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
             />
+            {useSupabase && (
+              <span className="pointer-events-none absolute -bottom-4 left-4 text-[10px] text-inkMuted">
+                {CHAT_MESSAGE_COST_CREDITS} credits per bericht
+              </span>
+            )}
             <button
               type="button"
               className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-ink/40 transition hover:bg-black/[0.05] hover:text-ink/70"

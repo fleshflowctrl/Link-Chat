@@ -48,6 +48,7 @@ import {
   prepareNewAccountClientSession,
 } from "@/lib/client-user-session";
 import { stashFunnelPendingProfile } from "@/lib/funnel/pending-profile";
+import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
@@ -402,7 +403,6 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       email: string;
       password: string;
     }): Promise<{ ok: true } | { ok: false; error: string }> => {
-      const SIGNUP_CREDITS = 50;
 
       const pid = firstContact.profileId;
       const msgTrim = firstMessage.trim();
@@ -417,7 +417,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         gender,
         seekingGender,
         ageRange,
-        startingCredits: SIGNUP_CREDITS,
+        startingCredits: STARTING_USER_CREDITS,
         pickedMatchId: firstContact.profileId,
         firstMessage: didFirstMessage ? msgTrim : null,
       });
@@ -426,7 +426,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         return { ok: false, error: signupResult.error };
       }
 
-      const credits = SIGNUP_CREDITS;
+      const credits = STARTING_USER_CREDITS;
 
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
       clearLegacyFunnelLocalStorage();

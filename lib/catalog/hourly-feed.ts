@@ -13,7 +13,7 @@
 
 export const HOUR_MS = 60 * 60 * 1000;
 export const HOURLY_FEED_SIZE = 10;
-export const HOURLY_FEED_REFRESH_COST = 25;
+export { HOURLY_FEED_REFRESH_COST_CREDITS as HOURLY_FEED_REFRESH_COST } from "@/lib/credits/pricing";
 
 /** Whole hours since epoch — increments at the top of every wall-clock hour. */
 export function currentHourBucket(now: number = Date.now()): number {

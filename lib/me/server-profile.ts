@@ -40,7 +40,9 @@ const DEFAULT_PREFS: EditProfilePreferences = {
   pushNotifications: true,
 };
 
-const DEFAULT_CREDITS = 50;
+import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
+
+const DEFAULT_CREDITS = STARTING_USER_CREDITS;
 
 export function formatProfileLastUpdatedLabel(
   iso: string | null | undefined,

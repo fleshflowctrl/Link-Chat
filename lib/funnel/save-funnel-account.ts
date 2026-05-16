@@ -5,6 +5,10 @@ import {
   discoveryPrefsToJson,
   funnelInputToDiscoveryPrefs,
 } from "@/lib/discovery-preferences-server";
+import {
+  CHAT_MESSAGE_COST_CREDITS,
+  STARTING_USER_CREDITS,
+} from "@/lib/credits/pricing";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import type {
   FunnelAgeRange,
@@ -98,12 +102,22 @@ export async function saveFunnelAccount(
     ageRange: input.ageRange,
   });
 
+  const firstMessage = (input.firstMessage ?? "").trim();
+  const peerId = (input.pickedMatchId ?? "").trim();
+  const startingCredits = Math.max(
+    0,
+    Math.floor(input.startingCredits ?? STARTING_USER_CREDITS),
+  );
+  const firstMessageCost =
+    firstMessage && peerId ? CHAT_MESSAGE_COST_CREDITS : 0;
+  const creditsAfterSignup = Math.max(0, startingCredits - firstMessageCost);
+
   const { error: upsertError } = await supabase
     .from("user_profiles")
     .upsert(
       {
         user_id: userId,
-        credits: Math.max(0, Math.floor(input.startingCredits)),
+        credits: creditsAfterSignup,
         looking_for: input.lookingFor ?? "",
         gender: input.gender ?? "",
         seeking_gender: input.seekingGender ?? "",
@@ -125,12 +139,7 @@ export async function saveFunnelAccount(
     };
   }
 
-  // Persist the funnel's first chat message so the new account has a real
-  // thread in their inbox (RLS allows authenticated users to insert their own
-  // rows). AI never auto-replies here — the peer responds the next time the
-  // user actually opens the chat and sends something.
-  const firstMessage = (input.firstMessage ?? "").trim();
-  const peerId = (input.pickedMatchId ?? "").trim();
+  // Persist the funnel's first chat message (credits already deducted above).
   if (firstMessage && peerId) {
     await supabase.from("chat_messages").insert({
       peer_id: peerId,

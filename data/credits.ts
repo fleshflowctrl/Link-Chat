@@ -17,6 +17,10 @@ export interface CreditPackage {
   defaultSelected?: boolean;
 }
 
+import { BASE_PACK_CREDITS, BASE_PACK_PRICE_EUR } from "@/lib/credits/pricing";
+
+const perCreditBase = BASE_PACK_PRICE_EUR / BASE_PACK_CREDITS;
+
 export const packages: CreditPackage[] = [
   {
     id: "100",
@@ -24,7 +28,7 @@ export const packages: CreditPackage[] = [
     bonus: 0,
     price: 9.99,
     original: 9.99,
-    perCredit: 0.1,
+    perCredit: perCreditBase,
     icon: "⭐",
     tile: "from-[#7C5CFF] to-[#9B7BFF]",
     defaultSelected: true,

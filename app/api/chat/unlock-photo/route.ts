@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { DEFAULT_PHOTO_UNLOCK_COST_CREDITS } from "@/lib/credits/pricing";
 import { createClient } from "@/utils/supabase/server";
 
 /**
  * POST /api/chat/unlock-photo
  * Body: { messageId: string }
  *
- * Deducts 50 credits (or the blur_cost of the message) and records
+ * Deducts credits (blur_cost on the message, or default) and records
  * the unlock in chat_photo_unlocks. Idempotent — if already unlocked,
  * returns success without deducting again.
  */

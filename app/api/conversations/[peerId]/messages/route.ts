@@ -16,6 +16,8 @@ import {
   sleep,
   SYNC_DELAY_THRESHOLD_MS,
 } from "@/lib/ai/reply-pacing";
+import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
+import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -179,6 +181,27 @@ export async function POST(
 
   const p = profile as ChatProfileRow;
 
+  const deduct = await deductUserCredits(
+    supabase,
+    user.id,
+    CHAT_MESSAGE_COST_CREDITS,
+  );
+  if (!deduct.ok) {
+    const msg =
+      deduct.reason === "insufficient"
+        ? `Niet genoeg credits (heb ${deduct.balance}, nodig ${CHAT_MESSAGE_COST_CREDITS})`
+        : deduct.error ?? "Credits aftrekken mislukt";
+    return NextResponse.json(
+      {
+        ok: false,
+        error: msg,
+        currentBalance: deduct.balance,
+        cost: CHAT_MESSAGE_COST_CREDITS,
+      },
+      { status: deduct.reason === "insufficient" ? 402 : 500 },
+    );
+  }
+
   // 1. Persist the user message before doing anything else.
   const { data: insertedUser, error: ie } = await supabase
     .from("chat_messages")
@@ -194,6 +217,7 @@ export async function POST(
     .single();
 
   if (ie || !insertedUser) {
+    await refundUserCredits(supabase, user.id, deduct.balanceBefore);
     return NextResponse.json(
       { ok: false, error: ie?.message ?? "Opslaan mislukt" },
       { status: 500 },
@@ -201,6 +225,7 @@ export async function POST(
   }
 
   const userMessage = messageRowToUi(insertedUser as ChatMessageRow);
+  const newBalance = deduct.newBalance;
 
   // Non-AI peer: nothing more to do.
   if (!p.is_ai) {
@@ -210,6 +235,7 @@ export async function POST(
       peerMessage: null,
       newPeerMessages: [] as ChatMessage[],
       nextPendingAt: null,
+      newBalance,
     });
   }
 
@@ -251,6 +277,7 @@ export async function POST(
       peerMessage: null,
       newPeerMessages: processedPeerMessages,
       nextPendingAt: null,
+      newBalance,
       warning: he.message,
     });
   }
@@ -388,6 +415,7 @@ export async function POST(
     peerMessage,
     newPeerMessages: processedPeerMessages,
     nextPendingAt,
+    newBalance,
     ...(warning ? { warning } : {}),
   });
 }
