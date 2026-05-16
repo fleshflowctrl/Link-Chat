@@ -119,6 +119,44 @@ export function ArchiveIcon(props: IconProps) {
   );
 }
 
+export function TrashIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M3.5 5.5h13" />
+      <path d="M8 3.5h4M5.5 5.5l.6 10c.04.55.5.99 1 .99h5.8c.5 0 .96-.44 1-.99l.6-10" />
+      <path d="M9 9v5M11 9v5" />
+    </svg>
+  );
+}
+
+export function MoreIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <circle cx="5" cy="10" r="1.25" />
+      <circle cx="10" cy="10" r="1.25" />
+      <circle cx="15" cy="10" r="1.25" />
+    </svg>
+  );
+}
+
+export function RefreshIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M16.5 4.5v3.5H13" />
+      <path d="M16.5 8a6.5 6.5 0 1 0-1.5 4" />
+    </svg>
+  );
+}
+
+export function PencilIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M13.5 3.5l3 3-9 9H4.5v-3z" />
+      <path d="M12 5l3 3" />
+    </svg>
+  );
+}
+
 export function CameraIcon(props: IconProps) {
   return (
     <svg {...baseProps} {...props}>

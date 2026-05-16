@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { parsePersonaPayload } from "@/lib/admin/persona-payload";
+import { purgePersonaStorage } from "@/lib/admin/persona-delete";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -86,7 +87,18 @@ export async function PATCH(req: Request, ctx: RouteCtx) {
   return NextResponse.json({ ok: true, id: ctx.params.id });
 }
 
-export async function DELETE(_req: Request, ctx: RouteCtx) {
+/**
+ * DELETE /api/admin/personas/[id]?mode=archive|restore|hard
+ *
+ *   archive (default) — sets `is_archived = true`. Persona disappears from
+ *                       discovery and home. All data is kept. Reversible.
+ *   restore           — clears `is_archived`. Brings the persona back.
+ *   hard              — permanent delete. Cascades through chat_messages,
+ *                       chat_ai_thread_memory, chat_pending_replies,
+ *                       ai_chat_turn_logs (FK on delete cascade) and nukes
+ *                       persona-owned photos from storage. Not reversible.
+ */
+export async function DELETE(req: Request, ctx: RouteCtx) {
   const auth = await requireAdmin();
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -99,12 +111,45 @@ export async function DELETE(_req: Request, ctx: RouteCtx) {
     );
   }
 
-  // Soft-delete by archiving — chat_messages keeps FK and we never lose
-  // history. A future "hard delete" route can do the cascade.
+  const url = new URL(req.url);
+  const modeRaw = (url.searchParams.get("mode") ?? "archive").toLowerCase();
+  const mode: "archive" | "restore" | "hard" =
+    modeRaw === "hard" ? "hard" : modeRaw === "restore" ? "restore" : "archive";
+
+  if (mode === "archive") {
+    const { error } = await service
+      .from("chat_profiles")
+      .update({ is_archived: true })
+      .eq("id", ctx.params.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, mode });
+  }
+
+  if (mode === "restore") {
+    const { error } = await service
+      .from("chat_profiles")
+      .update({ is_archived: false })
+      .eq("id", ctx.params.id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, mode });
+  }
+
+  // mode === "hard"
+  // Best-effort: clean up storage first (so we don't end up with orphan
+  // files if the row is deleted but storage list fails). Storage failures
+  // are logged but don't block the row delete — admin would prefer the
+  // persona gone over a perfect filesystem.
+  const purge = await purgePersonaStorage(service, ctx.params.id);
+
   const { error } = await service
     .from("chat_profiles")
-    .update({ is_archived: true })
+    .delete()
     .eq("id", ctx.params.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+
+  return NextResponse.json({
+    ok: true,
+    mode,
+    storage: { removed: purge.removed, errors: purge.errors },
+  });
 }
