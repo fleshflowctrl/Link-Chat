@@ -432,6 +432,11 @@ export function buildPersonaPhotoPrompt(args: {
         "amateur bedroom or bathroom mirror selfie, real self-taken nude photo from her personal camera roll, " +
         "her own arm and hand visible in frame or reflection, casual unposed self-portrait",
     );
+    // Extra anti-repetition for explicit nudes — force different compositions
+    promptParts.push(
+      "highly varied composition, different camera angle and distance than previous photos, " +
+        "unique body position and framing, never repeat the same pose or mirror-selfie style",
+    );
   } else {
     promptParts.push(`wearing ${style}`);
   }
