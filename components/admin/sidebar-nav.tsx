@@ -27,6 +27,12 @@ const NAV: NavItem[] = [
     icon: <CameraIcon />,
     matchPrefix: true,
   },
+  {
+    href: "/admin/nudes",
+    label: "Naaktfoto's",
+    icon: <CameraIcon />,
+    matchPrefix: true,
+  },
 ];
 
 export function AdminSidebarNav({ adminEmail }: { adminEmail: string | null }) {
