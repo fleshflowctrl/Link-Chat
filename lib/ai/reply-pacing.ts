@@ -13,9 +13,10 @@
  * and-low-minutes territory.
  *
  * Strategy (in priority order):
- *   1. **Hook** — first 3 turns are always snappy (0.6-1.8s). She just opened
- *      your chat, she's excited, replies are quick. This is the engagement
- *      hook and we never override it.
+ *   1. **First reply** — turn 0 is always 1-3 minutes (async). Nobody answers
+ *      a brand-new match in under two seconds.
+ *   2. **Early hook** — turns 1-2 stay relatively quick (15-90s) once she's
+ *      in the thread, but not instant.
  *   2. **Bedtime context** (see lib/ai/bedtime.ts) — each persona has a
  *      *random-but-deterministic* bedtime per night in [01:45, 03:35]. If
  *      `now` is past her bedtime she's asleep; reply scheduled for the
@@ -102,6 +103,9 @@ export const SYNC_DELAY_THRESHOLD_MS = 25_000;
  * pathological non-sleep value at "obviously too long for a dating chat". */
 const HARD_CAP_MS = 9 * 60 * 60_000;
 const HOOK_TURN_LIMIT = 3;
+/** First-ever peer reply in a thread — always async, 1-3 min. */
+const FIRST_REPLY_MIN_MS = 60_000;
+const FIRST_REPLY_MAX_MS = 180_000;
 
 /** Probability she sneaks a phone-glance during work and replies with a
  * 10-30 min delay (instead of waiting for the next break). Operator
@@ -216,22 +220,6 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
     occupation: opts.occupation ?? null,
   });
 
-  // 1. Hook mode: first 3 turns are always snappy. We never override this,
-  // even during bedtime or work — if she just opened your chat at 02:00 or
-  // during her lunch shift, she's still in the "hooked-on-you" phase and
-  // answers fast. Sleep / work mode kicks in for turn 4+.
-  if (turnIndex < HOOK_TURN_LIMIT) {
-    const base = 600 + Math.min(userChars * 8, 600);
-    const jitter = Math.random() * 600 - 300;
-    return {
-      delayMs: clampMs(base + jitter, 400, 1800),
-      bedtimePhase: bedtime.phase,
-      minutesUntilBedtime: bedtime.minutesUntilBedtime,
-      workPhase: work.phase,
-      workPromptHint: work.promptHint,
-    };
-  }
-
   // 2. Asleep: schedule for tomorrow morning's wake-up.
   if (bedtime.phase === "asleep") {
     const delay = bedtime.wakeAfter.getTime() - now.getTime();
@@ -290,6 +278,31 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
     }
     // Less than a minute until the next break — fall through to normal
     // pacing so the reply lands naturally as the break starts.
+  }
+
+  // 1a. Very first peer reply — 1-3 minutes (async). Not instant.
+  if (turnIndex === 0) {
+    const delayMs = rng(FIRST_REPLY_MIN_MS, FIRST_REPLY_MAX_MS);
+    return {
+      delayMs: clampMs(delayMs, FIRST_REPLY_MIN_MS, FIRST_REPLY_MAX_MS),
+      bedtimePhase: bedtime.phase,
+      minutesUntilBedtime: bedtime.minutesUntilBedtime,
+      workPhase: work.phase,
+      workPromptHint: work.promptHint,
+    };
+  }
+
+  // 1b. Turns 1-2: engaged but human — not sub-second.
+  if (turnIndex < HOOK_TURN_LIMIT) {
+    const readingBonus = Math.min(userChars * 25, 2000);
+    const delayMs = rng(15_000, 90_000) + readingBonus;
+    return {
+      delayMs: clampMs(delayMs, 12_000, 120_000),
+      bedtimePhase: bedtime.phase,
+      minutesUntilBedtime: bedtime.minutesUntilBedtime,
+      workPhase: work.phase,
+      workPromptHint: work.promptHint,
+    };
   }
 
   // 3. Engagement state from peerLastReplyAt.
