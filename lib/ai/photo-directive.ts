@@ -23,8 +23,8 @@
 const DIRECTIVE_RE = /\[\s*SEND[_\s]?PHOTO\s*:\s*([^\]]{1,400})\]/i;
 
 const FORBIDDEN_SCENE_TOKENS = [
-  /nude|naked|nsfw|topless/i,
-  /child|minor|underage/i,
+  // Child safety only — explicit adult content is allowed via negotiation flow.
+  /child|minor|underage|pornography|pedophilia/i,
 ];
 
 export type PhotoDirective = {
