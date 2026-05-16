@@ -17,6 +17,7 @@
  */
 
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
+import { deriveIdentityPromptSegment } from "@/lib/images/persona-identity";
 
 /** Optional structured photo-style stored on chat_profiles.photo_style.
  * All keys optional; missing keys fall back to derived defaults. */
@@ -407,6 +408,24 @@ export function buildPersonaPhotoPrompt(args: {
   }
   promptParts.push(appearance);
   if (ageHint) promptParts.push(ageHint);
+
+  // High-weight identity anchor derived deterministically from the
+  // persona's id. Without this every persona in the same age/body/
+  // attractiveness bracket collapses onto the diffusion model's
+  // statistical median (one shared face for all "50s Dutch average"
+  // women) — the seed alone is too soft a signal to fix that.
+  //
+  // We inject right after `appearance` so the model has already
+  // committed to the age/realism anchors but hasn't yet seen the
+  // scene/outfit. Hair colour, eye colour, face shape, mouth and
+  // skin detail all get explicit tokens so the diffusion model has
+  // to vary the face per persona. Same id → same tokens forever
+  // (consistency across all of one persona's photos).
+  const identitySegment = deriveIdentityPromptSegment(profile);
+  if (identitySegment) {
+    promptParts.push(identitySegment);
+  }
+
   // Hard-coded hair length anchor — operator rule: ALL personas must
   // have medium-length or long hair, never very short / pixie / buzz cut.
   // This is end-loaded relative to `appearance` so it overrides any
