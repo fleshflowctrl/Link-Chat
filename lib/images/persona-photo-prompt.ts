@@ -490,14 +490,22 @@ export function buildPersonaPhotoPrompt(args: {
   // Phrased entirely as POSITIVE descriptors ("tack sharp", "every
   // detail visible") because Turbo models can't reliably parse "no X"
   // negation.
+  // Instruction-style framing — Z-Image-Turbo is documented to follow
+  // written instructions unusually well (Z-Image authors: "trained for
+  // bilingual prompts and follows written instructions unusually well").
+  // We exploit that by stating the deep-focus requirement as an
+  // explicit directive instead of just descriptor tokens. Mentioning
+  // concrete reference styles the model has seen in pretraining
+  // (tourist photo, vlog screenshot, dashcam, security camera, GoPro)
+  // — all of which are deep-focus by their optical nature — gives
+  // the diffusion sampler something to compose toward instead of
+  // falling back to its portrait-photo prior.
   promptParts.push(
-    "casual everyday phone snapshot, wide-angle phone main camera lens 24mm equivalent, " +
-      "shot at f/8 narrow aperture for deep depth of field, hyperfocal distance, " +
-      "every detail in the foreground AND the background is tack sharp and fully in focus, " +
-      "subject and background equally crisp throughout the entire frame, " +
-      "no portrait mode, no shallow depth of field, no creamy background, no blurred crowd, " +
-      "background subjects clearly defined with visible textures and details, " +
-      "smartphone snapshot look with normal phone wide field of view",
+    "This photo must look like an ordinary tourist snapshot or a screenshot from a GoPro or a casual vlog frame — NOT like a DSLR portrait, NOT like an Instagram photoshoot, NOT like a 85mm lens portrait. " +
+      "The camera is an iPhone main wide-angle camera (24mm equivalent), held quickly at chest or eye level by a friend or by the woman herself. " +
+      "The aperture is narrow (f/8) and the field of view is wide. Every single thing in the frame stays sharp: the woman, the people behind her, the cars, the shop signs, the trees, the building windows, the texture of the pavement — ALL fully in focus and clearly recognisable. " +
+      "The background is rendered with the same crisp detail as the subject. No part of the photo is soft, hazy, or out of focus. There is no portrait-mode background separation, no creamy backdrop, no blurred crowd. " +
+      "Think wide-angle phone snapshot, tourist photo, dashcam frame, security camera still, GoPro photo, vlog still.",
   );
 
   // Age anchor frontloads ABOVE the realism/appearance anchors for
@@ -579,6 +587,15 @@ export function buildPersonaPhotoPrompt(args: {
   }
 
   if (shotPose) promptParts.push(`pose: ${shotPose}`);
+  // Middle-load deep-focus reminder, dropped in right before scene/
+  // backdrop description so the model has a fresh deep-focus
+  // directive at exactly the token position where it's about to
+  // commit to a composition. Without this the front-load fades by
+  // the time the model decides whether to apply portrait-mode bokeh
+  // to the background it's about to paint.
+  promptParts.push(
+    "remember: wide-angle phone snapshot, deep focus across the entire frame, every background element rendered sharply and fully detailed, no portrait-mode separation between subject and background",
+  );
   promptParts.push(`scene: ${cleanScene}`);
   promptParts.push(vibe);
   if (attractiveness === "striking") {
