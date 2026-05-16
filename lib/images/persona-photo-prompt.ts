@@ -499,6 +499,7 @@ export function buildPersonaPhotoPrompt(args: {
         "real self-taken amateur nude photo, slightly imperfect framing and angle, " +
         "her own hand and arm visible holding the phone or reflected in the mirror, " +
         "natural skin pores and small skin texture, no filter, no beauty filter, " +
+        "everything in focus from foreground to background, no portrait mode, no bokeh, no blurred background, no motion blur, deep focus normal phone wide-angle, " +
         "normal phone camera dynamic range, slight ISO noise, slight grain, " +
         "shot quickly by herself in her bedroom or bathroom, regular phone photo not a photoshoot, " +
         "clearly taken by the woman in the photo, selfie, self-portrait",
@@ -508,11 +509,15 @@ export function buildPersonaPhotoPrompt(args: {
     // camera artifacts that diffusion bases otherwise smooth out:
     //  - flat dynamic range / blown highlights / muddy shadows
     //  - lens flare from streetlights, sun, or windows
-    //  - autofocus-confused subject, slight motion blur
     //  - sensor noise in low light, banding in fluorescents
     //  - normal phone white balance drift (cool indoors, warm under lamps)
     //  - tilted horizon, slightly off-center, finger in corner
     //  - sun in face causing squint, eyes half-closed mid-blink
+    // CRITICAL: NO blur of any kind. Modern phone cameras keep the
+    // entire frame in deep focus from foreground to background; any
+    // bokeh / motion blur / shallow depth of field instantly reads as
+    // "professional camera" or "Portrait Mode", which is the opposite
+    // of the everyday-snapshot vibe we want.
     // Also pushes against the "model agency face" diffusion default.
     promptParts.push(
       // Camera & artifact realism
@@ -520,7 +525,10 @@ export function buildPersonaPhotoPrompt(args: {
         "real candid not posed, slightly imperfect framing, slightly off-center, " +
         "natural skin with visible pores small blemishes and uneven skin tone, " +
         "no filter, no beauty filter, no instagram filter, no airbrushing, no skin smoothing, " +
-        "no portrait mode bokeh, no shallow depth of field, " +
+        // Strong anti-blur / pro-deep-focus signal
+        "everything in focus from foreground to background, deep focus everywhere, " +
+        "no portrait mode, no portrait mode bokeh, no shallow depth of field, no blurred background, no motion blur, " +
+        "subject and background both equally sharp, normal phone wide-angle deep focus, " +
         "flat phone camera dynamic range with slightly blown highlights and muddy shadow detail, " +
         "occasional lens flare or light streak from a streetlight or sun or window, " +
         "natural unfixed white balance, slightly cool tones indoors or warm tones under tungsten, " +
@@ -585,7 +593,16 @@ export function buildPersonaPhotoPrompt(args: {
     "color graded, lightroom preset, vsco, film simulation, " +
     "pinterest aesthetic, cottagecore, soft girl aesthetic, " +
     "DSLR, mirrorless camera, professional camera, telephoto lens, prime lens, " +
+    // Hard anti-blur — any softness reads as professional photography
+    // and instantly breaks the "casual phone snap" illusion. iPhones
+    // (outside Portrait Mode) keep deep focus across the whole frame.
     "shallow depth of field, bokeh background, blurred background, creamy bokeh, " +
+    "out of focus background, defocused background, soft background, " +
+    "portrait mode, iphone portrait mode, simulated bokeh, lens blur, " +
+    "motion blur, subject motion blur, camera shake blur, gaussian blur, " +
+    "tilt-shift, miniature effect, soft focus, dreamy soft focus, " +
+    "blurry edges, soft vignette, blurred vignette, hazy soft edges, " +
+    "blurry foreground, blurry subject, slightly out of focus subject, " +
     "stylish outfit, fashion outfit, designer clothing, dressed up, runway outfit, " +
     "full makeup, contoured face, highlight makeup, false eyelashes, " +
     "styled hair, blow-dry, salon hair, professionally styled hair, " +
