@@ -19,6 +19,56 @@
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { deriveIdentityPromptSegment } from "@/lib/images/persona-identity";
 
+/** Diffusion models honor positive prompts more than negative ones, so
+ * any "out of focus" / "bokeh" / "shallow DoF" token sitting in a
+ * scene template's positive prompt fights against — and frequently
+ * beats — our anti-blur negative prompt. The operator rule is "never
+ * any blur, ever". This sanitizer strips every blur-adjacent phrase
+ * from a template field before it enters the positive prompt.
+ *
+ * Applied at runtime to every template field (scene, camera, backdrop,
+ * lighting, capture, outfit, pose) so it protects both in-code seed
+ * templates AND Grok-generated ones, AND legacy DB rows the operator
+ * hasn't manually cleaned up yet. Belt-and-braces. */
+export function stripBlurPhrases(input: string | undefined | null): string {
+  if (!input) return "";
+  const killers: RegExp[] = [
+    // "out of focus" / "out-of-focus" + optional adjacent qualifiers.
+    /\b(slightly\s+|completely\s+)?out[\s-]of[\s-]focus\b/gi,
+    // "blurry-far group" / "blurry foreground"
+    /\bblurry[\s-]far\b/gi,
+    /\bblurry\s+(background|foreground|subject|edges|vignette|distance|crowd|people)\b/gi,
+    /\bblurred\s+(background|foreground|subject|edges|vignette|distance|crowd|people)\b/gi,
+    // Bare adjectives — kill them outright. Templates never *need* the
+    // word "blurry" or "blurred" for legit storytelling.
+    /\bblurry\b/gi,
+    /\bblurred\b/gi,
+    /\bblur\b/gi,
+    /\bdefocused\b/gi,
+    /\bdefocus\b/gi,
+    // Bokeh and all its synonyms.
+    /\b(creamy\s+|simulated\s+|lens\s+|natural\s+)?bokeh\b/gi,
+    // Depth-of-field tokens.
+    /\bshallow\s+depth\s+of\s+field\b/gi,
+    /\bshallow\s+dof\b/gi,
+    /\b(portrait\s+mode|iphone\s+portrait\s+mode)\b/gi,
+    /\b(lens|motion|gaussian|camera\s+shake|subject\s+motion)\s+blur\b/gi,
+    /\bsoft\s+focus\b/gi,
+    /\bsoft\s+background\b/gi,
+    /\bhazy\s+soft\s+edges\b/gi,
+  ];
+  let out = input;
+  for (const re of killers) out = out.replace(re, "");
+  // Cleanup commas/whitespace left dangling by removals.
+  out = out
+    .replace(/\s*,\s*,+/g, ",")
+    .replace(/\(\s*,?\s*\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s,;:.-]+|[\s,;:.-]+$/g, "")
+    .trim();
+  return out;
+}
+
 /** Optional structured photo-style stored on chat_profiles.photo_style.
  * All keys optional; missing keys fall back to derived defaults. */
 export type PersonaPhotoStyle = {
@@ -365,20 +415,30 @@ export function buildPersonaPhotoPrompt(args: {
   // Per-shot outfit (from a scene template) REPLACES the persona-level
   // style anchor for this photo. This is what makes a 3-photo gallery
   // actually show 3 different outfits instead of "denim jacket × 3".
+  //
+  // Every template-supplied field is run through stripBlurPhrases so
+  // an "out-of-focus tropical sunset" backdrop or "blurry-far crowd"
+  // scene description can never leak blur tokens into the positive
+  // prompt and overpower the anti-blur negatives.
   const cam0 = args.cameraStyle ?? {};
-  const shotOutfit = (cam0.outfit ?? "").trim();
+  const shotOutfit = stripBlurPhrases(cam0.outfit);
   const style = shotOutfit || (customStyle.style ?? defaults.style).trim();
-  const shotPose = (cam0.pose ?? "").trim();
+  const shotPose = stripBlurPhrases(cam0.pose);
   const vibe = (customStyle.vibe ?? defaults.vibe).trim();
 
   const seed = typeof customStyle.seed === "number" ? customStyle.seed : hashSeed(profile.id);
 
-  // Scene cleanup — strip any directive-leftover, cap length, force one sentence.
-  const cleanScene = args.scene
-    .replace(/^[\[\(]?send[_ ]?photo:?\s*/i, "")
-    .replace(/[\]\)]\s*$/, "")
-    .trim()
-    .slice(0, 280);
+  // Scene cleanup — strip any directive-leftover, cap length, force one
+  // sentence. Then run the result through the blur-phrase scrubber so
+  // a Grok-emitted scene like "stadspark op een mistige ochtend, alles
+  // licht out of focus" can't import blur tokens via the scene field.
+  const cleanScene = stripBlurPhrases(
+    args.scene
+      .replace(/^[\[\(]?send[_ ]?photo:?\s*/i, "")
+      .replace(/[\]\)]\s*$/, "")
+      .trim()
+      .slice(0, 280),
+  );
 
   // Compose the full prompt. Order matters for diffusion models — the
   // most important visual anchors go first so the model commits early
@@ -484,11 +544,20 @@ export function buildPersonaPhotoPrompt(args: {
   // every persona photo drifts back to the same front-camera selfie
   // because the model sees no instruction to vary. Falling back to the
   // legacy defaults preserves backwards-compat for older callers.
+  //
+  // Each template field is scrubbed through stripBlurPhrases first so
+  // any "shallow DoF / bokeh / out-of-focus" tokens an older template
+  // (or a misbehaving Grok response) might carry never make it into
+  // the positive prompt.
   const cam = args.cameraStyle ?? {};
-  let camera = (cam.camera ?? "casual phone selfie or candid snapshot").trim();
-  const backdrop = (cam.backdrop ?? "").trim();
-  let lighting = (cam.lighting ?? "soft natural lighting").trim();
-  let capture = (cam.capture ?? "shot on iPhone, slight grain, intimate everyday moment").trim();
+  let camera =
+    stripBlurPhrases(cam.camera) ||
+    "casual phone selfie or candid snapshot";
+  const backdrop = stripBlurPhrases(cam.backdrop);
+  let lighting = stripBlurPhrases(cam.lighting) || "soft natural lighting";
+  let capture =
+    stripBlurPhrases(cam.capture) ||
+    "shot on iPhone, slight grain, intimate everyday moment";
 
   // For explicit nudes we force a strong self-taken mirror-selfie look
   // so it is obvious that *she* took the photo (not a third party).

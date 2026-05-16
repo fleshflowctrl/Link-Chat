@@ -21,6 +21,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import type { SceneTemplate } from "@/lib/images/scene-templates";
+import { stripBlurPhrases } from "@/lib/images/persona-photo-prompt";
 import {
   loadRecentRejections,
   sampleActiveTemplatesForFewShot,
@@ -58,6 +59,7 @@ HARDE REGELS:
 - Geen studio-shoots, geen fashion-photography, geen "golden hour magic". Alles moet eruitzien als een doodgewone iPhone-snapshot of mirror-selfie of friend-snap.
 - Geen explicit content. Geen naakt, geen topless, geen lingerie-shoots. (Aparte templates daarvoor bestaan elders.)
 - VARIATIE is het hele doel: per batch een mix van outdoor/indoor, dag/avond, selfie/friend-snap/mirror, verschillende seizoenen, verschillende landen/steden, verschillende outfits.
+- ABSOLUUT NOOIT BLUR. Gebruik NERGENS in scene/camera/backdrop/lighting/capture/outfit/pose de termen: "blur", "blurry", "blurred", "out of focus", "out-of-focus", "defocused", "bokeh", "shallow depth of field", "shallow DoF", "portrait mode", "soft focus", "motion blur", "creamy bokeh", "lens blur" of welk synoniem dan ook. Iedere foto moet eruitzien als een gewone iPhone-snapshot met ALLES scherp van voor- tot achtergrond. Schrijf "in the distance" of "distant" in plaats van "blurry-far", schrijf "small in the background" in plaats van "out-of-focus", en gebruik "even exposure" of "natural daylight" in plaats van "soft focus". Templates die toch blur-termen bevatten worden silently geweigerd.
 
 VERPLICHTE VARIATIE BINNEN ÉÉN RESPONSE:
 - Geen twee templates met dezelfde locatie-type. Niet 3× "cafe terras", niet 5× "strand".
@@ -126,14 +128,20 @@ function coerceKind(v: unknown): SceneTemplate["kind"] {
 function coerceTemplate(raw: unknown): SceneTemplate | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
+  // Scrub blur tokens out of every field at intake time, even though
+  // the prompt-builder scrubs again at render time. Belt-and-braces:
+  // the stored DB row stays clean so the admin UI shows what will
+  // actually be rendered, instead of misleadingly listing a backdrop
+  // that includes "out-of-focus crowd" while the renderer silently
+  // erases it.
   const t: SceneTemplate = {
-    scene: clean(r.scene, 400),
-    camera: clean(r.camera, 400),
-    backdrop: clean(r.backdrop, 600),
-    lighting: clean(r.lighting, 300),
-    capture: clean(r.capture, 300),
-    outfit: clean(r.outfit, 600),
-    pose: clean(r.pose, 500),
+    scene: stripBlurPhrases(clean(r.scene, 400)),
+    camera: stripBlurPhrases(clean(r.camera, 400)),
+    backdrop: stripBlurPhrases(clean(r.backdrop, 600)),
+    lighting: stripBlurPhrases(clean(r.lighting, 300)),
+    capture: stripBlurPhrases(clean(r.capture, 300)),
+    outfit: stripBlurPhrases(clean(r.outfit, 600)),
+    pose: stripBlurPhrases(clean(r.pose, 500)),
     kind: coerceKind(r.kind),
   };
   // Reject obviously-broken templates: every prompt-relevant field

@@ -287,7 +287,7 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
   {
     scene: "even zonnen in de tuin met een tongetje uit",
     camera: "close-up phone selfie from above looking down, face and chest fill the frame, slightly off-center",
-    backdrop: "out-of-focus pink and white towel and grass beyond the body, hint of bare feet far below",
+    backdrop: "pink and white towel and grass beyond the body, hint of bare feet far below",
     lighting: "harsh direct overhead summer sun, deep shadow on the face from her own hand, blown highlights on shoulders and chest, very bright",
     capture: "iPhone selfie from above lying on a towel, unedited, slightly washed out highlights from the sun",
     outfit: "white triangle bikini top with bright orange straps, layered thin gold necklaces, gold watch with a thin band on the wrist, single white AirPod visible in the ear, no makeup, scattered blonde hair",
@@ -327,7 +327,7 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
   {
     scene: "zonsondergang op het strand met een glaasje wijn op een zitzak",
     camera: "regular phone snapshot from the side, framed waist up with a low table in the foreground",
-    backdrop: "tropical beach at sunset with white sand, ocean horizon, sun about to set with intense orange and pink sky, beach bar with hanging string lights overhead, other people on beanbags out of focus, sneakers tossed in the sand",
+    backdrop: "tropical beach at sunset with white sand, ocean horizon, sun about to set with intense orange and pink sky, beach bar with hanging string lights overhead, other people on beanbags in the distance, sneakers tossed in the sand",
     lighting: "warm golden hour sunset, side-back lit, contre-jour with rim light on the hair",
     capture: "iPhone snapshot from the side, unedited, slightly grainy from low light",
     outfit: "fitted black ribbed tank top, dark denim shorts, hair tied back in a low loose ponytail, simple small earrings, smartphone visible on the table",
@@ -809,7 +809,7 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
   {
     scene: "snelle pauze op een terras tijdens een sportdag",
     camera: "phone selfie close-up, head and shoulders fill the frame",
-    backdrop: "outdoor sports field with green artificial turf and a faint white line, blurry-far group of people standing around with red and pink shirts, plastic cups of beer faintly visible at the bottom of the frame",
+    backdrop: "outdoor sports field with green artificial turf and a faint white line, distant group of people standing around with red and pink shirts, plastic cups of beer faintly visible at the bottom of the frame",
     lighting: "warm soft late-afternoon sunlight, golden hour glow",
     capture: "iPhone selfie, unedited, sunny exposure",
     outfit: "white short-sleeve broderie-anglaise blouse with small embroidery and tiny perforations, thin gold necklace with a small initial pendant, small gold hoop earrings, long blonde wavy hair down with sun highlights, soft natural makeup",
