@@ -66,6 +66,30 @@ export function stripBlurPhrases(input: string | undefined | null): string {
     /\b85\s*mm\s+(portrait\s+)?lens\b/gi,
     /\btelephoto\s+lens\b/gi,
     /\bprime\s+lens\b/gi,
+    // Distance / atmosphere tokens — diffusion treats these as
+    // "render with atmospheric perspective blur" cues, which compounds
+    // with the model's portrait-mode bias and shows up in renders as
+    // background bokeh even though the prompt never said "bokeh"
+    // outright. We aggressively strip them; the very rare legit use
+    // (e.g. "distant cathedral bell" as audio metaphor) is acceptable
+    // collateral because templates are visual-only by definition.
+    /\b(in\s+the\s+)?distant\b/gi,
+    /\bin\s+the\s+distance\b/gi,
+    /\bfar\s+away\b/gi,
+    /\bfar\s+behind\b/gi,
+    /\bstretching\s+(out\s+)?(into|behind|towards?)\b/gi,
+    /\bextending\s+into\s+the\s+distance\b/gi,
+    /\bfading\s+into\b/gi,
+    /\bsilhouettes?\b/gi,
+    /\bvague\s+(figures|shapes|forms|outlines|crowd|silhouettes?)\b/gi,
+    /\babstract\s+shapes\b/gi,
+    /\b(moody\s+)?atmospheric\b/gi,
+    /\b(slightly\s+)?hazy\b/gi,
+    /\bmisty\b/gi,
+    /\bbarely\s+visible\b/gi,
+    /\ba\s+sense\s+of\b/gi,
+    /\bhints?\s+of\b/gi,
+    /\bsoftly\s+lit\s+background\b/gi,
   ];
   let out = input;
   for (const re of killers) out = out.replace(re, "");
