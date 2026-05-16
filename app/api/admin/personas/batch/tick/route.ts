@@ -4,16 +4,18 @@ import { getServiceSupabase } from "@/lib/supabase/admin";
 import {
   resolveBaseUrl,
   runOneStep,
+  scheduleAfterResponse,
   triggerNextTick,
   verifyWorkerToken,
 } from "@/lib/admin/persona-batch";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-/** Worker tick. Processes ONE unit of work for the batch and, if more
- * work remains, fires off another /tick before returning so the chain
- * keeps running until the batch is done. Each unit (write profile,
- * regen avatar, append one gallery photo) stays inside 60s on its own.
+/** Worker tick. Acks immediately and runs the actual unit of work +
+ * chain-trigger on the request's after-response lifetime (Vercel
+ * waitUntil / inline await in dev). This pattern keeps each hop in
+ * the chain to a <100ms ack, so a slow tick can't drag the previous
+ * tick's function lifetime out and risk getting frozen mid-fetch.
  *
  * Authenticated via HMAC token derived from SUPABASE_SERVICE_ROLE_KEY —
  * see `workerToken()` in lib/admin/persona-batch.ts. */
@@ -46,29 +48,27 @@ export async function POST(req: Request) {
     );
   }
 
-  const result = await runOneStep(service, batchId);
+  const baseUrl = resolveBaseUrl(req);
 
-  if (result.kind === "missing-batch") {
-    return NextResponse.json({ ok: false, error: "Batch niet gevonden." }, { status: 404 });
-  }
-  if (result.kind === "stopped") {
-    return NextResponse.json({ ok: true, stopped: true, reason: result.reason });
-  }
-  if (result.kind === "waiting") {
-    // Some earlier item is still in flight. Don't immediately chain to
-    // another tick — that would busy-loop hitting `waiting` again. The
-    // UI heartbeat (POST /batch/[id]) and Vercel cron sweep will wake
-    // us back up once the in-flight unit either resolves or the stuck
-    // recovery threshold fires.
-    return NextResponse.json({ ok: true, waiting: true, reason: result.reason });
-  }
-  if (result.moreWork) {
-    const baseUrl = resolveBaseUrl(req);
-    await triggerNextTick(baseUrl, batchId);
-  }
-
-  return NextResponse.json({
-    ok: true,
-    moreWork: result.moreWork,
+  // Schedule the actual work + chain-trigger AFTER the response is
+  // sent. On Vercel this uses waitUntil so the function lifetime is
+  // extended for the full maxDuration. Locally we just await inline.
+  await scheduleAfterResponse(async () => {
+    try {
+      const result = await runOneStep(service, batchId);
+      if (result.kind === "worked" && result.moreWork) {
+        // Chain on. The next tick will also ack-fast so this await
+        // resolves quickly even when the new tick has heavy work
+        // queued behind its own waitUntil.
+        await triggerNextTick(baseUrl, batchId);
+      }
+    } catch (err) {
+      console.error("[persona-batch:tick] uncaught", {
+        batchId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   });
+
+  return NextResponse.json({ ok: true, accepted: true });
 }

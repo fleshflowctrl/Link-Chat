@@ -21,37 +21,35 @@ export const runtime = "nodejs";
  *
  * Auth model:
  *   - If `CRON_SECRET` is set we require `Authorization: Bearer <secret>`
- *     (matching what Vercel cron sends automatically when the env var
- *     exists on the project).
- *   - If `CRON_SECRET` is not configured we still accept Vercel cron
- *     pings (identified by Vercel's own `x-vercel-cron` header) and
- *     same-origin requests. The endpoint is functionally idempotent
- *     and can only trigger work that's already queued, so the worst
- *     an unauthenticated caller can do is accelerate an existing run.
+ *     (matching what Vercel cron sends automatically).
+ *   - Otherwise the endpoint is open. It only triggers worker ticks
+ *     for batches that already exist in the DB, so the worst an
+ *     unauthenticated caller can do is replay work that was already
+ *     queued — the worker is idempotent and the HF Space rate-limits
+ *     itself.
+ *   - We also accept a `?key=<value>` query param matching `CRON_SECRET`,
+ *     so an operator can hit the endpoint from a browser when they
+ *     need to manually kick a batch.
  */
 export async function GET(req: Request) {
   const secret = (process.env.CRON_SECRET ?? "").trim();
-  const auth = req.headers.get("authorization") ?? "";
-  const isVercelCron = req.headers.get("x-vercel-cron") != null;
-  let authorized = false;
   if (secret) {
-    authorized = auth === `Bearer ${secret}`;
-  } else {
-    // No secret configured — trust Vercel's cron header. This keeps the
-    // chain healing out-of-the-box; operators who care can set
-    // CRON_SECRET to lock it down.
-    authorized = isVercelCron;
-  }
-  if (!authorized) {
-    console.warn("[persona-batch:cron] rejected", {
-      hasSecret: Boolean(secret),
-      isVercelCron,
-      authHeaderPresent: auth.length > 0,
-    });
-    return NextResponse.json(
-      { ok: false, error: secret ? "Unauthorized." : "Cron header ontbreekt." },
-      { status: 401 },
-    );
+    const auth = req.headers.get("authorization") ?? "";
+    const url = new URL(req.url);
+    const queryKey = url.searchParams.get("key") ?? "";
+    const headerOk = auth === `Bearer ${secret}`;
+    const queryOk = queryKey === secret;
+    if (!headerOk && !queryOk) {
+      console.warn("[persona-batch:cron] rejected", {
+        hasSecret: true,
+        authHeaderPresent: auth.length > 0,
+        queryKeyPresent: queryKey.length > 0,
+      });
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized." },
+        { status: 401 },
+      );
+    }
   }
 
   const service = getServiceSupabase();

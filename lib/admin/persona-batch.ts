@@ -57,6 +57,24 @@ async function vercelWaitUntil(p: Promise<unknown>): Promise<void> {
   await p.catch(() => undefined);
 }
 
+/** Schedule arbitrary async work to run AFTER the current route
+ * handler has returned its response. On Vercel this extends the
+ * function lifetime via `waitUntil`; locally we await inline. Use
+ * this when the handler should ack fast but still complete real
+ * work before the function instance exits. */
+export async function scheduleAfterResponse(
+  fn: () => Promise<unknown>,
+): Promise<void> {
+  const p = (async () => {
+    try {
+      await fn();
+    } catch (err) {
+      console.error("[persona-batch:scheduleAfterResponse]", err);
+    }
+  })();
+  await vercelWaitUntil(p);
+}
+
 /** Items stuck in `*_state='running'` longer than this are assumed to
  * have been orphaned by a crashed tick and get reset to 'pending' on
  * the next tick. 90s is comfortably above Vercel's 60s function cap
@@ -200,10 +218,13 @@ export function resolveBaseUrl(req?: Request): string {
   return "http://localhost:3000";
 }
 
-/** Kick off the next worker tick. On Vercel we register the fetch with
- * `waitUntil` so the runtime keeps the function alive long enough for
- * the request to reach the new invocation even after we've returned
- * our response. Locally we just await it (fast either way). */
+/** Kick off the next worker tick. The destination route acks fast
+ * (the work runs in its own waitUntil) so awaiting this fetch only
+ * blocks for ~100ms even when the chain is busy. We add a 10s
+ * timeout as a safety net — if the new invocation can't even
+ * acknowledge in that window something is seriously wrong (cold
+ * start way out of band, network down), and the cron + UI heartbeat
+ * will retry. */
 export async function triggerNextTick(
   baseUrl: string,
   batchId: string,
@@ -214,25 +235,25 @@ export async function triggerNextTick(
 
   log("triggerNextTick", "fire", { batchId, url });
 
-  const fetchPromise = fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body,
-    cache: "no-store",
-  })
-    .then((res) => {
-      log("triggerNextTick", "ack", { batchId, status: res.status });
-      return null;
-    })
-    .catch((err: unknown) => {
-      log("triggerNextTick", "error", {
-        batchId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return null;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      cache: "no-store",
+      signal: controller.signal,
     });
-
-  await vercelWaitUntil(fetchPromise);
+    log("triggerNextTick", "ack", { batchId, status: res.status });
+  } catch (err) {
+    log("triggerNextTick", "error", {
+      batchId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 async function loadBatch(
