@@ -59,11 +59,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, alreadyUnlocked: true });
   }
 
-  // 3. Check user credits
+  // 3. Check user credits — user_profiles uses user_id as PK (not id)
   const { data: profile } = await supabase
     .from("user_profiles")
     .select("credits")
-    .eq("id", user.id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   const currentCredits = (profile as any)?.credits ?? 0;
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
   const { error: deductErr } = await supabase
     .from("user_profiles")
     .update({ credits: currentCredits - blurCost })
-    .eq("id", user.id);
+    .eq("user_id", user.id);
 
   if (deductErr) {
     return NextResponse.json({ ok: false, error: "Credits aftrekken mislukt" }, { status: 500 });
@@ -95,7 +95,7 @@ export async function POST(req: Request) {
     await supabase
       .from("user_profiles")
       .update({ credits: currentCredits })
-      .eq("id", user.id);
+      .eq("user_id", user.id);
     return NextResponse.json({ ok: false, error: "Unlock opslaan mislukt" }, { status: 500 });
   }
 
