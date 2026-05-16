@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AdminPageHeader } from "@/components/admin/page-header";
-import { NUDE_SCENES } from "@/lib/admin/nude-scenes";
+// Nude generation now uses the dedicated nude template pool in lib/images/nude-scene-templates.ts
 
 type Persona = {
   id: string;
@@ -66,7 +66,7 @@ export default function NudesAdminPage() {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            scene: NUDE_SCENES[i],
+            nude: true,
             variant: 15000 + i * 1337,
           }),
         });

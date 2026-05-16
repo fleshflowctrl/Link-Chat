@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
-import { appendPersonaGalleryPhoto } from "@/lib/admin/persona-ops";
+import { appendPersonaGalleryPhoto, appendNudeGalleryPhoto } from "@/lib/admin/persona-ops";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,6 +16,8 @@ type RouteCtx = { params: { id: string } };
 type AppendBody = {
   variant?: number;
   scene?: string;
+  /** When true, uses the dedicated nude template pool instead of normal scenes */
+  nude?: boolean;
 };
 
 export async function POST(req: Request, ctx: RouteCtx) {
@@ -40,11 +42,16 @@ export async function POST(req: Request, ctx: RouteCtx) {
     // empty / malformed body is fine — we have a default template
   }
 
-  const result = await appendPersonaGalleryPhoto(service, {
-    personaId: ctx.params.id,
-    variant: body.variant,
-    scene: body.scene,
-  });
+  const result = body.nude
+    ? await appendNudeGalleryPhoto(service, {
+        personaId: ctx.params.id,
+        variant: body.variant,
+      })
+    : await appendPersonaGalleryPhoto(service, {
+        personaId: ctx.params.id,
+        variant: body.variant,
+        scene: body.scene,
+      });
 
   if (!result.ok) {
     return NextResponse.json(

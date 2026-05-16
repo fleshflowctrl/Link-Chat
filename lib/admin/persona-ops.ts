@@ -24,6 +24,7 @@ import { parsePersonaPayload } from "@/lib/admin/persona-payload";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
 import { pickFreshSceneTemplate } from "@/lib/images/scene-templates";
+import { pickFreshNudeTemplates } from "@/lib/images/nude-scene-templates";
 import {
   loadActiveTemplatesForSlot,
   recordAndConsumeSceneTemplateUse,
@@ -444,3 +445,116 @@ export async function appendPersonaGalleryPhoto(
     backend: photo.backend,
   };
 }
+
+// ============================================================================
+// NUDE GALLERY PHOTO GENERATION (dedicated explicit template pool)
+// ============================================================================
+
+export type AppendNudeGalleryInput = {
+  personaId: string;
+  variant?: number;
+};
+
+export type AppendNudeGalleryResult =
+  | { ok: true; gallery_url: string; gallery_urls: string[]; seed: number; backend: string }
+  | { ok: false; error: string; status?: number };
+
+/** Generate ONE explicit nude gallery photo using the dedicated nude template pool.
+ *  This bypasses the normal scene template system and forces full explicit styling.
+ */
+export async function appendNudeGalleryPhoto(
+  service: SupabaseClient,
+  input: AppendNudeGalleryInput,
+): Promise<AppendNudeGalleryResult> {
+  const { data: persona, error: loadErr } = await service
+    .from("chat_profiles")
+    .select("*")
+    .eq("id", input.personaId)
+    .maybeSingle();
+
+  if (loadErr) return { ok: false, error: loadErr.message, status: 500 };
+  if (!persona) return { ok: false, error: "Persona niet gevonden.", status: 404 };
+
+  // Pick a fresh nude template (avoids recent repeats for this persona)
+  const [template] = pickFreshNudeTemplates(1, input.personaId);
+
+  // Force explicit nude outfit on top of the template
+  const explicitOutfit =
+    "completely nude, no clothes at all, bare skin, full frontal nudity, " +
+    "breasts and vagina clearly visible, amateur self-taken";
+
+  const { prompt, seed: anchorSeed, negativePrompt } = buildPersonaPhotoPrompt({
+    profile: persona as Parameters<typeof buildPersonaPhotoPrompt>[0]["profile"],
+    scene: template.scene,
+    cameraStyle: {
+      camera: template.camera,
+      backdrop: template.backdrop,
+      lighting: template.lighting,
+      capture: template.capture,
+      outfit: explicitOutfit,
+      pose: template.pose,
+    },
+  });
+
+  const variantOffset =
+    typeof input.variant === "number" && Number.isFinite(input.variant)
+      ? Math.floor(input.variant) * 7919
+      : Math.floor(Math.random() * 1_000_000);
+
+  const seed = (anchorSeed + variantOffset) >>> 0;
+
+  console.log("[persona-ops/append-nude]", {
+    persona: input.personaId,
+    template: template.scene.slice(0, 70),
+    seed,
+  });
+
+  const photo = await generatePersonaPhoto({ prompt, seed });
+  if (!photo.ok) {
+    return { ok: false, error: `Foto-generatie faalde: ${photo.error}`, status: 502 };
+  }
+
+  const ext = /png/i.test(photo.mime) ? "png" : /jpe?g/i.test(photo.mime) ? "jpg" : "webp";
+  const path = `admin-personas/${input.personaId}/nude-${Date.now()}.${ext}`;
+
+  const { error: upErr } = await service.storage
+    .from("chat-images")
+    .upload(path, photo.bytes, {
+      contentType: photo.mime,
+      cacheControl: "31536000",
+      upsert: false,
+    });
+
+  if (upErr) {
+    return { ok: false, error: `Upload faalde: ${upErr.message}`, status: 500 };
+  }
+
+  const { data: pub } = service.storage.from("chat-images").getPublicUrl(path);
+  if (!pub?.publicUrl) {
+    return { ok: false, error: "Kon public URL niet bepalen voor nude foto.", status: 500 };
+  }
+
+  const existing = Array.isArray(persona.gallery_urls)
+    ? (persona.gallery_urls.filter((u: unknown) => typeof u === "string" && u.length > 0) as string[])
+    : [];
+
+  const nextGallery = [...existing, pub.publicUrl];
+
+  const { error: updateErr } = await service
+    .from("chat_profiles")
+    .update({ gallery_urls: nextGallery })
+    .eq("id", input.personaId);
+
+  if (updateErr) {
+    return { ok: false, error: `DB-update faalde: ${updateErr.message}`, status: 500 };
+  }
+
+  return {
+    ok: true,
+    gallery_url: pub.publicUrl,
+    gallery_urls: nextGallery,
+    seed: photo.seed,
+    backend: photo.backend,
+  };
+}
+
