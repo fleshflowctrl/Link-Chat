@@ -878,17 +878,25 @@ export const SCENE_TEMPLATES: readonly SceneTemplate[] = [
   },
 ] as const;
 
-function candidatesForSlot(slot: "avatar" | "gallery"): readonly SceneTemplate[] {
-  if (slot === "gallery") return SCENE_TEMPLATES;
+function candidatesForSlot(
+  slot: "avatar" | "gallery",
+  pool?: readonly SceneTemplate[] | null,
+): readonly SceneTemplate[] {
+  // Use the operator-supplied DB pool when provided; otherwise fall
+  // back to the in-code SCENE_TEMPLATES constant. Either way we
+  // still apply the avatar/gallery kind filter below.
+  const source =
+    pool && pool.length > 0 ? (pool as readonly SceneTemplate[]) : SCENE_TEMPLATES;
+  if (slot === "gallery") return source;
   // Avatar slot prefers face-forward "avatar" / "mixed" templates so
-  // the profile photo stays recognisable. If the template list happens
-  // to contain none of those (e.g. operator deleted all avatar
+  // the profile photo stays recognisable. If the source happens to
+  // contain none of those (e.g. operator rejected all avatar
   // templates while curating a new set), gracefully fall back to the
-  // full list so we never crash with an empty candidate array.
-  const avatarLike = SCENE_TEMPLATES.filter(
+  // full source so we never crash with an empty candidate array.
+  const avatarLike = source.filter(
     (t) => t.kind === "avatar" || t.kind === "mixed",
   );
-  return avatarLike.length > 0 ? avatarLike : SCENE_TEMPLATES;
+  return avatarLike.length > 0 ? avatarLike : source;
 }
 
 /** FNV-1a 32-bit, returned as 8-char lowercase hex. Stable across
@@ -946,8 +954,12 @@ export function pickSceneTemplate(opts: {
   /** When provided: round-robin index (modulo'd by candidate count).
    * When omitted: hash on personaId. */
   variant?: number;
+  /** Pre-loaded candidate pool (e.g. fetched from the DB by the
+   * caller). When omitted, falls back to the in-code SCENE_TEMPLATES
+   * constant. */
+  pool?: readonly SceneTemplate[] | null;
 }): SceneTemplate {
-  const candidates = candidatesForSlot(opts.slot);
+  const candidates = candidatesForSlot(opts.slot, opts.pool);
   if (typeof opts.variant === "number" && Number.isFinite(opts.variant)) {
     const v = ((Math.floor(opts.variant) % candidates.length) + candidates.length) %
       candidates.length;
@@ -998,6 +1010,11 @@ export type PickFreshOpts = {
   attempt?: number;
   /** Fallback variant for the non-DB picker if the DB call fails. */
   fallbackVariant?: number;
+  /** Pre-loaded candidate pool from the DB. When omitted, falls back
+   * to the in-code SCENE_TEMPLATES constant. Callers that have
+   * already loaded the active pool from `scene_templates` (admin
+   * routes, batch worker) should pass it in. */
+  pool?: readonly SceneTemplate[] | null;
 };
 
 export type PickFreshResult = {
@@ -1008,7 +1025,7 @@ export type PickFreshResult = {
 export async function pickFreshSceneTemplate(
   opts: PickFreshOpts,
 ): Promise<PickFreshResult> {
-  const candidates = candidatesForSlot(opts.slot);
+  const candidates = candidatesForSlot(opts.slot, opts.pool);
   const attempt = Math.max(0, Math.floor(opts.attempt ?? 0));
 
   const fallback = (): PickFreshResult => {
@@ -1016,6 +1033,7 @@ export async function pickFreshSceneTemplate(
       personaId: opts.personaId,
       slot: opts.slot,
       variant: opts.fallbackVariant,
+      pool: opts.pool,
     });
     return { template: tpl, templateId: templateId(tpl) };
   };

@@ -27,6 +27,7 @@ import {
   pickFreshSceneTemplate,
   recordSceneTemplateUse,
 } from "@/lib/images/scene-templates";
+import { loadActiveTemplatesForSlot } from "@/lib/admin/scene-templates-store";
 
 export type Attractiveness = "striking" | "average" | "plain";
 export type BodyType = "slim" | "average" | "plus";
@@ -215,12 +216,14 @@ export async function regeneratePersonaAvatar(
   if (loadErr) return { ok: false, error: loadErr.message, status: 500 };
   if (!persona) return { ok: false, error: "Persona niet gevonden.", status: 404 };
 
+  const avatarPool = await loadActiveTemplatesForSlot(service, "avatar");
   const picked = await pickFreshSceneTemplate({
     service,
     personaId: input.personaId,
     slot: "avatar",
     attempt: 0,
     fallbackVariant: input.variant,
+    pool: avatarPool,
   });
   const template = picked.template;
   const scene = (input.scene ?? "").trim() || template.scene;
@@ -328,12 +331,14 @@ export async function appendPersonaGalleryPhoto(
   if (loadErr) return { ok: false, error: loadErr.message, status: 500 };
   if (!persona) return { ok: false, error: "Persona niet gevonden.", status: 404 };
 
+  const galleryPool = await loadActiveTemplatesForSlot(service, "gallery");
   const picked = await pickFreshSceneTemplate({
     service,
     personaId: input.personaId,
     slot: "gallery",
     attempt: input.variant,
     fallbackVariant: input.variant,
+    pool: galleryPool,
   });
   const template = picked.template;
   const scene = (input.scene ?? "").trim() || template.scene;

@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChatBubbleIcon, UsersIcon, ChevronLeftIcon } from "@/components/admin/icons";
+import {
+  ChatBubbleIcon,
+  ChevronLeftIcon,
+  CameraIcon,
+  UsersIcon,
+} from "@/components/admin/icons";
 import type { ReactNode } from "react";
 
 type NavItem = {
@@ -16,6 +21,12 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/admin/personas", label: "Personas", icon: <UsersIcon />, matchPrefix: true },
   { href: "/admin/messages", label: "Berichten", icon: <ChatBubbleIcon />, matchPrefix: true },
+  {
+    href: "/admin/scene-templates",
+    label: "Templates",
+    icon: <CameraIcon />,
+    matchPrefix: true,
+  },
 ];
 
 export function AdminSidebarNav({ adminEmail }: { adminEmail: string | null }) {

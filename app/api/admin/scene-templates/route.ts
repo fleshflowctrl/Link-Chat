@@ -1,0 +1,55 @@
+import { NextResponse } from "next/server";
+
+import { requireAdmin } from "@/lib/auth/require-admin";
+import { getServiceSupabase } from "@/lib/supabase/admin";
+import { listTemplates, type ListOpts } from "@/lib/admin/scene-templates-store";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+export async function GET(req: Request) {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  const service = getServiceSupabase();
+  if (!service) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY ontbreekt." },
+      { status: 500 },
+    );
+  }
+
+  const url = new URL(req.url);
+  const opts: ListOpts = {
+    page: Number(url.searchParams.get("page") ?? "1"),
+    pageSize: Number(url.searchParams.get("pageSize") ?? "50"),
+  };
+  const kind = url.searchParams.get("kind");
+  if (kind === "avatar" || kind === "gallery" || kind === "mixed" || kind === "any") {
+    opts.kind = kind;
+  }
+  const category = url.searchParams.get("category");
+  if (category && category.trim().length > 0) opts.category = category.trim();
+  const state = url.searchParams.get("state");
+  if (state === "active" || state === "rejected" || state === "any") {
+    opts.state = state;
+  } else {
+    opts.state = "active";
+  }
+  const sort = url.searchParams.get("sort");
+  if (sort === "newest" || sort === "oldest") opts.sort = sort;
+
+  try {
+    const result = await listTemplates(service, opts);
+    return NextResponse.json({ ok: true, ...result });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 },
+    );
+  }
+}
