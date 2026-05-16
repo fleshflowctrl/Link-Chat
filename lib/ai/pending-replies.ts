@@ -173,10 +173,10 @@ export async function processDuePendingReplies(
         continue;
       }
 
-      // Explicit nude photos are blurred and cost 50 credits to unlock.
-      const isExplicitNude =
-        /naakt|kutje|kut|borsten zichtbaar|gespreid|naakte|spiegel selfie.*naakt/i.test(scene);
-      const blurCost = isExplicitNude ? 50 : 0;
+      // Blur/paywall is disabled — every persona photo (including
+      // explicit ones) ships unblurred. We keep writing blur_cost = 0
+      // so the column stays consistent with chat_photo_unlocks readers.
+      const blurCost = 0;
 
       const { prompt, seed } = buildPersonaPhotoPrompt({
         profile: args.profile,
