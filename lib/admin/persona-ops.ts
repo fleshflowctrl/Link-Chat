@@ -23,11 +23,11 @@ import { uploadFallbackAvatar } from "@/lib/admin/fallback-avatar";
 import { parsePersonaPayload } from "@/lib/admin/persona-payload";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
+import { pickFreshSceneTemplate } from "@/lib/images/scene-templates";
 import {
-  pickFreshSceneTemplate,
-  recordSceneTemplateUse,
-} from "@/lib/images/scene-templates";
-import { loadActiveTemplatesForSlot } from "@/lib/admin/scene-templates-store";
+  loadActiveTemplatesForSlot,
+  recordAndConsumeSceneTemplateUse,
+} from "@/lib/admin/scene-templates-store";
 
 export type Attractiveness = "striking" | "average" | "plain";
 export type BodyType = "slim" | "average" | "plus";
@@ -287,7 +287,7 @@ export async function regeneratePersonaAvatar(
     };
   }
 
-  await recordSceneTemplateUse({
+  await recordAndConsumeSceneTemplateUse({
     service,
     personaId: input.personaId,
     slot: "avatar",
@@ -429,7 +429,7 @@ export async function appendPersonaGalleryPhoto(
     };
   }
 
-  await recordSceneTemplateUse({
+  await recordAndConsumeSceneTemplateUse({
     service,
     personaId: input.personaId,
     slot: "gallery",

@@ -1104,6 +1104,10 @@ export async function pickFreshSceneTemplate(
 }
 
 /** Record that a persona used a given template for a given slot.
+ * Does NOT remove the template from the pool — for production renders
+ * use `recordAndConsumeSceneTemplateUse` in scene-templates-store.ts
+ * instead (single-use: deletes the row from scene_templates after use).
+ *
  * Best-effort: any error is logged and swallowed because failing the
  * whole photo generation just because we couldn't write a tracking
  * row would be worse than silently degrading uniqueness. */

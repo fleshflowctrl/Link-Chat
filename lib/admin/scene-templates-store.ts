@@ -270,6 +270,59 @@ export async function rejectTemplate(
   return rowToTemplateRow(data as Row);
 }
 
+/** After a successful persona photo render: log usage and remove the
+ * template from `scene_templates` so it can never be picked again.
+ * Single-use pool — operator generates more via Grok when running low.
+ *
+ * Test renders (`/api/admin/scene-templates/[id]/test-render`) do NOT
+ * call this — only production avatar/gallery generation in persona-ops.
+ *
+ * Best-effort: failures are logged and swallowed so a tracking/delete
+ * glitch never fails the whole photo upload. */
+export async function recordAndConsumeSceneTemplateUse(opts: {
+  service: SupabaseClient;
+  personaId: string;
+  slot: "avatar" | "gallery";
+  template: SceneTemplate;
+}): Promise<void> {
+  const tid = templateId(opts.template);
+
+  try {
+    const { error } = await opts.service
+      .from("chat_persona_photo_templates")
+      .insert({
+        persona_id: opts.personaId,
+        slot: opts.slot,
+        template_id: tid,
+        template_scene: opts.template.scene,
+      });
+    if (error) throw error;
+  } catch (err) {
+    console.warn("[scene-templates] recordSceneTemplateUse failed", {
+      personaId: opts.personaId,
+      slot: opts.slot,
+      templateId: tid,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  try {
+    const { error } = await opts.service
+      .from(SCENE_TEMPLATES_TABLE)
+      .delete()
+      .eq("template_id", tid);
+    if (error) throw error;
+    invalidateDbStateCache();
+  } catch (err) {
+    console.warn("[scene-templates] consumeSceneTemplateFromPool failed", {
+      personaId: opts.personaId,
+      slot: opts.slot,
+      templateId: tid,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 /** Hard delete one or more templates. Used by the bulk-delete UI when
  * the operator wants to remove obviously-bad templates without writing
  * a per-template rejection reason. Returns the number of rows actually
