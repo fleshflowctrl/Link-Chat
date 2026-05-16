@@ -189,6 +189,7 @@ export async function POST(req: Request) {
     status_label: generated.persona.status_label,
     last_active_label: "Active today",
     home_sort: 100,
+    joined_at: new Date().toISOString(),
     distance_km: 4,
     verified: true,
     online_now: generated.persona.status_variant === "online",

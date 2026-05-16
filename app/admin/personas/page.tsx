@@ -32,11 +32,14 @@ async function loadPersonas(): Promise<{
   // up — the banner above the list explains exactly which migration is
   // outstanding. Wider payload but the admin operates on small result
   // sets so this is fine.
+  // Newest first. nullsFirst=false keeps legacy personas (no joined_at)
+  // at the bottom; the migration 20260516210000 backfills those so this
+  // matters less over time, but the option keeps things robust.
   const { data, error } = await service
     .from("chat_profiles")
     .select("*")
     .eq("is_ai", true)
-    .order("home_sort", { ascending: true })
+    .order("joined_at", { ascending: false, nullsFirst: false })
     .order("display_name", { ascending: true });
 
   if (error) {

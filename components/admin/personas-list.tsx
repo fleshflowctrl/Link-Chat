@@ -359,7 +359,7 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
           onClear={() => setQuery("")}
         />
       ) : (
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-2 gap-3">
           {filtered.map((p) => (
             <PersonaCard
               key={p.id}
