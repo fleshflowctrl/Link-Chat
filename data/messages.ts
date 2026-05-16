@@ -1,4 +1,8 @@
 import { getProfileById } from "@/data/profiles";
+import {
+  formatTimeLabelAmsterdam,
+  minuteOfDayAmsterdam,
+} from "@/lib/datetime/amsterdam";
 
 export type ChatFilterId =
   | "links"
@@ -219,6 +223,8 @@ export interface ChatMessage {
   timeLabel: string;
   /** Minutes from midnight for grouping (0–1440) */
   minuteOfDay: number;
+  /** ISO instant from Supabase — used to re-format in Europe/Amsterdam. */
+  createdAt?: string;
   /** When set, a ❤️-style badge overlaps the bottom-left of this bubble */
   reactionBadge?: string;
   /** ISO timestamp at which the AI peer read this user message. Drives the
@@ -346,13 +352,11 @@ export function appendOnboardingOutboundToMockThread(
   if (typeof window === "undefined") return;
   const trimmed = body.trim();
   if (!trimmed) return;
+  const { formatTimeLabelAmsterdam, minuteOfDayAmsterdam } =
+    require("@/lib/datetime/amsterdam") as typeof import("@/lib/datetime/amsterdam");
   const d = new Date();
-  const timeLabel = d.toLocaleTimeString("en-GB", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const minuteOfDay = d.getHours() * 60 + d.getMinutes();
+  const timeLabel = formatTimeLabelAmsterdam(d);
+  const minuteOfDay = minuteOfDayAmsterdam(d);
   const msg: ChatMessage = {
     id: `onboard-${d.getTime()}`,
     sender: "me",
@@ -360,6 +364,7 @@ export function appendOnboardingOutboundToMockThread(
     body: trimmed,
     timeLabel,
     minuteOfDay,
+    createdAt: d.toISOString(),
   };
   const prev = messagesById[chatId] ?? [];
   messagesById[chatId] = [...prev.filter((m) => !m.id.startsWith("onboard-")), msg];

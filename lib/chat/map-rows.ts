@@ -4,6 +4,11 @@ import type {
   ChatMessageSender,
   MessageThread,
 } from "@/data/messages";
+import {
+  formatTimeLabelAmsterdam,
+  isoToThreadTimeLabelAmsterdam,
+  minuteOfDayAmsterdam,
+} from "@/lib/datetime/amsterdam";
 
 /** Optional structured persona styling metadata (DB column `chat_style`, jsonb).
  * Every key is optional; missing keys must fall back gracefully. Never surface
@@ -126,20 +131,7 @@ export type ChatMessageRow = {
 };
 
 export function isoToThreadTimeLabel(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  const diff = Date.now() - d.getTime();
-  if (diff < 60_000) return "Nu";
-  if (diff < 86_400_000) {
-    return d.toLocaleTimeString("nl-NL", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }
-  if (diff < 172_800_000) return "Gisteren";
-  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)} d geleden`;
-  return d.toLocaleDateString("nl-NL");
+  return isoToThreadTimeLabelAmsterdam(iso);
 }
 
 export function profileRowToThread(row: ChatProfileRow): MessageThread {
@@ -222,17 +214,8 @@ export function mergeProfileWithLatestUserMessage(
 }
 
 export function messageRowToUi(row: ChatMessageRow): ChatMessage {
-  const d = new Date(row.created_at);
-  const timeLabel = d.toLocaleTimeString("nl-NL", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const minuteOfDay =
-    d.getHours() * 60 +
-    d.getMinutes() +
-    d.getSeconds() / 60 +
-    d.getMilliseconds() / 60000;
+  const timeLabel = formatTimeLabelAmsterdam(row.created_at);
+  const minuteOfDay = minuteOfDayAmsterdam(row.created_at);
 
   const sender: ChatMessageSender = row.sender === "me" ? "me" : "peer";
   const kind: ChatMessage["kind"] =
@@ -254,6 +237,7 @@ export function messageRowToUi(row: ChatMessageRow): ChatMessage {
         : undefined,
     timeLabel,
     minuteOfDay,
+    createdAt: row.created_at,
     reactionBadge: row.reaction_emoji ?? undefined,
     peerReadAt: row.peer_read_at ?? undefined,
   };

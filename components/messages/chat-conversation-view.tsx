@@ -36,6 +36,11 @@ import {
   applyOptimisticUnreadDelta,
   setServerUnreadBaseline,
 } from "@/lib/messages-tab-badge";
+import {
+  formatReadTimeAmsterdam,
+  nowAmsterdamClock,
+  withAmsterdamMessageTimes,
+} from "@/lib/datetime/amsterdam";
 
 const GROUP_GAP_MIN = 5;
 
@@ -65,46 +70,6 @@ function annotateMessages(msgs: ChatMessage[]): Annotated[] {
     const showMeta = !sameSenderNext || !tightNext;
     return { ...msg, marginTopClass, showAvatar, showMeta };
   });
-}
-
-/** Format a peer-read timestamp as a short HH:MM (today) or "gisteren" /
- * "5 dec" for older messages. iMessage shows just "Read 14:32"; we mirror
- * that pattern. */
-function formatReadTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const now = new Date();
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-  if (sameDay) {
-    return d.toLocaleTimeString("nl-NL", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: false,
-    });
-  }
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday =
-    d.getFullYear() === yesterday.getFullYear() &&
-    d.getMonth() === yesterday.getMonth() &&
-    d.getDate() === yesterday.getDate();
-  if (isYesterday) {
-    return `gisteren ${d.toLocaleTimeString("nl-NL", { hour: "numeric", minute: "2-digit", hour12: false })}`;
-  }
-  return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
-}
-
-function nowClock(): { timeLabel: string; minuteOfDay: number } {
-  const d = new Date();
-  const timeLabel = d.toLocaleTimeString("nl-NL", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return { timeLabel, minuteOfDay: d.getHours() * 60 + d.getMinutes() };
 }
 
 function gid() {
@@ -235,8 +200,9 @@ export function ChatConversationView({
   const [skipEntryAnimateIds, setSkipEntryAnimateIds] = useState(
     () => new Set(initialMessages.map((m) => m.id)),
   );
-  const [messages, setMessages] =
-    useState<ChatMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    initialMessages.map(withAmsterdamMessageTimes),
+  );
   const [input, setInput] = useState("");
   const [readPhase, setReadPhase] = useState<Record<string, "single" | "double">>(
     {},
@@ -398,7 +364,9 @@ export function ChatConversationView({
         if (fresh.length > 0) {
           setMessages((prev) => {
             const seen = new Set(prev.map((m) => m.id));
-            const additions = fresh.filter((m) => !seen.has(m.id));
+            const additions = fresh
+              .filter((m) => !seen.has(m.id))
+              .map(withAmsterdamMessageTimes);
             return additions.length === 0 ? prev : [...prev, ...additions];
           });
           requestThreadsRefetch();
@@ -581,7 +549,7 @@ export function ChatConversationView({
       setMessages((prev) => {
         const body = u.firstMessage!.trim();
         if (prev.some((m) => m.sender === "me" && m.body === body)) return prev;
-        const { timeLabel, minuteOfDay } = nowClock();
+        const { timeLabel, minuteOfDay } = nowAmsterdamClock();
         return [
           ...prev,
           {
@@ -616,7 +584,7 @@ export function ChatConversationView({
         if (cancelled || !res.ok || !data.ok || !Array.isArray(data.messages)) {
           return;
         }
-        setMessages(data.messages);
+        setMessages(data.messages.map(withAmsterdamMessageTimes));
         setSkipEntryAnimateIds(new Set(data.messages.map((m) => m.id)));
       } catch {
         /* keep SSR / local state */
@@ -649,7 +617,7 @@ export function ChatConversationView({
       if (blockIfNoProfilePhoto("text")) return;
 
       if (!useSupabase) {
-        const { timeLabel, minuteOfDay } = nowClock();
+        const { timeLabel, minuteOfDay } = nowAmsterdamClock();
         const id = gid();
         setMessages((prev) => [
           ...prev,
@@ -681,7 +649,8 @@ export function ChatConversationView({
         return;
       }
 
-      const { timeLabel, minuteOfDay } = nowClock();
+      const sentAt = new Date().toISOString();
+      const { timeLabel, minuteOfDay } = nowAmsterdamClock();
       const tempId = `tmp-${gid()}`;
       const optimisticUserMessage: ChatMessage = {
         id: tempId,
@@ -690,13 +659,13 @@ export function ChatConversationView({
         body: trimmed,
         timeLabel,
         minuteOfDay,
+        createdAt: sentAt,
       };
 
       setAssistantError(null);
       setInput("");
       setMessages((prev) => [...prev, optimisticUserMessage]);
       setReadPhase((p) => ({ ...p, [tempId]: "single" }));
-      const sentAt = new Date().toISOString();
       setThreadPreview(chatId, {
         lastMessage: trimmed,
         timestampLabel: timeLabel,
@@ -762,7 +731,9 @@ export function ChatConversationView({
 
         setMessages((prev) => {
           const replaced = prev.map((m) =>
-            m.id === tempId ? data.userMessage! : m,
+            m.id === tempId
+              ? withAmsterdamMessageTimes(data.userMessage!)
+              : m,
           );
           // Append in order: any catch-up replies that the server delivered
           // for older queued messages, then the synchronous reply for *this*
@@ -771,12 +742,12 @@ export function ChatConversationView({
           const additions: ChatMessage[] = [];
           for (const m of data.newPeerMessages ?? []) {
             if (!seen.has(m.id)) {
-              additions.push(m);
+              additions.push(withAmsterdamMessageTimes(m));
               seen.add(m.id);
             }
           }
           if (data.peerMessage && !seen.has(data.peerMessage.id)) {
-            additions.push(data.peerMessage);
+            additions.push(withAmsterdamMessageTimes(data.peerMessage));
           }
           return additions.length === 0 ? replaced : [...replaced, ...additions];
         });
@@ -796,7 +767,7 @@ export function ChatConversationView({
           data.peerMessage?.body ?? data.userMessage.body ?? trimmed;
         setThreadPreview(chatId, {
           lastMessage: preview,
-          timestampLabel: nowClock().timeLabel,
+          timestampLabel: nowAmsterdamClock().timeLabel,
           lastActivityAt: new Date().toISOString(),
           name: meta.name,
           avatarUrl: meta.avatarUrl,
@@ -830,7 +801,7 @@ export function ChatConversationView({
       if (!publicUrl) return;
       if (blockIfNoProfilePhoto("image")) return;
       if (!useSupabase) {
-        const { timeLabel, minuteOfDay } = nowClock();
+        const { timeLabel, minuteOfDay } = nowAmsterdamClock();
         setMessages((prev) => [
           ...prev,
           {
@@ -845,7 +816,7 @@ export function ChatConversationView({
         return;
       }
 
-      const { timeLabel, minuteOfDay } = nowClock();
+      const { timeLabel, minuteOfDay } = nowAmsterdamClock();
       const tempId = `tmp-${gid()}`;
       const optimistic: ChatMessage = {
         id: tempId,
@@ -895,18 +866,20 @@ export function ChatConversationView({
         }
         setMessages((prev) => {
           const replaced = prev.map((m) =>
-            m.id === tempId ? data.userMessage! : m,
+            m.id === tempId
+              ? withAmsterdamMessageTimes(data.userMessage!)
+              : m,
           );
           const seen = new Set(replaced.map((m) => m.id));
           const additions: ChatMessage[] = [];
           for (const m of data.newPeerMessages ?? []) {
             if (!seen.has(m.id)) {
-              additions.push(m);
+              additions.push(withAmsterdamMessageTimes(m));
               seen.add(m.id);
             }
           }
           if (data.peerMessage && !seen.has(data.peerMessage.id)) {
-            additions.push(data.peerMessage);
+            additions.push(withAmsterdamMessageTimes(data.peerMessage));
           }
           return additions.length === 0 ? replaced : [...replaced, ...additions];
         });
@@ -930,7 +903,7 @@ export function ChatConversationView({
       if (!Number.isFinite(amount) || amount <= 0) return { ok: false as const, error: "Ongeldig bedrag" };
       if (blockIfNoProfilePhoto("gift")) return { ok: false as const, error: "Profielfoto vereist" };
 
-      const { timeLabel, minuteOfDay } = nowClock();
+      const { timeLabel, minuteOfDay } = nowAmsterdamClock();
       const tempId = `tmp-${gid()}`;
       const optimistic: ChatMessage = {
         id: tempId,
@@ -978,9 +951,13 @@ export function ChatConversationView({
         }
         setMessages((prev) => {
           const replaced = prev.map((m) =>
-            m.id === tempId ? data.userMessage! : m,
+            m.id === tempId
+              ? withAmsterdamMessageTimes(data.userMessage!)
+              : m,
           );
-          return data.peerMessage ? [...replaced, data.peerMessage] : replaced;
+          return data.peerMessage
+            ? [...replaced, withAmsterdamMessageTimes(data.peerMessage)]
+            : replaced;
         });
         requestThreadsRefetch();
         return { ok: true as const, newBalance: data.newBalance };
@@ -1364,7 +1341,7 @@ export function ChatConversationView({
                     )}
                     {msg.id === lastReadUserMessageId && msg.peerReadAt && (
                       <p className="mt-0.5 pr-0.5 text-right text-[10px] font-medium text-primary">
-                        Gelezen {formatReadTime(msg.peerReadAt)}
+                        Gelezen {formatReadTimeAmsterdam(msg.peerReadAt)}
                       </p>
                     )}
                   </div>
