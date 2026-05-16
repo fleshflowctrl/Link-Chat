@@ -412,13 +412,20 @@ export function buildPersonaPhotoPrompt(args: {
       cleanScene,
     );
   if (isExplicitNude) {
+    // Strong identity reinforcement for explicit nudes — diffusion models
+    // tend to "forget" the specific face when the scene becomes highly sexual.
+    // We repeat the core persona descriptors right before the nudity tokens.
+    promptParts.push(
+      "exact same woman as in her profile photos, same face, same eyes, same smile, " +
+        "same hair color and length, same body proportions and skin tone, " +
+        "highly consistent identity, recognizable as the same person",
+    );
     promptParts.push(
       "completely nude, no clothes at all, bare skin, full frontal nudity, " +
         "breasts fully visible with nipples, vagina/pussy clearly visible and exposed, " +
         "legs spread wide, explicit nudity, no hands covering breasts or vagina",
     );
     // Self-taken explicit photo: MUST look like she took it herself.
-    // This overrides the generic camera/capture later in the prompt.
     promptParts.push(
       "mirror selfie taken by the woman herself, she is holding her own phone, " +
         "arm extended or phone visible in the mirror reflection, selfie angle from her hand, " +
