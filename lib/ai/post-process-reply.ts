@@ -167,6 +167,14 @@ export function postProcessReply(raw: string): string {
   // (with spaces) so meaning stays intact, but the look becomes much more human.
   s = s.replace(/\s*\u2014\s*/g, " \u2013 ");
 
+  // Scrub app-internal jargon. Real people NEVER say "100 credits" — it's
+  // the single most jarring AI tell, especially in negotiation contexts.
+  // The prompt forbids it but this is a safety net for the rare slip.
+  s = s
+    .replace(/\b\d+\s*credits?\b/gi, "iets liefs")
+    .replace(/\bcredits?\b/gi, "iets liefs")
+    .replace(/\btikkie(?:tje)?s?\b/gi, "iets liefs");
+
   // Collapse 3+ blank lines to 2.
   s = s.replace(/\n{3,}/g, "\n\n");
 
