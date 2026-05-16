@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 /**
  * Scene templates for persona photo generation.
  *
@@ -889,6 +891,29 @@ function candidatesForSlot(slot: "avatar" | "gallery"): readonly SceneTemplate[]
   return avatarLike.length > 0 ? avatarLike : SCENE_TEMPLATES;
 }
 
+/** FNV-1a 32-bit, returned as 8-char lowercase hex. Stable across
+ * processes — same input → same id forever. */
+function fnv1aHex(input: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+/** Stable identifier for a scene template. We hash the four key
+ * fields the diffusion model actually anchors on: scene, outfit,
+ * pose and kind. Changing the camera or backdrop wording (small
+ * polish edits) keeps the same id — changing the actual outfit or
+ * pose mints a new id, which means the picker will treat the
+ * revised template as "fresh" and freely reuse the slug. That's
+ * exactly the trade-off we want: re-wording is cheap, re-styling
+ * is a new template. */
+export function templateId(t: SceneTemplate): string {
+  return fnv1aHex(`${t.scene}\u241F${t.outfit}\u241F${t.pose}\u241F${t.kind}`);
+}
+
 /** Pick a scene template.
  *
  * Two selection modes, picked by which arg the caller provides:
@@ -909,7 +934,12 @@ function candidatesForSlot(slot: "avatar" | "gallery"): readonly SceneTemplate[]
  *
  * `slot` always restricts the candidate set: "avatar" filters to
  * face-forward shots so the profile photo is recognisable, "gallery"
- * uses the full list with full-body and activity shots. */
+ * uses the full list with full-body and activity shots.
+ *
+ * For the production batch worker prefer `pickFreshSceneTemplate`
+ * which consults the DB usage tracker — this one is the
+ * non-DB-aware fallback used by test-photo and as the safety net
+ * when the tracker lookup fails. */
 export function pickSceneTemplate(opts: {
   personaId: string;
   slot: "avatar" | "gallery";
@@ -923,14 +953,163 @@ export function pickSceneTemplate(opts: {
       candidates.length;
     return candidates[v]!;
   }
-  // Hash on persona id alone — single-shot retries should map to the
-  // same template until the operator bumps `variant`.
   const key = `${opts.personaId}|${opts.slot}`;
-  let h = 2166136261;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const idx = (h >>> 0) % candidates.length;
+  const idx = parseInt(fnv1aHex(key), 16) % candidates.length;
   return candidates[idx]!;
+}
+
+/** DB-aware template picker.
+ *
+ * Goal: across the entire admin persona catalogue, no two photos
+ * should land on the same scene template if we can possibly avoid
+ * it — and within a single persona, every photo (avatar + gallery)
+ * must use a different template.
+ *
+ * Algorithm:
+ *   1. Look up every template_id this persona has already used (any
+ *      slot). Those are hard-excluded from the candidate pool. This
+ *      is why the avatar slot can't collide with the persona's own
+ *      gallery shots.
+ *   2. For the remaining pool, count how often each template has
+ *      been used globally (across all personas, all slots). The
+ *      pool is then sorted ascending by global count, so the
+ *      least-used templates are tried first.
+ *   3. Ties on count are broken by a deterministic hash on
+ *      (personaId, slot, attempt, templateId) — so retries for the
+ *      same persona/attempt stay stable, but different personas
+ *      with the same low-count pool spread across the tie.
+ *
+ * Failure modes:
+ *   - DB query fails → fall back to the hash-based `pickSceneTemplate`
+ *     (with `opts.variant` if provided). The chain keeps moving.
+ *   - Pool ends up empty because the persona has somehow used every
+ *     template → fall through to the global least-used template,
+ *     ignoring the per-persona exclusion. Extreme edge case (would
+ *     require > 80 photos on one persona).
+ */
+export type PickFreshOpts = {
+  service: SupabaseClient;
+  personaId: string;
+  slot: "avatar" | "gallery";
+  /** Stable counter used as tie-break input. For gallery shots pass
+   * the attempt index (0..target-1) so retries for the same slot
+   * land on the same template; for avatar pass any small number
+   * (we use 0). */
+  attempt?: number;
+  /** Fallback variant for the non-DB picker if the DB call fails. */
+  fallbackVariant?: number;
+};
+
+export type PickFreshResult = {
+  template: SceneTemplate;
+  templateId: string;
+};
+
+export async function pickFreshSceneTemplate(
+  opts: PickFreshOpts,
+): Promise<PickFreshResult> {
+  const candidates = candidatesForSlot(opts.slot);
+  const attempt = Math.max(0, Math.floor(opts.attempt ?? 0));
+
+  const fallback = (): PickFreshResult => {
+    const tpl = pickSceneTemplate({
+      personaId: opts.personaId,
+      slot: opts.slot,
+      variant: opts.fallbackVariant,
+    });
+    return { template: tpl, templateId: templateId(tpl) };
+  };
+
+  let usedByPersona: Set<string>;
+  try {
+    const { data, error } = await opts.service
+      .from("chat_persona_photo_templates")
+      .select("template_id")
+      .eq("persona_id", opts.personaId);
+    if (error) throw error;
+    usedByPersona = new Set(
+      (data ?? []).map((row) => String(row.template_id)),
+    );
+  } catch (err) {
+    console.warn("[scene-templates] usedByPersona lookup failed", {
+      personaId: opts.personaId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return fallback();
+  }
+
+  let pool = candidates.filter((t) => !usedByPersona.has(templateId(t)));
+  if (pool.length === 0) {
+    // This persona has cycled through every template in the slot's
+    // candidate set. Give up the per-persona uniqueness and pick
+    // from the full candidate list — duplicates within one persona
+    // are still better than a hard failure.
+    pool = [...candidates];
+  }
+
+  const poolIds = pool.map((t) => templateId(t));
+  let globalCounts: Map<string, number>;
+  try {
+    const { data, error } = await opts.service
+      .from("chat_persona_photo_templates")
+      .select("template_id")
+      .in("template_id", poolIds);
+    if (error) throw error;
+    globalCounts = new Map();
+    for (const id of poolIds) globalCounts.set(id, 0);
+    for (const row of data ?? []) {
+      const id = String(row.template_id);
+      globalCounts.set(id, (globalCounts.get(id) ?? 0) + 1);
+    }
+  } catch (err) {
+    console.warn("[scene-templates] globalCounts lookup failed", {
+      personaId: opts.personaId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return fallback();
+  }
+
+  const ranked = pool
+    .map((t) => {
+      const id = templateId(t);
+      const count = globalCounts.get(id) ?? 0;
+      const tieHash = parseInt(
+        fnv1aHex(`${opts.personaId}|${opts.slot}|${attempt}|${id}`),
+        16,
+      );
+      return { template: t, id, count, tieHash };
+    })
+    .sort((a, b) => a.count - b.count || a.tieHash - b.tieHash);
+
+  const winner = ranked[0]!;
+  return { template: winner.template, templateId: winner.id };
+}
+
+/** Record that a persona used a given template for a given slot.
+ * Best-effort: any error is logged and swallowed because failing the
+ * whole photo generation just because we couldn't write a tracking
+ * row would be worse than silently degrading uniqueness. */
+export async function recordSceneTemplateUse(opts: {
+  service: SupabaseClient;
+  personaId: string;
+  slot: "avatar" | "gallery";
+  template: SceneTemplate;
+}): Promise<void> {
+  try {
+    const { error } = await opts.service
+      .from("chat_persona_photo_templates")
+      .insert({
+        persona_id: opts.personaId,
+        slot: opts.slot,
+        template_id: templateId(opts.template),
+        template_scene: opts.template.scene,
+      });
+    if (error) throw error;
+  } catch (err) {
+    console.warn("[scene-templates] recordSceneTemplateUse failed", {
+      personaId: opts.personaId,
+      slot: opts.slot,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

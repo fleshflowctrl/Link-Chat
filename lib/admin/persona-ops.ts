@@ -23,7 +23,10 @@ import { uploadFallbackAvatar } from "@/lib/admin/fallback-avatar";
 import { parsePersonaPayload } from "@/lib/admin/persona-payload";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
-import { pickSceneTemplate } from "@/lib/images/scene-templates";
+import {
+  pickFreshSceneTemplate,
+  recordSceneTemplateUse,
+} from "@/lib/images/scene-templates";
 
 export type Attractiveness = "striking" | "average" | "plain";
 export type BodyType = "slim" | "average" | "plus";
@@ -212,11 +215,14 @@ export async function regeneratePersonaAvatar(
   if (loadErr) return { ok: false, error: loadErr.message, status: 500 };
   if (!persona) return { ok: false, error: "Persona niet gevonden.", status: 404 };
 
-  const template = pickSceneTemplate({
+  const picked = await pickFreshSceneTemplate({
+    service,
     personaId: input.personaId,
     slot: "avatar",
-    variant: input.variant,
+    attempt: 0,
+    fallbackVariant: input.variant,
   });
+  const template = picked.template;
   const scene = (input.scene ?? "").trim() || template.scene;
 
   const { prompt, seed } = buildPersonaPhotoPrompt({
@@ -278,6 +284,13 @@ export async function regeneratePersonaAvatar(
     };
   }
 
+  await recordSceneTemplateUse({
+    service,
+    personaId: input.personaId,
+    slot: "avatar",
+    template,
+  });
+
   return {
     ok: true,
     avatar_url: pub.publicUrl,
@@ -315,11 +328,14 @@ export async function appendPersonaGalleryPhoto(
   if (loadErr) return { ok: false, error: loadErr.message, status: 500 };
   if (!persona) return { ok: false, error: "Persona niet gevonden.", status: 404 };
 
-  const template = pickSceneTemplate({
+  const picked = await pickFreshSceneTemplate({
+    service,
     personaId: input.personaId,
     slot: "gallery",
-    variant: input.variant,
+    attempt: input.variant,
+    fallbackVariant: input.variant,
   });
+  const template = picked.template;
   const scene = (input.scene ?? "").trim() || template.scene;
 
   const { prompt, seed: anchorSeed, negativePrompt } = buildPersonaPhotoPrompt({
@@ -407,6 +423,13 @@ export async function appendPersonaGalleryPhoto(
       status: 500,
     };
   }
+
+  await recordSceneTemplateUse({
+    service,
+    personaId: input.personaId,
+    slot: "gallery",
+    template,
+  });
 
   return {
     ok: true,
