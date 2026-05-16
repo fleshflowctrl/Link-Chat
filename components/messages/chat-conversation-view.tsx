@@ -36,6 +36,7 @@ import {
   applyOptimisticUnreadDelta,
   setServerUnreadBaseline,
 } from "@/lib/messages-tab-badge";
+import { isPeerLiveInChat } from "@/lib/chat/online-status";
 import {
   formatReadTimeAmsterdam,
   nowAmsterdamClock,
@@ -182,16 +183,8 @@ export function ChatConversationView({
 }) {
   const router = useRouter();
   const meta = threadMeta;
-  /** Last time we saw the peer "do something" in-session (a new bubble
-   * landed, or the typing indicator turned on). Used to render the
-   * header dot live: if she just texted, she's online — full stop. */
-  const [lastPeerActivityMs, setLastPeerActivityMs] = useState<number | null>(
-    null,
-  );
-  /** Tick that drives "online → offline" decay after 4 min of silence
-   * even if no other state changes. Without this the header would freeze
-   * on "Nu online" forever. */
-  const [, setOnlineTick] = useState(0);
+  /** Re-render so "Nu online" drops off ~90s after her last bubble. */
+  const [onlineTick, setOnlineTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setOnlineTick((n) => (n + 1) & 0x7fffffff), 30_000);
     return () => clearInterval(id);
@@ -486,7 +479,7 @@ export function ChatConversationView({
       name: o?.name ?? meta.name,
       avatarUrl: o?.avatarUrl ?? meta.avatarUrl,
       verified: o?.verified ?? meta.verified,
-      showOnlineDot: o?.showOnlineDot ?? meta.onlineNow,
+      showOnlineDot: o?.showOnlineDot ?? false,
       unreadCount: 0,
     });
     if (wasUnread) applyOptimisticUnreadDelta(-1);
@@ -513,8 +506,6 @@ export function ChatConversationView({
     if (last.sender !== "peer") return;
     if (lastReadPeerIdRef.current === last.id) return;
     lastReadPeerIdRef.current = last.id;
-    // She just spoke → she's online right now.
-    setLastPeerActivityMs(Date.now());
     // Bump the override too so the inbox doesn't show a stale "unread" while
     // the user is actively reading new replies.
     const o = getThreadPreviewOverride(chatId);
@@ -528,12 +519,10 @@ export function ChatConversationView({
     void markReadOnServer();
   }, [messages, markReadOnServer, chatId]);
 
-  // Derived live online flag — real messages only, not the typing bubble.
-  const HARD_ONLINE_WINDOW_MS = 4 * 60_000;
-  const liveOnlineNow =
-    (lastPeerActivityMs !== null &&
-      Date.now() - lastPeerActivityMs <= HARD_ONLINE_WINDOW_MS) ||
-    meta.onlineNow;
+  const liveOnlineNow = useMemo(
+    () => isPeerLiveInChat({ messages }),
+    [messages, onlineTick],
+  );
 
   /** If mock transcript missed SSR, merge saved first outbound (dev without Supabase). */
   useEffect(() => {

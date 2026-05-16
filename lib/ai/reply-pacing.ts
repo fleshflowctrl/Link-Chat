@@ -291,12 +291,11 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
     };
   }
 
-  // 1b. Turns 1-2: engaged but human — not sub-second.
+  // 1b. Turns 1-2: 30-90 seconds (async).
   if (turnIndex < HOOK_TURN_LIMIT) {
-    const readingBonus = Math.min(userChars * 25, 2000);
-    const delayMs = rng(15_000, 90_000) + readingBonus;
+    const delayMs = rng(30_000, 90_000);
     return {
-      delayMs: clampMs(delayMs, 12_000, 120_000),
+      delayMs: clampMs(delayMs, 30_000, 90_000),
       bedtimePhase: bedtime.phase,
       minutesUntilBedtime: bedtime.minutesUntilBedtime,
       workPhase: work.phase,

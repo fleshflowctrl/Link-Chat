@@ -265,6 +265,10 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
           now,
           profile: row,
           lastPeerMessageAt: lastPeerAt,
+          lastMessageSender:
+            latest.sender === "peer" || latest.sender === "me"
+              ? latest.sender
+              : null,
         });
         thread.onlineNow = liveOnline;
         thread.showOnlineDot = liveOnline;
@@ -359,11 +363,19 @@ export async function fetchConversationServer(
     }
   }
 
+  const lastInThread = list.length > 0 ? list[list.length - 1] : null;
   const meta: ThreadMeta = {
     name: p.display_name,
     avatarUrl: p.avatar_url,
     verified: p.verified,
-    onlineNow: computePeerOnlineNow({ profile: p, lastPeerMessageAt }),
+    onlineNow: computePeerOnlineNow({
+      profile: p,
+      lastPeerMessageAt,
+      lastMessageSender:
+        lastInThread?.sender === "peer" || lastInThread?.sender === "me"
+          ? lastInThread.sender
+          : null,
+    }),
   };
 
   return {
