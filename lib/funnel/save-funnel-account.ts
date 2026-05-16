@@ -1,6 +1,10 @@
 "use client";
 
 import { createClient } from "@/utils/supabase/client";
+import {
+  discoveryPrefsToJson,
+  funnelInputToDiscoveryPrefs,
+} from "@/lib/discovery-preferences-server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import type {
   FunnelAgeRange,
@@ -88,6 +92,12 @@ export async function saveFunnelAccount(
     };
   }
 
+  const discoveryPrefs = funnelInputToDiscoveryPrefs({
+    lookingFor: input.lookingFor,
+    seekingGender: input.seekingGender,
+    ageRange: input.ageRange,
+  });
+
   const { error: upsertError } = await supabase
     .from("user_profiles")
     .upsert(
@@ -100,6 +110,7 @@ export async function saveFunnelAccount(
         age_range_min: input.ageRange.anyAge ? 18 : input.ageRange.min,
         age_range_max: input.ageRange.anyAge ? 99 : input.ageRange.max,
         age_range_any: input.ageRange.anyAge,
+        discovery_prefs: discoveryPrefsToJson(discoveryPrefs),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },

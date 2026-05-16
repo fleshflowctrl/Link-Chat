@@ -23,7 +23,6 @@ import {
   Send,
   Smile,
 } from "lucide-react";
-import { WHISPER_USER_KEY } from "@/data/funnel";
 import { type ChatMessage } from "@/data/messages";
 import type { ThreadMeta } from "@/lib/chat/server-data";
 import { requestThreadsRefetch } from "@/lib/session-sync";
@@ -578,40 +577,11 @@ export function ChatConversationView({
       Date.now() - lastPeerActivityMs <= HARD_ONLINE_WINDOW_MS) ||
     meta.onlineNow;
 
-  /** Clear funnel “unread” bump once the thread is opened. */
-  useEffect(() => {
-    try {
-      const raw =
-        typeof window !== "undefined"
-          ? localStorage.getItem(WHISPER_USER_KEY)
-          : null;
-      if (!raw) return;
-      const u = JSON.parse(raw) as {
-        pickedMatchId?: string;
-        firstMessage?: string;
-      };
-      if (u.pickedMatchId !== chatId || !u.firstMessage?.trim()) return;
-      const o = getThreadPreviewOverride(chatId);
-      setThreadPreview(chatId, {
-        lastMessage: o?.lastMessage ?? u.firstMessage.trim(),
-        timestampLabel: o?.timestampLabel ?? "now",
-        lastActivityAt: o?.lastActivityAt ?? new Date().toISOString(),
-        name: meta.name,
-        avatarUrl: meta.avatarUrl,
-        verified: meta.verified,
-        showOnlineDot: liveOnlineNow,
-        unreadCount: 0,
-      });
-    } catch {
-      /* ignore */
-    }
-  }, [chatId, meta.avatarUrl, meta.name, meta.onlineNow, meta.verified]);
-
-  /** If mock transcript missed SSR, merge saved first outbound from onboarding. */
+  /** If mock transcript missed SSR, merge saved first outbound (dev without Supabase). */
   useEffect(() => {
     if (useSupabase) return;
     try {
-      const raw = localStorage.getItem(WHISPER_USER_KEY);
+      const raw = localStorage.getItem("whisper_user");
       if (!raw) return;
       const u = JSON.parse(raw) as {
         pickedMatchId?: string;

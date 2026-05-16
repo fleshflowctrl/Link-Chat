@@ -27,11 +27,8 @@ import {
   type MeSettingsIconKey,
   type MeStatKey,
 } from "@/data/me";
-import {
-  FUNNEL_SESSION_KEY,
-  ONBOARDED_KEY,
-  WHISPER_USER_KEY,
-} from "@/data/funnel";
+import { FUNNEL_SESSION_KEY } from "@/data/funnel";
+import { clearClientCachesOnLogout } from "@/lib/client-user-session";
 import type { EditProfileState } from "@/data/me-edit";
 import type { MeProfileStats } from "@/lib/me/server-profile";
 import {
@@ -270,9 +267,8 @@ export function MeProfileView({
           <button
             type="button"
             onClick={() => {
+              clearClientCachesOnLogout();
               try {
-                localStorage.removeItem(ONBOARDED_KEY);
-                localStorage.removeItem(WHISPER_USER_KEY);
                 sessionStorage.removeItem(FUNNEL_SESSION_KEY);
               } catch {
                 /* ignore */

@@ -33,8 +33,6 @@ import {
   type FunnelBasics,
   type FunnelFirstContact,
   type FunnelLookingFor,
-  type WhisperUserLocal,
-  WHISPER_USER_KEY,
 } from "@/data/funnel";
 import { getThreadMeta } from "@/data/messages";
 import { funnelSets } from "@/data/funnelProfiles";
@@ -45,8 +43,14 @@ import {
   type FunnelMatchPick,
 } from "@/lib/funnel-match-picks";
 import { setThreadPreview } from "@/lib/thread-preview-store";
+import {
+  clearLegacyFunnelLocalStorage,
+  prepareNewAccountClientSession,
+} from "@/lib/client-user-session";
+import { stashFunnelPendingProfile } from "@/lib/funnel/pending-profile";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
-import { prepareNewAccountClientSession } from "@/lib/client-user-session";
+import { createClient } from "@/utils/supabase/client";
+import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
 const STEP_TOTAL = 8;
 const MSG_MAX = 240;
@@ -293,23 +297,48 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (localStorage.getItem(ONBOARDED_KEY) === "true") {
-      router.replace("/discover");
-      return;
-    }
-    const saved = loadSession();
-    if (saved) {
-      persistRef.current = saved;
-      setStep(saved.step);
-      setLookingFor(saved.lookingFor);
-      setGender(saved.gender);
-      setSeekingGender(saved.seekingGender);
-      setAgeRange(saved.ageRange);
-      setBasics(saved.basics);
-      setFirstContact(saved.firstContact);
-      setFirstMessage(saved.firstMessage);
-    }
-    setHydrated(true);
+    let cancelled = false;
+
+    void (async () => {
+      if (isSupabaseConfigured()) {
+        try {
+          const supabase = createClient();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (cancelled) return;
+          if (user) {
+            router.replace("/discover");
+            return;
+          }
+        } catch {
+          /* continue to funnel */
+        }
+      }
+
+      if (localStorage.getItem(ONBOARDED_KEY) === "true") {
+        router.replace("/discover");
+        return;
+      }
+
+      const saved = loadSession();
+      if (saved) {
+        persistRef.current = saved;
+        setStep(saved.step);
+        setLookingFor(saved.lookingFor);
+        setGender(saved.gender);
+        setSeekingGender(saved.seekingGender);
+        setAgeRange(saved.ageRange);
+        setBasics(saved.basics);
+        setFirstContact(saved.firstContact);
+        setFirstMessage(saved.firstMessage);
+      }
+      if (!cancelled) setHydrated(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   const persistNow = useCallback(() => {
@@ -399,39 +428,20 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
 
       const credits = SIGNUP_CREDITS;
 
-      const basePayload = {
-        name: "User",
-        age: 25,
-        location: "London, UK",
-        vibe: [],
-        ageRange,
-        lookingFor: lookingFor ?? FUNNEL_LOOKING_FOR[0].id,
-        credits,
-      } satisfies Omit<WhisperUserLocal, "pickedMatchId" | "firstMessage">;
-
-      const payload: WhisperUserLocal = didFirstMessage
-        ? {
-            ...basePayload,
-            pickedMatchId: pid!,
-            firstMessage: msgTrim,
-          }
-        : { ...basePayload };
-
-      const enriched = {
-        ...payload,
-        signupVia: "email" as const,
-        email,
-        gender,
-        seekingGender,
-        supabaseUserId: signupResult.userId,
-        needsEmailConfirm: signupResult.needsEmailConfirm,
-      };
-
-      localStorage.setItem(WHISPER_USER_KEY, JSON.stringify(enriched));
-      localStorage.setItem(ONBOARDED_KEY, "true");
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+      clearLegacyFunnelLocalStorage();
 
-      if (signupResult.userId) {
+      if (signupResult.needsEmailConfirm) {
+        stashFunnelPendingProfile({
+          lookingFor,
+          gender,
+          seekingGender,
+          ageRange,
+          startingCredits: credits,
+          pickedMatchId: didFirstMessage ? pid : null,
+          firstMessage: didFirstMessage ? msgTrim : null,
+        });
+      } else if (signupResult.userId) {
         prepareNewAccountClientSession(signupResult.userId, credits);
       }
 

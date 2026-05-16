@@ -1,24 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Profile } from "@/data/profiles";
-import { loadDiscoveryPreferences } from "@/lib/discovery-preferences";
+import {
+  getDiscoveryPreferencesSnapshot,
+  refreshDiscoveryPreferencesFromServer,
+  subscribeDiscoveryPreferences,
+} from "@/lib/discovery-preferences-store";
+import { WHISPER_DISCOVERY_PREFS_REFETCH } from "@/lib/session-sync";
 import { sortProfilesForPreferences } from "@/lib/personalize-feed";
 import { ProfileGrid } from "./profile-grid";
 
 export function PersonalizedProfileGrid({ profiles }: { profiles: Profile[] }) {
-  const [mounted, setMounted] = useState(false);
+  const prefs = useSyncExternalStore(
+    subscribeDiscoveryPreferences,
+    getDiscoveryPreferencesSnapshot,
+    getDiscoveryPreferencesSnapshot,
+  );
+
   useEffect(() => {
-    setMounted(true);
+    void refreshDiscoveryPreferencesFromServer();
+    const onRefetch = () => void refreshDiscoveryPreferencesFromServer();
+    window.addEventListener(WHISPER_DISCOVERY_PREFS_REFETCH, onRefetch);
+    return () =>
+      window.removeEventListener(WHISPER_DISCOVERY_PREFS_REFETCH, onRefetch);
   }, []);
 
-  const sorted = useMemo(() => {
-    if (!mounted) return profiles;
-    return sortProfilesForPreferences(
-      profiles,
-      loadDiscoveryPreferences(),
-    );
-  }, [mounted, profiles]);
+  const sorted = useMemo(
+    () => sortProfilesForPreferences(profiles, prefs),
+    [profiles, prefs],
+  );
 
   return <ProfileGrid profiles={sorted} />;
 }

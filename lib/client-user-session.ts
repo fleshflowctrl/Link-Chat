@@ -8,12 +8,30 @@ import {
   refreshCreditsFromServer,
   resetCreditsToGuest,
 } from "@/lib/credits-store";
-import { clearThreadPreviews } from "@/lib/thread-preview-store";
+import { clearLegacyDiscoveryPreferencesStorage } from "@/lib/discovery-preferences";
+import { resetDiscoveryPreferencesStore } from "@/lib/discovery-preferences-store";
+import { clearFunnelPendingProfile } from "@/lib/funnel/pending-profile";
 import { refreshSessionFromServer } from "@/lib/session-sync";
+import { clearThreadPreviews } from "@/lib/thread-preview-store";
 
 export function clearClientCachesOnLogout(): void {
   clearThreadPreviews();
   resetCreditsToGuest();
+  resetDiscoveryPreferencesStore();
+  clearLegacyDiscoveryPreferencesStorage();
+  clearFunnelPendingProfile();
+  clearLegacyFunnelLocalStorage();
+}
+
+/** Remove deprecated funnel keys (data now lives in Supabase). */
+export function clearLegacyFunnelLocalStorage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem("whisper_onboarded");
+    window.localStorage.removeItem("whisper_user");
+  } catch {
+    /* ignore */
+  }
 }
 
 export function hydrateClientSessionForUser(_userId: string): void {
