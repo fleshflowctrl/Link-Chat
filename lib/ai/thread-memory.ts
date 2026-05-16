@@ -2,7 +2,7 @@ import type { ChatMessageRow } from "@/lib/chat/map-rows";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 
-const RECENT_MESSAGE_COUNT = 24;
+const RECENT_MESSAGE_COUNT = 30;
 
 export type ThreadMemoryRow = {
   summary: string;
