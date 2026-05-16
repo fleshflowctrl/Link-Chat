@@ -56,6 +56,16 @@ export function stripBlurPhrases(input: string | undefined | null): string {
     /\bsoft\s+focus\b/gi,
     /\bsoft\s+background\b/gi,
     /\bhazy\s+soft\s+edges\b/gi,
+    /\bhazy\s+background\b/gi,
+    /\bsoftly\s+blurred\b/gi,
+    /\bsoft\s+blurred\b/gi,
+    /\bdreamy\s+soft\b/gi,
+    /\bsmooth\s+background\b/gi,
+    /\bcreamy\s+backdrop\b/gi,
+    /\bcreamy\s+background\b/gi,
+    /\b85\s*mm\s+(portrait\s+)?lens\b/gi,
+    /\btelephoto\s+lens\b/gi,
+    /\bprime\s+lens\b/gi,
   ];
   let out = input;
   for (const re of killers) out = out.replace(re, "");
@@ -455,6 +465,41 @@ export function buildPersonaPhotoPrompt(args: {
   const ageHint = ageHairAndSkinHint(personaAge);
 
   const promptParts: string[] = [];
+
+  // 0. HARD DEEP-FOCUS FRONT-LOAD.
+  //
+  // Z-Image-Turbo (our render backend) is a distilled DiT model with
+  // guidance_scale = 0 and **no negative_prompt support at all** — its
+  // pipeline silently ignores the negative-prompt string. Everything
+  // we say about "no bokeh / no blurred background" via the negative
+  // path is therefore wasted on this backend; all blur control has to
+  // happen via the *positive* prompt.
+  //
+  // Diffusion bases trained on photography metadata have a strong
+  // learned bias toward portrait-mode bokeh whenever there is a
+  // distinct subject and a recognisable background (people on a
+  // platform, shoppers in an aisle, crowd on a street). To override
+  // that bias we front-load concrete photographic instructions that
+  // the model recognises from EXIF-tagged training data:
+  //   - wide-angle phone main camera (24mm equivalent) → inherent
+  //     deep field of view
+  //   - f/8–f/11 narrow aperture → deep depth of field
+  //   - hyperfocal distance → everything sharp from 1m to infinity
+  //   - "snapshot" / "casual phone photo" framing → consumer-camera
+  //     pretraining samples which keep deep focus by default
+  // Phrased entirely as POSITIVE descriptors ("tack sharp", "every
+  // detail visible") because Turbo models can't reliably parse "no X"
+  // negation.
+  promptParts.push(
+    "casual everyday phone snapshot, wide-angle phone main camera lens 24mm equivalent, " +
+      "shot at f/8 narrow aperture for deep depth of field, hyperfocal distance, " +
+      "every detail in the foreground AND the background is tack sharp and fully in focus, " +
+      "subject and background equally crisp throughout the entire frame, " +
+      "no portrait mode, no shallow depth of field, no creamy background, no blurred crowd, " +
+      "background subjects clearly defined with visible textures and details, " +
+      "smartphone snapshot look with normal phone wide field of view",
+  );
+
   // Age anchor frontloads ABOVE the realism/appearance anchors for
   // anything past mid-20s — diffusion is order-sensitive and we need
   // the model to commit to the right age bracket before it sees the
@@ -555,9 +600,12 @@ export function buildPersonaPhotoPrompt(args: {
     "casual phone selfie or candid snapshot";
   const backdrop = stripBlurPhrases(cam.backdrop);
   let lighting = stripBlurPhrases(cam.lighting) || "soft natural lighting";
+  // Capture defaults explicitly mention wide-angle/f-stop so even a
+  // template that omits its own capture line still steers the model
+  // away from portrait-mode bokeh.
   let capture =
     stripBlurPhrases(cam.capture) ||
-    "shot on iPhone, slight grain, intimate everyday moment";
+    "shot on iPhone main wide-angle camera at f/8, full deep focus across the frame, slight grain, intimate everyday moment";
 
   // For explicit nudes we force a strong self-taken mirror-selfie look
   // so it is obvious that *she* took the photo (not a third party).
@@ -640,6 +688,19 @@ export function buildPersonaPhotoPrompt(args: {
     );
   }
 
+  // End-loaded deep-focus reinforcer. Diffusion bases weigh late tokens
+  // slightly higher for "look-and-feel" terms, so we close the prompt
+  // with another wide-angle / deep-DoF directive. Same theme as the
+  // front-load, phrased differently so the model treats it as two
+  // independent constraints instead of a duplicate. This is the
+  // second of the two anchors keeping portrait-mode bokeh out.
+  promptParts.push(
+    "phone snapshot aesthetic, wide-angle deep focus everywhere, " +
+      "all background elements remain sharp and clearly recognisable, " +
+      "no portrait-mode background separation, " +
+      "subject does not pop out against a soft background, " +
+      "every face, sign, vehicle and object in the background is rendered with full detail"
+  );
   promptParts.push("photorealistic, high detail, no text, no watermark, no logo");
 
   const prompt = promptParts.filter(Boolean).join(", ");
