@@ -15,6 +15,13 @@ import {
 import { readCachedUnlocks, writeCachedUnlocks } from "@/lib/unlocks/cache";
 import { PhotoViewer } from "@/components/links/photo-viewer";
 
+type ChatPhotoGroup = {
+  peerId: string;
+  name: string;
+  avatarUrl: string;
+  photos: Array<{ id: string; imageUrl: string; unlockedAt: string }>;
+};
+
 function CollectionCard({
   set,
   onOpen,
@@ -81,8 +88,13 @@ export function CollectionView() {
   const userKey = credits.userKey;
 
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(() => new Set());
+  const [chatPhotoGroups, setChatPhotoGroups] = useState<ChatPhotoGroup[]>([]);
   const [viewTarget, setViewTarget] = useState<{
     set: ContentSet;
+    index: number;
+  } | null>(null);
+  const [chatPhotoViewer, setChatPhotoViewer] = useState<{
+    group: ChatPhotoGroup;
     index: number;
   } | null>(null);
 
@@ -101,6 +113,24 @@ export function CollectionView() {
       })
       .catch(() => {
         /* keep cached state */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userKey]);
+
+  // Fetch unlocked chat photos (grouped by persona)
+  useEffect(() => {
+    if (!userKey || userKey === "guest") return;
+    let cancelled = false;
+    void fetch("/api/me/chat-photos", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { ok?: boolean; groups?: ChatPhotoGroup[] } | null) => {
+        if (cancelled || !data?.ok || !Array.isArray(data.groups)) return;
+        setChatPhotoGroups(data.groups);
+      })
+      .catch(() => {
+        /* ignore */
       });
     return () => {
       cancelled = true;
@@ -170,6 +200,57 @@ export function CollectionView() {
         )}
       </div>
 
+      {/* Chat-unlocked photos section */}
+      {chatPhotoGroups.length > 0 && (
+        <div className="mt-8 px-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[15px] font-bold text-ink">Chatfoto's</h2>
+            <span className="text-[12px] text-gray-500">
+              {chatPhotoGroups.reduce((sum, g) => sum + g.photos.length, 0)} foto's
+            </span>
+          </div>
+
+          <div className="space-y-6">
+            {chatPhotoGroups.map((group) => (
+              <div key={group.peerId}>
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gray-200 ring-1 ring-black/[0.06]">
+                    <Image
+                      src={group.avatarUrl}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="32px"
+                    />
+                  </div>
+                  <span className="font-semibold text-ink">{group.name}</span>
+                  <span className="text-[12px] text-gray-500">· {group.photos.length} foto's</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {group.photos.slice(0, 6).map((photo, idx) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setChatPhotoViewer({ group, index: idx })}
+                      className="relative aspect-square overflow-hidden rounded-xl bg-gray-100 active:opacity-90"
+                    >
+                      <Image
+                        src={photo.imageUrl}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 430px) 30vw, 140px"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <AnimatePresence>
         {viewTarget && (
           <PhotoViewer
@@ -177,6 +258,27 @@ export function CollectionView() {
             startIndex={viewTarget.index}
             onClose={() => setViewTarget(null)}
           />
+        )}
+        {chatPhotoViewer && (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/90">
+            <div className="relative h-full w-full max-w-[430px]">
+              <button
+                onClick={() => setChatPhotoViewer(null)}
+                className="absolute right-4 top-4 z-10 rounded-full bg-white/90 px-4 py-1 text-[13px] font-semibold text-ink"
+              >
+                Sluiten
+              </button>
+              <div className="flex h-full items-center justify-center">
+                <Image
+                  src={chatPhotoViewer.group.photos[chatPhotoViewer.index].imageUrl}
+                  alt=""
+                  width={800}
+                  height={1200}
+                  className="max-h-[90vh] w-auto object-contain"
+                />
+              </div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
     </div>
