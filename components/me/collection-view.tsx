@@ -158,6 +158,12 @@ export function CollectionView() {
     [unlockedIds],
   );
 
+  // Merge bought exclusive content + chat-unlocked photos into one list
+  const allSets = useMemo(() => {
+    const chatSets = chatPhotoGroups.map(chatGroupToContentSet);
+    return [...ownedSets, ...chatSets];
+  }, [ownedSets, chatPhotoGroups]);
+
   return (
     <div className="bg-[#F5F3EE] pb-8">
       <StatusBarMock />
@@ -175,16 +181,16 @@ export function CollectionView() {
             Mijn collectie
           </h1>
           <p className="text-[12px] text-gray-500">
-            {ownedSets.length === 0
+            {allSets.length === 0
               ? "Nog niets ontgrendeld"
-              : `${ownedSets.length} ontgrendelde set${ownedSets.length === 1 ? "" : "s"}`}
+              : `${allSets.length} ontgrendelde set${allSets.length === 1 ? "" : "s"}`}
           </p>
         </div>
         <CreditsPill />
       </header>
 
       <div className="px-5 pt-2">
-        {ownedSets.length === 0 ? (
+        {allSets.length === 0 ? (
           <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/[0.04]">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F4EFFF] text-[#7C5CFF]">
               <Sparkles className="h-6 w-6" strokeWidth={2.25} aria-hidden />
@@ -205,7 +211,7 @@ export function CollectionView() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {ownedSets.map((set) => (
+            {allSets.map((set) => (
               <CollectionCard
                 key={set.id}
                 set={set}
@@ -215,32 +221,6 @@ export function CollectionView() {
           </div>
         )}
       </div>
-
-      {/* Chat-unlocked photos — rendered with the exact same card layout
-          as the bought exclusive content for full visual consistency. */}
-      {chatPhotoGroups.length > 0 && (
-        <div className="mt-8 px-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[15px] font-bold text-ink">Chatfoto's</h2>
-            <span className="text-[12px] text-gray-500">
-              {chatPhotoGroups.length} profielen
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {chatPhotoGroups.map((group) => {
-              const syntheticSet = chatGroupToContentSet(group);
-              return (
-                <CollectionCard
-                  key={group.peerId}
-                  set={syntheticSet}
-                  onOpen={(s) => setViewTarget({ set: s, index: 0 })}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       <AnimatePresence>
         {viewTarget && (
