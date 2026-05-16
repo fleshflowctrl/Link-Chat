@@ -47,6 +47,8 @@ export type ProcessDueResult = {
   newPeerMessages: ChatMessageRow[];
   /** Earliest still-pending scheduled_at for this thread, or null if queue is empty. */
   nextPendingAt: string | null;
+  /** True when at least one pending row was due at the start of this call. */
+  hadDuePending: boolean;
 };
 
 /**
@@ -83,6 +85,7 @@ export async function processDuePendingReplies(
     return {
       newPeerMessages,
       nextPendingAt: await earliestPendingAt(supabase, args.ownerUserId, args.peerId),
+      hadDuePending: false,
     };
   }
 
@@ -438,6 +441,7 @@ export async function processDuePendingReplies(
   return {
     newPeerMessages,
     nextPendingAt: await earliestPendingAt(supabase, args.ownerUserId, args.peerId),
+    hadDuePending: true,
   };
 }
 

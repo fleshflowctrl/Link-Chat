@@ -252,14 +252,10 @@ export function ChatConversationView({
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   /** Shown when the AI reply failed (e.g. xAI error); user message is still saved. */
   const [assistantError, setAssistantError] = useState<string | null>(null);
-  /** True while the POST that sends the user's text is awaiting Grok + pacing,
-   * OR while a scheduled async reply is being delivered. Renders a typing-bubble
-   * at the bottom so the wait feels human, not laggy. */
+  /** True only while she's actively delivering a reply (send in-flight or
+   * due async delivery) — not during idle waits for a future scheduled_at. */
   const [peerTyping, setPeerTyping] = useState(false);
-  /** Real people don't type continuously — they pause to think, get
-   * distracted, restart. We flicker the typing bubble on/off in random
-   * intervals while peerTyping is true. */
-  const [typingFlickerOff, setTypingFlickerOff] = useState(false);
+  const peerTypingArmRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** ISO timestamp when the next async-scheduled AI reply should land, or null
    * if nothing is queued. Set by POST /messages (when a long pause was
    * scheduled), GET /messages (catch-up), and POST /poll-pending. The timer
@@ -267,6 +263,22 @@ export function ChatConversationView({
   const [nextPendingAt, setNextPendingAt] = useState<string | null>(null);
   /** Guard against overlapping pollPending invocations. */
   const pollingRef = useRef(false);
+
+  const armPeerTyping = useCallback((delayMs = 700) => {
+    if (peerTypingArmRef.current) clearTimeout(peerTypingArmRef.current);
+    peerTypingArmRef.current = setTimeout(() => {
+      peerTypingArmRef.current = null;
+      setPeerTyping(true);
+    }, delayMs);
+  }, []);
+
+  const stopPeerTyping = useCallback(() => {
+    if (peerTypingArmRef.current) {
+      clearTimeout(peerTypingArmRef.current);
+      peerTypingArmRef.current = null;
+    }
+    setPeerTyping(false);
+  }, []);
   const [composerLift, setComposerLift] = useState(0);
   const longPressRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -354,81 +366,53 @@ export function ChatConversationView({
     if (peerTyping) scrollToBottom();
   }, [peerTyping, scrollToBottom]);
 
-  // Typing-flicker effect: while peerTyping is true, randomly pause the
-  // bubble for 1-3s every 4-12s. Mimics how real people type for a beat,
-  // tap into the wrong app, look away, then come back. The bubble re-
-  // appears even though Grok is still cooking under the hood.
-  useEffect(() => {
-    if (!peerTyping) {
-      setTypingFlickerOff(false);
-      return;
-    }
-    let cancelled = false;
-    const tick = () => {
-      if (cancelled) return;
-      const onMs = 4000 + Math.random() * 8000;
-      window.setTimeout(() => {
-        if (cancelled) return;
-        setTypingFlickerOff(true);
-        const offMs = 1000 + Math.random() * 2500;
-        window.setTimeout(() => {
-          if (cancelled) return;
-          setTypingFlickerOff(false);
-          tick();
-        }, offMs);
-      }, onMs);
-    };
-    tick();
-    return () => {
-      cancelled = true;
-    };
-  }, [peerTyping]);
-
   /**
-   * Trigger delivery of any due async-scheduled AI reply. Hits the dedicated
-   * /poll-pending endpoint which: (a) processes all due rows for this thread,
-   * (b) calls Grok with the current full history, (c) inserts the peer
-   * message, (d) returns the new peer message(s) plus the next still-pending
-   * scheduled_at if any. Shows the typing-bubble while in-flight so the
-   * delivery feels like a "she's typing… message" sequence, not a sudden pop.
+   * Deliver due async-scheduled AI replies. Typing bubble only when
+   * `showTyping` (scheduled delivery) — silent on mount / catch-up.
    */
-  const pollPending = useCallback(async () => {
-    if (!useSupabase) return;
-    if (pollingRef.current) return;
-    pollingRef.current = true;
-    setPeerTyping(true);
-    try {
-      const res = await fetch(
-        `/api/conversations/${encodeURIComponent(chatId)}/poll-pending`,
-        {
-          method: "POST",
-          cache: "no-store",
-          credentials: "same-origin",
-        },
-      );
-      if (!res.ok) return;
-      const data = (await res.json()) as {
-        ok?: boolean;
-        newPeerMessages?: ChatMessage[];
-        nextPendingAt?: string | null;
-      };
-      if (!data?.ok) return;
-      const fresh = data.newPeerMessages ?? [];
-      if (fresh.length > 0) {
-        setMessages((prev) => {
-          const seen = new Set(prev.map((m) => m.id));
-          const additions = fresh.filter((m) => !seen.has(m.id));
-          return additions.length === 0 ? prev : [...prev, ...additions];
-        });
+  const pollPending = useCallback(
+    async (options?: { showTyping?: boolean }) => {
+      if (!useSupabase) return;
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      const showTyping = options?.showTyping === true;
+      if (showTyping) setPeerTyping(true);
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(chatId)}/poll-pending`,
+          {
+            method: "POST",
+            cache: "no-store",
+            credentials: "same-origin",
+          },
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          newPeerMessages?: ChatMessage[];
+          nextPendingAt?: string | null;
+          hadDuePending?: boolean;
+        };
+        if (!data?.ok) return;
+        const fresh = data.newPeerMessages ?? [];
+        if (fresh.length > 0) {
+          setMessages((prev) => {
+            const seen = new Set(prev.map((m) => m.id));
+            const additions = fresh.filter((m) => !seen.has(m.id));
+            return additions.length === 0 ? prev : [...prev, ...additions];
+          });
+          requestThreadsRefetch();
+        }
+        setNextPendingAt(data.nextPendingAt ?? null);
+      } catch {
+        /* network blip — next interaction will retry */
+      } finally {
+        pollingRef.current = false;
+        stopPeerTyping();
       }
-      setNextPendingAt(data.nextPendingAt ?? null);
-    } catch {
-      /* network blip — next interaction will retry */
-    } finally {
-      pollingRef.current = false;
-      setPeerTyping(false);
-    }
-  }, [chatId, useSupabase]);
+    },
+    [chatId, useSupabase, stopPeerTyping],
+  );
 
   /**
    * Initial catch-up on mount: if the user opened the chat after a scheduled
@@ -438,34 +422,49 @@ export function ChatConversationView({
    */
   useEffect(() => {
     if (!useSupabase) return;
-    void pollPending();
+    void pollPending({ showTyping: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
   /**
-   * Timer-driven delivery: schedule a `setTimeout` that fires at
-   * `nextPendingAt` and then triggers pollPending. We add a tiny lead-in
-   * (200ms) so the typing-bubble appears *before* the message lands instead
-   * of simultaneously, which feels more natural.
-   *
-   * If the user closes the tab before this fires, the next GET /messages or
-   * POST will pick it up (server-side lazy delivery).
+   * Fire delivery (with typing) only when scheduled_at is actually due —
+   * re-arm without polling if the browser wakes early (avoids fake typing).
    */
   useEffect(() => {
-    if (!nextPendingAt) return;
+    if (!nextPendingAt || !useSupabase) return;
     const target = new Date(nextPendingAt).getTime();
     if (!Number.isFinite(target)) return;
-    const ms = Math.max(0, target - Date.now());
-    // Clamp insanely-long timers to one hour and re-arm later. Browsers /
-    // mobile suspend long timers and they may not fire reliably.
-    const armFor = Math.min(ms, 60 * 60_000);
-    const timer = window.setTimeout(() => {
-      void pollPending();
-    }, armFor);
-    return () => {
-      window.clearTimeout(timer);
+
+    const TYPING_LEAD_MS = 1200;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const arm = () => {
+      if (cancelled) return;
+      const msUntilDue = target - Date.now();
+      if (msUntilDue <= 0) {
+        void pollPending({ showTyping: true });
+        return;
+      }
+      const wakeIn =
+        msUntilDue > TYPING_LEAD_MS ? msUntilDue - TYPING_LEAD_MS : msUntilDue;
+      const clamped = Math.min(Math.max(wakeIn, 500), 30 * 60_000);
+      timer = window.setTimeout(() => {
+        if (cancelled) return;
+        if (Date.now() >= target - TYPING_LEAD_MS) {
+          void pollPending({ showTyping: true });
+        } else {
+          arm();
+        }
+      }, clamped);
     };
-  }, [nextPendingAt, pollPending]);
+
+    arm();
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [nextPendingAt, pollPending, useSupabase]);
 
   const markReadOnServer = useCallback(async () => {
     try {
@@ -561,18 +560,9 @@ export function ChatConversationView({
     void markReadOnServer();
   }, [messages, markReadOnServer, chatId]);
 
-  // Typing indicator → she has the app open right now → online.
-  useEffect(() => {
-    if (peerTyping) setLastPeerActivityMs(Date.now());
-  }, [peerTyping]);
-
-  // Derived live online flag. While she's typing or sent something within
-  // the last 4 minutes she's "Nu online", otherwise we trust the server's
-  // (bedtime/work-aware) flag. The 30s tick effect makes this re-render so
-  // the dot can flip back to offline on its own after silence.
+  // Derived live online flag — real messages only, not the typing bubble.
   const HARD_ONLINE_WINDOW_MS = 4 * 60_000;
   const liveOnlineNow =
-    peerTyping ||
     (lastPeerActivityMs !== null &&
       Date.now() - lastPeerActivityMs <= HARD_ONLINE_WINDOW_MS) ||
     meta.onlineNow;
@@ -718,7 +708,7 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
-      setPeerTyping(true);
+      armPeerTyping();
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
@@ -829,10 +819,10 @@ export function ChatConversationView({
         });
         setInput(trimmed);
       } finally {
-        setPeerTyping(false);
+        stopPeerTyping();
       }
     },
-    [blockIfNoProfilePhoto, chatId, useSupabase, meta],
+    [armPeerTyping, blockIfNoProfilePhoto, chatId, useSupabase, meta, stopPeerTyping],
   );
 
   const sendImage = useCallback(
@@ -879,7 +869,7 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
-      setPeerTyping(true);
+      armPeerTyping();
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
@@ -929,10 +919,10 @@ export function ChatConversationView({
         );
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
       } finally {
-        setPeerTyping(false);
+        stopPeerTyping();
       }
     },
-    [blockIfNoProfilePhoto, chatId, useSupabase, meta],
+    [armPeerTyping, blockIfNoProfilePhoto, chatId, useSupabase, meta, stopPeerTyping],
   );
 
   const sendGift = useCallback(
@@ -964,7 +954,7 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
-      setPeerTyping(true);
+      armPeerTyping();
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/gifts`,
@@ -1002,10 +992,10 @@ export function ChatConversationView({
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         return { ok: false as const, error: "Netwerkfout" };
       } finally {
-        setPeerTyping(false);
+        stopPeerTyping();
       }
     },
-    [blockIfNoProfilePhoto, chatId, meta],
+    [armPeerTyping, blockIfNoProfilePhoto, chatId, meta, stopPeerTyping],
   );
 
   function attachReactionTo(messageId: string, emoji: string) {
@@ -1383,7 +1373,7 @@ export function ChatConversationView({
             </motion.div>
           ))}
           <AnimatePresence>
-            {peerTyping && !typingFlickerOff && (
+            {peerTyping && (
               <PeerTypingBubble avatarUrl={meta.avatarUrl} />
             )}
           </AnimatePresence>
