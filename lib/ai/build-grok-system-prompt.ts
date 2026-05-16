@@ -1,6 +1,7 @@
 import type { ChatProfileRow, ChatStyle } from "@/lib/chat/map-rows";
+import { resolveVoiceFingerprint, voiceFingerprintPromptLines } from "@/lib/ai/voice-fingerprint";
 
-export const AI_CHAT_PROMPT_VERSION = "v6";
+export const AI_CHAT_PROMPT_VERSION = "v7";
 
 /** Compact one-line voice hints per filter tag. We blend several into one fluent
  * sentence (see `combinedFilterTagVoice`) instead of bulleting them — bullets
@@ -358,6 +359,26 @@ export type BuildPromptOptions = {
     wants: string[];
     avoids: string[];
   } | null;
+  /** Realism v2 — energy/mood hint based on hour of day in her timezone. */
+  energyHint?: {
+    state:
+      | "asleep"
+      | "groggy"
+      | "morning-fresh"
+      | "midday-busy"
+      | "afternoon-chill"
+      | "evening-warm"
+      | "late-flirty"
+      | "tired-fading";
+    hint: string;
+    lengthBias: "very-short" | "short" | "normal" | "long";
+  } | null;
+  /** Realism v2 — terse-mode for this turn: write a 1-3 word reply or
+   * emoji-only reply. Drops her into "lol", "ja", "🙄", "neeee", etc. */
+  terseMode?: boolean;
+  /** Realism v2 — running record of what the persona has CLAIMED about
+   * herself in this thread. Used to prevent self-contradiction. */
+  personaSelfFacts?: { self_claims?: string[] } | null;
 };
 
 /**
@@ -497,11 +518,14 @@ export function buildGrokSystemPrompt(
     );
   }
 
+  const resolvedStyleForPrompt = resolveVoiceFingerprint(profile.chat_style ?? null, profile.id);
   const styleLines = chatStyleLines(profile.chat_style);
-  if (styleLines.length) {
+  const fingerprintLines = voiceFingerprintPromptLines(resolvedStyleForPrompt);
+  const allStyleLines = [...styleLines, ...fingerprintLines];
+  if (allStyleLines.length) {
     bits.push("");
     bits.push("Schrijfstijl & gewoontes (volg dit nauw — het is jou):");
-    bits.push(...styleLines);
+    bits.push(...allStyleLines);
   }
 
   if (opts.threadSummary?.trim()) {
@@ -649,6 +673,56 @@ export function buildGrokSystemPrompt(
     );
   }
 
+  // Realism v2 — energy/mood curve for the current hour. Real people
+  // aren't equally bubbly all day; their replies feel different at
+  // 07:30 (groggy) vs 22:30 (warm-flirty). The pacing layer also reads
+  // this for terse-mode probability; here we just inform tone.
+  if (opts.energyHint) {
+    bits.push("");
+    bits.push("Energie & humeur op dit moment van de dag:");
+    bits.push(`- ${opts.energyHint.hint}`);
+    const lengthBiasMap: Record<typeof opts.energyHint.lengthBias, string> = {
+      "very-short": "Houd dit antwoord echt heel kort: één korte zin of een paar woorden, maximaal twee korte zinnen.",
+      short: "Houd dit antwoord kort en gevat — 1 tot 2 zinnen.",
+      normal: "Normale lengte mag — 1 tot 3 zinnen, ongedwongen.",
+      long: "Mag wat langer en persoonlijker, maar nog altijd chat-tone — geen toespraak.",
+    };
+    bits.push(`- ${lengthBiasMap[opts.energyHint.lengthBias]}`);
+  }
+
+  // Realism v2 — persona self-memory. What SHE has claimed about herself
+  // in this thread, separate from facts about the user. Prevents
+  // self-contradiction ("I'm a nurse" turn 4 → "I'm a designer" turn 14).
+  const psf = opts.personaSelfFacts;
+  if (psf && psf.self_claims && psf.self_claims.length > 0) {
+    bits.push("");
+    bits.push(
+      "Wat je over JEZELF al hebt gedeeld in dit gesprek (NOOIT tegenspreken — dit is je eigen waarheid in deze chat; bouw erop verder, of pak het natuurlijk op als context):",
+    );
+    bits.push(
+      psf.self_claims
+        .slice(0, 14)
+        .map((c) => `- ${c.trim()}`)
+        .join("\n"),
+    );
+  }
+
+  // Realism v2 — terse mode. One bubble, very short or emoji-only.
+  // Used to break the "every reply is 2-3 sentences" rhythm. Picked by
+  // the pacing layer when energy + engagement state suggest a beat of
+  // pure reaction is more authentic than a full reply.
+  if (opts.terseMode) {
+    bits.push("");
+    bits.push(
+      [
+        "TERSE-MODUS voor dit antwoord:",
+        "- Stuur EEN bubbel, heel kort. Kies één van: een emoji-reactie ('🙄', '😂', '🥹'), een one-liner ('lol', 'jaaa', 'zekerrr', 'haha echt'), of max 5-6 woorden.",
+        "- Geen vraag. Geen uitleg. Geen mooi-geformuleerde zin. Gewoon een snelle reactie zoals iemand die kort op haar telefoon kijkt.",
+        "- Niet splitsen. Geen <<<>>> separator. Eén bubbel.",
+      ].join("\n"),
+    );
+  }
+
   // Photo-in-thread reminder — when the user just sent an image, the
   // dialogue history will include a vision message; the prompt nudges
   // Grok to respond to what's actually visible (a real person would
@@ -783,7 +857,10 @@ export function buildGrokSystemPrompt(
   // Multi-message instruction — let Grok decide whether the reply naturally
   // splits into 2-3 short bubbles (like real people texting), or stays one
   // message. Output uses an explicit separator the post-processor splits on.
-  if (opts.burstMode) {
+  // Terse-mode wins: never split when terse.
+  if (opts.terseMode) {
+    // Terse instruction already emitted above; suppress multi/burst.
+  } else if (opts.burstMode) {
     bits.push("");
     bits.push(
       [

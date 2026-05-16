@@ -80,7 +80,11 @@ Schema (alle velden verplicht tenzij gemarkeerd):
     "reply_length": "short",                  // short|medium|variable
     "punctuation": "casual",                  // casual|clean
     "quirks": ["string", ...],                // 2–4 kleine eigenaardigheden
-    "talks_less_about": ["string", ...]       // 0–3 onderwerpen die ze liever vermijdt
+    "talks_less_about": ["string", ...],      // 0–3 onderwerpen die ze liever vermijdt
+    "signature_words": ["string", ...],       // 1–3 woorden die haar persoonlijke stem-vingerafdruk vormen (bv. ["yo", "wacht", "ofzo"])
+    "signature_emojis": ["string", ...],      // 1–3 favoriete emoji die ze vaak gebruikt (KORT, max 3)
+    "signature_quirk": "string",              // exact één van: "geen-punten" | "altijd-lowercase" | "drie-puntjes-eind" | "dubbele-vraagteken" | "geen-shift" | "veel-spaties"
+    "signature_typo": "string"                // één tikfout die ze altijd maakt (bv. "ofcourse" voor "of course", "egt" voor "echt")
   },
   "photo_style": {
     "appearance": "string",                   // 1–2 zinnen: haar, ogen, sproetjes, glimlach — concreet
@@ -224,6 +228,16 @@ export type GeneratedPersona = {
     punctuation: (typeof PUNCTUATIONS)[number];
     quirks: string[];
     talks_less_about: string[];
+    signature_words?: string[];
+    signature_emojis?: string[];
+    signature_quirk?:
+      | "geen-punten"
+      | "altijd-lowercase"
+      | "drie-puntjes-eind"
+      | "dubbele-vraagteken"
+      | "geen-shift"
+      | "veel-spaties";
+    signature_typo?: string;
   };
   photo_style: {
     appearance: string;
@@ -359,6 +373,21 @@ function coerce(raw: unknown): GeneratedPersona | null {
       punctuation: pickEnum(cs.punctuation, PUNCTUATIONS, "casual"),
       quirks: asStrArr(cs.quirks, 5),
       talks_less_about: asStrArr(cs.talks_less_about, 4),
+      signature_words: asStrArr(cs.signature_words, 3),
+      signature_emojis: asStrArr(cs.signature_emojis, 3),
+      signature_quirk: pickEnum(
+        cs.signature_quirk,
+        [
+          "geen-punten",
+          "altijd-lowercase",
+          "drie-puntjes-eind",
+          "dubbele-vraagteken",
+          "geen-shift",
+          "veel-spaties",
+        ] as const,
+        "geen-punten",
+      ),
+      signature_typo: clean(cs.signature_typo, 30),
     },
     photo_style: {
       appearance: clean(ps.appearance, 600),

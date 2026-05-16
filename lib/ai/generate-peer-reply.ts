@@ -29,6 +29,12 @@ import {
   type StructuredMemoryRow,
   type StructuredFacts,
 } from "@/lib/ai/structured-memory";
+import {
+  refreshPersonaSelfMemoryIfNeeded,
+  hasAnySelfClaims,
+  type PersonaSelfMemoryRow,
+  type PersonaSelfFacts,
+} from "@/lib/ai/persona-self-memory";
 import { refreshUserChatPersonaIfNeeded } from "@/lib/ai/user-cross-chat-profile";
 import {
   endsWithQuestion,
@@ -36,6 +42,9 @@ import {
   postProcessReply,
   splitMultiMessage,
 } from "@/lib/ai/post-process-reply";
+import { applyVoiceFingerprint, resolveVoiceFingerprint } from "@/lib/ai/voice-fingerprint";
+import { applyTypoPass, applySignatureTypo } from "@/lib/ai/typo-injector";
+import { computeEnergy, getHourInTimeZone } from "@/lib/ai/energy-curve";
 import {
   isDraftReviseEnabled,
   reviseDraftIfWorthIt,
@@ -177,6 +186,45 @@ function decideMultiMessage(args: {
  * multi-message.
  *
  * Override via env XAI_BURST_PROBABILITY="0.07" if needed. */
+/** Decide whether this turn should be terse (1-3 word reply or emoji-only).
+ *
+ * Realism v2: the most consistent AI tell is "every reply is 2-3 nicely
+ * structured sentences". Real people drop "lol", "🙄", "jaaa" sometimes
+ * and that's it. We allow this when:
+ *   - past hook turns
+ *   - not bedtime-approaching (goodnight needs warmth)
+ *   - not pre-ack mode / not emotional (those want substance)
+ *   - not burst mode
+ *   - energy state suggests it (groggy / busy / tired multiplies probability)
+ *   - the user's last message is short and casual itself (~ <40 chars or 1-3 words)
+ *
+ * Base probability: 8%. Multiplied by the energy state's terseFactor.
+ */
+function decideTerseMode(args: {
+  turnIndex: number;
+  bedtimePhase: "awake" | "approaching" | "asleep";
+  burstMode: boolean;
+  emotional: boolean;
+  lastUserBody: string | null;
+  energyTerseFactor: number;
+}): boolean {
+  if (args.turnIndex < 3) return false;
+  if (args.bedtimePhase !== "awake") return false;
+  if (args.burstMode) return false;
+  if (args.emotional) return false;
+  // Don't go terse if the user wrote something substantial worth answering.
+  const lastTrim = (args.lastUserBody ?? "").trim();
+  if (lastTrim.length === 0) return false;
+  const isQuestion = /[?!]\s*$/.test(lastTrim) && lastTrim.length > 12;
+  if (isQuestion) return false;
+  // Encourage terse when the user himself sent something terse.
+  const isShort = lastTrim.length <= 32 || lastTrim.split(/\s+/).length <= 4;
+  let p = 0.08 * args.energyTerseFactor;
+  if (isShort) p *= 1.8;
+  if (p > 0.45) p = 0.45;
+  return Math.random() < p;
+}
+
 function decideBurstMode(args: {
   allowMultiMessage: boolean;
   turnIndex: number;
@@ -276,6 +324,7 @@ export async function generatePeerReply(
     summary?: string;
     prefix_messages_count?: number;
     structured_facts?: unknown;
+    persona_self_facts?: unknown;
   };
   const m = (memRow ?? null) as Row | null;
   const prevMemory: ThreadMemoryRow | null =
@@ -298,12 +347,22 @@ export async function generatePeerReply(
     delete (cleanFacts as Record<string, unknown>).__prefix;
     return { facts: cleanFacts, prefix_messages_count: sfPrefix };
   })();
+  const prevSelfMemory: PersonaSelfMemoryRow | null = (() => {
+    if (!m || !m.persona_self_facts || typeof m.persona_self_facts !== "object") {
+      return null;
+    }
+    const facts = m.persona_self_facts as PersonaSelfFacts & { __prefix?: number };
+    const pfx = typeof facts.__prefix === "number" ? facts.__prefix : 0;
+    const clean: PersonaSelfFacts = { self_claims: facts.self_claims };
+    return { facts: clean, prefix_messages_count: pfx };
+  })();
 
-  // Refresh all three in parallel — prose summary is cheap (only fires on
-  // long threads), structured memory fires every ~12 new messages, and
-  // the cross-conversation user profile fires every ~8 new user messages
-  // across all his threads.
-  const [memory, structured, userCrossChatProfile] = await Promise.all([
+  // Refresh all four in parallel — prose summary is cheap (only fires on
+  // long threads), structured memory fires every ~12 new messages, the
+  // cross-conversation user profile fires every ~8 new user messages
+  // across all his threads, and persona self-memory fires every ~10 new
+  // persona messages.
+  const [memory, structured, userCrossChatProfile, personaSelfMem] = await Promise.all([
     refreshThreadSummaryIfNeeded(args.history, prevMemory).catch((): ThreadMemoryRow => ({
       summary: prevMemory?.summary ?? "",
       prefix_messages_count: prevMemory?.prefix_messages_count ?? 0,
@@ -312,6 +371,9 @@ export async function generatePeerReply(
       (): StructuredMemoryRow => prevStructured ?? { facts: {}, prefix_messages_count: 0 },
     ),
     refreshUserChatPersonaIfNeeded(supabase, args.ownerUserId).catch(() => null),
+    refreshPersonaSelfMemoryIfNeeded(args.history, prevSelfMemory).catch(
+      (): PersonaSelfMemoryRow => prevSelfMemory ?? { facts: {}, prefix_messages_count: 0 },
+    ),
   ]);
 
   // Try to write both prose summary and structured facts. If the
@@ -333,10 +395,38 @@ export async function generatePeerReply(
           ...structured.facts,
           __prefix: structured.prefix_messages_count,
         },
+        persona_self_facts: {
+          ...personaSelfMem.facts,
+          __prefix: personaSelfMem.prefix_messages_count,
+        },
       },
       { onConflict: "owner_user_id,peer_id" },
     );
-  if (memUpsertErr && /structured_facts/i.test(memUpsertErr.message)) {
+  if (memUpsertErr && /persona_self_facts/i.test(memUpsertErr.message)) {
+    // persona_self_facts column missing — retry without it.
+    console.warn(
+      "[generate-peer-reply] persona_self_facts column missing — apply 20260516200000_chat_realism_v2.sql",
+    );
+    const { error: retryErr } = await supabase
+      .from("chat_ai_thread_memory")
+      .upsert(
+        {
+          ...memoryUpsertBase,
+          structured_facts: {
+            ...structured.facts,
+            __prefix: structured.prefix_messages_count,
+          },
+        },
+        { onConflict: "owner_user_id,peer_id" },
+      );
+    if (retryErr && /structured_facts/i.test(retryErr.message)) {
+      await supabase
+        .from("chat_ai_thread_memory")
+        .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
+    } else if (retryErr) {
+      console.warn("[generate-peer-reply] memory upsert (v2 retry)", retryErr.message);
+    }
+  } else if (memUpsertErr && /structured_facts/i.test(memUpsertErr.message)) {
     console.warn(
       "[generate-peer-reply] structured_facts column missing — falling back to prose-only memory; apply 20260515110000_chat_realism_foundation.sql",
     );
@@ -448,6 +538,21 @@ export async function generatePeerReply(
     emotional,
   });
 
+  // Realism v2 — energy curve hint based on hour-of-day in her timezone.
+  const nowForEnergy = new Date();
+  const { hour: hourLocal, dayOfWeek: dowLocal } = getHourInTimeZone(nowForEnergy, personaTz);
+  const energy = computeEnergy({ hourLocal, dayOfWeek: dowLocal });
+
+  // Realism v2 — decide terse-mode (one-bubble emoji-only / short reply).
+  const terseMode = decideTerseMode({
+    turnIndex: priorAssistantTurns,
+    bedtimePhase: bedtime.phase,
+    burstMode,
+    emotional,
+    lastUserBody,
+    energyTerseFactor: energy.terseFactor,
+  });
+
   // ----- Build prompt -----
   const system = buildGrokSystemPrompt(args.profile, {
     threadSummary: threadSummaryForPrompt,
@@ -476,6 +581,13 @@ export async function generatePeerReply(
     allowMultiMessage: allowMultiMessage || burstMode,
     burstMode,
     preAckMode: false, // pre-ack support reserved for a follow-up
+    energyHint: {
+      state: energy.state,
+      hint: energy.hint,
+      lengthBias: energy.lengthBias,
+    },
+    terseMode,
+    personaSelfFacts: hasAnySelfClaims(personaSelfMem.facts) ? personaSelfMem.facts : null,
   });
 
   const tail = sliceRecentDialogue(args.history);
@@ -550,11 +662,13 @@ export async function generatePeerReply(
   }
 
   // ----- Multi-message split + post-process -----
-  // Burst-mode raises the cap from 4 to 6 so an excited 5-bubble
-  // waterfall isn't folded back into 3.
-  const rawChunks = (allowMultiMessage || burstMode)
-    ? splitMultiMessage(draftText, burstMode ? 6 : 4)
-    : [draftText];
+  // Terse-mode forces a single bubble. Otherwise burst raises the cap
+  // from 4 to 6 so an excited 5-bubble waterfall isn't folded back to 3.
+  const rawChunks = terseMode
+    ? [draftText]
+    : (allowMultiMessage || burstMode)
+      ? splitMultiMessage(draftText, burstMode ? 6 : 4)
+      : [draftText];
 
   // Photo directives can appear in any chunk. We extract them up front
   // so the visible chunk text stays clean, and we collect the scenes
@@ -570,9 +684,31 @@ export async function generatePeerReply(
     return ext.cleanText;
   });
 
-  const cleanedChunks = directiveStrippedChunks
+  const cleanedChunksRaw = directiveStrippedChunks
     .map((c) => postProcessReply(c))
     .filter((c) => c.length > 0);
+
+  // Realism v2 — voice fingerprint + typo injection passes. Both run
+  // BEFORE chunks are inserted so the persona's signature words/emoji/
+  // quirks AND her natural typo rate end up in storage (not stripped on
+  // re-render). messageIndex makes typos deterministic per turn.
+  const fpCtx = {
+    ownerUserId: args.ownerUserId,
+    peerProfileId: args.peerId,
+    messageIndex: priorAssistantTurns,
+  };
+  const resolvedStyle = resolveVoiceFingerprint(args.profile.chat_style ?? null, args.peerId);
+  const cleanedChunksAfterFp = applyVoiceFingerprint(
+    cleanedChunksRaw,
+    resolvedStyle,
+    fpCtx,
+  );
+  const cleanedChunksAfterSigTypo = applySignatureTypo(
+    cleanedChunksAfterFp,
+    resolvedStyle.signature_typo ?? null,
+    fpCtx,
+  );
+  const cleanedChunks = applyTypoPass(cleanedChunksAfterSigTypo, fpCtx);
 
   if (cleanedChunks.length === 0) {
     const latencyMs = Date.now() - t0;

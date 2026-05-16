@@ -21,6 +21,27 @@ export type ChatStyle = {
   quirks?: string[];
   /** Subjects the persona prefers to keep light / not unpack early. */
   talks_less_about?: string[];
+
+  // ----- Realism v2 voice fingerprint (HARD enforced) --------------
+  /** 1-3 signature words/phrases (e.g. ["yo", "wacht", "ofzo"]). When set,
+   * the post-process layer guarantees at least one appears in ~30% of
+   * messages by injecting it gently if missing. */
+  signature_words?: string[];
+  /** 1-3 signature emoji or emoji combos. Same enforcement rule. */
+  signature_emojis?: string[];
+  /** A structural writing quirk: "geen-punten" | "altijd-lowercase" |
+   * "drie-puntjes-eind" | "dubbele-vraagteken" | "geen-shift" |
+   * "veel-spaties". Applied probabilistically in post-process. */
+  signature_quirk?:
+    | "geen-punten"
+    | "altijd-lowercase"
+    | "drie-puntjes-eind"
+    | "dubbele-vraagteken"
+    | "geen-shift"
+    | "veel-spaties";
+  /** Recurring tiny typo this persona always makes ("ofcourse" vs "of
+   * course", "egt" vs "echt"). Inserted via the typo-injector. */
+  signature_typo?: string;
 };
 
 export type ChatProfileRow = {

@@ -105,7 +105,20 @@ type ChatStyle = {
   punctuation?: string;
   quirks?: string[];
   talks_less_about?: string[];
+  signature_words?: string[];
+  signature_emojis?: string[];
+  signature_quirk?: string;
+  signature_typo?: string;
 };
+
+const SIGNATURE_QUIRKS = new Set<string>([
+  "geen-punten",
+  "altijd-lowercase",
+  "drie-puntjes-eind",
+  "dubbele-vraagteken",
+  "geen-shift",
+  "veel-spaties",
+]);
 
 function asChatStyle(v: unknown): ChatStyle | null {
   if (!v || typeof v !== "object") return null;
@@ -123,6 +136,14 @@ function asChatStyle(v: unknown): ChatStyle | null {
   if (quirks.length) out.quirks = quirks;
   const less = asStringArray(o.talks_less_about, 8, 60);
   if (less.length) out.talks_less_about = less;
+  const sigWords = asStringArray(o.signature_words, 3, 24);
+  if (sigWords.length) out.signature_words = sigWords;
+  const sigEmojis = asStringArray(o.signature_emojis, 3, 12);
+  if (sigEmojis.length) out.signature_emojis = sigEmojis;
+  const sigQ = asString(o.signature_quirk, 24);
+  if (SIGNATURE_QUIRKS.has(sigQ)) out.signature_quirk = sigQ;
+  const sigT = asString(o.signature_typo, 30);
+  if (sigT) out.signature_typo = sigT;
   return Object.keys(out).length > 0 ? out : null;
 }
 
