@@ -352,8 +352,6 @@ export function appendOnboardingOutboundToMockThread(
   if (typeof window === "undefined") return;
   const trimmed = body.trim();
   if (!trimmed) return;
-  const { formatTimeLabelAmsterdam, minuteOfDayAmsterdam } =
-    require("@/lib/datetime/amsterdam") as typeof import("@/lib/datetime/amsterdam");
   const d = new Date();
   const timeLabel = formatTimeLabelAmsterdam(d);
   const minuteOfDay = minuteOfDayAmsterdam(d);
