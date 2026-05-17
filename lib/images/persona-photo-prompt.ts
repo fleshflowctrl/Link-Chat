@@ -717,8 +717,8 @@ export function buildPersonaPhotoPrompt(args: {
     // anti-floating / disembodied hand or phone — these are the exact problems we saw
     "disembodied hand, floating hand, random hand, hand coming from off frame, hand coming from off-screen, hand not attached to body, floating phone, phone floating in air, phone not held by anyone, phone hovering, " +
     "clean full body shot with no device, no phone in frame, empty hands, hands not holding anything, arms relaxed at sides with no phone, perfect lighting on nude body, " +
-    // anti-repetitive bedroom look
-    "same bedroom every time, always white sheets, always the same bed, always soft warm bedroom light, always beige and white colour palette";
+    // anti-repetitive bedroom look + anti-gray/white dominance
+    "same bedroom every time, always white sheets, always the same bed, always soft warm bedroom light, always beige and white colour palette, always gray and white, always neutral tones, always soft gray background, always white walls and white sheets, always the same colour palette";
 
   const negParts = [baseNegative];
   if (isExplicitNude) negParts.push(explicitNegative);

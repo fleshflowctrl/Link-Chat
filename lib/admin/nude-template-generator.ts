@@ -54,6 +54,9 @@ Velden uitgelegd:
   • "naakte zelf-portret op zolder met dakraam, op vloerkleed liggend, warm oranje licht"
   • "naakt in badkuip, witte tegels, waterdruppels, tl-licht"
   • "naakte vrouw op bank in woonkamer, grijs fluwelen bank, avondlicht"
+  • "naakte vrouw voor bakstenen muur, warme oranje lamp, terracotta gloed"
+  • "naakt op donkergroen bank met veel planten, fel daglicht van opzij"
+  • "naakte close-up op donker hout, harde telefoon-flash van voren"
   Vermijd: ALTIJD "spiegel selfie in slaapkamer/badkamer" — dat is de DEFAULT die diffusion al zelf produceert.
 - camera (Engels): camera-afstand/hoek/framing als diffusion-tokens. ALLEEN self-taken varianten. Voorbeelden:
   • "mirror selfie, phone held in her own hand, arm visible in reflection, full body"
@@ -139,10 +142,17 @@ VERPLICHTE LOCATIE-DISTRIBUTIE (HARD RULE — als je hier niet aan voldoet wordt
   - Hotelkamer / Airbnb (andere bed, andere gordijnen, andere lampen)
   - Zolder / kelder / bijkeuken (andere sfeer, andere lichtinval)
   - Bureau / werkkamer / make-up tafel
-- VERPLICHTE ACHTERGROND-VARIATIE (anti-kleurherhaling):
-  - Nooit 2 templates met dezelfde achtergrond-kleur/sfeer.
-  - Spreid over: wit beddengoed, grijs beddengoed, donkerblauw, zwart, beige, houtkleur, tegels (wit/zwart/grijs), tapijt, beton, bakstenen muur, raam met avondlicht, raam met daglicht, neon/gekleurde lamp, kaarslicht, tl-buis, etc.
-  - Als je "bed" gebruikt, varieer dan tenminste: witte lakens, grijze lakens, zwarte dekens, dekbed zonder hoes, gestreept, met kussens eromheen, half opgetrokken, etc.
+- VERPLICHTE ACHTERGROND-VARIATIE (HARD RULE — als je hier niet aan voldoet wordt de hele batch geweigerd):
+  - MAX 30% van de templates mag een neutrale/grijze/witte/zachte achtergrond hebben. In een batch van 20 templates zijn er hooguit 6 met grijs/wit/beige/zachte tonen. De overige 70%+ MOET een duidelijke andere kleur of sterke lichtsfeer hebben.
+  - Verplichte kleur- en lichtvariatie (je MOET spreiden):
+    • Warme/oranje: oranje lamplicht, gouden avondlicht, terracotta muur, wijnrode dekens, warme houten vloer
+    • Koude/blauw: blauwe avond, koele tl-buis, grijsblauwe muren, koud raamlicht, blauwe schemer
+    • Donker/moody: bijna zwart, diepe schaduwen, alleen kaarslicht of harde telefoon-flash
+    • Fel/kleurrijk: felgekleurde lamp, neon, fel daglicht door gekleurd raam, gekleurde tegels
+    • Groen/plant: veel planten, groene muur, buiten met bomen, junglestijl
+    • Rood/bruin: bakstenen muur, donker hout, rood/oranje dekbed
+  - Nooit 2 templates met dezelfde achtergrond-kleur/sfeer in één batch.
+  - Als je "bed" gebruikt, varieer dan tenminste: witte lakens, grijze lakens, zwarte dekens, wijnrood, donkerblauw, gestreept, felgekleurde kussens, half opgetrokken, etc.
 
 VERPLICHTE CAMERA-DISTRIBUTIE (per batch) — ALLEEN self-taken:
 - Verspreid over MINSTENS 7 verschillende self-taken camera-types:
