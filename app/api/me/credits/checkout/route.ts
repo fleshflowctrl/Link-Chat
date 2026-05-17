@@ -5,7 +5,14 @@ import {
   applyDiscount,
   discountForNextPurchase,
 } from "@/lib/credits/discount";
-import { getAppOrigin, getStripe, isStripeConfigured } from "@/lib/stripe/server";
+import {
+  getAppOrigin,
+  getStripe,
+  isStripeConfigured,
+  readStripeSecretKey,
+  stripeErrorMessage,
+  validateStripeSecretKey,
+} from "@/lib/stripe/server";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -21,6 +28,16 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { ok: false, error: "stripe_not_configured", devMode: true },
       { status: 503 },
+    );
+  }
+
+  const secretKey = readStripeSecretKey();
+  const keyError = secretKey ? validateStripeSecretKey(secretKey) : null;
+  if (keyError) {
+    console.error("[credits/checkout]", keyError);
+    return NextResponse.json(
+      { ok: false, error: keyError },
+      { status: 500 },
     );
   }
 
@@ -161,8 +178,10 @@ export async function POST(req: Request) {
       sessionId: session.id,
     });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Stripe error";
-    console.error("[credits/checkout]", message);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    console.error("[credits/checkout]", e);
+    return NextResponse.json(
+      { ok: false, error: stripeErrorMessage(e) },
+      { status: 500 },
+    );
   }
 }
