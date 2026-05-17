@@ -215,7 +215,7 @@ export function AdminMobileNav({ adminEmail }: { adminEmail?: string | null }) {
               className="flex-1 space-y-1 overflow-y-auto px-3 py-4"
             />
 
-            <motion.div className="border-t border-black/5 px-4 py-4">
+            <div className="border-t border-black/5 px-4 py-4">
               <Link
                 href="/discover"
                 onClick={close}
@@ -229,7 +229,7 @@ export function AdminMobileNav({ adminEmail }: { adminEmail?: string | null }) {
                   {adminEmail}
                 </p>
               ) : null}
-            </motion.div>
+            </div>
           </aside>
         </div>
       ) : null}

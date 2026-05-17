@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -35,8 +36,21 @@ function formatMoney(n: number): string {
   });
 }
 
-export function CheckoutView({ pkg }: { pkg: CreditPackage }) {
+type CheckoutQuery = {
+  success?: string;
+  canceled?: string;
+  session_id?: string;
+};
+
+export function CheckoutView({
+  pkg,
+  query = {},
+}: {
+  pkg: CreditPackage;
+  query?: CheckoutQuery;
+}) {
   const router = useRouter();
+  const verifiedSession = useRef<string | null>(null);
 
   useEffect(() => {
     initCreditsStore();
@@ -65,29 +79,14 @@ export function CheckoutView({ pkg }: { pkg: CreditPackage }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [canceled, setCanceled] = useState(query.canceled === "1");
 
-  const handlePurchase = useCallback(async () => {
-    if (submitting) return;
-    setSubmitting(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const res = await fetch("/api/me/credits/purchase", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ packageId: pkg.id }),
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        balance?: number;
-        purchaseCount?: number;
-        grantedCredits?: number;
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        setError(json.error ?? "Aankoop mislukt. Probeer opnieuw.");
-        return;
-      }
+  const applyPurchaseResult = useCallback(
+    (json: {
+      balance?: number;
+      purchaseCount?: number;
+      grantedCredits?: number;
+    }) => {
       if (
         typeof json.balance === "number" &&
         typeof json.purchaseCount === "number"
@@ -97,14 +96,117 @@ export function CheckoutView({ pkg }: { pkg: CreditPackage }) {
       setSuccess(
         `+${json.grantedCredits ?? pkg.credits + pkg.bonus} credits toegevoegd`,
       );
-      // Take the user back to the credits screen so they see the new tier.
       setTimeout(() => router.push("/credits"), 900);
-    } catch {
-      setError("Aankoop mislukt. Probeer opnieuw.");
+    },
+    [pkg.bonus, pkg.credits, router],
+  );
+
+  /** Stripe return URL: verify session and grant credits if webhook lagged. */
+  useEffect(() => {
+    const sessionId = query.session_id?.trim();
+    if (query.success !== "1" || !sessionId) return;
+    if (verifiedSession.current === sessionId) return;
+    verifiedSession.current = sessionId;
+
+    let cancelled = false;
+    (async () => {
+      setSubmitting(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/me/credits/checkout/verify?session_id=${encodeURIComponent(sessionId)}`,
+        );
+        const json = (await res.json()) as {
+          ok?: boolean;
+          balance?: number;
+          purchaseCount?: number;
+          grantedCredits?: number;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.ok) {
+          setError(json.error ?? "Betaling kon niet worden bevestigd.");
+          return;
+        }
+        applyPurchaseResult(json);
+      } catch {
+        if (!cancelled) {
+          setError("Betaling kon niet worden bevestigd.");
+        }
+      } finally {
+        if (!cancelled) setSubmitting(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [query.success, query.session_id, applyPurchaseResult]);
+
+  const startStripeCheckout = useCallback(async () => {
+    const res = await fetch("/api/me/credits/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ packageId: pkg.id }),
+    });
+    const json = (await res.json()) as {
+      ok?: boolean;
+      url?: string;
+      devMode?: boolean;
+      error?: string;
+    };
+
+    if (json.ok && json.url) {
+      window.location.href = json.url;
+      return true;
+    }
+
+    if (res.status === 503 && json.devMode) {
+      return false;
+    }
+
+    throw new Error(json.error ?? "Checkout mislukt");
+  }, [pkg.id]);
+
+  const runDevPurchase = useCallback(async () => {
+    const res = await fetch("/api/me/credits/purchase", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ packageId: pkg.id }),
+    });
+    const json = (await res.json()) as {
+      ok?: boolean;
+      balance?: number;
+      purchaseCount?: number;
+      grantedCredits?: number;
+      error?: string;
+    };
+    if (!res.ok || !json.ok) {
+      throw new Error(json.error ?? "Aankoop mislukt");
+    }
+    applyPurchaseResult(json);
+  }, [applyPurchaseResult, pkg.id]);
+
+  const handlePurchase = useCallback(async () => {
+    if (submitting || success) return;
+    setSubmitting(true);
+    setError(null);
+    setCanceled(false);
+    try {
+      const redirected = await startStripeCheckout();
+      if (!redirected) {
+        await runDevPurchase();
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Aankoop mislukt. Probeer opnieuw.",
+      );
     } finally {
       setSubmitting(false);
     }
-  }, [pkg, submitting, router]);
+  }, [submitting, success, startStripeCheckout, runDevPurchase]);
+
+  const busy = submitting || (query.success === "1" && !success && !error);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#F5F3EE]">
@@ -125,7 +227,6 @@ export function CheckoutView({ pkg }: { pkg: CreditPackage }) {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pb-5">
-        {/* Order summary */}
         <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/[0.05]">
           <div className="flex items-center gap-3">
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-inner">
@@ -180,13 +281,17 @@ export function CheckoutView({ pkg }: { pkg: CreditPackage }) {
           </div>
         </div>
 
-        {/* Trust strip */}
         <div className="flex items-center justify-center gap-2 text-[11px] font-medium text-gray-500">
           <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
-          Veilig betalen via Apple Pay of kaart
+          Veilig betalen via Stripe · kaart of Apple Pay
         </div>
 
         <div className="mt-auto flex flex-col gap-2">
+          {canceled && !success && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-center text-[12px] font-medium text-amber-800">
+              Betaling geannuleerd. Probeer het opnieuw.
+            </p>
+          )}
           {error && (
             <p className="rounded-xl bg-red-50 px-3 py-2 text-center text-[12px] font-medium text-red-700">
               {error}
@@ -202,33 +307,16 @@ export function CheckoutView({ pkg }: { pkg: CreditPackage }) {
           <button
             type="button"
             onClick={handlePurchase}
-            disabled={submitting || success !== null}
+            disabled={busy || success !== null}
             className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-black px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-60"
           >
-            <svg
-              className="h-6 w-6 shrink-0"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden
-            >
-              <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-            </svg>
             <span>
-              {submitting
+              {busy
                 ? "Bezig…"
                 : success
                   ? "Voltooid"
                   : `Betaal · ${formatMoney(userPrice)}`}
             </span>
-          </button>
-          <button
-            type="button"
-            onClick={handlePurchase}
-            disabled={submitting || success !== null}
-            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-3 text-[15px] font-semibold text-ink shadow-sm transition active:scale-[0.99] disabled:opacity-60"
-          >
-            <span aria-hidden>💳</span>
-            <span>Betalen met kaart</span>
           </button>
         </div>
       </div>
