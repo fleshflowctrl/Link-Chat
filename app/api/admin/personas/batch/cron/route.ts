@@ -14,7 +14,7 @@ export const runtime = "nodejs";
  * Vercel cron pings this every minute (see vercel.json). For each active
  * batch (status pending/running) we fire one worker tick. The tick is
  * a no-op when an item is already in flight (returns "waiting"), and
- * resets any item that's been stuck longer than 90s before picking the
+ * resets any item that's been stuck longer than ~58s before picking the
  * next unit. This is the safety net that keeps batches moving even
  * when the chained-fetch worker dies mid-call AND the operator has
  * closed the admin tab so the UI heartbeat can't help.

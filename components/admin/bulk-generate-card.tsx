@@ -290,10 +290,9 @@ export function BulkGenerateCard() {
     };
   }, [batchId, batch, fetchBatch, router]);
 
-  // If the server hasn't reported progress in ~30s, nudge the worker
-  // to resume by POSTing to the batch route. 30s is comfortably above
-  // a single photo-gen call but tight enough that a dropped chain
-  // doesn't sit visibly stuck.
+  // If the server hasn't reported progress in ~22s, nudge the worker.
+  // Do not bump lastProgressAt on kick — only real updated_at changes
+  // count as progress, otherwise a failed kick blocks retries for 30s.
   useEffect(() => {
     if (!batchId || !batch) return;
     if (batch.status !== "pending" && batch.status !== "running") return;
@@ -302,9 +301,8 @@ export function BulkGenerateCard() {
       if (cancelled) return;
       const seenAt = lastProgressAtRef.current;
       const since = seenAt > 0 ? Date.now() - seenAt : 0;
-      if (since < 30_000) return;
+      if (since < 22_000) return;
       await kickWorker(batchId);
-      lastProgressAtRef.current = Date.now();
     }, 5_000);
     return () => {
       cancelled = true;

@@ -77,11 +77,11 @@ export async function scheduleAfterResponse(
 
 /** Items stuck in `*_state='running'` longer than this are assumed to
  * have been orphaned by a crashed tick and get reset to 'pending' on
- * the next tick. 90s is comfortably above Vercel's 60s function cap
- * + a healthy cold-start. We keep it short because a stuck item halts
- * the entire sequential per-persona pipeline — the faster recovery
- * fires, the faster the batch resumes after a dropped chain. */
-const STUCK_THRESHOLD_MS = 90 * 1000;
+ * the next tick. Must stay above {@link PHOTO_TIMEOUT_MS} /
+ * {@link PROFILE_TIMEOUT_MS} so we don't reset while work is still
+ * in-flight — but lower than the old 90s so a dropped chain recovers
+ * faster. */
+const STUCK_THRESHOLD_MS = 58 * 1000;
 
 function log(scope: string, msg: string, extra?: Record<string, unknown>) {
   // Persona-batch worker is hard to debug without per-step logs because
@@ -90,11 +90,18 @@ function log(scope: string, msg: string, extra?: Record<string, unknown>) {
   console.log(`[persona-batch:${scope}] ${msg}`, extra ?? {});
 }
 
-/** Internal soft-timeout used to bound how long we wait for a single
- * Z-Image-Turbo call. We need to finish ALL DB cleanup before Vercel's
- * 60s function cap or we leave items stuck in `running`. 50s leaves a
- * generous 10s budget for state writes and trigger-next-tick. */
-const PHOTO_TIMEOUT_MS = 50 * 1000;
+/** Soft-timeout for one diffusion call — must finish before Vercel's
+ * 60s cap so we can write DB state and chain the next tick. */
+const PHOTO_TIMEOUT_MS = 42 * 1000;
+
+/** Grok profile generation can hang; bound it so the batch never sits
+ * on `profile_state=running` until the stuck watchdog fires. */
+const PROFILE_TIMEOUT_MS = 40 * 1000;
+
+/** When a tick sees in-flight work (`waiting`), schedule another tick
+ * after this delay so a dropped chain self-heals without waiting for
+ * cron / the UI heartbeat. */
+const WAITING_RETRY_MS = 12 * 1000;
 
 async function withTimeout<T>(
   promise: Promise<T>,
@@ -220,7 +227,7 @@ export function resolveBaseUrl(req?: Request): string {
 
 /** Kick off the next worker tick. The destination route acks fast
  * (the work runs in its own waitUntil) so awaiting this fetch only
- * blocks for ~100ms even when the chain is busy. We add a 10s
+ * blocks for ~100ms even when the chain is busy. We add a 25s
  * timeout as a safety net — if the new invocation can't even
  * acknowledge in that window something is seriously wrong (cold
  * start way out of band, network down), and the cron + UI heartbeat
@@ -236,7 +243,7 @@ export async function triggerNextTick(
   log("triggerNextTick", "fire", { batchId, url });
 
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), 10_000);
+  const t = setTimeout(() => controller.abort(), 25_000);
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -341,6 +348,7 @@ async function recoverStuckItems(
     .or(
       "profile_state.eq.running,photo_state.eq.running,gallery_state.eq.running",
     );
+  let recovered = 0;
   for (const row of (stuck ?? []) as Array<
     Pick<
       BatchItemRow,
@@ -369,7 +377,74 @@ async function recoverStuckItems(
     }
     log("recover", "reset", { batchId, idx: row.idx, patch });
     await patchItem(service, batchId, row.idx, patch);
+    recovered += 1;
   }
+  if (recovered > 0) {
+    await patchBatch(service, batchId, { updated_at: new Date().toISOString() });
+  }
+
+  // `running` without `claimed_at` means a tick crashed between the state
+  // flip and the claim write — those rows never match the cutoff query.
+  const { data: orphanRunning } = await service
+    .from("chat_persona_batch_items")
+    .select(
+      "idx, profile_state, photo_state, gallery_state, gallery_attempts, gallery_done",
+    )
+    .eq("batch_id", batchId)
+    .is("claimed_at", null)
+    .or(
+      "profile_state.eq.running,photo_state.eq.running,gallery_state.eq.running",
+    );
+  for (const row of (orphanRunning ?? []) as Array<
+    Pick<
+      BatchItemRow,
+      | "idx"
+      | "profile_state"
+      | "photo_state"
+      | "gallery_state"
+      | "gallery_attempts"
+      | "gallery_done"
+    >
+  >) {
+    const patch: Partial<BatchItemRow> = { claimed_at: null };
+    if (row.profile_state === "running") patch.profile_state = "pending";
+    if (row.photo_state === "running") patch.photo_state = "pending";
+    if (row.gallery_state === "running") {
+      const attempts = row.gallery_attempts + 1;
+      const exhausted = attempts >= galleryTarget;
+      patch.gallery_attempts = attempts;
+      patch.gallery_state = exhausted
+        ? row.gallery_done > 0
+          ? "partial"
+          : "error"
+        : "pending";
+      patch.gallery_error = "Orphaned running state (geen claimed_at)";
+    }
+    log("recover", "orphan", { batchId, idx: row.idx, patch });
+    await patchItem(service, batchId, row.idx, patch);
+    await patchBatch(service, batchId, { updated_at: new Date().toISOString() });
+  }
+}
+
+/** Re-queue the worker while another unit is still marked running
+ * (e.g. a previous tick died mid-photo). Idempotent — a busy tick just
+ * returns `waiting` again. */
+export async function scheduleWaitingResume(
+  baseUrl: string,
+  batchId: string,
+  service: SupabaseClient,
+): Promise<void> {
+  await new Promise((r) => setTimeout(r, WAITING_RETRY_MS));
+  const batch = await loadBatch(service, batchId);
+  if (
+    !batch ||
+    batch.status === "done" ||
+    batch.status === "cancelled" ||
+    batch.status === "failed"
+  ) {
+    return;
+  }
+  await triggerNextTick(baseUrl, batchId);
 }
 
 type NextUnit =
@@ -389,7 +464,7 @@ type NextUnit =
  *
  * Recovery in runOneStep resets items that have been stuck longer than
  * STUCK_THRESHOLD_MS, so a crashed-mid-work tick can't block the batch
- * forever — at worst we pause ~90s.
+ * forever — at worst we pause ~58s.
  */
 function pickNextUnit(batch: BatchRow, items: BatchItemRow[]): NextUnit {
   for (const item of items) {
@@ -445,10 +520,8 @@ export type RunOneStepResult =
   | { kind: "stopped"; reason: "cancelled" | "done" | "failed" };
 
 /** Process exactly one unit of work for a batch. Caller is responsible
- * for triggering the next tick when `moreWork === true`. When result
- * is `waiting`, the chain should stop — a watchdog (UI heartbeat or
- * Vercel cron) will wake us up once the in-flight unit either finishes
- * or hits the stuck-recovery threshold. */
+ * for triggering the next tick when `moreWork === true`, or calling
+ * {@link scheduleWaitingResume} when the result is `waiting`. */
 export async function runOneStep(
   service: SupabaseClient,
   batchId: string,
@@ -496,16 +569,24 @@ export async function runOneStep(
       profile_error: null,
     });
     try {
-      const result = await createPersonaFromBrief(service, {
-        brief: batch.brief,
-        index: next.item.idx,
-        total: batch.total,
-        exclude: [...batch.exclude_ids, ...batch.exclude_names].slice(0, 24),
-        attractiveness: batch.attractiveness,
-        body_type: batch.body_type,
-        age_min: batch.age_min,
-        age_max: batch.age_max,
-      });
+      const result = await withTimeout(
+        createPersonaFromBrief(service, {
+          brief: batch.brief,
+          index: next.item.idx,
+          total: batch.total,
+          exclude: [...batch.exclude_ids, ...batch.exclude_names].slice(0, 24),
+          attractiveness: batch.attractiveness,
+          body_type: batch.body_type,
+          age_min: batch.age_min,
+          age_max: batch.age_max,
+        }),
+        PROFILE_TIMEOUT_MS,
+        {
+          ok: false as const,
+          error: `Profielgeneratie timeout (>${Math.round(PROFILE_TIMEOUT_MS / 1000)}s)`,
+          status: 504,
+        },
+      );
       if (!result.ok) {
         log("profile", "fail", { batchId, idx: next.item.idx, error: result.error });
         await patchItem(service, batchId, next.item.idx, {

@@ -5,6 +5,7 @@ import {
   resolveBaseUrl,
   runOneStep,
   scheduleAfterResponse,
+  scheduleWaitingResume,
   triggerNextTick,
   verifyWorkerToken,
 } from "@/lib/admin/persona-batch";
@@ -56,7 +57,9 @@ export async function POST(req: Request) {
   await scheduleAfterResponse(async () => {
     try {
       const result = await runOneStep(service, batchId);
-      if (result.kind === "worked" && result.moreWork) {
+      if (result.kind === "waiting") {
+        await scheduleWaitingResume(baseUrl, batchId, service);
+      } else if (result.kind === "worked" && result.moreWork) {
         // Chain on. The next tick will also ack-fast so this await
         // resolves quickly even when the new tick has heavy work
         // queued behind its own waitUntil.
