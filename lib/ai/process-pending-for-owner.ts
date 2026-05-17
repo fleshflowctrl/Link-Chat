@@ -54,6 +54,21 @@ export async function listDuePendingThreads(
   return dedupeThreads((data ?? []) as Array<{ owner_user_id: string; peer_id: string }>);
 }
 
+/** Rows stuck in processing (crashed worker) become deliverable again. */
+export async function recoverStuckPendingReplies(
+  supabase: SupabaseClient,
+): Promise<void> {
+  const staleBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+  const { error } = await supabase
+    .from("chat_pending_replies")
+    .update({ status: "pending", updated_at: new Date().toISOString() })
+    .eq("status", "processing")
+    .lt("updated_at", staleBefore);
+  if (error) {
+    console.warn("[process-pending] recover stuck", error.message);
+  }
+}
+
 export async function processPendingForOwner(
   supabase: SupabaseClient,
   args: {
@@ -136,27 +151,40 @@ export async function processPendingForOwner(
 /** Cron: process due threads across all users (service role). */
 export async function processAllDuePendingGlobally(
   supabase: SupabaseClient,
-  args?: { maxThreads?: number },
-): Promise<ProcessPendingForOwnerResult> {
-  const maxThreads = args?.maxThreads ?? 12;
-  const due = await listDuePendingThreads(supabase, { maxRows: maxThreads * 3 });
-  const slice = due.slice(0, maxThreads);
+  args?: { maxThreadsPerBatch?: number; timeBudgetMs?: number },
+): Promise<ProcessPendingForOwnerResult & { batches: number }> {
+  const maxThreadsPerBatch = args?.maxThreadsPerBatch ?? 16;
+  const deadline = Date.now() + (args?.timeBudgetMs ?? 100_000);
 
   let threadsProcessed = 0;
   let messagesDelivered = 0;
   let errors = 0;
+  let batches = 0;
 
-  for (const { ownerUserId, peerId } of slice) {
-    const r = await processPendingForOwner(supabase, {
-      ownerUserId,
-      peerId,
-      maxThreads: 1,
-      scheduleWinback: false,
+  await recoverStuckPendingReplies(supabase);
+
+  while (Date.now() < deadline) {
+    const due = await listDuePendingThreads(supabase, {
+      maxRows: maxThreadsPerBatch * 3,
     });
-    threadsProcessed += r.threadsProcessed;
-    messagesDelivered += r.messagesDelivered;
-    errors += r.errors;
+    const slice = due.slice(0, maxThreadsPerBatch);
+    if (slice.length === 0) break;
+
+    batches += 1;
+    for (const { ownerUserId, peerId } of slice) {
+      const r = await processPendingForOwner(supabase, {
+        ownerUserId,
+        peerId,
+        maxThreads: 1,
+        scheduleWinback: false,
+      });
+      threadsProcessed += r.threadsProcessed;
+      messagesDelivered += r.messagesDelivered;
+      errors += r.errors;
+    }
+
+    if (slice.length < maxThreadsPerBatch) break;
   }
 
-  return { threadsProcessed, messagesDelivered, errors };
+  return { threadsProcessed, messagesDelivered, errors, batches };
 }

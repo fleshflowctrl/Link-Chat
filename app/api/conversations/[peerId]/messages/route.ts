@@ -7,6 +7,7 @@ import {
 } from "@/lib/chat/map-rows";
 import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
 import { processDuePendingReplies } from "@/lib/ai/pending-replies";
+import { schedulePendingReplyDelivery } from "@/lib/ai/schedule-pending-reply-delivery";
 import {
   maybeScheduleSpontaneous,
   maybeScheduleWinback,
@@ -389,6 +390,12 @@ export async function POST(
       }
     } else {
       nextPendingAt = scheduledAt;
+      schedulePendingReplyDelivery({
+        ownerUserId: user.id,
+        peerId,
+        profile: p,
+        scheduledAtIso: scheduledAt,
+      });
     }
   }
 

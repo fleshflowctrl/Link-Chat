@@ -11,15 +11,19 @@ export const maxDuration = 120;
  * Vercel cron (every minute): deliver due AI replies even when no client
  * is open. Requires SUPABASE_SERVICE_ROLE_KEY.
  */
-export async function GET(req: Request) {
+function isAuthorizedCron(req: Request): boolean {
+  if (req.headers.get("x-vercel-cron") === "1") return true;
   const secret = (process.env.CRON_SECRET ?? "").trim();
-  if (secret) {
-    const auth = req.headers.get("authorization") ?? "";
-    const url = new URL(req.url);
-    const queryKey = url.searchParams.get("key") ?? "";
-    if (auth !== `Bearer ${secret}` && queryKey !== secret) {
-      return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
-    }
+  if (!secret) return true;
+  const auth = req.headers.get("authorization") ?? "";
+  const url = new URL(req.url);
+  const queryKey = url.searchParams.get("key") ?? "";
+  return auth === `Bearer ${secret}` || queryKey === secret;
+}
+
+export async function GET(req: Request) {
+  if (!isAuthorizedCron(req)) {
+    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
 
   const service = getServiceSupabase();
@@ -30,7 +34,10 @@ export async function GET(req: Request) {
     );
   }
 
-  const result = await processAllDuePendingGlobally(service, { maxThreads: 12 });
+  const result = await processAllDuePendingGlobally(service, {
+    maxThreadsPerBatch: 16,
+    timeBudgetMs: 100_000,
+  });
   console.log("[cron/chat-pending-replies]", result);
 
   return NextResponse.json({ ok: true, ...result });

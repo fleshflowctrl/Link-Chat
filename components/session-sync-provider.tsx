@@ -11,7 +11,7 @@ import {
 } from "@/lib/session-sync";
 import { warmInboxThreadsCache } from "@/lib/warm-inbox-cache";
 
-const CHAT_HEARTBEAT_MS = 45_000;
+const CHAT_HEARTBEAT_MS = 30_000;
 
 /**
  * Mounted once in the app shell. Keeps credits (and dispatches thread/unlock
@@ -26,6 +26,7 @@ export function SessionSyncProvider() {
     initCreditsStore();
     void hydrateClientSessionFromServer();
     void warmInboxThreadsCache();
+    void processPendingChatsFromServer().then(() => requestThreadsRefetch());
 
     const runChatHeartbeat = () => {
       if (document.visibilityState !== "visible") return;
