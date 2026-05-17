@@ -17,6 +17,7 @@ import {
   Check,
   CheckCheck,
   ChevronLeft,
+  Coins,
   Gift,
   MoreHorizontal,
   Plus,
@@ -301,6 +302,13 @@ export function ChatConversationView({
     },
     [isBrandNewChat, myPhotoUrl],
   );
+
+  const [creditsGateOpen, setCreditsGateOpen] = useState(false);
+
+  const openCreditsGate = useCallback(() => {
+    void refreshCreditsFromServer();
+    setCreditsGateOpen(true);
+  }, []);
 
   const annotated = useMemo(() => annotateMessages(messages), [messages]);
 
@@ -613,9 +621,7 @@ export function ChatConversationView({
       if (useSupabase) {
         const bal = getCreditsSnapshot().balance;
         if (bal < CHAT_MESSAGE_COST_CREDITS) {
-          setAssistantError(
-            `Niet genoeg credits (${CHAT_MESSAGE_COST_CREDITS} per bericht). Ga naar Credits om op te waarderen.`,
-          );
+          openCreditsGate();
           return;
         }
       }
@@ -704,14 +710,6 @@ export function ChatConversationView({
 
         if (!res.ok || !data.userMessage) {
           console.error("[chat]", data.error ?? res.status);
-          if (res.status === 402) {
-            void refreshCreditsFromServer();
-          }
-          setAssistantError(
-            typeof data.error === "string"
-              ? data.error
-              : `Versturen mislukt (${res.status})`,
-          );
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
           setReadPhase((p) => {
             if (!(tempId in p)) return p;
@@ -719,6 +717,15 @@ export function ChatConversationView({
             return rest;
           });
           setInput(trimmed);
+          if (res.status === 402) {
+            openCreditsGate();
+            return;
+          }
+          setAssistantError(
+            typeof data.error === "string"
+              ? data.error
+              : `Versturen mislukt (${res.status})`,
+          );
           return;
         }
 
@@ -805,7 +812,7 @@ export function ChatConversationView({
         stopPeerTyping();
       }
     },
-    [armPeerTyping, blockIfNoProfilePhoto, chatId, useSupabase, meta, stopPeerTyping],
+    [armPeerTyping, blockIfNoProfilePhoto, chatId, openCreditsGate, useSupabase, meta, stopPeerTyping],
   );
 
   const sendImage = useCallback(
@@ -815,9 +822,7 @@ export function ChatConversationView({
       if (useSupabase) {
         const bal = getCreditsSnapshot().balance;
         if (bal < CHAT_MESSAGE_COST_CREDITS) {
-          setAssistantError(
-            `Niet genoeg credits (${CHAT_MESSAGE_COST_CREDITS} per bericht). Ga naar Credits om op te waarderen.`,
-          );
+          openCreditsGate();
           return;
         }
       }
@@ -882,11 +887,12 @@ export function ChatConversationView({
           error?: string;
         };
         if (!res.ok || !data.userMessage) {
+          setMessages((prev) => prev.filter((m) => m.id !== tempId));
           if (res.status === 402) {
-            void refreshCreditsFromServer();
+            openCreditsGate();
+            return;
           }
           setAssistantError(data.error ?? `Foto versturen mislukt (${res.status})`);
-          setMessages((prev) => prev.filter((m) => m.id !== tempId));
           return;
         }
         if (typeof data.newBalance === "number") {
@@ -923,7 +929,7 @@ export function ChatConversationView({
         stopPeerTyping();
       }
     },
-    [armPeerTyping, blockIfNoProfilePhoto, chatId, useSupabase, meta, stopPeerTyping],
+    [armPeerTyping, blockIfNoProfilePhoto, chatId, openCreditsGate, useSupabase, meta, stopPeerTyping],
   );
 
   const sendGift = useCallback(
@@ -1551,6 +1557,68 @@ export function ChatConversationView({
         peerAvatarUrl={meta.avatarUrl}
         onSend={sendGift}
       />
+
+      <AnimatePresence>
+        {creditsGateOpen && (
+          <>
+            <motion.div
+              key="credits-gate-bg"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-sm"
+              onClick={() => setCreditsGateOpen(false)}
+            />
+            <motion.div
+              key="credits-gate-sheet"
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "tween", duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
+              className="fixed inset-x-0 bottom-0 z-[85] mx-auto max-w-[430px] rounded-t-3xl bg-white px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl"
+              role="dialog"
+              aria-labelledby="credits-gate-title"
+              aria-modal="true"
+            >
+              <motion.div className="mb-4 flex justify-center sm:hidden">
+                <div className="h-1 w-10 rounded-full bg-gray-200" />
+              </motion.div>
+
+              <div className="flex flex-col items-center text-center">
+                <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-md">
+                  <Coins className="h-7 w-7" strokeWidth={2.25} aria-hidden />
+                </span>
+                <h2
+                  id="credits-gate-title"
+                  className="text-[18px] font-extrabold text-ink"
+                >
+                  Credits op
+                </h2>
+                <p className="mt-1.5 max-w-[28ch] text-[13px] leading-snug text-gray-600">
+                  Je hebt niet genoeg credits om een bericht te sturen (
+                  {CHAT_MESSAGE_COST_CREDITS} per bericht). Koop extra credits om
+                  het gesprek voort te zetten.
+                </p>
+              </motion.div>
+
+              <Link
+                href="/credits"
+                onClick={() => setCreditsGateOpen(false)}
+                className="mt-5 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+              >
+                Credits kopen
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCreditsGateOpen(false)}
+                className="mt-2 w-full py-2.5 text-[13px] font-semibold text-gray-500"
+              >
+                Niet nu
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {photoGate?.open && (
