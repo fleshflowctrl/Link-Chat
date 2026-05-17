@@ -26,7 +26,13 @@ const INTEREST_EMOJI: Record<string, string> = {
 export function FeedCard({ profile }: Props) {
   const isOnline =
     profile.status.variant === "online" || profile.status.variant === "active";
+  const isNew = profile.status.variant === "new";
   const showStatusChip = profile.status.label.trim().length > 0;
+  const chipMotionClass = isNew
+    ? "animate-discover-badge-new"
+    : isOnline
+      ? "animate-discover-badge-live"
+      : "";
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[28px] bg-gray-200 shadow-xl ring-1 ring-black/5">
@@ -56,17 +62,15 @@ export function FeedCard({ profile }: Props) {
       {showStatusChip && (
         <div className="absolute left-3 top-3 z-[1]">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md ${
-              profile.status.variant === "new"
-                ? "bg-pink-500/90"
-                : "bg-black/55"
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md ${chipMotionClass} ${
+              isNew ? "bg-pink-500/90" : "bg-black/55"
             }`}
           >
             {isOnline && (
-              <span
-                className="h-1.5 w-1.5 rounded-full bg-green-400"
-                aria-hidden
-              />
+              <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
+              </span>
             )}
             {profile.status.label}
           </span>

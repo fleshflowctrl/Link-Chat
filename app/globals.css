@@ -40,6 +40,30 @@ html.funnel-scroll-lock body {
   }
 }
 
+/** Discover feed — online / Actief nu chip */
+@keyframes discoverBadgeLive {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.04);
+  }
+}
+
+/** Discover feed — Nieuw chip */
+@keyframes discoverBadgeNew {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(236, 72, 153, 0.25);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 4px 14px rgba(236, 72, 153, 0.45);
+  }
+}
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;
@@ -51,5 +75,13 @@ html.funnel-scroll-lock body {
 
   .animate-pulse-dot {
     animation: pulseDot 2s ease-in-out infinite;
+  }
+
+  .animate-discover-badge-live {
+    animation: discoverBadgeLive 2.4s ease-in-out infinite;
+  }
+
+  .animate-discover-badge-new {
+    animation: discoverBadgeNew 2s ease-in-out infinite;
   }
 }
