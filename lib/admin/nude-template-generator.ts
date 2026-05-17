@@ -30,14 +30,72 @@ Output STRIKT geldige JSON, niets anders. Geen markdown-fences, geen toelichting
   ]
 }
 
+BELANGRIJK: de scene-omschrijving MOET het woord "naakt" of "naakte" bevatten — dat is de trigger voor de explicit-content render-path. Zonder dat woord wordt het een normale gekleeden foto.
+
 Velden uitgelegd:
-- scene (Nederlands of mix NL/EN, 1 zin): WAT ze doet en WAAR. Concrete situatie. Bijv: "naakte spiegel selfie in slaapkamer 's ochtends na het opstaan", "naakte badkamer selfie na het douchen met natte haren", "liggend naakt op bed bij avondlicht".
-- camera (Engels): camera-afstand/hoek/framing als diffusion-tokens. Bijv: "low angle phone selfie from below, arm visible, full body slightly from below", "high angle looking down at body, phone held above", "extreme close-up mirror selfie, phone almost touching glass", "3/4 angle from the side, phone at chest height".
-- backdrop (Engels): zichtbare achtergrond met specifieke details. Bijv: "messy bedroom, rumpled white duvet, pillows scattered, wooden headboard", "modern bathroom, white tiles, fogged mirror, towel hanging on the side", "bedroom with string lights, soft pink walls, full length mirror".
-- lighting (Engels): licht-mood, concrete licht-tokens. Bijv: "soft warm morning window light from the side, gentle shadows on skin", "harsh phone flash direct lighting", "warm lamp light from below, dramatic side shadows", "dim bedroom lamp, intimate mood".
-- capture (Engels): apparaat-feel. Bijv: "real amateur mirror selfie, slight motion blur on hand, iPhone front camera", "real self-taken from behind, slightly shaky angle", "real overhead selfie, amateur, slightly imperfect framing", "real bathroom mirror selfie, steam on mirror edges".
-- outfit (Engels): MOET expliciet naakt zijn. Verplicht volledig naakt. Bijv: "completely nude, no clothes at all, bare skin, full frontal nudity, breasts and vagina clearly visible", "completely nude, water droplets on skin, no clothes", "completely nude, breasts and pussy in close-up", "completely nude, ass and pussy fully visible from behind".
-- pose (Engels): exacte lichaamshouding. Bijv: "standing relaxed in front of mirror, one hand holding phone, other hand resting on hip", "on all fours with back arched, looking back over left shoulder", "lying on back with knees pulled to chest, legs spread wide", "sitting on edge of bathtub with legs open toward camera", "standing on tiptoes with back slightly arched, phone in both hands".
+- scene (Nederlands, 1 zin): WAT ze doet en WAAR. Concrete situatie. MOET "naakt" of "naakte" bevatten. Voorbeelden van GROTE VARIATIE in scenes:
+  • "naakt op handen en voeten op de keukenvloer, kont naar camera"
+  • "naakte vrouw zit op de bank met laptop open, benen wijd, vlak voor camera"
+  • "naakt liggend met benen omhoog tegen de muur, telefoon op vloer"
+  • "naakte vrouw in een hotelkamer, op handen en knieën op het bed, gezicht in lakens"
+  • "naakt op een gymmat in de woonkamer, doet yoga in cobra-pose"
+  • "naakte foto vanaf bovenaf, ze ligt op haar rug op tegelvloer"
+  • "naakt in douchecabine met natte haren, glasdeuren open"
+  • "naakt zittend op bureaustoel met benen wijd over de armleuningen"
+  • "naakte close-up van borsten, telefoon bijna tegen huid"
+  • "naakte vrouw bukt voorover op aanrecht in keuken"
+  • "naakt op trap zittend met benen gespreid"
+  • "naakte foto in inloopkast, kleren om haar heen op de grond"
+  • "naakte vrouw op make-uptafel zittend, voor make-upspiegel"
+  • "naakt staand voor groot raam met avondstad erachter, camera vanaf zij"
+  • "naakte zelf-portret op zolder met dakraam, op vloerkleed liggend"
+  Vermijd: ALTIJD "spiegel selfie in slaapkamer/badkamer" — dat is de DEFAULT die diffusion al zelf produceert.
+- camera (Engels): camera-afstand/hoek/framing als diffusion-tokens. Voorbeelden van GROTE VARIATIE:
+  • "phone placed on dresser timer shot full body wide angle, no arm visible"
+  • "POV phone held high looking down at body lying on floor, full body in frame"
+  • "extreme close-up of breasts, phone almost touching skin, only breasts and stomach visible"
+  • "low ground-level angle, phone resting on floor pointing up at her body"
+  • "snapshot taken by a friend from across the room, wider full body composition, no selfie arm"
+  • "high overhead angle, phone above head pointing straight down at full body"
+  • "selfie from arm extended diagonally, body at 3/4 angle to camera"
+  • "tight crop on lower body only, from waist to knees, phone at hip level"
+  • "selfie shot from behind over her own shoulder, looking back at lens"
+  • "fish-eye-ish wide phone angle, body slightly distorted at edges"
+  Vermijd: ALTIJD "mirror selfie standing in front of mirror with phone in hand" — diffusion default.
+- backdrop (Engels): zichtbare achtergrond met SPECIFIEKE details. NIET alleen "bedroom". Voorbeelden:
+  • "modern Scandinavian kitchen with white cabinets, coffee maker on counter, plant on windowsill"
+  • "small Dutch apartment hallway with coat rack, jackets hanging, wooden floor"
+  • "narrow Amsterdam canal-house staircase with steep wooden steps and white walls"
+  • "hotel room with king bed, leather headboard, city view through floor-to-ceiling window"
+  • "messy home gym corner, yoga mat on floor, dumbbells, towel thrown on floor"
+  • "balcony at dusk, plant pots, string lights, fairy lights wrapped on railing"
+  • "walk-in closet with hanging clothes around her, neutral beige carpet, full-length mirror"
+  • "kitchen counter with cutting board and herbs, kitchen towel, induction hob visible"
+  • "wooden desk with monitor, scattered notebooks, coffee mug, ergonomic chair"
+  • "vintage attic bedroom with sloped ceiling, skylight, wooden beams"
+  • "Spa bathroom with stone tiles, free-standing oval tub, candles"
+- lighting (Engels): concrete licht-tokens. Voorbeelden:
+  • "harsh direct phone flash from the front, hard shadows behind body"
+  • "single warm desk lamp from the side, dramatic golden side shadows"
+  • "blueish evening twilight through window, cool tones on skin"
+  • "fluorescent ceiling light in modern bathroom, even flat lighting"
+  • "candle light only, very warm orange tones, intimate"
+  • "string-light fairy glow from above, multi-point soft warm pinpoints"
+  • "bright midday sun streaming through window, sharp window-frame shadow on body"
+- capture (Engels): apparaat-feel.
+  • "iPhone timer self-portrait, phone propped on shelf, slightly tilted framing"
+  • "phone taken by a girlfriend, wider candid composition, no selfie arm"
+  • "Samsung phone camera, slightly warmer colour cast than iPhone"
+  • "older phone camera, slight pinkish tint and visible noise"
+- outfit (Engels): MOET expliciet naakt zijn, maar met VARIATIE in detail:
+  • "completely nude, hair tied up in messy bun, no jewellery"
+  • "completely nude, water droplets on skin, wet hair"
+  • "completely nude with thin gold necklace and small earrings"
+  • "completely nude with visible tan lines from bikini"
+  • "completely nude, red painted toenails, ankle bracelet"
+  • "completely nude, slight goose bumps from cool air"
+  • "completely nude, hair freshly washed and dripping wet"
+- pose (Engels): exacte lichaamshouding. ZIE de POSE-DISTRIBUTIE regels hieronder — geen 4 staande poses in 1 batch.
 
 HARDE REGELS:
 - ALLE personas zijn vrouwen tussen 18 en 99 met middellang tot lang haar. Iedere template moet werken voor élke leeftijd binnen dat bereik.

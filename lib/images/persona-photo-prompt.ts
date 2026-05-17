@@ -512,22 +512,15 @@ export function buildPersonaPhotoPrompt(args: {
         "same hair color and length, same body proportions and skin tone, " +
         "highly consistent identity, recognizable as the same person",
     );
+    // Nudity reinforcement only — DO NOT force mirror-selfie / pose / camera
+    // here. The template (or the operator-supplied cameraStyle) drives those
+    // entirely. If we hardcode "mirror selfie + phone in hand" we collapse
+    // every nude render to the same composition, no matter how varied the
+    // templates are. The template knows whether this should be a selfie, a
+    // POV-from-above, a friend-snap, a body-part close-up, etc.
     promptParts.push(
-      "completely nude, no clothes at all, bare skin, full frontal nudity, " +
-        "breasts fully visible with nipples, vagina/pussy clearly visible and exposed, " +
-        "legs spread wide, explicit nudity, no hands covering breasts or vagina",
-    );
-    // Self-taken explicit photo: MUST look like she took it herself.
-    promptParts.push(
-      "mirror selfie taken by the woman herself, she is holding her own phone, " +
-        "arm extended or phone visible in the mirror reflection, selfie angle from her hand, " +
-        "amateur bedroom or bathroom mirror selfie, real self-taken nude photo from her personal camera roll, " +
-        "her own arm and hand visible in frame or reflection, casual unposed self-portrait",
-    );
-    // Extra anti-repetition for explicit nudes — force different compositions
-    promptParts.push(
-      "highly varied composition, different camera angle and distance than previous photos, " +
-        "unique body position and framing, never repeat the same pose or mirror-selfie style",
+      "completely nude, no clothes at all, bare skin, fully visible body, " +
+        "breasts visible with nipples, explicit nudity",
     );
   } else {
     promptParts.push(`wearing ${style}`);
@@ -550,27 +543,30 @@ export function buildPersonaPhotoPrompt(args: {
   // (or a misbehaving Grok response) might carry never make it into
   // the positive prompt.
   const cam = args.cameraStyle ?? {};
-  let camera =
+  // For explicit nudes we DO NOT override camera/lighting/capture anymore.
+  // Earlier versions hardcoded "mirror selfie + phone in hand + bedroom or
+  // bathroom lighting" here, which guaranteed every nude render looked the
+  // same. The template is the single source of truth for these fields —
+  // it already specifies whether the photo is a mirror selfie, POV from
+  // above, a friend snapshot, an arm-held selfie, or a tripod/timer shot.
+  // The legacy fallbacks below only kick in when the template is missing
+  // a field, never as a forced override.
+  const camera =
     stripBlurPhrases(cam.camera) ||
-    "casual phone selfie or candid snapshot";
+    (isExplicitNude
+      ? "amateur self-taken phone photo"
+      : "casual phone selfie or candid snapshot");
   const backdrop = stripBlurPhrases(cam.backdrop);
-  let lighting = stripBlurPhrases(cam.lighting) || "soft natural lighting";
-  let capture =
+  const lighting =
+    stripBlurPhrases(cam.lighting) ||
+    (isExplicitNude
+      ? "ordinary indoor lighting, casual home environment"
+      : "soft natural lighting");
+  const capture =
     stripBlurPhrases(cam.capture) ||
-    "shot on iPhone, slight grain, intimate everyday moment";
-
-  // For explicit nudes we force a strong self-taken mirror-selfie look
-  // so it is obvious that *she* took the photo (not a third party).
-  if (isExplicitNude) {
-    camera =
-      "close-up mirror selfie taken by the woman herself, phone held in her own hand, " +
-      "arm extended or clearly visible, phone camera reflection visible in the mirror, " +
-      "selfie angle, amateur self-taken nude";
-    lighting = "soft bedroom or bathroom lighting, mirror reflection, casual home environment";
-    capture =
-      "shot by herself on her own iPhone, real amateur mirror selfie, slightly imperfect framing and angle, " +
-      "from her personal camera roll, unedited self-portrait, natural phone photo";
-  }
+    (isExplicitNude
+      ? "real amateur self-taken photo, unedited, from her personal camera roll"
+      : "shot on iPhone, slight grain, intimate everyday moment");
 
   promptParts.push(camera);
   if (backdrop) promptParts.push(`background: ${backdrop}`);
@@ -582,15 +578,18 @@ export function buildPersonaPhotoPrompt(args: {
   // For explicit nudes we add an extra strong self-taken anchor so the
   // model cannot fall back to "someone else took this photo".
   if (isExplicitNude) {
+    // Realism block for nudes — DO NOT specify mirror selfie / phone in
+    // hand / bedroom or bathroom here. Those were collapsing every nude
+    // render to the same composition. The template handles framing; this
+    // block only handles diffusion-realism artifacts.
     promptParts.push(
-      "ordinary everyday iPhone mirror selfie from her own camera roll, totally unedited, " +
-        "real self-taken amateur nude photo, slightly imperfect framing and angle, " +
-        "her own hand and arm visible holding the phone or reflected in the mirror, " +
-        "natural skin pores and small skin texture, no filter, no beauty filter, " +
+      "ordinary everyday iPhone snapshot from her camera roll, totally unedited, " +
+        "real amateur nude photo, slightly imperfect framing and angle, " +
+        "natural skin pores and small skin texture and small body imperfections, " +
+        "no filter, no beauty filter, no smoothing, no airbrush, " +
         "everything in focus from foreground to background, no portrait mode, no bokeh, no blurred background, no motion blur, deep focus normal phone wide-angle, " +
-        "normal phone camera dynamic range, slight ISO noise, slight grain, " +
-        "shot quickly by herself in her bedroom or bathroom, regular phone photo not a photoshoot, " +
-        "clearly taken by the woman in the photo, selfie, self-portrait",
+        "flat phone camera dynamic range, slight ISO noise, slight grain, " +
+        "regular phone photo not a photoshoot, no studio lighting, no professional setup",
     );
   } else {
     // STRONG everyday-iPhone realism block. Loaded with concrete phone-
