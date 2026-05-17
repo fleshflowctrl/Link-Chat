@@ -80,14 +80,14 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
 
   return (
     <div className="pb-4">
-      <div className="relative h-[62vh] min-h-[320px] max-h-[520px] w-full overflow-hidden bg-ink/10">
+      <div className="relative aspect-[3/4] max-h-[85vh] w-full overflow-hidden bg-ink/10">
         <Image
           src={heroSrc}
           alt=""
           fill
           priority
           sizes="100vw"
-          className="object-cover"
+          className="object-contain"
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/50" />
 
