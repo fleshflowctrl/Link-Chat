@@ -23,16 +23,21 @@ import { ProfileStrengthBanner } from "./profile-strength-banner";
 
 const FEED_INDEX_KEY_PREFIX = "whisper_feed_index";
 
-/** Build a per-user, per-slot localStorage key so packs don't bleed into each other. */
-function feedIndexKey(userKey: string, slot: number): string {
-  return `${FEED_INDEX_KEY_PREFIX}:${userKey}:${slot}`;
+/**
+ * Build a per-user, per-slot, per-composition localStorage key. The
+ * composition hash makes the cursor reset cleanly when the visible set
+ * changes (e.g. a profile got removed because the user opened a chat with
+ * them) so we don't keep showing a stale "you're on profile #5" when
+ * profile #5 is now a different person.
+ */
+function feedIndexKey(userKey: string, slot: number, feedHash: string): string {
+  return `${FEED_INDEX_KEY_PREFIX}:${userKey}:${slot}:${feedHash}`;
 }
 
-/** Read a saved index for this user+slot, or 0 when absent/invalid. */
-function readSavedIndex(userKey: string, slot: number): number {
+function readSavedIndex(userKey: string, slot: number, feedHash: string): number {
   if (typeof window === "undefined") return 0;
   try {
-    const raw = localStorage.getItem(feedIndexKey(userKey, slot));
+    const raw = localStorage.getItem(feedIndexKey(userKey, slot, feedHash));
     if (raw === null) return 0;
     const n = parseInt(raw, 10);
     return Number.isFinite(n) && n >= 0 ? n : 0;
@@ -41,23 +46,45 @@ function readSavedIndex(userKey: string, slot: number): number {
   }
 }
 
-/** Persist the current index, and clean up stale entries from older slots. */
-function writeSavedIndex(userKey: string, slot: number, index: number) {
+/** Persist the current index, and garbage-collect entries from older slots. */
+function writeSavedIndex(
+  userKey: string,
+  slot: number,
+  feedHash: string,
+  index: number,
+) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(feedIndexKey(userKey, slot), String(index));
-    // Garbage collect any keys for this user from older slots so storage
-    // doesn't grow unbounded.
+    localStorage.setItem(feedIndexKey(userKey, slot, feedHash), String(index));
     const prefix = `${FEED_INDEX_KEY_PREFIX}:${userKey}:`;
+    const stale: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (!k || !k.startsWith(prefix)) continue;
-      const slotPart = k.slice(prefix.length);
+      // key shape: `<prefix><slot>:<hash>`  — drop anything older than the current slot
+      const rest = k.slice(prefix.length);
+      const colon = rest.indexOf(":");
+      const slotPart = colon === -1 ? rest : rest.slice(0, colon);
       const slotNum = parseInt(slotPart, 10);
-      if (Number.isFinite(slotNum) && slotNum < slot) {
-        localStorage.removeItem(k);
-      }
+      if (Number.isFinite(slotNum) && slotNum < slot) stale.push(k);
     }
+    for (const k of stale) localStorage.removeItem(k);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Best-effort fire-and-forget — record that the user saw this profile. */
+function postProfileSeen(profileId: string) {
+  if (typeof window === "undefined" || !profileId) return;
+  try {
+    void fetch("/api/me/feed/seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId }),
+      credentials: "same-origin",
+      keepalive: true,
+    }).catch(() => {});
   } catch {
     /* ignore */
   }
@@ -67,6 +94,9 @@ type Props = {
   profiles: Profile[];
   /** Active hourly slot — used to reset the index when a fresh pack lands. */
   feedSlot: number;
+  /** Stable hash of the current ordered profile ids — when this changes
+   *  (e.g. user opened a chat with one of them) the cursor resets cleanly. */
+  feedHash: string;
   nextRefreshAt: number;
   refreshCost: number;
   /** Live credit balance (null = anonymous, hides paid refresh). */
@@ -101,6 +131,7 @@ function formatCountdown(ms: number): string {
 export function FeedStack({
   profiles,
   feedSlot,
+  feedHash,
   nextRefreshAt,
   refreshCost,
   balance,
@@ -119,20 +150,21 @@ export function FeedStack({
   const [index, setIndex] = useState<number>(0);
   const [hydrated, setHydrated] = useState(false);
 
-  // Restore the saved index for this user + slot on mount and whenever a fresh
-  // pack arrives. If we've already seen all profiles in this slot, this keeps the
-  // user on the end-state instead of bouncing them back to profile #1.
+  // Restore the saved index for this user + slot + composition on mount, and
+  // whenever any of those change. If we've already seen all profiles in this
+  // pack, this keeps the user on the end-state instead of bouncing them back
+  // to profile #1.
   useEffect(() => {
-    setIndex(readSavedIndex(userKey, feedSlot));
+    setIndex(readSavedIndex(userKey, feedSlot, feedHash));
     setHydrated(true);
-  }, [userKey, feedSlot]);
+  }, [userKey, feedSlot, feedHash]);
 
   // Persist progress (skip the very first render before hydration to avoid
   // overwriting a saved value with the initial 0).
   useEffect(() => {
     if (!hydrated) return;
-    writeSavedIndex(userKey, feedSlot, index);
-  }, [hydrated, userKey, feedSlot, index]);
+    writeSavedIndex(userKey, feedSlot, feedHash, index);
+  }, [hydrated, userKey, feedSlot, feedHash, index]);
 
   const [now, setNow] = useState<number>(() => Date.now());
   useEffect(() => {
@@ -144,6 +176,14 @@ export function FeedStack({
   const safeIndex = Math.min(index, total);
   const current: Profile | undefined = profiles[safeIndex];
   const atEnd = !current;
+
+  // Fire a `seen` ping when the visible profile changes. Best-effort, so a
+  // failed network call never blocks the UI; the server uses it to push this
+  // profile to the back of the next pack and out of the rotation for a while.
+  useEffect(() => {
+    if (!hydrated || !current?.id) return;
+    postProfileSeen(current.id);
+  }, [hydrated, current?.id]);
 
   const remaining = Math.max(0, nextRefreshAt - now);
   const countdown = formatCountdown(remaining);

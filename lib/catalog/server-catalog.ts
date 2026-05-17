@@ -13,9 +13,14 @@ import {
   HOURLY_FEED_REFRESH_COST,
   HOURLY_FEED_SIZE,
   activeFeedSlot,
+  hashFeedComposition,
   nextHourBoundary,
-  pickHourlyFeed,
+  pickHourlyFeedWithHistory,
 } from "@/lib/catalog/hourly-feed";
+import {
+  loadProfileViewHistory,
+  type ProfileViewHistory,
+} from "@/lib/me/profile-views";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -32,6 +37,9 @@ export type HomePageCatalogBundle = {
   nextRefreshAt: number;
   /** Credit cost to skip ahead to the next slot now. */
   refreshCost: number;
+  /** Stable hash of the resulting ordered profile ids — used by the client
+   *  to key per-feed UI state so it resets when the feed composition changes. */
+  feedHash: string;
 };
 
 /**
@@ -69,9 +77,14 @@ function pickDiscoverFeed(
   pool: Profile[],
   userKey: string,
   feedSlot: number,
+  history: ProfileViewHistory = { excludeIds: new Set(), demoteIds: new Set() },
   size: number = HOURLY_FEED_SIZE,
 ): Profile[] {
-  const picked = pickHourlyFeed(pool, userKey, feedSlot, size);
+  const picked = pickHourlyFeedWithHistory(pool, userKey, feedSlot, {
+    excludeIds: history.excludeIds,
+    demoteIds: history.demoteIds,
+    size,
+  });
   return applyDiscoverFeedStatusToProfiles(picked, userKey, feedSlot);
 }
 
@@ -81,10 +94,12 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const meta = bundleMeta(0, now);
+    const gridProfiles = pickDiscoverFeed(profiles, "guest", meta.feedSlot);
     return {
-      gridProfiles: pickDiscoverFeed(profiles, "guest", meta.feedSlot),
+      gridProfiles,
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: false,
+      feedHash: hashFeedComposition(gridProfiles.map((p) => p.id)),
       ...meta,
     };
   }
@@ -95,10 +110,12 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
   } catch {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const meta = bundleMeta(0, now);
+    const gridProfiles = pickDiscoverFeed(profiles, "guest", meta.feedSlot);
     return {
-      gridProfiles: pickDiscoverFeed(profiles, "guest", meta.feedSlot),
+      gridProfiles,
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: true,
+      feedHash: hashFeedComposition(gridProfiles.map((p) => p.id)),
       ...meta,
     };
   }
@@ -113,10 +130,12 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
 
   if (!user) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
+    const gridProfiles = pickDiscoverFeed(profiles, userKey, meta.feedSlot);
     return {
-      gridProfiles: pickDiscoverFeed(profiles, userKey, meta.feedSlot),
+      gridProfiles,
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: false,
+      feedHash: hashFeedComposition(gridProfiles.map((p) => p.id)),
       ...meta,
     };
   }
@@ -139,7 +158,8 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     pool = (rows as ChatProfileRow[]).map(chatProfileRowToProfile);
   }
 
-  const gridProfiles = pickDiscoverFeed(pool, userKey, meta.feedSlot);
+  const history = await loadProfileViewHistory(supabase, user.id);
+  const gridProfiles = pickDiscoverFeed(pool, userKey, meta.feedSlot, history);
 
   const { data: actRows, error: actError } = await supabase
     .from("chat_profiles")
@@ -168,6 +188,7 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     gridProfiles,
     activityUsers,
     catalogDegraded: gridDegraded,
+    feedHash: hashFeedComposition(gridProfiles.map((p) => p.id)),
     ...meta,
   };
 }

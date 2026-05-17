@@ -17,5 +17,6 @@ export async function GET() {
     refreshOffset: bundle.refreshOffset,
     nextRefreshAt: bundle.nextRefreshAt,
     refreshCost: bundle.refreshCost,
+    feedHash: bundle.feedHash,
   });
 }

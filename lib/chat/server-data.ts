@@ -21,6 +21,7 @@ import {
 } from "@/lib/catalog/discover-feed-status";
 import { activeFeedSlot } from "@/lib/catalog/hourly-feed";
 import { fetchRefreshOffset } from "@/lib/catalog/server-catalog";
+import { recordProfileChatOpened } from "@/lib/me/profile-views";
 
 export type ThreadMeta = {
   name: string;
@@ -349,6 +350,11 @@ export async function fetchConversationServer(
     user.id,
     feedSlot,
   );
+
+  // Remember that this user already has a chat open with `peerId` so the
+  // discover feed stops recommending them. Fire-and-forget; never block the
+  // chat load on history writes.
+  void recordProfileChatOpened(supabase, user.id, peerId);
 
   if (msgError) {
     return {

@@ -64,9 +64,15 @@ export function pickHourlyFeed<T>(
   slot: number,
   size: number = HOURLY_FEED_SIZE,
 ): T[] {
+  return shuffleDeterministic(pool, `${userKey}::${slot}`).slice(
+    0,
+    Math.min(size, pool.length),
+  );
+}
+
+function shuffleDeterministic<T>(pool: readonly T[], seedKey: string): T[] {
   if (pool.length === 0) return [];
-  const seed = fnv1aHash(`${userKey}::${slot}`);
-  const rand = mulberry32(seed);
+  const rand = mulberry32(fnv1aHash(seedKey));
   const order = pool.map((_, i) => i);
   for (let i = order.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
@@ -74,5 +80,64 @@ export function pickHourlyFeed<T>(
     order[i] = order[j];
     order[j] = tmp;
   }
-  return order.slice(0, Math.min(size, pool.length)).map((i) => pool[i]);
+  return order.map((i) => pool[i]);
+}
+
+/**
+ * Variant of {@link pickHourlyFeed} that respects the user's discover history:
+ *
+ * - `excludeIds` are dropped from the pool entirely (e.g. profiles the user
+ *   already opened a chat with).
+ * - `demoteIds` are shuffled to the back of the resulting list (e.g. profiles
+ *   the user has already swiped past recently) — so they only show up again
+ *   after the "fresh" candidates have been exhausted.
+ *
+ * Determinism: same `<userKey, slot, history>` always returns the same slice
+ * in the same order. Two independent shuffles are used (one for fresh, one
+ * for demoted) so swapping a profile between buckets doesn't reshuffle the
+ * other bucket.
+ */
+export function pickHourlyFeedWithHistory<T extends { id: string }>(
+  pool: readonly T[],
+  userKey: string,
+  slot: number,
+  opts: {
+    excludeIds?: ReadonlySet<string>;
+    demoteIds?: ReadonlySet<string>;
+    size?: number;
+  } = {},
+): T[] {
+  const size = opts.size ?? HOURLY_FEED_SIZE;
+  if (pool.length === 0) return [];
+
+  const exclude = opts.excludeIds ?? new Set<string>();
+  const demote = opts.demoteIds ?? new Set<string>();
+
+  const fresh: T[] = [];
+  const demoted: T[] = [];
+  for (const item of pool) {
+    if (exclude.has(item.id)) continue;
+    if (demote.has(item.id)) demoted.push(item);
+    else fresh.push(item);
+  }
+
+  const shuffledFresh = shuffleDeterministic(
+    fresh,
+    `${userKey}::${slot}::fresh`,
+  );
+  const shuffledDemoted = shuffleDeterministic(
+    demoted,
+    `${userKey}::${slot}::demoted`,
+  );
+
+  return [...shuffledFresh, ...shuffledDemoted].slice(0, size);
+}
+
+/**
+ * Compact stable hash of an ordered list of profile ids — used by the client
+ * to key per-feed UI state (e.g. the current cursor) so the cursor resets
+ * cleanly when the feed composition changes (chat opened, etc.).
+ */
+export function hashFeedComposition(ids: readonly string[]): string {
+  return fnv1aHash(ids.join("|")).toString(36);
 }

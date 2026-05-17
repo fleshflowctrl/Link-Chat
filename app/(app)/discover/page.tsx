@@ -20,6 +20,7 @@ export default async function DiscoverPage() {
         feedSlot={catalog.feedSlot}
         nextRefreshAt={catalog.nextRefreshAt}
         refreshCost={catalog.refreshCost}
+        feedHash={catalog.feedHash}
       />
     </>
   );

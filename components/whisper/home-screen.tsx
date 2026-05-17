@@ -34,6 +34,8 @@ type Props = {
   nextRefreshAt: number;
   /** Credit cost to skip ahead to the next slot now. */
   refreshCost: number;
+  /** Stable hash of the resulting ordered profile ids — used as the cursor key. */
+  feedHash: string;
 };
 
 type FeedRefreshResponse = {
@@ -44,6 +46,7 @@ type FeedRefreshResponse = {
   refreshOffset?: number;
   nextRefreshAt?: number;
   refreshCost?: number;
+  feedHash?: string;
   balance?: number;
   cost?: number;
 };
@@ -55,6 +58,7 @@ type FeedGetResponse = {
   refreshOffset?: number;
   nextRefreshAt?: number;
   refreshCost?: number;
+  feedHash?: string;
 };
 
 export function HomeScreen({
@@ -65,6 +69,7 @@ export function HomeScreen({
   feedSlot,
   nextRefreshAt,
   refreshCost,
+  feedHash,
 }: Props) {
   const [profile, setProfile] = useState<EditProfileState | null>(initialProfile);
 
@@ -75,6 +80,7 @@ export function HomeScreen({
   const [nextAt, setNextAt] = useState<number>(nextRefreshAt);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [hash, setHash] = useState<string>(feedHash);
 
   useEffect(() => {
     initCreditsStore();
@@ -125,6 +131,7 @@ export function HomeScreen({
           if (json.ok && Array.isArray(json.profiles)) {
             setProfilesState(json.profiles);
             if (typeof json.feedSlot === "number") setSlot(json.feedSlot);
+            if (typeof json.feedHash === "string") setHash(json.feedHash);
             if (typeof json.nextRefreshAt === "number") {
               setNextAt(json.nextRefreshAt);
             } else {
@@ -162,6 +169,7 @@ export function HomeScreen({
       }
       if (Array.isArray(json.profiles)) setProfilesState(json.profiles);
       if (typeof json.feedSlot === "number") setSlot(json.feedSlot);
+      if (typeof json.feedHash === "string") setHash(json.feedHash);
       if (typeof json.nextRefreshAt === "number") setNextAt(json.nextRefreshAt);
       if (typeof json.balance === "number") {
         applyServerCreditsUpdate(json.balance);
@@ -180,6 +188,7 @@ export function HomeScreen({
       <FeedStack
         profiles={profilesState}
         feedSlot={slot}
+        feedHash={hash}
         nextRefreshAt={nextAt}
         refreshCost={refreshCost}
         balance={balanceForButton}
