@@ -53,6 +53,20 @@ export default function NudesAdminPage() {
   const [templatesPanelOpen, setTemplatesPanelOpen] = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
+  // Preview state — per-template inline preview, plus a fullscreen modal
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  const [previews, setPreviews] = useState<Record<string, { url: string; subject: string }>>({});
+  const [previewModal, setPreviewModal] = useState<{ url: string; template: NudeTemplate } | null>(null);
+  const [previewPreset, setPreviewPreset] = useState<string>("mid-average");
+
+  const PREVIEW_PRESETS = [
+    { id: "young-slim-striking", label: "24j · slank" },
+    { id: "young-average", label: "26j · gemiddeld" },
+    { id: "mid-average", label: "38j · gemiddeld" },
+    { id: "mid-plus-average", label: "42j · plus" },
+    { id: "senior-average", label: "58j · gemiddeld" },
+  ];
+
   async function loadPersonas() {
     setLoading(true);
     setError(null);
@@ -125,6 +139,35 @@ export default function NudesAdminPage() {
       setBatchStatus(`Netwerkfout: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setGeneratingBatch(false);
+    }
+  }
+
+  async function previewTemplate(id: string, preset: string) {
+    setPreviewingId(id);
+    try {
+      const res = await fetch(
+        `/api/admin/scene-templates/${encodeURIComponent(id)}/test-render`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ preset }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.url) {
+        alert(data.error ?? `Preview faalde (HTTP ${res.status})`);
+        return;
+      }
+      setPreviews((prev) => ({
+        ...prev,
+        [id]: { url: data.url, subject: data.subject ?? preset },
+      }));
+      const tpl = templates.find((t) => t.id === id);
+      if (tpl) setPreviewModal({ url: data.url, template: tpl });
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Netwerkfout");
+    } finally {
+      setPreviewingId(null);
     }
   }
 
@@ -334,50 +377,115 @@ export default function NudesAdminPage() {
 
               {/* Templates list */}
               <div className="rounded-2xl border border-rose-200 bg-white">
-                <div className="flex items-center justify-between border-b border-rose-100 px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-100 px-4 py-3">
                   <div className="text-xs font-semibold text-gray-700">
                     Actieve templates ({templates.length}
                     {templatesTotal > templates.length ? ` van ${templatesTotal}` : ""})
                   </div>
-                  <button
-                    onClick={() => void loadTemplates()}
-                    disabled={templatesLoading}
-                    className="rounded-full border border-gray-200 px-3 py-1 text-[11px] hover:bg-gray-50"
-                  >
-                    {templatesLoading ? "…" : "Vernieuwen"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] text-gray-500">Preview op:</label>
+                    <select
+                      value={previewPreset}
+                      onChange={(e) => setPreviewPreset(e.target.value)}
+                      className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px]"
+                    >
+                      {PREVIEW_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => void loadTemplates()}
+                      disabled={templatesLoading}
+                      className="rounded-full border border-gray-200 px-3 py-1 text-[11px] hover:bg-gray-50"
+                    >
+                      {templatesLoading ? "…" : "Vernieuwen"}
+                    </button>
+                  </div>
                 </div>
                 {templates.length === 0 ? (
                   <div className="px-4 py-10 text-center text-sm text-gray-400">
                     Nog geen nude templates in de pool. Klik op "Genereer … met Grok" om te starten.
                   </div>
                 ) : (
-                  <div className="max-h-96 divide-y divide-gray-100 overflow-y-auto">
-                    {templates.map((t) => (
-                      <div key={t.id} className="grid grid-cols-[1fr,auto] items-start gap-3 px-4 py-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-gray-900">{t.scene}</div>
-                          <div className="mt-0.5 truncate text-xs text-gray-500">
-                            <span className="font-mono text-[10px] text-rose-600">pose:</span> {t.pose}
+                  <div className="max-h-[600px] divide-y divide-gray-100 overflow-y-auto">
+                    {templates.map((t) => {
+                      const preview = previews[t.id];
+                      const isPreviewing = previewingId === t.id;
+                      return (
+                        <div
+                          key={t.id}
+                          className="grid grid-cols-[80px,1fr,auto] items-start gap-3 px-4 py-3"
+                        >
+                          {/* Thumbnail / placeholder */}
+                          <button
+                            onClick={() => void previewTemplate(t.id, previewPreset)}
+                            disabled={isPreviewing}
+                            className="relative h-[100px] w-20 overflow-hidden rounded-xl bg-gray-100 ring-1 ring-gray-200 transition hover:ring-rose-300 disabled:opacity-60"
+                            title="Klik om een preview te genereren (≈20-50s)"
+                          >
+                            {preview ? (
+                              <>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={preview.url}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPreviewModal({ url: preview.url, template: t });
+                                  }}
+                                />
+                              </>
+                            ) : isPreviewing ? (
+                              <div className="flex h-full items-center justify-center text-[10px] text-gray-400">
+                                renderen…
+                              </div>
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-[10px] text-gray-400">
+                                preview
+                              </div>
+                            )}
+                          </button>
+
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-gray-900">{t.scene}</div>
+                            <div className="mt-0.5 truncate text-xs text-gray-500">
+                              <span className="font-mono text-[10px] text-rose-600">pose:</span> {t.pose}
+                            </div>
+                            <div className="mt-0.5 truncate text-xs text-gray-500">
+                              <span className="font-mono text-[10px] text-rose-600">camera:</span> {t.camera}
+                            </div>
+                            <div className="mt-0.5 truncate text-[11px] text-gray-400">
+                              <span className="font-mono text-[10px] text-rose-400">backdrop:</span> {t.backdrop}
+                            </div>
                           </div>
-                          <div className="mt-0.5 truncate text-xs text-gray-500">
-                            <span className="font-mono text-[10px] text-rose-600">camera:</span> {t.camera}
+
+                          <div className="flex flex-col items-end gap-1.5">
+                            <button
+                              onClick={() => void previewTemplate(t.id, previewPreset)}
+                              disabled={isPreviewing}
+                              className="rounded-full border border-rose-200 bg-white px-3 py-1 text-[11px] text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                            >
+                              {isPreviewing ? "Renderen…" : preview ? "Opnieuw" : "Preview"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                const reason = prompt("Waarom wijs je deze af? (komt terug in Grok-feedback)");
+                                if (reason && reason.trim()) {
+                                  void rejectTemplate(t.id, reason.trim());
+                                }
+                              }}
+                              disabled={rejectingId === t.id}
+                              className="rounded-full border border-red-200 bg-white px-3 py-1 text-[11px] text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            >
+                              {rejectingId === t.id ? "…" : "Afwijzen"}
+                            </button>
                           </div>
                         </div>
-                        <button
-                          onClick={() => {
-                            const reason = prompt("Waarom wijs je deze af? (komt terug in Grok-feedback)");
-                            if (reason && reason.trim()) {
-                              void rejectTemplate(t.id, reason.trim());
-                            }
-                          }}
-                          disabled={rejectingId === t.id}
-                          className="rounded-full border border-red-200 bg-white px-3 py-1 text-[11px] text-red-600 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          {rejectingId === t.id ? "…" : "Afwijzen"}
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -521,6 +629,72 @@ export default function NudesAdminPage() {
           </div>
         )}
       </div>
+
+      {/* Fullscreen preview modal for a single nude template render */}
+      {previewModal && (
+        <div
+          className="fixed inset-0 z-[500] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setPreviewModal(null)}
+        >
+          <div
+            className="max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-3xl bg-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-6 py-4">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-base font-semibold">
+                  {previewModal.template.scene}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-gray-500">
+                  {previewModal.template.pose}
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewModal(null)}
+                className="rounded-full border border-gray-200 px-4 py-1.5 text-sm hover:bg-gray-50"
+              >
+                Sluiten
+              </button>
+            </div>
+            <div className="relative bg-gray-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewModal.url}
+                alt=""
+                className="block max-h-[75vh] w-full object-contain"
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-6 py-3 text-xs text-gray-500">
+              <div>
+                <span className="font-mono text-[10px] text-rose-600">camera:</span> {previewModal.template.camera}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    void previewTemplate(previewModal.template.id, previewPreset);
+                  }}
+                  disabled={previewingId === previewModal.template.id}
+                  className="rounded-full border border-rose-200 bg-white px-3 py-1.5 text-[11px] text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                >
+                  {previewingId === previewModal.template.id ? "Renderen…" : "Opnieuw renderen"}
+                </button>
+                <button
+                  onClick={() => {
+                    const reason = prompt("Waarom wijs je deze af? (komt terug in Grok-feedback)");
+                    if (reason && reason.trim()) {
+                      void rejectTemplate(previewModal.template.id, reason.trim());
+                      setPreviewModal(null);
+                    }
+                  }}
+                  className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-[11px] text-red-600 hover:bg-red-50"
+                >
+                  Afwijzen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Manage exclusive photos for one persona */}
       {modalPersona && (
