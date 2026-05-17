@@ -39,10 +39,34 @@ const DEFAULTS = {
 /** Words/phrases that must never end up in the prompt.
  * We only hard-block child exploitation and violence/gore.
  * Nudity / adult content is allowed when the persona's system prompt
- * explicitly gates it (user sent photo + 100-credit gift first). */
+ * explicitly gates it (user sent photo + 100-credit gift first).
+ *
+ * CRITICAL: every pattern uses `\b` word boundaries. Earlier versions
+ * relied on bare substring matching (e.g. /rape/i) which silently
+ * killed perfectly innocent prompts — "hair scraped back", "Tokyo
+ * skyscrapers", "draped curtain", and Dutch occupations like
+ * "fysiotherapeut" / "ergotherapeut" all contain the substring
+ * "rape". Similarly /teen/ matched "teenager", "fifteen", "sixteen",
+ * "eighteen", "nineteen"; /minor/ matched "minority". The result was
+ * "Prompt blocked by safety filter" failures on the majority of
+ * persona-batch renders. Keep word boundaries on every entry. */
 const PROMPT_BLOCKLIST = [
-  /child|minor|teen|underage|under.?18|loli|shota/i,
-  /violence|gore|blood|rape|non.?consent/i,
+  // Underage / child-safety vocabulary
+  /\b(child|children|kid|kids|infant|toddler|baby)\b/i,
+  /\b(minor|minors|underage|under[\s-]?18)\b/i,
+  /\b(teen|teens|teenage|teenager|teenagers|pre[-\s]?teen)\b/i,
+  /\b(loli|lolita|lolicon|shota|shotacon|pedophil[a-z]*)\b/i,
+  // Numeric ages 1–17 with a year/jaar marker, e.g. "15-year-old",
+  // "17 jaar", "9 jr", "12 y.o.", and the Dutch "17-jarige" form
+  // (so we also catch "jarig" as a stem). Trailing boundary is
+  // intentionally absent so "jarige" / "year-old" suffixes both hit.
+  /\b(?:[1-9]|1[0-7])[\s-]?(?:year|jaar|jarig|jr|yo|y\.?o\.?)/i,
+  // Violence / non-consent
+  /\b(violence|violent|gore|gory)\b/i,
+  /\b(rape|raped|raping|rapist|rapists)\b/i,
+  /\bnon[-\s]?consensual\b/i,
+  /\bnonconsensual\b/i,
+  /\bnon[-\s]?consent\b/i,
 ];
 
 export type GeneratePhotoResult =
