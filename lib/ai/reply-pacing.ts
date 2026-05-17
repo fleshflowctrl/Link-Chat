@@ -26,8 +26,9 @@
  *      - HOT  (<5min): she's still in the chat tab. ~80% under 60s.
  *      - WARM (5-30min): she's around but multitasking. ~65% under 2min.
  *      - COLD (30min+ / first reply): she has to "come back". ~85% under
- *        12min, with a small tail up to ~90min for true "I was busy"
- *        moments. No more multi-hour cold pauses.
+ *        12min, tail up to 20min max while awake.
+ *   5. **Awake cap** — any non-sleep delay is clamped to 20 minutes. Only
+ *      `bedtimePhase === "asleep"` may schedule until morning wake-up.
  *   4. **Length-aware adjustment** — long replies (longer to type) get a
  *      small bonus delay; very short replies stay snappy.
  *
@@ -97,10 +98,11 @@ export type PacingResult = {
  * `maxDuration` and well under typical serverless timeouts. */
 export const SYNC_DELAY_THRESHOLD_MS = 25_000;
 
-/** Upper bound on any single delay. 9h covers a full overnight sleep cycle
- * (e.g. message at 00:30 → reply ~08:30 next morning) but caps any
- * pathological non-sleep value at "obviously too long for a dating chat". */
-const HARD_CAP_MS = 9 * 60 * 60_000;
+/** Max delay while awake (not in sleep mode). Operator policy. */
+export const AWAKE_MAX_DELAY_MS = 20 * 60_000;
+
+/** Upper bound on sleep-mode delays. 9h covers a full overnight cycle. */
+const SLEEP_HARD_CAP_MS = 9 * 60 * 60_000;
 const HOOK_TURN_LIMIT = 3;
 /** First-ever peer reply in a thread — always async, 1-3 min. */
 const FIRST_REPLY_MIN_MS = 60_000;
@@ -174,6 +176,14 @@ function clampMs(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, Math.round(n)));
 }
 
+/** Sleep mode may wait until morning; every other phase is capped at 20 min. */
+function capDelayMs(ms: number, bedtimePhase: BedtimePhase): number {
+  if (bedtimePhase === "asleep") {
+    return clampMs(ms, 3 * 60_000, SLEEP_HARD_CAP_MS);
+  }
+  return clampMs(ms, 5_000, AWAKE_MAX_DELAY_MS);
+}
+
 /**
  * Compute the AI peer's reply delay AND the bedtime phase to use when
  * building the system prompt. Returns both in one shot so callers don't
@@ -223,7 +233,7 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   if (bedtime.phase === "asleep") {
     const delay = bedtime.wakeAfter.getTime() - now.getTime();
     return {
-      delayMs: clampMs(delay, 3 * 60_000, HARD_CAP_MS),
+      delayMs: capDelayMs(delay, "asleep"),
       bedtimePhase: "asleep",
       minutesUntilBedtime: null,
       workPhase: work.phase,
@@ -247,13 +257,13 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   if (work.phase === "working") {
     const sneaky = Math.random() < WORK_SNEAKY_PROBABILITY;
     if (sneaky) {
-      const sneakyDelayMs = (10 + Math.random() * 20) * 60_000; // 10-30 min
+      const sneakyDelayMs = (10 + Math.random() * 10) * 60_000; // 10-20 min
       // Make sure the sneaky reply lands well before the end of shift
       // — past that we should just wait for end-of-day naturally.
       const msToShiftEnd = work.nextAvailableAt.getTime() - now.getTime();
       const cappedSneaky = Math.min(sneakyDelayMs, Math.max(60_000, msToShiftEnd - 60_000));
       return {
-        delayMs: clampMs(cappedSneaky, 60_000, HARD_CAP_MS),
+        delayMs: capDelayMs(cappedSneaky, bedtime.phase),
         bedtimePhase: bedtime.phase,
         minutesUntilBedtime: bedtime.minutesUntilBedtime,
         workPhase: "working",
@@ -268,7 +278,7 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
       return {
         // 30s jitter so two pending replies don't all fire at the
         // exact same break-minute.
-        delayMs: clampMs(delay + Math.random() * 30_000, 60_000, HARD_CAP_MS),
+        delayMs: capDelayMs(delay + Math.random() * 30_000, bedtime.phase),
         bedtimePhase: bedtime.phase,
         minutesUntilBedtime: bedtime.minutesUntilBedtime,
         workPhase: work.phase,
@@ -283,7 +293,7 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   if (turnIndex === 0) {
     const delayMs = rng(FIRST_REPLY_MIN_MS, FIRST_REPLY_MAX_MS);
     return {
-      delayMs: clampMs(delayMs, FIRST_REPLY_MIN_MS, FIRST_REPLY_MAX_MS),
+      delayMs: capDelayMs(delayMs, bedtime.phase),
       bedtimePhase: bedtime.phase,
       minutesUntilBedtime: bedtime.minutesUntilBedtime,
       workPhase: work.phase,
@@ -295,7 +305,7 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   if (turnIndex < HOOK_TURN_LIMIT) {
     const delayMs = rng(30_000, 90_000);
     return {
-      delayMs: clampMs(delayMs, 30_000, 90_000),
+      delayMs: capDelayMs(delayMs, bedtime.phase),
       bedtimePhase: bedtime.phase,
       minutesUntilBedtime: bedtime.minutesUntilBedtime,
       workPhase: work.phase,
@@ -330,8 +340,7 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
     raw = pickWeighted([
       [55, rng(60_000, 240_000)],        // 55%: 1-4 min — comes back fast
       [30, rng(240_000, 720_000)],       // 30%: 4-12 min — was elsewhere
-      [13, rng(720_000, 1_800_000)],     // 13%: 12-30 min — busy moment
-      [2,  rng(1_800_000, 5_400_000)],   // 2%:  30-90 min — true "I was busy"
+      [15, rng(720_000, 1_200_000)],     // 15%: 12-20 min — busy moment (awake cap)
     ]);
   }
 
@@ -394,7 +403,7 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   }
 
   return {
-    delayMs: clampMs(total, 5_000, HARD_CAP_MS),
+    delayMs: capDelayMs(total, bedtime.phase),
     bedtimePhase: bedtime.phase,
     minutesUntilBedtime: bedtime.minutesUntilBedtime,
     workPhase: work.phase,
