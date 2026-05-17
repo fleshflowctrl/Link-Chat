@@ -34,7 +34,7 @@ import {
   type FunnelLookingFor,
 } from "@/data/funnel";
 import { getThreadMeta } from "@/data/messages";
-import { funnelSets } from "@/data/funnelProfiles";
+import { funnelSets, type FunnelWelcomeCard } from "@/data/funnelProfiles";
 import { likesPreviewAvatarUrls, profiles as staticCatalogProfiles, type Profile } from "@/data/profiles";
 import {
   pickFunnelMatchProfiles,
@@ -543,7 +543,9 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
               transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
               className="absolute inset-0 flex min-h-0 flex-col overflow-hidden overscroll-none"
             >
-              {step === 1 && <StepWelcome onStart={goNext} />}
+              {step === 1 && (
+                <StepWelcome onStart={goNext} catalog={funnelCatalog} />
+              )}
               {step === 2 && (
                 <StepLookingFor
                   selected={lookingFor}
@@ -631,11 +633,73 @@ const WELCOME_CARD_SLOTS = [
   },
 ] as const;
 
-function StepWelcome({ onStart }: { onStart: () => void }) {
+/** Map a real catalog Profile to the FunnelWelcomeCard shape so the
+ * welcome animation can show real personas instead of hardcoded
+ * Unsplash stock photos. First-name-only keeps the layout compact;
+ * status falls back to null when the profile isn't marked online/new. */
+function catalogProfileToWelcomeCard(profile: Profile): FunnelWelcomeCard {
+  const firstName = profile.name.split(/\s+/)[0] ?? profile.name;
+  const variant = profile.status?.variant;
+  const status: FunnelWelcomeCard["status"] =
+    variant === "online" || variant === "active"
+      ? "online"
+      : variant === "new"
+        ? "new"
+        : null;
+  const distance =
+    typeof profile.distanceKm === "number" && profile.distanceKm > 0
+      ? `${profile.distanceKm} km`
+      : null;
+  return {
+    id: profile.id,
+    name: firstName,
+    age: profile.age,
+    photo: profile.photo,
+    distance,
+    status,
+  };
+}
+
+/** Build N sets of {WELCOME_CARD_SLOTS.length} cards from the live
+ * catalog. Shuffled once per mount so different visitors see different
+ * welcome reels. Falls back to the static `funnelSets` (hardcoded
+ * Unsplash) when the catalog is empty (fresh DB / Supabase unreachable),
+ * so the funnel always has something to animate. */
+function buildWelcomeSetsFromCatalog(
+  catalog: Profile[],
+  perSet = WELCOME_CARD_SLOTS.length,
+  setCount = 3,
+): FunnelWelcomeCard[][] {
+  if (!catalog || catalog.length < perSet) return funnelSets;
+
+  const shuffled = [...catalog].sort(() => Math.random() - 0.5);
+  const sets: FunnelWelcomeCard[][] = [];
+  for (let s = 0; s < setCount; s++) {
+    const slice = shuffled.slice(s * perSet, s * perSet + perSet);
+    if (slice.length < perSet) break;
+    sets.push(slice.map(catalogProfileToWelcomeCard));
+  }
+  return sets.length > 0 ? sets : funnelSets;
+}
+
+function StepWelcome({
+  onStart,
+  catalog,
+}: {
+  onStart: () => void;
+  catalog: Profile[];
+}) {
   const countMv = useMotionValue(0);
   const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
   const lastInteractRef = useRef(0);
+
+  // Built once per mount — Math.random in there means a fresh
+  // shuffle per visit, but stable across re-renders within a session.
+  const welcomeSets = useMemo(
+    () => buildWelcomeSetsFromCatalog(catalog),
+    [catalog],
+  );
 
   const touchCards = useCallback(() => {
     lastInteractRef.current = Date.now();
@@ -655,12 +719,12 @@ function StepWelcome({ onStart }: { onStart: () => void }) {
   useEffect(() => {
     const id = window.setInterval(() => {
       if (Date.now() - lastInteractRef.current < 1500) return;
-      setSetIndex((i) => (i + 1) % funnelSets.length);
+      setSetIndex((i) => (i + 1) % welcomeSets.length);
     }, 3000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [welcomeSets.length]);
 
-  const activeSet = funnelSets[setIndex] ?? funnelSets[0];
+  const activeSet = welcomeSets[setIndex] ?? welcomeSets[0];
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F5F3EE] font-sans">
