@@ -53,6 +53,14 @@ export type GeneratePhotoOptions = {
   /** Fully-built prompt (handed off as-is to the model). Builders elsewhere
    * compose the persona's appearance + scene + style modifiers. */
   prompt: string;
+  /** Optional negative prompt. NOTE: the current default backend
+   * (Z-Image-Turbo via HF Space) does NOT accept a negative_prompt
+   * parameter and runs with guidance_scale=0.0 (CFG disabled), so this
+   * field is silently ignored there. It is accepted here so we can wire
+   * it through to backends that DO support it (FAL/Replicate stubs are
+   * placeholders). Builders should still produce a negative prompt so
+   * switching backends Just Works. */
+  negativePrompt?: string;
   /** Stable seed for visual consistency. Pass the persona's deterministic
    * seed to keep her looking the same across photos. */
   seed?: number;

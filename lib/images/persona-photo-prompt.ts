@@ -525,9 +525,33 @@ export function buildPersonaPhotoPrompt(args: {
     // overhead lying down, sitting on bathtub edge, kneeling, doggy from
     // behind, etc.) — we have to let those tokens win, not drown them in
     // a hardcoded "selfie with phone visible" instruction.
+    //
+    // BODY REALISM is injected HERE (not just in the end-loaded realism
+    // block) because diffusion models commit to body shape early in the
+    // denoising process. Concrete imperfection tokens at this position
+    // get much higher weight than the same tokens end-loaded. Without
+    // these, Z-Image-Turbo (which has no negative-prompt support) defaults
+    // hard to "porn-star body": perfectly round symmetric breasts, no
+    // body hair, smooth airbrushed skin, no stretch marks, ideal curves.
     promptParts.push(
       "completely nude, no clothes at all, bare skin, fully visible body, " +
-        "breasts visible with nipples, explicit nudity",
+        "breasts visible with nipples, explicit nudity, " +
+        // === BODY-REALISM ANCHOR (high-weight position) ===
+        // Concrete, neutral anatomical detail — diffusion responds to
+        // specific tokens like "asymmetric breasts" and "stretch marks
+        // on outer hips" far better than vague "realistic body".
+        "real natural amateur woman body NOT a porn-star body NOT a fitness model, " +
+        "naturally asymmetric breasts of normal real-woman shape (one slightly larger or differently shaped than the other), " +
+        "natural breast position following gravity (not perfectly perky floating spheres), some natural softness and natural sag appropriate for the body type, " +
+        "real areolas with irregular natural shape and uneven pigmentation, small Montgomery glands visible as tiny bumps on areola, " +
+        "natural nipple variation in size and color (pale pink to brown), " +
+        "soft natural belly (never sculpted flat), no six pack, no defined abs, " +
+        "soft natural thighs with possible cellulite, possible stretch marks on outer hips inner thighs lower belly or sides of breasts (silvery or pinkish), " +
+        "soft love handles or hip dips possible, natural hip and thigh width with softness, no thigh gap, " +
+        "natural pubic area (sometimes trimmed, sometimes natural with visible hair, sometimes shaved with light stubble, never airbrushed smooth), " +
+        "real skin texture across whole body with visible pores small moles freckles and occasional tiny blemishes, " +
+        "uneven skin tone with slight redness on chest cheeks or knees, possible tan lines from bikini or bra, " +
+        "light peach fuzz body hair visible up close, razor stubble possible in shaved areas",
     );
   } else {
     promptParts.push(`wearing ${style}`);
@@ -593,14 +617,49 @@ export function buildPersonaPhotoPrompt(args: {
     // "close-up of breasts", etc.). The template's `camera` field is the
     // single source of truth for framing — we only push generic amateur-
     // realism here.
+    //
+    // ANATOMY REALISM: diffusion bases default hard to "porn-star body" —
+    // perfectly round symmetric breasts, hairless waxed pubic area, smooth
+    // shadow-less skin, no stretch marks, perfect waist-to-hip ratio. That
+    // is the single biggest "this is AI" tell on nude images. We push back
+    // with concrete imperfection tokens. Diffusion responds to specific
+    // anatomical detail ("stretch marks on outer hips", "uneven areola
+    // pigmentation") far better than vague "imperfect body".
     promptParts.push(
+      // Capture / camera realism (same vibe as clothed block)
       "ordinary everyday iPhone snapshot from her own camera roll, totally unedited, " +
         "real amateur self-taken nude photo, slightly imperfect framing and angle, bad lighting, uneven exposure, " +
-        "natural skin pores and small skin texture and small body imperfections, " +
-        "no filter, no beauty filter, no smoothing, no airbrush, no glamour, no soft professional lighting, " +
+        "no filter, no beauty filter, no smoothing, no airbrush, no glamour, no soft professional lighting, no skin retouching, " +
         "everything in focus from foreground to background, no portrait mode, no bokeh, no blurred background, no motion blur, deep focus normal phone wide-angle, " +
-        "flat phone camera dynamic range, slight ISO noise, slight grain, " +
-        "regular phone photo not a photoshoot, no studio lighting, no professional setup, looks like a quick casual self-taken nude",
+        "flat phone camera dynamic range with slightly blown highlights and muddy shadow detail, " +
+        "harsh direct light from a single source (overhead bulb or window or phone flash) creating uneven shadows on body, " +
+        "slight ISO noise especially in shadows, slight grain, " +
+        "natural unfixed white balance, slight color cast from indoor lights (warm yellow tungsten or cool bathroom fluorescent), " +
+        "regular phone photo not a photoshoot, no studio lighting, no professional setup, looks like a quick casual self-taken nude, " +
+        // SKIN TEXTURE — concrete pore- and blemish-level detail
+        "real skin texture across entire body, visible skin pores on face chest stomach and thighs, " +
+        "uneven skin tone, slight redness on chest or cheeks, small moles and freckles scattered on torso shoulders and back, " +
+        "tiny beauty marks or skin imperfections, occasional small pimple or healed blemish on shoulders or back, " +
+        "natural skin color variation, hands and forearms slightly more tanned than torso, visible tan lines from bikini or bra possible, " +
+        "razor stubble or tiny ingrown hairs in shaved areas possible, light peach fuzz body hair visible up close, " +
+        "occasional goose bumps on arms or thighs from cool air, slight pressure marks from clothing that was just removed, " +
+        // BREASTS — natural anatomy, not porn-star perfect
+        "natural realistic breasts of normal real-woman shape, slightly asymmetric (one slightly larger or shaped differently than the other), " +
+        "natural breast position that follows gravity (not perfectly perky floating spheres), some natural sag appropriate for body type and age, " +
+        "real areolas with natural irregular shape and uneven pigmentation, small Montgomery glands visible as tiny bumps on areola, " +
+        "nipple size and color vary naturally (sometimes pale pink, sometimes brown, sometimes large, sometimes small), " +
+        "occasional fine veins faintly visible under thin breast skin, " +
+        // BODY — push hard against the fitness-model default
+        "real woman body with normal everyday proportions, soft natural belly (not flat or sculpted), " +
+        "soft love handles or hip dips possible, normal hip and thigh width with some softness, " +
+        "natural cellulite on thighs and butt visible in side or back angles, " +
+        "stretch marks possible on outer hips inner thighs lower belly or sides of breasts (silvery or pinkish), " +
+        "no six pack, no sculpted abs, no defined obliques, no thigh gap, " +
+        "natural pubic area — sometimes trimmed, sometimes natural with visible hair, sometimes shaved with light stubble, never airbrushed smooth, " +
+        // POSE/EXPRESSION REALISM — counters "posed nude model" default
+        "candid expression caught mid-moment, not posing for camera, may be looking away or down at phone screen, " +
+        "mouth slightly relaxed not seductive smile, ordinary face not glamorous, " +
+        "natural body language not exaggerated, no arched-back fitness-model pose unless template specifies it",
     );
   } else {
     // STRONG everyday-iPhone realism block. Loaded with concrete phone-
@@ -718,6 +777,9 @@ export function buildPersonaPhotoPrompt(args: {
   // Negative tokens that ONLY apply to explicit nude shots.
   // We want to EXTREMELY STRONGLY forbid any "taken by someone else" feeling
   // and any "random floating hand" or "professional boudoir" look.
+  // We also load up on anti-AI-nude tokens: porn-star anatomy, airbrushed
+  // body, perfectly symmetric breasts, etc. These are the dead giveaways
+  // that betray a diffusion-generated nude even when the face looks fine.
   const explicitNegative =
     // anti-clothing
     "wearing clothes, shirt, top, jeans, pants, bra, panties, underwear, dress, jacket, hoodie, leggings, skirt, clothing, dressed, partially clothed, " +
@@ -728,7 +790,30 @@ export function buildPersonaPhotoPrompt(args: {
     "disembodied hand, floating hand, random hand, hand coming from off frame, hand coming from off-screen, hand not attached to body, floating phone, phone floating in air, phone not held by anyone, phone hovering, " +
     "clean full body shot with no device, no phone in frame, empty hands, hands not holding anything, arms relaxed at sides with no phone, perfect lighting on nude body, " +
     // anti-repetitive bedroom look + anti-gray/white dominance
-    "same bedroom every time, always white sheets, always the same bed, always soft warm bedroom light, always beige and white colour palette, always gray and white, always neutral tones, always soft gray background, always white walls and white sheets, always the same colour palette";
+    "same bedroom every time, always white sheets, always the same bed, always soft warm bedroom light, always beige and white colour palette, always gray and white, always neutral tones, always soft gray background, always white walls and white sheets, always the same colour palette, " +
+    // ===== ANTI-AI-NUDE TELLS =====
+    // Anti porn-star / fitness-model body (the #1 AI nude failure mode)
+    "porn star body, pornstar, adult film actress body, instagram model body, fitness influencer body, glamour model body, " +
+    "perfect curves, perfect waist to hip ratio, hourglass figure, ideal body proportions, " +
+    "perfect flat stomach, sculpted abs, six pack, defined abs, washboard stomach, visible obliques, " +
+    "thigh gap, perfectly toned thighs, perfectly toned arms, perfectly toned body, " +
+    "perfectly smooth body skin, airbrushed body, photoshopped body, retouched body, " +
+    "no body hair anywhere, perfectly waxed body, perfectly hairless skin, smooth hairless pubic area without any texture, " +
+    "no skin pores on body, plastic body skin, doll body, mannequin body, cgi body, rendered body, " +
+    // Anti porn-star breasts (the second biggest tell)
+    "perfectly round breasts, perfectly symmetric breasts, breasts perfectly identical to each other, " +
+    "perfectly perky breasts that defy gravity, fake floating breasts, balloon breasts, implant looking breasts, breast implants, " +
+    "perfectly round areolas, perfectly symmetric areolas, perfect pink areolas, smooth airbrushed areolas, " +
+    "perfectly smooth breast skin without pores or veins or imperfections, " +
+    // Anti idealized anatomy
+    "perfect labia, perfectly symmetric vulva, photoshopped genitals, idealized vulva, smooth shaved hairless vulva without any natural variation, " +
+    // Anti glamour/boudoir lighting on nudes
+    "perfect three-point lighting on nude body, dramatic shadows sculpting body, key light highlighting curves, " +
+    "rim light along body silhouette, beauty lighting, butterfly lighting, ring light glow, " +
+    "color graded nude photography, lightroom edit, professional nude retouching, " +
+    // Anti generic AI-nude composition
+    "perfect composition of nude body centered, perfectly framed nude, posed nude model, model posing for camera, " +
+    "professional nude art, fine art nude photography, artistic nude, tasteful nude photography";
 
   const negParts = [baseNegative];
   if (isExplicitNude) negParts.push(explicitNegative);

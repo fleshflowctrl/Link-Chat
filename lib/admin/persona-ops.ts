@@ -609,9 +609,11 @@ export async function appendNudeGalleryPhoto(
     persona: input.personaId,
     template: template.scene.slice(0, 70),
     seed,
+    promptChars: prompt.length,
+    negPromptChars: negativePrompt.length,
   });
 
-  const photo = await generatePersonaPhoto({ prompt, seed });
+  const photo = await generatePersonaPhoto({ prompt, seed, negativePrompt });
   if (!photo.ok) {
     return { ok: false, error: `Foto-generatie faalde: ${photo.error}`, status: 502 };
   }
