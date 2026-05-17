@@ -12,6 +12,7 @@ type Persona = {
   city: string | null;
   avatar_url: string | null;
   gallery_urls: string[];
+  exclusive_urls: string[];
 };
 
 type NudeTemplate = {
@@ -89,6 +90,7 @@ export default function NudesAdminPage() {
         city: r.city,
         avatar_url: r.avatar_url,
         gallery_urls: Array.isArray(r.gallery_urls) ? r.gallery_urls : [],
+        exclusive_urls: Array.isArray(r.exclusive_urls) ? r.exclusive_urls : [],
       }));
       setPersonas(rows);
     } catch (e) {
@@ -288,6 +290,36 @@ export default function NudesAdminPage() {
     const updatedPersona = personas.find((pp) => pp.id === personaId);
     if (updatedPersona) {
       setModalPersona(updatedPersona);
+    }
+
+    // Automatically publish the newly generated nudes as Exclusive Content
+    const finalPersona = personas.find((pp) => pp.id === personaId);
+    if (finalPersona) {
+      const oldCount = finalPersona.exclusive_urls?.length ?? 0;
+      const newlyAdded = finalPersona.gallery_urls.slice(oldCount);
+      if (newlyAdded.length > 0) {
+        await publishAsExclusive(personaId, newlyAdded);
+      }
+    }
+  }
+
+  async function publishAsExclusive(personaId: string, urls: string[]) {
+    if (!urls.length) return;
+    try {
+      const res = await fetch(`/api/admin/personas/${encodeURIComponent(personaId)}/publish-exclusive`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ urls }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        alert(data.error ?? "Publiceren als exclusive content mislukt");
+        return;
+      }
+      // Refresh personas so exclusive count updates
+      await loadPersonas();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Netwerkfout");
     }
   }
 
@@ -637,8 +669,11 @@ export default function NudesAdminPage() {
                         Exclusive Content
                       </div>
                       <div className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-medium text-rose-600">
-                        {exclusiveCount} foto{exclusiveCount === 1 ? "" : "s"}
+                        {exclusiveCount} exclusive
                       </div>
+                      {p.exclusive_urls.length > 0 && (
+                        <div className="text-[10px] text-emerald-600">✓ Published</div>
+                      )}
                     </div>
 
                     {/* Small exclusive preview */}
