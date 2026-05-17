@@ -8,6 +8,7 @@ import {
   ChatBubbleIcon,
   ChevronLeftIcon,
   CameraIcon,
+  HomeIcon,
   IdIcon,
   MenuIcon,
   UsersIcon,
@@ -214,21 +215,21 @@ export function AdminMobileNav({ adminEmail }: { adminEmail?: string | null }) {
               className="flex-1 space-y-1 overflow-y-auto px-3 py-4"
             />
 
-            <div className="border-t border-black/5 px-4 py-4">
-              {adminEmail ? (
-                <p className="mb-3 truncate text-xs text-gray-500">
-                  {adminEmail}
-                </p>
-              ) : null}
+            <motion.div className="border-t border-black/5 px-4 py-4">
               <Link
                 href="/discover"
                 onClick={close}
-                className="flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-gray-900"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98]"
               >
-                <ChevronLeftIcon className="h-4 w-4" />
-                Terug naar app
+                <HomeIcon className="h-4 w-4 shrink-0" />
+                Terug naar de site
               </Link>
-            </div>
+              {adminEmail ? (
+                <p className="mt-3 truncate text-center text-xs text-gray-500">
+                  {adminEmail}
+                </p>
+              ) : null}
+            </motion.div>
           </aside>
         </div>
       ) : null}
