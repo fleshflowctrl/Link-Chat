@@ -30,18 +30,17 @@ export async function GET() {
     return NextResponse.json({ ok: true, threads: [], anonymous: true });
   }
 
-  try {
-    await processPendingForOwner(supabase, {
-      ownerUserId: user.id,
-      maxThreads: 3,
-      scheduleWinback: true,
-    });
-  } catch (e) {
+  /** Don't block the inbox response — heartbeat / chat view process pending. */
+  void processPendingForOwner(supabase, {
+    ownerUserId: user.id,
+    maxThreads: 3,
+    scheduleWinback: true,
+  }).catch((e) => {
     console.warn(
       "[GET /api/me/threads] process pending",
       e instanceof Error ? e.message : String(e),
     );
-  }
+  });
 
   const { data: msgs, error } = await supabase
     .from("chat_messages")

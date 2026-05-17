@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import {
   getMessagesTabBadgeLabel,
   setServerUnreadBaseline,
   subscribeMessagesTabBadge,
 } from "@/lib/messages-tab-badge";
+import { warmInboxThreadsCache } from "@/lib/warm-inbox-cache";
 import {
   Coins,
   MessageCircle,
@@ -58,10 +59,16 @@ async function fetchUnreadCount(): Promise<number | null> {
 
 export function BottomNav({ initialUnread = 0 }: { initialUnread?: number }) {
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     setServerUnreadBaseline(initialUnread);
   }, [initialUnread]);
+
+  useEffect(() => {
+    router.prefetch("/messages");
+    void warmInboxThreadsCache();
+  }, [router]);
 
   /**
    * Keep the unread badge accurate on every page (not just /messages):

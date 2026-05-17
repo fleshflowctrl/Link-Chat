@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -22,6 +23,10 @@ import {
   type MessagePreviewType,
 } from "@/data/messages";
 import { hydrateClientSessionForUser } from "@/lib/client-user-session";
+import {
+  readInboxThreadsCache,
+  writeInboxThreadsCache,
+} from "@/lib/inbox-threads-cache";
 import { WHISPER_THREADS_REFETCH } from "@/lib/session-sync";
 import {
   getThreadPreviewsSnapshot,
@@ -311,17 +316,25 @@ function ConversationRow({
   );
 }
 
-export function MessagesView({
-  initialThreads,
-}: {
-  initialThreads?: MessageThread[];
-}) {
+export function MessagesView() {
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
-  const [serverThreads, setServerThreads] = useState<MessageThread[]>(
-    initialThreads ?? [],
-  );
+  const [serverThreads, setServerThreads] = useState<MessageThread[]>([]);
+  const cacheHydratedRef = useRef(false);
 
-  /** Inbox list from Supabase only (/api/me/threads). */
+  /** Paint cached inbox before first frame (avoids SSR empty → client flash). */
+  useLayoutEffect(() => {
+    if (cacheHydratedRef.current) return;
+    cacheHydratedRef.current = true;
+    const cached = readInboxThreadsCache();
+    if (cached?.length) setServerThreads(cached);
+  }, []);
+
+  const applyThreads = useCallback((threads: MessageThread[]) => {
+    setServerThreads(threads);
+    if (threads.length > 0) writeInboxThreadsCache(threads);
+  }, []);
+
+  /** Background refresh — list renders from session cache immediately. */
   const loadThreads = useCallback(async () => {
     try {
       const r = await fetch("/api/me/threads", { cache: "no-store" });
@@ -335,11 +348,11 @@ export function MessagesView({
       if (json.userId) {
         hydrateClientSessionForUser(json.userId);
       }
-      setServerThreads(json.threads ?? []);
+      applyThreads(json.threads ?? []);
     } catch {
-      /* keep previous list */
+      /* keep cached list */
     }
-  }, []);
+  }, [applyThreads]);
 
   useEffect(() => {
     void loadThreads();

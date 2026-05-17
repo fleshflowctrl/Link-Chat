@@ -12,9 +12,11 @@ import { clearLegacyDiscoveryPreferencesStorage } from "@/lib/discovery-preferen
 import { resetDiscoveryPreferencesStore } from "@/lib/discovery-preferences-store";
 import { clearFunnelPendingProfile } from "@/lib/funnel/pending-profile";
 import { refreshSessionFromServer } from "@/lib/session-sync";
+import { clearInboxThreadsCache } from "@/lib/inbox-threads-cache";
 import { clearThreadPreviews } from "@/lib/thread-preview-store";
 
 export function clearClientCachesOnLogout(): void {
+  clearInboxThreadsCache();
   clearThreadPreviews();
   resetCreditsToGuest();
   resetDiscoveryPreferencesStore();

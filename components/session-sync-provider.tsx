@@ -9,6 +9,7 @@ import {
   refreshSessionFromServer,
   requestThreadsRefetch,
 } from "@/lib/session-sync";
+import { warmInboxThreadsCache } from "@/lib/warm-inbox-cache";
 
 const CHAT_HEARTBEAT_MS = 45_000;
 
@@ -24,6 +25,7 @@ export function SessionSyncProvider() {
   useEffect(() => {
     initCreditsStore();
     void hydrateClientSessionFromServer();
+    void warmInboxThreadsCache();
 
     const runChatHeartbeat = () => {
       if (document.visibilityState !== "visible") return;
