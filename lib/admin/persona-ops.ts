@@ -488,7 +488,10 @@ export async function appendNudeGalleryPhoto(
   let consumedTemplateId: string | null = null; // for DB consumption
   const dbNude = await loadActiveNudeTemplates(service);
 
-  let pick: (typeof dbNude)[number] | undefined;
+  // Explicit type to avoid complex (typeof dbNude)[number] inference issues
+  // when dbNude can be null.
+  type NudeTemplate = NonNullable<Awaited<ReturnType<typeof loadActiveNudeTemplates>>>[number];
+  let pick: NudeTemplate | undefined;
 
   if (dbNude && dbNude.length > 0) {
     if (input.diversity) {
