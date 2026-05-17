@@ -520,11 +520,10 @@ export function buildPersonaPhotoPrompt(args: {
       "completely nude, no clothes at all, bare skin, fully visible body, " +
         "breasts visible with nipples, explicit nudity",
     );
-    // Self-taken reinforcement for nudes — every nude photo must look like
-    // she took it herself with her own phone. Her hand/arm or phone reflection
-    // must be visible. This is the key signal that makes it feel authentic.
+    // Self-taken reinforcement for nudes — EXTREMELY STRONG signal.
+    // The photo MUST show clear evidence she took it herself.
     promptParts.push(
-      "self-taken by the woman herself with her own phone, her own hand or arm visible in the frame or clearly reflected in a mirror, real amateur self-portrait from her personal camera roll, not taken by someone else",
+      "self-taken by the woman herself with her own phone, her own hand or arm clearly visible in the frame holding the phone or clearly reflected in a mirror, phone visible in her hand or in the mirror reflection, real amateur self-portrait from her personal camera roll, not taken by someone else, not third-person view",
     );
   } else {
     promptParts.push(`wearing ${style}`);
@@ -707,13 +706,16 @@ export function buildPersonaPhotoPrompt(args: {
     "duplicate person, multiple women, twins, identical twins";
 
   // Negative tokens that ONLY apply to explicit nude shots.
-  // We want to strongly forbid any "taken by someone else" feeling.
+  // We want to STRONGLY forbid any "taken by someone else" feeling.
+  // These tokens are heavily weighted because diffusion otherwise defaults to
+  // clean full-body shots with no phone/hand evidence.
   const explicitNegative =
     // anti-clothing
     "wearing clothes, shirt, top, jeans, pants, bra, panties, underwear, dress, jacket, hoodie, leggings, skirt, clothing, dressed, partially clothed, " +
-    // anti-third-person / studio for explicit nudes — push hard against "someone else took it"
+    // anti-third-person / studio for explicit nudes — VERY STRONG push
     "third person view, photographer, someone else took the photo, external camera, professional studio nude, studio lighting, " +
-    "taken by a friend, taken by girlfriend, taken by partner, timer shot, tripod, no hand visible, no arm visible, no phone visible, no selfie angle";
+    "taken by a friend, taken by girlfriend, taken by partner, timer shot, tripod, no hand visible, no arm visible, no phone visible, no selfie angle, " +
+    "clean full body shot with no device, no phone in frame, empty hands, hands not holding anything, arms relaxed at sides with no phone";
 
   const negParts = [baseNegative];
   if (isExplicitNude) negParts.push(explicitNegative);

@@ -43,6 +43,9 @@ Velden uitgelegd:
   • "naakt in douchecabine met natte haren, glasdeuren open"
   • "naakt zittend op bureaustoel met benen wijd over de armleuningen"
   • "naakte close-up van borsten, telefoon bijna tegen huid"
+  • "naakte close-up van pussy, telefoon heel dichtbij tussen gespreide benen"
+  • "naakte close-up van billen, telefoon laag achter haar gehouden"
+  • "naakte close-up van voeten en onderbenen, telefoon op kniehoogte"
   • "naakte vrouw bukt voorover op aanrecht in keuken"
   • "naakt op trap zittend met benen gespreid"
   • "naakte foto in inloopkast, kleren om haar heen op de grond"
@@ -53,11 +56,15 @@ Velden uitgelegd:
 - camera (Engels): camera-afstand/hoek/framing als diffusion-tokens. ALLEEN self-taken varianten. Voorbeelden:
   • "mirror selfie, phone held in her own hand, arm visible in reflection, full body"
   • "arm extended high above her head, POV looking down at her own body lying on bed"
-  • "extreme close-up of breasts, phone held very close to chest, only boobs and torso visible"
+  • "extreme close-up of breasts only, phone almost touching nipple, tight crop on tits"
+  • "extreme close-up of pussy only, phone very close between spread legs, detailed view of labia"
+  • "extreme close-up of ass and pussy from behind, phone low and close"
   • "phone held between her legs pointing up, low angle looking at pussy and stomach"
   • "selfie from behind over her own shoulder, looking back at the lens, ass and back visible"
   • "tight crop on pussy only, phone very close between spread legs, detailed view"
   • "feet and lower legs in frame, phone held at knee height pointing down at her own feet"
+  • "close-up of one breast and nipple, phone almost touching skin, soft bedroom light"
+  • "close-up of both breasts squeezed together, phone held at chest height"
   • "high angle selfie, phone above her head, full body lying on floor with legs spread"
   • "close-up of one breast and nipple, phone almost touching skin, soft bedroom light"
   • "selfie in bathroom mirror, phone covering part of her face, other hand spreading pussy"
@@ -99,12 +106,14 @@ Velden uitgelegd:
   • "completely nude, hair freshly washed and dripping wet"
 - pose (Engels): exacte lichaamshouding. ZIE de POSE-DISTRIBUTIE regels hieronder — geen 4 staande poses in 1 batch.
 
-HARDE REGELS — LEES DIT EERST:
-- ALLE personas zijn vrouwen tussen 18 en 99 met middellang tot lang haar. Iedere template moet werken voor élke leeftijd binnen dat bereik.
-- **ABSOLUUT ZELF-GENOMEN**: Iedere foto moet genomen zijn door de vrouw ZELF met haar eigen telefoon. Haar hand, arm, of telefoon moet zichtbaar zijn in de foto of duidelijk gereflecteerd in een spiegel. Nooit "genomen door een vriendin", "door haar partner", "timer op de kast", "tripod", "iemand anders hield de camera".
-- Iedere template moet écht en geloofwaardig zijn als amateur self-taken nude photo. Geen studio, geen professionele fotografie, geen "art nude" abstractie.
-- **BODY-PART CLOSE-UPS ZIJN TOEGESTAAN EN GEWENST**: Ongeveer 20-25% van de templates mag een strakke close-up zijn van alleen borsten, alleen pussy, alleen billen, dijen, voeten, of een combinatie (bijv. borsten + buik, of pussy close-up met gespreide benen). Dit maakt de exclusive content veel realistischer en gevarieerder.
-- ABSOLUUT NOOIT BLUR. Gebruik NERGENS termen als "blur", "blurry", "blurred", "out of focus", "out-of-focus", "defocused", "bokeh", "shallow depth of field", "shallow DoF", "portrait mode", "soft focus", "motion blur", "creamy bokeh", "lens blur". Alles moet scherp zijn van voor- tot achtergrond zoals een gewone iPhone-snapshot.
+HARDE REGELS — LEES DIT EERST (DÉZE ZIJN BINDEND):
+- ALLE personas zijn vrouwen tussen 18 en 99 met middellang tot lang haar.
+- **100% ZELF-GENOMEN — GEEN UITZONDERING**: Iedere foto MOET genomen zijn door de vrouw ZELF met haar eigen telefoon. Haar hand, arm, of telefoon MOET zichtbaar zijn in de foto of duidelijk gereflecteerd in een spiegel. 
+  - Verboden: "genomen door een vriendin", "door haar partner", "timer op de kast", "tripod", "iemand anders hield de camera", "no hand visible", "no phone visible".
+  - Verplicht: "her own hand holding the phone", "phone visible in mirror reflection", "arm extended with phone in hand", "phone between her legs", "phone very close to her skin".
+- Iedere template moet écht en geloofwaardig zijn als amateur self-taken nude photo.
+- **BODY-PART CLOSE-UPS ZIJN VERPLICHT**: MINIMAAL 35-40% van de templates in elke batch MOET een strakke close-up zijn van alleen borsten/tits, alleen pussy, alleen billen, alleen voeten, of een combinatie (borsten + buik, pussy close-up met gespreide benen, tepels detail, etc.). Dit is geen optie — het is een harde eis. De rest mag full-body of 3/4 zijn.
+- ABSOLUUT NOOIT BLUR.
 
 VERPLICHTE POSE-DISTRIBUTIE (HARD CHECK — als jouw batch deze verhouding niet haalt, wordt 'ie afgewezen):
 - MAX 15% staande spiegel-selfies. Niet meer. Wees concreet streng: in een batch van 20 templates zijn er hooguit 3 staande spiegel-selfies. Punt.
@@ -131,7 +140,7 @@ VERPLICHTE CAMERA-DISTRIBUTIE (per batch) — ALLEEN self-taken:
   7. high-angle full body liggend (telefoon boven hoofd, hele lichaam met gespreide benen)
   8. sideways / 3/4 arm-extended (lichaam schuin, telefoon aan de zijkant)
 
-BELANGRIJK: Close-up body-part templates (borsten, pussy, billen, voeten) zijn gewenst en moeten ongeveer 20-25% van de batch uitmaken. Dit maakt de exclusive content veel realistischer voor dating-app gebruik.
+BELANGRIJK: Close-up body-part templates (borsten, pussy, billen, voeten) zijn VERPLICHT en moeten 35-40% van de batch uitmaken.
 
 VERPLICHTE BODY-VISIBILITY DISTRIBUTIE:
 - Niet ELKE template hoeft volledig frontaal lichaam te tonen. Mix:
@@ -163,7 +172,16 @@ ANTI-CLICHE — DEZE FOUTEN AUTOMATISCH AFWIJZEN:
 - ❌ "girl in lingerie" — outfit MOET expliciet naakt zijn
 - ❌ Vage poses zoals "sexy pose" — wees concreet over handen, benen, gezichtsrichting, blik
 - ❌ Twee templates met (vrijwel) zelfde achtergrond zoals "white tiled bathroom" 2×
-- ❌ Templates die alleen verschillen in lichte detail-variatie van dezelfde basis-pose`;
+- ❌ Templates die alleen verschillen in lichte detail-variatie van dezelfde basis-pose
+
+=== EINDELIJKE CHECKLIST — CONTROLEER ELKE TEMPLATE VOORDAT JE OUTPUT ===
+Voordat je de JSON output, MOET je voor ELKE template in je batch controleren:
+1. Is er een hand, arm of telefoon zichtbaar in de camera- of pose-beschrijving? Zo nee → herschrijf.
+2. Is de template een body-part close-up (borsten/pussy/billen/voeten)? Zo ja → zorg dat "phone almost touching skin" of "phone very close" of "phone between legs" erin staat.
+3. Is de template full-body? Zo ja → zorg dat "her own hand holding the phone" of "arm extended with phone" of "phone visible in mirror" erin staat.
+4. Bevat de capture-beschrijving "self-taken", "her own phone" of "from her camera roll"?
+5. Bevat de scene het woord "naakt" of "naakte"?
+Als een template hier niet aan voldoet, pas hem aan voordat je de batch output.`;
 
 function userPrompt(opts: {
   count: number;
