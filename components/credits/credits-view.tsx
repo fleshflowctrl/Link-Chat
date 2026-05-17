@@ -162,7 +162,7 @@ export function CreditsView() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col justify-center gap-2 px-5 pb-5">
+      <div className="flex min-h-0 flex-1 flex-col justify-start gap-2 overflow-y-auto px-5 pb-5 pt-1">
         {packages.map((pkg) => (
           <PackageCard key={pkg.id} pkg={pkg} discount={discount} />
         ))}
