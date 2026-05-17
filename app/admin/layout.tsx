@@ -21,7 +21,7 @@ export default async function AdminLayout({
       <div className="flex min-h-screen">
         <AdminSidebarNav adminEmail={adminEmail} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <AdminMobileNav />
+          <AdminMobileNav adminEmail={adminEmail} />
           <main className="flex-1 px-4 py-6 sm:px-8 sm:py-10 lg:px-10">{children}</main>
         </div>
       </div>

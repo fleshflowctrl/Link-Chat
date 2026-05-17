@@ -243,6 +243,14 @@ export function ChartIcon(props: IconProps) {
   );
 }
 
+export function MenuIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <path d="M4 6h12M4 10h12M4 14h12" />
+    </svg>
+  );
+}
+
 export function CircleStatusIcon(props: IconProps & { state?: "active" | "online" | "new" | "popular" | "quiet" | "replied" }) {
   const fill = (() => {
     switch (props.state) {
