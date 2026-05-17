@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { AdminPageHeader } from "@/components/admin/page-header";
-// Nude generation now uses the dedicated nude template pool in lib/images/nude-scene-templates.ts
+import { pickDiverseNudeTemplates } from "@/lib/images/pick-diverse-nude-templates";
 
 type Persona = {
   id: string;
@@ -235,75 +235,6 @@ export default function NudesAdminPage() {
     }
   }
 
-  /** Bucket a nude template into a camera-family group so we can pick one
-   * from each of N different families instead of accidentally picking
-   * three "standing mirror selfie" templates that look identical. The
-   * keyword lists mirror the diversity keywords on the backend so the
-   * UI's grouping stays consistent with the backend's fallback matching. */
-  function bucketTemplate(t: NudeTemplate): string {
-    const txt = `${t.camera} ${t.pose} ${t.scene}`.toLowerCase();
-    if (/extreme close|tight crop|almost touching|close-up of (breast|nipple|pussy|ass|tit|labia|vagina|feet)/.test(txt)) {
-      return "close-up";
-    }
-    if (/between (her |the )?legs|between thighs|low angle|from below|phone held low|ground|tussen.*benen/.test(txt)) {
-      return "low-angle";
-    }
-    if (/high angle|above|overhead|looking down|phone above|from above|bird/.test(txt)) {
-      return "high-angle";
-    }
-    if (/over.*shoulder|from behind|kont naar camera|ass to camera|back to camera/.test(txt)) {
-      return "from-behind";
-    }
-    if (/mirror|reflection|spiegel/.test(txt)) {
-      return "mirror";
-    }
-    if (/3\/4|sideways|side angle|profile/.test(txt)) {
-      return "side";
-    }
-    return "other";
-  }
-
-  /** Pick N templates with maximum camera-family variety. Walks the buckets
-   * round-robin, picking a fresh random template from each different bucket
-   * before allowing any bucket to repeat. */
-  function pickDiverseTemplates(pool: NudeTemplate[], n: number): NudeTemplate[] {
-    if (pool.length === 0) return [];
-
-    const buckets = new Map<string, NudeTemplate[]>();
-    for (const t of pool) {
-      const b = bucketTemplate(t);
-      const arr = buckets.get(b) ?? [];
-      arr.push(t);
-      buckets.set(b, arr);
-    }
-
-    const bucketKeys = Array.from(buckets.keys());
-    for (let i = bucketKeys.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [bucketKeys[i], bucketKeys[j]] = [bucketKeys[j]!, bucketKeys[i]!];
-    }
-
-    const picked: NudeTemplate[] = [];
-    const usedIds = new Set<string>();
-    let round = 0;
-    while (picked.length < n) {
-      let progressedThisRound = false;
-      for (const key of bucketKeys) {
-        if (picked.length >= n) break;
-        const candidates = (buckets.get(key) ?? []).filter((t) => !usedIds.has(t.id));
-        if (candidates.length === 0) continue;
-        const choice = candidates[Math.floor(Math.random() * candidates.length)]!;
-        picked.push(choice);
-        usedIds.add(choice.id);
-        progressedThisRound = true;
-      }
-      if (!progressedThisRound) break;
-      round++;
-      if (round > 10) break;
-    }
-    return picked;
-  }
-
   async function generateNudes(personaId: string) {
     setGeneratingId(personaId);
     setProgress({ done: 0, total: 3 });
@@ -323,9 +254,12 @@ export default function NudesAdminPage() {
     });
     const freshJson = await fresh.json().catch(() => ({}));
     const livePool: NudeTemplate[] = Array.isArray(freshJson.rows) ? freshJson.rows : templates;
-    const chosen = pickDiverseTemplates(livePool, 3);
+    const chosen = pickDiverseNudeTemplates(livePool, 3);
+    const uniqueChosen = chosen.filter(
+      (t, idx, arr) => arr.findIndex((x) => x.id === t.id) === idx,
+    );
 
-    if (chosen.length === 0) {
+    if (uniqueChosen.length === 0) {
       setError(
         "Geen actieve nude templates in de pool. Genereer eerst een batch met Grok (knop bovenaan).",
       );
@@ -334,8 +268,19 @@ export default function NudesAdminPage() {
       return;
     }
 
+    if (uniqueChosen.length < 3) {
+      setError(
+        `Niet genoeg verschillende nude templates (min. 3 unieke, nu ${uniqueChosen.length}). Genereer meer templates met Grok.`,
+      );
+      setGeneratingId(null);
+      setProgress(null);
+      return;
+    }
+
+    const usedTemplateIds: string[] = [];
+
     for (let i = 0; i < 3; i++) {
-      const pickedTemplate = chosen[i % chosen.length];
+      const pickedTemplate = uniqueChosen[i]!;
       try {
         const res = await fetch(`/api/admin/personas/${encodeURIComponent(personaId)}/append-gallery-photo`, {
           method: "POST",
@@ -345,7 +290,8 @@ export default function NudesAdminPage() {
             // Fully random variant per render so repeated clicks of
             // "Generate 3" never collide on the same seed.
             variant: Math.floor(Math.random() * 1_000_000_000),
-            template_id: pickedTemplate?.id,
+            template_id: pickedTemplate.id,
+            exclude_template_ids: usedTemplateIds,
           }),
         });
         const data = await res.json().catch(() => ({}));
@@ -353,6 +299,7 @@ export default function NudesAdminPage() {
           lastErr = data.error ?? `HTTP ${res.status}`;
           continue;
         }
+        usedTemplateIds.push(pickedTemplate.id);
         success++;
         setProgress({ done: success, total: 3 });
 

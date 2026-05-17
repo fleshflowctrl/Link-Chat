@@ -25,6 +25,7 @@ import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
 import { pickFreshSceneTemplate } from "@/lib/images/scene-templates";
 import { pickFreshNudeTemplates } from "@/lib/images/nude-scene-templates";
+import { pickDiverseNudeTemplates } from "@/lib/images/pick-diverse-nude-templates";
 import {
   loadActiveTemplatesForSlot,
   loadActiveNudeTemplates,
@@ -466,6 +467,8 @@ export type AppendNudeGalleryInput = {
    * keyword-match heuristic that often picks the same "mirror selfie"
    * template repeatedly. */
   templateId?: string;
+  /** DB template ids already used in the current batch — excluded from auto-pick. */
+  excludeTemplateIds?: string[];
 };
 
 export type AppendNudeGalleryResult =
@@ -501,12 +504,21 @@ export async function appendNudeGalleryPhoto(
 
   const dbNude = await loadActiveNudeTemplates(service);
 
+  const excludeIds = new Set(input.excludeTemplateIds ?? []);
+
   // 1. If the caller explicitly named a template_id, use that one. This is
   //    what the admin UI does so a batch of 3 photos uses 3 visibly
   //    different templates instead of letting the picker accidentally
   //    grab the same "mirror selfie" repeatedly.
   if (input.templateId && dbNude && dbNude.length > 0) {
     pick = dbNude.find((t) => t.id === input.templateId);
+    if (!pick) {
+      return {
+        ok: false,
+        error: `Nude template niet gevonden (id=${input.templateId}). Vernieuw de template-pool en probeer opnieuw.`,
+        status: 404,
+      };
+    }
   }
 
   if (dbNude && dbNude.length > 0) {
@@ -523,12 +535,14 @@ export async function appendNudeGalleryPhoto(
         side: ["side", "profile", "3/4", "over shoulder", "behind"],
       };
       const wanted = keywords[input.diversity] ?? [];
-      const matches = dbNude.filter((t) =>
-        wanted.some(
-          (k) =>
-            t.camera.toLowerCase().includes(k) ||
-            t.pose.toLowerCase().includes(k),
-        ),
+      const matches = dbNude.filter(
+        (t) =>
+          !excludeIds.has(t.id) &&
+          wanted.some(
+            (k) =>
+              t.camera.toLowerCase().includes(k) ||
+              t.pose.toLowerCase().includes(k),
+          ),
       );
       if (matches.length > 0) {
         pick = matches[Math.floor(Math.random() * matches.length)]!;
@@ -536,7 +550,19 @@ export async function appendNudeGalleryPhoto(
     }
 
     if (!pick) {
-      pick = dbNude[Math.floor(Math.random() * dbNude.length)]!;
+      const [autoPicked] = pickDiverseNudeTemplates(dbNude, 1, {
+        excludeIds: Array.from(excludeIds),
+      });
+      pick = autoPicked;
+    }
+
+    if (!pick) {
+      return {
+        ok: false,
+        error:
+          "Geen beschikbare nude templates meer in de pool. Genereer eerst een nieuwe batch met Grok.",
+        status: 409,
+      };
     }
 
     template = {

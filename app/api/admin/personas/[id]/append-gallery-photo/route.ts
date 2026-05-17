@@ -25,6 +25,8 @@ type AppendBody = {
    * choose. Lets the admin UI pre-select 3 visibly different templates so
    * the resulting batch is guaranteed diverse. */
   template_id?: string;
+  /** Template ids already consumed in the current multi-photo batch. */
+  exclude_template_ids?: string[];
 };
 
 export async function POST(req: Request, ctx: RouteCtx) {
@@ -55,6 +57,9 @@ export async function POST(req: Request, ctx: RouteCtx) {
         variant: body.variant,
         diversity: body.diversity,
         templateId: body.template_id,
+        excludeTemplateIds: Array.isArray(body.exclude_template_ids)
+          ? body.exclude_template_ids.map(String)
+          : undefined,
       })
     : await appendPersonaGalleryPhoto(service, {
         personaId: ctx.params.id,

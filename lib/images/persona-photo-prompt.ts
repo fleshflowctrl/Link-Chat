@@ -503,6 +503,34 @@ export function buildPersonaPhotoPrompt(args: {
     /naakt|naakte|naaktfoto|topless|bloot|kutje|kut|kutje zichtbaar|borsten zichtbaar|gespreid|naakt.*bed|naakt.*spiegel|naakt.*liggend|naakt.*knie/i.test(
       cleanScene,
     );
+
+  const cam = args.cameraStyle ?? {};
+  const templateCamera = stripBlurPhrases(cam.camera);
+  const templateBackdrop = stripBlurPhrases(cam.backdrop);
+  const templateLighting = stripBlurPhrases(cam.lighting);
+  const templateCapture = stripBlurPhrases(cam.capture);
+  // Front-load template composition for nudes so diffusion commits to the
+  // shot (POV, close-up, doggy, mirror, etc.) BEFORE generic nude-body
+  // tokens that otherwise collapse every render into the same mirror selfie.
+  const nudeCompositionFrontLoaded =
+    isExplicitNude &&
+    Boolean(
+      templateCamera ||
+        shotPose ||
+        cleanScene ||
+        templateBackdrop ||
+        templateLighting ||
+        templateCapture,
+    );
+  if (nudeCompositionFrontLoaded) {
+    promptParts.push(`scene: ${cleanScene}`);
+    if (shotPose) promptParts.push(`pose: ${shotPose}`);
+    if (templateCamera) promptParts.push(templateCamera);
+    if (templateBackdrop) promptParts.push(`background: ${templateBackdrop}`);
+    if (templateLighting) promptParts.push(templateLighting);
+    if (templateCapture) promptParts.push(templateCapture);
+  }
+
   if (isExplicitNude) {
     // Strong identity reinforcement for explicit nudes — diffusion models
     // tend to "forget" the specific face when the scene becomes highly sexual.
@@ -557,8 +585,10 @@ export function buildPersonaPhotoPrompt(args: {
     promptParts.push(`wearing ${style}`);
   }
 
-  if (shotPose) promptParts.push(`pose: ${shotPose}`);
-  promptParts.push(`scene: ${cleanScene}`);
+  if (!nudeCompositionFrontLoaded) {
+    if (shotPose) promptParts.push(`pose: ${shotPose}`);
+    promptParts.push(`scene: ${cleanScene}`);
+  }
   promptParts.push(vibe);
   if (attractiveness === "striking") {
     promptParts.push(anchors.positive);
@@ -573,7 +603,6 @@ export function buildPersonaPhotoPrompt(args: {
   // any "shallow DoF / bokeh / out-of-focus" tokens an older template
   // (or a misbehaving Grok response) might carry never make it into
   // the positive prompt.
-  const cam = args.cameraStyle ?? {};
   // For explicit nudes we DO NOT override camera/lighting/capture anymore.
   // Earlier versions hardcoded "mirror selfie + phone in hand + bedroom or
   // bathroom lighting" here, which guaranteed every nude render looked the
@@ -583,26 +612,24 @@ export function buildPersonaPhotoPrompt(args: {
   // The legacy fallbacks below only kick in when the template is missing
   // a field, never as a forced override.
   const camera =
-    stripBlurPhrases(cam.camera) ||
+    templateCamera ||
     (isExplicitNude
-      ? "amateur self-taken phone photo"
+      ? ""
       : "casual phone selfie or candid snapshot");
-  const backdrop = stripBlurPhrases(cam.backdrop);
+  const backdrop = templateBackdrop;
   const lighting =
-    stripBlurPhrases(cam.lighting) ||
-    (isExplicitNude
-      ? "ordinary indoor lighting, casual home environment"
-      : "soft natural lighting");
+    templateLighting ||
+    (isExplicitNude ? "" : "soft natural lighting");
   const capture =
-    stripBlurPhrases(cam.capture) ||
-    (isExplicitNude
-      ? "real amateur self-taken photo, unedited, from her personal camera roll"
-      : "shot on iPhone, slight grain, intimate everyday moment");
+    templateCapture ||
+    (isExplicitNude ? "" : "shot on iPhone, slight grain, intimate everyday moment");
 
-  promptParts.push(camera);
-  if (backdrop) promptParts.push(`background: ${backdrop}`);
-  promptParts.push(lighting);
-  promptParts.push(capture);
+  if (!nudeCompositionFrontLoaded) {
+    if (camera) promptParts.push(camera);
+    if (backdrop) promptParts.push(`background: ${backdrop}`);
+    if (lighting) promptParts.push(lighting);
+    if (capture) promptParts.push(capture);
+  }
 
   // Anti-AI / pro-EVERYDAY-amateur anchors. End-loaded because diffusion
   // weights later tokens slightly higher for "look-and-feel" terms.

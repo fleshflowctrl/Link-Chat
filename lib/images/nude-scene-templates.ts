@@ -9,6 +9,7 @@
  */
 
 import type { SceneTemplate } from "./scene-templates";
+import { pickDiverseNudeTemplates } from "@/lib/images/pick-diverse-nude-templates";
 
 export const NUDE_TEMPLATES: readonly SceneTemplate[] = [
   // === MIRROR SELFIES - STANDING ===
@@ -257,27 +258,22 @@ const recentNudeTemplateUse = new Map<string, number[]>();
 
 /**
  * Pick N unique nude templates, avoiding recently used ones for this persona.
- * Falls back to random if the pool is small.
+ * Uses camera-family diversity so a batch is not three mirror selfies.
  */
 export function pickFreshNudeTemplates(count: number, personaId: string): SceneTemplate[] {
   const pool = [...NUDE_TEMPLATES];
   const recent = recentNudeTemplateUse.get(personaId) ?? [];
-  const available = pool.filter((_, idx) => !recent.includes(idx));
+  const withIds = pool.map((t, idx) => ({ ...t, id: String(idx) }));
+  const excludeIds = recent.map(String);
 
-  // If not enough fresh templates, reset recent list
-  let workingPool = available.length >= count ? available : pool;
-
-  // Shuffle
-  for (let i = workingPool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [workingPool[i], workingPool[j]] = [workingPool[j], workingPool[i]];
+  let picked = pickDiverseNudeTemplates(withIds, count, { excludeIds });
+  if (picked.length < count) {
+    picked = pickDiverseNudeTemplates(withIds, count);
   }
 
-  const selected = workingPool.slice(0, count);
-
-  // Record usage
-  const selectedIndices = selected.map((t) => pool.indexOf(t));
-  const newRecent = [...recent, ...selectedIndices].slice(-12); // keep last 12
+  const selected = picked.map(({ id: _id, ...t }) => t);
+  const selectedIndices = picked.map((t) => Number(t.id));
+  const newRecent = [...recent, ...selectedIndices].slice(-12);
   recentNudeTemplateUse.set(personaId, newRecent);
 
   return selected;
