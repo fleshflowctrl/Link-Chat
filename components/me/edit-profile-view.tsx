@@ -223,6 +223,23 @@ export function EditProfileView({
     }
   }, [showToast]);
 
+  /** Wait for any in-flight save, then persist — used by the back button. */
+  const flushPersist = useCallback(async () => {
+    const deadline = Date.now() + 8_000;
+    while (savingRef.current && Date.now() < deadline) {
+      await new Promise<void>((r) => window.setTimeout(r, 40));
+    }
+    await persist();
+    while (savingRef.current && Date.now() < deadline) {
+      await new Promise<void>((r) => window.setTimeout(r, 40));
+    }
+  }, [persist]);
+
+  const handleBack = useCallback(async () => {
+    await flushPersist();
+    router.back();
+  }, [flushPersist, router]);
+
   /**
    * Debounced auto-save. Resets the timer on every state change; only
    * fires once the user has paused for ~900 ms. Re-arms after a save
@@ -385,8 +402,9 @@ export function EditProfileView({
       <header className="flex items-center justify-between gap-2 px-4 py-3 pt-3">
         <button
           type="button"
-          onClick={() => router.back()}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/80 text-white shadow-md transition active:scale-95"
+          onClick={() => void handleBack()}
+          disabled={saving}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/80 text-white shadow-md transition active:scale-95 disabled:opacity-60"
           aria-label="Terug"
         >
           <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
