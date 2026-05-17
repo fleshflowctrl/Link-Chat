@@ -78,7 +78,7 @@ export default async function AdminUserMessagesPage({
             Gesprekken van deze gebruiker.{" "}
             <span className="text-gray-500">
               ({threads.length} gesprek{threads.length === 1 ? "" : "ken"},{" "}
-              {totalMessages} berichten)
+              {totalMessages} berichten verstuurd)
             </span>
           </>
         }
@@ -95,7 +95,7 @@ export default async function AdminUserMessagesPage({
           <ChatBubbleIcon className="mb-3 h-8 w-8 text-gray-300" />
           <p className="text-sm font-medium text-gray-700">Geen gesprekken</p>
           <p className="mt-1 text-xs text-gray-500">
-            Deze gebruiker heeft nog geen berichten verstuurd of ontvangen.
+            Deze gebruiker heeft nog geen berichten verstuurd.
           </p>
           <Link
             href="/admin/messages"

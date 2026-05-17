@@ -63,6 +63,11 @@ function previewFromMessage(m: MessageSummaryRow): string {
   return (m.body ?? "").trim() || "Bericht";
 }
 
+/** Only messages the real user sent — not AI/bot replies. */
+function isUserSentMessage(m: MessageSummaryRow): boolean {
+  return m.sender === "me";
+}
+
 async function fetchMessageSummaries(
   service: SupabaseClient,
 ): Promise<MessageSummaryRow[]> {
@@ -108,7 +113,7 @@ async function loadEmailsByUserId(
   return emailById;
 }
 
-/** Users who have at least one chat message, sorted by latest activity. */
+/** Users who sent at least one message, sorted by latest activity. */
 export async function loadAdminChatUsers(
   service: SupabaseClient,
 ): Promise<AdminChatUserSummary[]> {
@@ -124,11 +129,15 @@ export async function loadAdminChatUsers(
       entry = { messageCount: 0, peers: new Set(), latest: m };
       byOwner.set(m.owner_user_id, entry);
     }
-    entry.messageCount += 1;
-    entry.peers.add(m.peer_id);
+    if (isUserSentMessage(m)) {
+      entry.messageCount += 1;
+      entry.peers.add(m.peer_id);
+    }
   }
 
-  const ownerIds = Array.from(byOwner.keys());
+  const ownerIds = Array.from(byOwner.keys()).filter(
+    (id) => (byOwner.get(id)?.messageCount ?? 0) > 0,
+  );
   const emailById = await loadEmailsByUserId(service, ownerIds);
 
   return ownerIds
@@ -163,17 +172,22 @@ export async function loadAdminUserThreads(
   const latest = new Map<string, MessageSummaryRow>();
   for (const m of rows) {
     const key = m.peer_id;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
     if (!latest.has(key)) latest.set(key, m);
+    if (isUserSentMessage(m)) {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
   }
 
-  const peerIds = Array.from(latest.keys());
+  const peerIds = Array.from(latest.keys()).filter(
+    (peerId) => (counts.get(peerId) ?? 0) > 0,
+  );
   const peerById = await loadPeerProfiles(service, peerIds);
   const emailById = await loadEmailsByUserId(service, [ownerUserId]);
   const ownerEmail = emailById.get(ownerUserId) ?? null;
 
-  return Array.from(latest.entries())
-    .map(([peerId, m]) => {
+  return peerIds
+    .map((peerId) => {
+      const m = latest.get(peerId)!;
       const profile = peerById.get(peerId);
       return {
         ownerUserId,
@@ -181,7 +195,7 @@ export async function loadAdminUserThreads(
         peerId,
         peerName: profile?.display_name ?? peerId,
         peerAvatarUrl: profile?.avatar_url ?? "",
-        messageCount: counts.get(peerId) ?? 1,
+        messageCount: counts.get(peerId) ?? 0,
         lastMessageAt: m.created_at,
         lastMessagePreview: previewFromMessage(m),
         lastSender: (m.sender === "me" ? "me" : "peer") as "me" | "peer",

@@ -74,7 +74,7 @@ export default async function AdminMessagesPage() {
             {users.length > 0 ? (
               <span className="ml-1 text-gray-500">
                 ({users.length} gebruiker{users.length === 1 ? "" : "s"},{" "}
-                {totalMessages} berichten)
+                {totalMessages} berichten verstuurd)
               </span>
             ) : null}
           </>
@@ -124,7 +124,10 @@ export default async function AdminMessagesPage() {
                     laatste: {u.lastMessagePreview}
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                <span
+                  className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                  title="Berichten verstuurd door deze gebruiker"
+                >
                   {u.messageCount}
                 </span>
               </Link>
