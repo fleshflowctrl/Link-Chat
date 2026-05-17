@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  ChartIcon,
   ChatBubbleIcon,
   ChevronLeftIcon,
   CameraIcon,
@@ -19,6 +20,7 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
+  { href: "/admin/metrics", label: "Statistieken", icon: <ChartIcon />, matchPrefix: true },
   { href: "/admin/personas", label: "Personas", icon: <UsersIcon />, matchPrefix: true },
   { href: "/admin/messages", label: "Berichten", icon: <ChatBubbleIcon />, matchPrefix: true },
   {

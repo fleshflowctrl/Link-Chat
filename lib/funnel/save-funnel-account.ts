@@ -10,6 +10,7 @@ import {
   STARTING_USER_CREDITS,
 } from "@/lib/credits/pricing";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import type {
   FunnelAgeRange,
   FunnelLookingFor,
@@ -81,6 +82,11 @@ export async function saveFunnelAccount(
 
   const userId = signUpData.user?.id ?? null;
   const hasSession = Boolean(signUpData.session);
+
+  // Link the anonymous visitor (localStorage UUID) to this brand-new auth
+  // user so the admin metrics page can compute visitor → signup funnel.
+  // Best-effort; never blocks signup completion.
+  void trackSignupLink(userId);
 
   // Without a session (email confirmation flow) we can't upsert under RLS.
   // We still return ok so the funnel can finish; profile data is also kept in
