@@ -27,6 +27,7 @@ import type {
   ChatMessageRow,
   ChatProfileRow,
 } from "@/lib/chat/map-rows";
+import { BOT_PEER_PHOTOS_ENABLED } from "@/lib/ai/bot-chat-photos";
 import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
@@ -156,6 +157,19 @@ export async function processDuePendingReplies(
   // consistent across photos. Failures (Space cold-start, rate limit, etc.)
   // mark the row as failed without affecting the rest of the pipeline.
   if (photoRows.length > 0) {
+    if (!BOT_PEER_PHOTOS_ENABLED) {
+      const ids = photoRows.map((r) => r.id);
+      await supabase
+        .from("chat_pending_replies")
+        .update({
+          status: "failed",
+          error: "peer photos disabled",
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", ids)
+        .eq("owner_user_id", args.ownerUserId)
+        .eq("status", "pending");
+    } else {
     const ids = photoRows.map((r) => r.id);
     const { data: lockedPhotos } = await supabase
       .from("chat_pending_replies")
@@ -261,6 +275,7 @@ export async function processDuePendingReplies(
         })
         .eq("id", ph.id);
       newPeerMessages.push(inserted as ChatMessageRow);
+    }
     }
   }
 

@@ -51,10 +51,8 @@ import {
 } from "@/lib/ai/draft-revise";
 import { getBedtimeContext } from "@/lib/ai/bedtime";
 import { getWorkContext } from "@/lib/ai/work-schedule";
+import { BOT_PEER_PHOTOS_ENABLED } from "@/lib/ai/bot-chat-photos";
 import { extractPhotoDirective } from "@/lib/ai/photo-directive";
-import { generatePersonaPhoto } from "@/lib/images/generate-photo";
-import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
-import { uploadPersonaPhoto } from "@/lib/images/upload-photo";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
@@ -678,7 +676,7 @@ export async function generatePeerReply(
   const photoIntents: PhotoIntent[] = [];
   const directiveStrippedChunks = rawChunks.map((c, idx) => {
     const ext = extractPhotoDirective(c);
-    if (ext.scene) {
+    if (BOT_PEER_PHOTOS_ENABLED && ext.scene) {
       photoIntents.push({ afterChunkIndex: idx, scene: ext.scene });
     }
     return ext.cleanText;
