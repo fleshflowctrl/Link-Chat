@@ -1,4 +1,4 @@
-export type CreditPackTopBadge = "most-popular" | "trending" | "best-value";
+export type CreditPackTopBadge = "trending" | "best-value";
 
 export interface CreditPackage {
   id: string;
@@ -46,7 +46,6 @@ export const packages: CreditPackage[] = [
     icon: "🎂",
     iconAsset: 250,
     tile: "from-pink-400 to-pink-500",
-    badge: "most-popular",
     defaultSelected: true,
   },
   {

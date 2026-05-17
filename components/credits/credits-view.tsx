@@ -38,18 +38,17 @@ function PackageCard({
   const struckPrice = discount > 0 ? pkg.price : pkg.original;
   const showStruck = struckPrice > userPrice;
 
-  const reserveTopRibbon =
-    pkg.badge === "most-popular" ||
-    pkg.badge === "trending" ||
-    pkg.badge === "best-value";
+  const hasRibbon = pkg.badge === "trending" || pkg.badge === "best-value";
+
+  const cardRingClass =
+    pkg.badge === "trending"
+      ? "ring-2 ring-amber-400"
+      : pkg.badge === "best-value"
+        ? "ring-2 ring-emerald-500"
+        : "ring-1 ring-black/[0.05]";
 
   return (
     <div className="relative">
-      {pkg.badge === "most-popular" && (
-        <span className="absolute -top-2 left-3 z-10 rounded-md bg-[#7C5CFF] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm">
-          Meest populair
-        </span>
-      )}
       {pkg.badge === "trending" && (
         <span className="absolute -top-2 right-3 z-10 rounded-md bg-amber-400 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm">
           🔥 Hot
@@ -63,8 +62,8 @@ function PackageCard({
 
       <Link
         href={`/credits/checkout/${pkg.id}`}
-        className={`relative flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-black/[0.05] transition active:scale-[0.99] ${
-          reserveTopRibbon ? "mt-2" : ""
+        className={`relative flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm transition active:scale-[0.99] ${cardRingClass} ${
+          hasRibbon ? "mt-2" : ""
         }`}
       >
         <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-inner">
