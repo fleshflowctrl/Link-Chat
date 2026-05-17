@@ -454,43 +454,76 @@ type NextUnit =
   | { kind: "wait"; reason: string }
   | { kind: "none" };
 
-/** Find the next work unit. The operator's expectation is
- *   "first finish persona 0, THEN persona 1, THEN persona 2",
- * so as long as ANY phase of an earlier persona is still in flight we
- * refuse to start work on a later persona — even if that later persona
- * is fully pending. The tick handler treats `wait` as "back off until
- * a watchdog wakes us up" so we don't busy-loop while a tick that's
- * still mid-call (e.g. waiting on the HF Space) finishes.
+/** Find the next work unit.
  *
- * Recovery in runOneStep resets items that have been stuck longer than
- * STUCK_THRESHOLD_MS, so a crashed-mid-work tick can't block the batch
+ * Ordering: **phase-first, then item-first within each phase**. We
+ * run ALL profile writes first (Grok-only, no HF Space), THEN ALL
+ * avatars (HF Space warms on shot #1 and stays hot), THEN ALL gallery
+ * slots (HF Space already warm, no cold-starts between personas).
+ *
+ * Why phase-first beats per-persona ordering:
+ *   - HF ZeroGPU Spaces sleep after ~60s idle. Per-persona ordering
+ *     inserted a 10-30s Grok call between every two HF calls, which
+ *     was just long enough to let the Space drift toward cold and
+ *     burn the next render on a 20-30s warm-up. Phase-first keeps
+ *     all photo calls rug-aan-rug so the Space warms exactly ONCE.
+ *   - Cold-start mid-batch also caused our 42s `PHOTO_TIMEOUT_MS`
+ *     to fire, which marked the item as failed and burned a gallery
+ *     attempt for nothing.
+ *   - When credits / quota run out, phase-first means you at least
+ *     have every persona's *profile* saved before any photo work
+ *     was attempted, so a partial batch is still useful.
+ *
+ * `wait` is returned when the current phase has a unit in flight on
+ * another tick. The tick handler treats it as "back off until a
+ * watchdog wakes us up" so we don't busy-loop while an HF call is
+ * still resolving. `recoverStuckItems` resets anything stuck longer
+ * than STUCK_THRESHOLD_MS so a crashed tick can't block the batch
  * forever — at worst we pause ~58s.
  */
 function pickNextUnit(batch: BatchRow, items: BatchItemRow[]): NextUnit {
+  // Phase 1 — all profile writes. Grok calls only; the HF Space
+  // doesn't need to be warm for any of this, which is exactly the
+  // point: we keep all HF traffic clustered into later phases.
   for (const item of items) {
-    // Profile phase.
     if (item.profile_state === "running") {
       return { kind: "wait", reason: `item ${item.idx} profile running` };
     }
     if (item.profile_state === "pending") {
       return { kind: "profile", item };
     }
-    if (item.profile_state !== "done") {
-      // 'error' / 'skipped' — this row is done with work, move on.
-      continue;
-    }
-    if (!batch.with_photos) continue;
+    // 'done' / 'error' / 'skipped' — fall through, this row is done
+    // with phase 1.
+  }
 
-    // Avatar phase.
+  if (!batch.with_photos) {
+    return { kind: "none" };
+  }
+
+  // Phase 2 — all avatars. Back-to-back HF calls keep the Space
+  // warm after the first cold-start. Items whose profile errored
+  // out have no persona_id and are skipped silently (their photo /
+  // gallery states were already flipped to 'skipped' by the profile
+  // failure handler in runOneStep).
+  for (const item of items) {
+    if (item.profile_state !== "done" || !item.persona_id) continue;
     if (item.photo_state === "running") {
       return { kind: "wait", reason: `item ${item.idx} avatar running` };
     }
     if (item.photo_state === "pending") {
       return { kind: "avatar", item };
     }
-    // photo done/error/skipped — gallery proceeds either way.
+  }
 
-    // Gallery phase.
+  // Phase 3 — all gallery slots. Item-first within this phase
+  // (persona 0's three shots, then persona 1's three shots, …)
+  // because the variant calculation `scene_offset + idx*target +
+  // attempts` is per-item and keeps scene-template selection
+  // deterministic / unique-per-persona. Round-robin across personas
+  // would still work but offers no extra cold-start benefit at this
+  // point — the Space is already warm.
+  for (const item of items) {
+    if (item.profile_state !== "done" || !item.persona_id) continue;
     if (item.gallery_state === "running") {
       return { kind: "wait", reason: `item ${item.idx} gallery running` };
     }
@@ -500,16 +533,14 @@ function pickNextUnit(batch: BatchRow, items: BatchItemRow[]): NextUnit {
       item.gallery_state !== "skipped" &&
       item.gallery_attempts < batch.gallery_target
     ) {
-      // Variant follows the attempt counter so successive tries roll
-      // different scene templates (matching the legacy client loop).
       const variant =
         batch.scene_offset +
         item.idx * batch.gallery_target +
         item.gallery_attempts;
       return { kind: "gallery", item, variant };
     }
-    // gallery exhausted/done/error — this row is finished, move on.
   }
+
   return { kind: "none" };
 }
 
