@@ -57,15 +57,23 @@ export default function NudesAdminPage() {
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const [previews, setPreviews] = useState<Record<string, { url: string; subject: string }>>({});
   const [previewModal, setPreviewModal] = useState<{ url: string; template: NudeTemplate } | null>(null);
-  const [previewPreset, setPreviewPreset] = useState<string>("mid-average");
+  const [previewPreset, setPreviewPreset] = useState<string>("__random__");
 
   const PREVIEW_PRESETS = [
-    { id: "young-slim-striking", label: "24j · slank" },
+    { id: "__random__", label: "🎲 Willekeurig (elke render een andere persona)" },
+    { id: "young-slim-striking", label: "24j · slank · striking" },
     { id: "young-average", label: "26j · gemiddeld" },
+    { id: "young-plus-average", label: "27j · plus" },
     { id: "mid-average", label: "38j · gemiddeld" },
     { id: "mid-plus-average", label: "42j · plus" },
     { id: "senior-average", label: "58j · gemiddeld" },
+    { id: "senior-plus", label: "65j · plus" },
   ];
+
+  function pickRandomPreset(): string {
+    const real = PREVIEW_PRESETS.filter((p) => p.id !== "__random__");
+    return real[Math.floor(Math.random() * real.length)]!.id;
+  }
 
   async function loadPersonas() {
     setLoading(true);
@@ -144,13 +152,16 @@ export default function NudesAdminPage() {
 
   async function previewTemplate(id: string, preset: string) {
     setPreviewingId(id);
+    // Resolve "__random__" to an actual preset per render so each click
+    // gives a different persona (different age, body type, identity).
+    const effectivePreset = preset === "__random__" ? pickRandomPreset() : preset;
     try {
       const res = await fetch(
         `/api/admin/scene-templates/${encodeURIComponent(id)}/test-render`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ preset }),
+          body: JSON.stringify({ preset: effectivePreset }),
         },
       );
       const data = await res.json().catch(() => ({}));
@@ -168,6 +179,35 @@ export default function NudesAdminPage() {
       alert(e instanceof Error ? e.message : "Netwerkfout");
     } finally {
       setPreviewingId(null);
+    }
+  }
+
+  async function clearAllTemplates() {
+    if (
+      !confirm(
+        "Weet je zeker dat je ALLE actieve nude templates wilt wissen?\n\n" +
+          "Daarna kun je opnieuw genereren met de nieuwe (veel diversere) prompt. " +
+          "Afgewezen templates blijven bewaard zodat Grok daarvan blijft leren.",
+      )
+    ) {
+      return;
+    }
+    setBatchStatus("Bezig met wissen…");
+    try {
+      const res = await fetch("/api/admin/nude-templates/clear-all", {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        setBatchStatus(`Wissen mislukt: ${data.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      setBatchStatus(`${data.deleted} templates gewist. Genereer nu een nieuwe diverse batch.`);
+      setTemplates([]);
+      setTemplatesTotal(0);
+      setPreviews({});
+    } catch (e) {
+      setBatchStatus(`Netwerkfout: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -350,6 +390,13 @@ export default function NudesAdminPage() {
                   >
                     {generatingBatch ? `Bezig…` : `Genereer ${batchCount} nude templates met Grok`}
                   </button>
+                  <button
+                    onClick={() => void clearAllTemplates()}
+                    disabled={generatingBatch || templates.length === 0}
+                    className="mt-2 w-full rounded-xl border border-red-200 bg-white px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+                  >
+                    Wis alle huidige templates en begin opnieuw
+                  </button>
                   <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
                     Tip: doe in batches van 30–50. Grok ziet de huidige pool en je
                     afwijzingen, en maakt elke batch maximaal divers (pose, hoek, locatie, licht).
@@ -382,12 +429,12 @@ export default function NudesAdminPage() {
                     Actieve templates ({templates.length}
                     {templatesTotal > templates.length ? ` van ${templatesTotal}` : ""})
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <label className="text-[11px] text-gray-500">Preview op:</label>
                     <select
                       value={previewPreset}
                       onChange={(e) => setPreviewPreset(e.target.value)}
-                      className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px]"
+                      className="max-w-[260px] rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px]"
                     >
                       {PREVIEW_PRESETS.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -395,6 +442,19 @@ export default function NudesAdminPage() {
                         </option>
                       ))}
                     </select>
+                    <button
+                      onClick={async () => {
+                        for (const t of templates) {
+                          if (previews[t.id]) continue;
+                          await previewTemplate(t.id, previewPreset);
+                        }
+                      }}
+                      disabled={previewingId !== null || templates.length === 0}
+                      className="rounded-full border border-rose-300 bg-rose-50 px-3 py-1 text-[11px] text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                      title="Render previews voor alle templates die er nog geen hebben"
+                    >
+                      Preview alle missende
+                    </button>
                     <button
                       onClick={() => void loadTemplates()}
                       disabled={templatesLoading}

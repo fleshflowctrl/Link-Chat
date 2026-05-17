@@ -42,26 +42,63 @@ Velden uitgelegd:
 HARDE REGELS:
 - ALLE personas zijn vrouwen tussen 18 en 99 met middellang tot lang haar. Iedere template moet werken voor élke leeftijd binnen dat bereik.
 - Iedere template moet écht en geloofwaardig zijn als amateur self-taken nude photo. Geen studio, geen professionele fotografie, geen "art nude" abstractie.
-- VARIATIE is het hele doel: per batch een mix van staand/zittend/liggend/op handen-en-knieën/hurkend, slaapkamer/badkamer/woonkamer/raam/spiegel/bed/badkuip/vloer, ochtend/middag/avond, frontaal/van-achteren/zijkant/van boven/van onderaf.
 - ABSOLUUT NOOIT BLUR. Gebruik NERGENS termen als "blur", "blurry", "blurred", "out of focus", "out-of-focus", "defocused", "bokeh", "shallow depth of field", "shallow DoF", "portrait mode", "soft focus", "motion blur", "creamy bokeh", "lens blur". Alles moet scherp zijn van voor- tot achtergrond zoals een gewone iPhone-snapshot.
 
-VERPLICHTE VARIATIE BINNEN ÉÉN RESPONSE:
-- Geen twee templates met dezelfde pose. Niet 3× "staand voor spiegel", niet 4× "doggy van achteren".
-- Geen twee templates met (vrijwel) dezelfde camera-hoek.
-- Geen twee templates met (vrijwel) dezelfde locatie. Spreid over slaapkamer, badkamer, woonkamer, badkuip, raam, vloer, etc.
-- Mix dag- en avondlicht.
+VERPLICHTE POSE-DISTRIBUTIE (HARD CHECK — als jouw batch deze verhouding niet haalt, wordt 'ie afgewezen):
+- MAX 15% staande spiegel-selfies. Niet meer. Wees concreet streng: in een batch van 20 templates zijn er hooguit 3 staande spiegel-selfies. Punt.
+- MINIMAAL 20% liggend (op rug / op buik / op zij / met benen omhoog / in badkuip / op vloer)
+- MINIMAAL 15% van-achteren / over-de-schouder / kont-naar-camera
+- MINIMAAL 15% zittend (op stoel / bedrand / vloer / vensterbank / trap / aanrecht)
+- MINIMAAL 10% knielend / op handen en knieën / squatting
+- MINIMAAL 10% creatieve hoeken: POV van bovenaf (vogelperspectief), POV van onder, extreme close-up van lichaamsdeel (borsten / billen / dijen), foto van iemand anders gemaakt, timer op kast, etc.
+- De rest (max ~15%) mag staand zonder spiegel / bukkend / leunend / op tafel / etc.
 
-POSE-IDEEËN OM TE COMBINEREN (gebruik ze NIET letterlijk, maak per template iets eigens):
-- Spiegel selfies: staand, hurkend, knielend, zittend, één been opgetild, op tenen, dichtbij spiegel, ver van spiegel
-- Bed: op rug met benen wijd, op buik met kont omhoog, op zij, op handen en knieën, zittend met benen in V, knieën tegen borst
-- Badkamer: in badkuip liggend, op rand zittend, na douchen, voor spiegel staand
-- Creatief: benen tegen muur, op handen en voeten katpose, leunend tegen muur, op stoel
-- Hoeken: extreem laag van onderaf, hoog van bovenaf, recht van voren, van achteren, 3/4 vanaf zij, profile
+VERPLICHTE LOCATIE-DISTRIBUTIE (per batch):
+- Verspreid over MINSTENS 8 verschillende locaties. Voorbeelden van locaties die JE MOET overwegen (niet alleen slaapkamer + badkamer):
+  slaapkamer, badkamer (douche/bad/spiegel), woonkamer-bank, keuken, eetkamer, gang/hal, kantoor/werkkamer, balkon, terras, slaapkamer-vloer, voor groot raam, in kledingkast/inloopkast, op trap, in auto, hotelkamer, sauna, kelder/bijkeuken, zolder, tuinhuis, vakantiehuis-living, airbnb, op make-up tafel, op aanrecht keuken, half in douchecabine, op gymmat in woonkamer, in stoel-onder-leeslampje, op bureaustoel met benen open, boven op wasmachine.
+- Verspreid ook over MINSTENS 6 verschillende meubelstukken of decor-elementen (bed, bank, stoel, badkuip, sink, vloerkleed, bureau, vensterbank, trap, aanrecht, tafel).
 
-ANTI-CLICHE:
-- Vermijd "girl in lingerie" — outfit MOET expliciet naakt zijn.
-- Vermijd vage poses zoals "sexy pose" — wees concreet.
-- Vermijd herhaling van "spreidstand voor spiegel" — er zijn 50+ andere poses.`;
+VERPLICHTE CAMERA-DISTRIBUTIE (per batch):
+- Verspreid over MINSTENS 6 verschillende camera-types:
+  1. mirror-selfie (max 25% van batch — staand én niet-staand samen, dus zelfs in deze categorie veel variatie),
+  2. arm-held selfie zonder spiegel (gezicht naar camera vanaf arm-lengte),
+  3. POV van bovenaf (telefoon boven gehouden tijdens liggen),
+  4. POV van onderen (telefoon op grond / heupniveau),
+  5. timer/tripod op kast/plank (geen arm zichtbaar, hele lichaam in beeld),
+  6. close-up van specifiek lichaamsdeel (borsten, dijen, billen, schaamstreek-area in detail),
+  7. door iemand anders gemaakt (vriendin/partner, hele compositie wijder).
+
+VERPLICHTE BODY-VISIBILITY DISTRIBUTIE:
+- Niet ELKE template hoeft volledig frontaal lichaam te tonen. Mix:
+  - Volledig lichaam frontaal: ~30%
+  - Volledig lichaam van zij/3/4: ~20%
+  - Volledig lichaam van achter: ~15%
+  - Bovenlichaam close-up (borsten/torso): ~15%
+  - Onderlichaam close-up (heupen-naar-boven of dijen): ~10%
+  - Specifieke detail-shot (één borst, billen, tussen benen): ~10%
+
+VERPLICHTE LICHT-DISTRIBUTIE:
+- Mix van: helder daglicht, schemerlicht, lamplicht (warme tint), badkamer-tl, harde phone-flash, gouden namiddag, blauwe avondtint, koude winter-daglicht, zonsondergang via raam.
+- Geen 2 templates met identieke lichtomschrijving.
+
+OUTFIT-VARIATIE (zelfs volledig naakt kan variëren):
+- "completely nude with water droplets on skin"
+- "completely nude with wet hair clinging to shoulders"
+- "completely nude, slight tan lines visible from bikini"
+- "completely nude with silver necklace and small earrings only"
+- "completely nude with ankle bracelet visible"
+- "completely nude with hair tied up in messy bun"
+- "completely nude with hair loose past shoulders"
+- "completely nude, freshly out of bed, no makeup"
+- "completely nude with light makeup, looks polished"
+- "completely nude with red painted toenails visible"
+
+ANTI-CLICHE — DEZE FOUTEN AUTOMATISCH AFWIJZEN:
+- ❌ 3+ staande spiegel-selfies in 1 batch
+- ❌ "girl in lingerie" — outfit MOET expliciet naakt zijn
+- ❌ Vage poses zoals "sexy pose" — wees concreet over handen, benen, gezichtsrichting, blik
+- ❌ Twee templates met (vrijwel) zelfde achtergrond zoals "white tiled bathroom" 2×
+- ❌ Templates die alleen verschillen in lichte detail-variatie van dezelfde basis-pose`;
 
 function userPrompt(opts: {
   count: number;
