@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { listAllAuthUsers } from "@/lib/admin/auth-users";
 
 export type AdminMetrics = {
   /** Distinct browsers that hit the landing/funnel page. */
@@ -30,30 +31,6 @@ export type AdminMetrics = {
   visitorsConvertedToChat: number;
 };
 
-/** Reads auth.users.created_at for every user in the project, paginated. */
-async function listAllUsers(
-  service: SupabaseClient,
-): Promise<Array<{ id: string; created_at: string | null }>> {
-  const out: Array<{ id: string; created_at: string | null }> = [];
-  const perPage = 200;
-  for (let page = 1; page <= 50; page += 1) {
-    const { data, error } = await service.auth.admin.listUsers({
-      page,
-      perPage,
-    });
-    if (error) break;
-    const users = data?.users ?? [];
-    for (const u of users) {
-      out.push({
-        id: String(u.id),
-        created_at: u.created_at ?? null,
-      });
-    }
-    if (users.length < perPage) break;
-  }
-  return out;
-}
-
 export async function loadAdminMetrics(
   service: SupabaseClient,
 ): Promise<AdminMetrics> {
@@ -81,7 +58,7 @@ export async function loadAdminMetrics(
         .select("owner_user_id, sender")
         .eq("sender", "me"),
       service.from("user_profiles").select("user_id, purchase_count"),
-      listAllUsers(service),
+      listAllAuthUsers(service),
     ]);
 
   const visitors = visitorsTotal.count ?? 0;
@@ -107,10 +84,10 @@ export async function loadAdminMetrics(
 
   const signups = users.length;
   const signupsLast7d = users.filter(
-    (u) => u.created_at && u.created_at >= since7d,
+    (u) => u.createdAt && u.createdAt >= since7d,
   ).length;
   const signupsLast30d = users.filter(
-    (u) => u.created_at && u.created_at >= since30d,
+    (u) => u.createdAt && u.createdAt >= since30d,
   ).length;
 
   const avgMessagesPerSignup =
