@@ -15,12 +15,20 @@ import {
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { computePeerOnlineNow } from "@/lib/chat/online-status";
+import {
+  getDiscoverPresenceBucket,
+  type DiscoverPresenceBucket,
+} from "@/lib/catalog/discover-feed-status";
+import { activeFeedSlot } from "@/lib/catalog/hourly-feed";
+import { fetchRefreshOffset } from "@/lib/catalog/server-catalog";
 
 export type ThreadMeta = {
   name: string;
   avatarUrl: string;
   verified: boolean;
   onlineNow: boolean;
+  /** Discover badge bucket for this hourly slot (aligns page 1 with page 3). */
+  discoverPresenceBucket: DiscoverPresenceBucket;
 };
 
 export type ConversationPageData = {
@@ -334,6 +342,14 @@ export async function fetchConversationServer(
     .eq("owner_user_id", user.id)
     .order("created_at", { ascending: true });
 
+  const refreshOffset = await fetchRefreshOffset(supabase, user.id);
+  const feedSlot = activeFeedSlot(Date.now(), refreshOffset);
+  const discoverPresenceBucket = getDiscoverPresenceBucket(
+    peerId,
+    user.id,
+    feedSlot,
+  );
+
   if (msgError) {
     return {
       messages: [],
@@ -342,6 +358,7 @@ export async function fetchConversationServer(
         avatarUrl: p.avatar_url,
         verified: p.verified,
         onlineNow: computePeerOnlineNow({ profile: p, lastPeerMessageAt: null }),
+        discoverPresenceBucket,
       },
       useSupabase: true,
     };
@@ -376,6 +393,7 @@ export async function fetchConversationServer(
           ? lastInThread.sender
           : null,
     }),
+    discoverPresenceBucket,
   };
 
   return {

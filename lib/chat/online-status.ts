@@ -7,6 +7,7 @@
  */
 
 import { getBedtimeContext } from "@/lib/ai/bedtime";
+import { getDiscoverLiveChatPresence } from "@/lib/catalog/discover-feed-status";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 
 /** Green dot / "Nu online" — phone still in hand after her last bubble. */
@@ -145,6 +146,8 @@ export function getChatHeaderPresence(opts: {
   messages: Array<{ sender: string; createdAt?: string }>;
   peerTyping?: boolean;
   personaId: string;
+  /** Matches discover card badge for this hourly slot (page 1 ↔ page 3). */
+  discoverBucket?: "live" | "new" | "default";
   now?: Date;
   timeZone?: string;
 }): ChatHeaderPresence {
@@ -169,6 +172,10 @@ export function getChatHeaderPresence(opts: {
 
   if (bedtime.phase === "asleep") {
     return { variant: "asleep", label: "Slapend", showGreenDot: false };
+  }
+
+  if (opts.discoverBucket === "live") {
+    return getDiscoverLiveChatPresence(opts.personaId);
   }
 
   const online = computePeerOnlineNow({

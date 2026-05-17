@@ -525,8 +525,9 @@ export function ChatConversationView({
         messages,
         peerTyping,
         personaId: chatId,
+        discoverBucket: meta.discoverPresenceBucket,
       }),
-    [messages, peerTyping, chatId, onlineTick],
+    [messages, peerTyping, chatId, meta.discoverPresenceBucket, onlineTick],
   );
 
   const liveOnlineNow = headerPresence.showGreenDot;

@@ -378,6 +378,7 @@ export function getThreadMeta(chatId: string): {
   avatarUrl: string;
   verified: boolean;
   onlineNow: boolean;
+  discoverPresenceBucket: "live" | "new" | "default";
 } {
   const row = messageThreads.find((t) => t.id === chatId);
   const profile = getProfileById(chatId);
@@ -392,5 +393,12 @@ export function getThreadMeta(chatId: string): {
       "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=200&q=80&auto=format&fit=crop",
     verified: row?.verified ?? profile?.isVerified ?? false,
     onlineNow: row?.onlineNow ?? profile?.status.variant === "online",
+    discoverPresenceBucket:
+      profile?.status.variant === "online" ||
+      profile?.status.variant === "active"
+        ? "live"
+        : profile?.status.variant === "new"
+          ? "new"
+          : "default",
   };
 }

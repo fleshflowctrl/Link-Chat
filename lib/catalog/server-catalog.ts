@@ -38,7 +38,7 @@ export type HomePageCatalogBundle = {
  * Look up the per-user `refresh_offset` (paid-refresh counter) without
  * blowing up if the table doesn't exist yet (e.g. migration not applied).
  */
-async function fetchRefreshOffset(
+export async function fetchRefreshOffset(
   supabase: ReturnType<typeof createClient>,
   userId: string,
 ): Promise<number> {
