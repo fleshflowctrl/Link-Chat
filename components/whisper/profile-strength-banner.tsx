@@ -12,7 +12,7 @@ import type { EditProfileState } from "@/data/me-edit";
  *
  * Two visual variants:
  *   - default: large hero card (kept for backwards compat / other surfaces).
- *   - compact: slim row used inline under the FeedEndCard ("alle 10 gezien")
+ *   - compact: slim row used inline under the FeedEndCard end state
  *     where vertical room is tight and we just want a subtle reminder.
  *
  * Visibility decisions live with the parent — this component just renders.

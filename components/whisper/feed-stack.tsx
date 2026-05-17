@@ -8,10 +8,10 @@ import {
   Heart,
   MessageCircle,
   RefreshCcw,
-  RotateCcw,
   Timer,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
+import { HOURLY_FEED_SIZE } from "@/lib/catalog/hourly-feed";
 import type { EditProfileState } from "@/data/me-edit";
 import { hasProfileBasics } from "@/lib/me/profile-completeness";
 import {
@@ -120,7 +120,7 @@ export function FeedStack({
   const [hydrated, setHydrated] = useState(false);
 
   // Restore the saved index for this user + slot on mount and whenever a fresh
-  // pack arrives. If we've already seen all 10 in this slot, this keeps the
+  // pack arrives. If we've already seen all profiles in this slot, this keeps the
   // user on the end-state instead of bouncing them back to profile #1.
   useEffect(() => {
     setIndex(readSavedIndex(userKey, feedSlot));
@@ -190,7 +190,6 @@ export function FeedStack({
             insufficient={insufficient}
             refreshing={refreshing}
             onRefreshNow={onRefreshNow}
-            onReplay={() => setIndex(0)}
           />
           {showProfileNudge && profile && (
             <ProfileStrengthBanner profile={profile} compact />
@@ -258,8 +257,6 @@ type EndProps = {
   insufficient: boolean;
   refreshing: boolean;
   onRefreshNow: () => void | Promise<void>;
-  /** Reset the stack to the first card so the user can browse the same 10 again. */
-  onReplay: () => void;
 };
 
 function FeedEndCard({
@@ -269,7 +266,6 @@ function FeedEndCard({
   insufficient,
   refreshing,
   onRefreshNow,
-  onReplay,
 }: EndProps) {
   return (
     <div className="flex flex-col items-center gap-2 rounded-3xl bg-white p-4 text-center shadow-lg ring-1 ring-black/5">
@@ -282,7 +278,7 @@ function FeedEndCard({
         />
       </span>
       <h2 className="text-[16px] font-extrabold tracking-tight text-ink">
-        Je hebt alle 10 gezien
+        Je hebt alle {HOURLY_FEED_SIZE} gezien
       </h2>
       <p className="text-[12px] leading-snug text-inkMuted">
         Volgende selectie komt over{" "}
@@ -308,7 +304,7 @@ function FeedEndCard({
               ? "Vernieuwen…"
               : insufficient
                 ? `Te weinig credits (${refreshCost} nodig)`
-                : "Direct 10 nieuwe profielen"}
+                : `Direct ${HOURLY_FEED_SIZE} nieuwe profielen`}
           </span>
           {!refreshing && !insufficient && (
             <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">
@@ -319,14 +315,6 @@ function FeedEndCard({
         </button>
       )}
 
-      <button
-        type="button"
-        onClick={onReplay}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-[12.5px] font-bold text-ink shadow-sm transition active:scale-[0.98]"
-      >
-        <RotateCcw className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
-        Bekijk dezelfde 10 nog een keer
-      </button>
     </div>
   );
 }

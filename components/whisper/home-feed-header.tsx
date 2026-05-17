@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Coins, Heart, RefreshCcw, Timer } from "lucide-react";
+import { HOURLY_FEED_SIZE } from "@/lib/catalog/hourly-feed";
 
 type Props = {
   /** Epoch-ms timestamp of the next natural hourly rotation. */
@@ -86,7 +87,7 @@ export function HomeFeedHeader({
             </span>
           </div>
           <p className="mt-0.5 text-[13px] leading-snug text-inkMuted">
-            Elk uur 10 nieuwe profielen voor jou
+            Elk uur {HOURLY_FEED_SIZE} nieuwe profielen voor jou
           </p>
         </div>
       </div>
@@ -109,7 +110,7 @@ export function HomeFeedHeader({
                 ? "Vernieuwen…"
                 : insufficient
                   ? `Te weinig credits (${refreshCost} nodig)`
-                  : "Direct 10 nieuwe profielen"}
+                  : `Direct ${HOURLY_FEED_SIZE} nieuwe profielen`}
             </span>
             {!refreshing && !insufficient && (
               <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">

@@ -2,7 +2,7 @@
  * Hourly-rotating "Speciaal voor jou" feed.
  *
  * Every wall-clock hour the home grid swaps to a fresh deterministic slice of
- * 10 profiles. Each user sees their own rotation: the picker hashes
+ * 30 profiles. Each user sees their own rotation: the picker hashes
  * `<userKey>:<slot>` so two visitors never see the same set in the same hour
  * (and a single visitor sees a different set next hour).
  *
@@ -12,7 +12,7 @@
  */
 
 export const HOUR_MS = 60 * 60 * 1000;
-export const HOURLY_FEED_SIZE = 10;
+export const HOURLY_FEED_SIZE = 30;
 export { HOURLY_FEED_REFRESH_COST_CREDITS as HOURLY_FEED_REFRESH_COST } from "@/lib/credits/pricing";
 
 /** Whole hours since epoch — increments at the top of every wall-clock hour. */
