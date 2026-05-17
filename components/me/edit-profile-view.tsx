@@ -26,9 +26,7 @@ import {
 import {
   INTEREST_LIBRARY,
   LOOKING_FOR_OPTIONS,
-  PRONOUN_OPTIONS,
   type EditProfileState,
-  type PronounsValue,
 } from "@/data/me-edit";
 import { uploadProfileImage } from "@/lib/me/client-storage-upload";
 import { setMeProfileSnapshot } from "@/lib/me-profile-store";
@@ -39,13 +37,6 @@ import {
 } from "@/lib/me/profile-completeness";
 
 const BIO_MAX = 280;
-
-const PRONOUN_LABEL_NL: Record<PronounsValue, string> = {
-  "she/her": "zij/haar",
-  "he/him": "hij/hem",
-  "they/them": "hen/hun",
-  custom: "Aangepast",
-};
 
 function gid() {
   return `g-${Math.random().toString(36).slice(2, 11)}`;
@@ -575,43 +566,6 @@ export function EditProfileView({
               />
             </div>
           </FieldRow>
-          <div className="mx-4 h-px bg-black/[0.06]" />
-          <div className="px-4 py-2.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
-              Voornaamwoorden
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {PRONOUN_OPTIONS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() =>
-                    setState((s) => ({
-                      ...s,
-                      pronouns: p,
-                    }))
-                  }
-                  className={`rounded-full px-3 py-1.5 text-[13px] font-bold transition ${
-                    state.pronouns === p
-                      ? "bg-primary text-white shadow-sm"
-                      : "bg-ink/[0.06] text-ink ring-1 ring-black/[0.06]"
-                  }`}
-                >
-                  {PRONOUN_LABEL_NL[p]}
-                </button>
-              ))}
-            </div>
-            {state.pronouns === "custom" && (
-              <input
-                className="mt-2 w-full rounded-xl bg-ink/[0.04] px-3 py-2 text-sm font-medium text-ink outline-none ring-1 ring-black/[0.06]"
-                placeholder="Jouw voornaamwoorden"
-                value={state.customPronouns}
-                onChange={(e) =>
-                  setState((s) => ({ ...s, customPronouns: e.target.value }))
-                }
-              />
-            )}
-          </div>
         </div>
       </section>
 
