@@ -88,6 +88,102 @@ function pickDiscoverFeed(
   return applyDiscoverFeedStatusToProfiles(picked, userKey, feedSlot);
 }
 
+/**
+ * Resolve the user's current discover pack with slot-stable ordering.
+ *
+ * Within a single slot the pack is cached server-side (in `home_feed_state`)
+ * so the user always resumes exactly where they left off, even though the
+ * underlying history grows with every swipe. When the slot rotates (timer
+ * hits 0 or paid refresh), `forceRebuild` is set or the cached slot no
+ * longer matches and we recompute from scratch — that's where `excludeIds`
+ * and `demoteIds` are applied.
+ *
+ * Chat-opened profiles are filtered out at read time too, so once you open
+ * a chat with someone they disappear from the cached pack within the
+ * current slot without reshuffling everyone else.
+ */
+async function getOrBuildCachedPack(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  pool: Profile[],
+  slot: number,
+  history: ProfileViewHistory,
+  opts: { forceRebuild?: boolean } = {},
+): Promise<Profile[]> {
+  // Map for cheap id -> Profile lookups.
+  const byId = new Map<string, Profile>();
+  for (const p of pool) byId.set(p.id, p);
+
+  if (!opts.forceRebuild) {
+    try {
+      const { data } = await supabase
+        .from("home_feed_state")
+        .select("cached_pack_slot, cached_pack_ids")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const row = data as {
+        cached_pack_slot?: number | null;
+        cached_pack_ids?: string[] | null;
+      } | null;
+      if (
+        row?.cached_pack_slot === slot &&
+        Array.isArray(row.cached_pack_ids) &&
+        row.cached_pack_ids.length > 0
+      ) {
+        // Reuse cached order; strip any profile the user has since
+        // opened a chat with (they live in /messages now).
+        const resolved: Profile[] = [];
+        for (const id of row.cached_pack_ids) {
+          if (history.excludeIds.has(id)) continue;
+          const p = byId.get(id);
+          if (p) resolved.push(p);
+        }
+        if (resolved.length > 0) {
+          return applyDiscoverFeedStatusToProfiles(resolved, userId, slot);
+        }
+        // Cached set became empty (rare) — fall through to rebuild.
+      }
+    } catch {
+      /* fall through to rebuild */
+    }
+  }
+
+  // Build fresh and persist for the rest of this slot.
+  const fresh = pickHourlyFeedWithHistory(pool, userId, slot, {
+    excludeIds: history.excludeIds,
+    demoteIds: history.demoteIds,
+    size: HOURLY_FEED_SIZE,
+  });
+  try {
+    await supabase
+      .from("home_feed_state")
+      .upsert(
+        {
+          user_id: userId,
+          cached_pack_slot: slot,
+          cached_pack_ids: fresh.map((p) => p.id),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+  } catch {
+    /* best effort — cache is an optimization, not a hard requirement */
+  }
+  return applyDiscoverFeedStatusToProfiles(fresh, userId, slot);
+}
+
+export async function buildDiscoverPackForRefresh(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  pool: Profile[],
+  slot: number,
+): Promise<Profile[]> {
+  const history = await loadProfileViewHistory(supabase, userId);
+  return getOrBuildCachedPack(supabase, userId, pool, slot, history, {
+    forceRebuild: true,
+  });
+}
+
 export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundle> {
   const now = Date.now();
 
@@ -159,7 +255,13 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
   }
 
   const history = await loadProfileViewHistory(supabase, user.id);
-  const gridProfiles = pickDiscoverFeed(pool, userKey, meta.feedSlot, history);
+  const gridProfiles = await getOrBuildCachedPack(
+    supabase,
+    user.id,
+    pool,
+    meta.feedSlot,
+    history,
+  );
 
   const { data: actRows, error: actError } = await supabase
     .from("chat_profiles")

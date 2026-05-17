@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import {
   HOURLY_FEED_REFRESH_COST,
-  HOURLY_FEED_SIZE,
   activeFeedSlot,
   hashFeedComposition,
   nextHourBoundary,
-  pickHourlyFeedWithHistory,
 } from "@/lib/catalog/hourly-feed";
 import { profiles, type Profile } from "@/data/profiles";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
-import { applyDiscoverFeedStatusToProfiles } from "@/lib/catalog/discover-feed-status";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
-import { loadProfileViewHistory } from "@/lib/me/profile-views";
+import { buildDiscoverPackForRefresh } from "@/lib/catalog/server-catalog";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -147,13 +144,15 @@ export async function POST() {
     /* fall back to static pool */
   }
 
-  const history = await loadProfileViewHistory(supabase, user.id);
-  const picked = pickHourlyFeedWithHistory(pool, user.id, slot, {
-    excludeIds: history.excludeIds,
-    demoteIds: history.demoteIds,
-    size: HOURLY_FEED_SIZE,
-  });
-  const refreshed = applyDiscoverFeedStatusToProfiles(picked, user.id, slot);
+  // Paid refresh = explicit "give me a brand-new pack now", so we rebuild
+  // the cache (this also consumes any seen-history demotions accumulated
+  // during the previous slot).
+  const refreshed = await buildDiscoverPackForRefresh(
+    supabase,
+    user.id,
+    pool,
+    slot,
+  );
 
   return NextResponse.json({
     ok: true,

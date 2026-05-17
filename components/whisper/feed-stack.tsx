@@ -23,50 +23,73 @@ import { ProfileStrengthBanner } from "./profile-strength-banner";
 
 const FEED_INDEX_KEY_PREFIX = "whisper_feed_index";
 
+type SavedCursor = { index: number; profileId: string | null };
+
 /**
- * Build a per-user, per-slot, per-composition localStorage key. The
- * composition hash makes the cursor reset cleanly when the visible set
- * changes (e.g. a profile got removed because the user opened a chat with
- * them) so we don't keep showing a stale "you're on profile #5" when
- * profile #5 is now a different person.
+ * Per-user, per-slot localStorage key. Keeping this purely slot-keyed (not
+ * composition-keyed) is intentional: the server caches the pack ordering
+ * inside the slot, so the cursor stays meaningful even if a profile gets
+ * removed (chat opened). When the slot rotates the key changes and the
+ * cursor naturally resets to 0.
  */
-function feedIndexKey(userKey: string, slot: number, feedHash: string): string {
-  return `${FEED_INDEX_KEY_PREFIX}:${userKey}:${slot}:${feedHash}`;
+function feedIndexKey(userKey: string, slot: number): string {
+  return `${FEED_INDEX_KEY_PREFIX}:${userKey}:${slot}`;
 }
 
-function readSavedIndex(userKey: string, slot: number, feedHash: string): number {
-  if (typeof window === "undefined") return 0;
+function readSavedCursor(userKey: string, slot: number): SavedCursor {
+  if (typeof window === "undefined") return { index: 0, profileId: null };
   try {
-    const raw = localStorage.getItem(feedIndexKey(userKey, slot, feedHash));
-    if (raw === null) return 0;
+    const raw = localStorage.getItem(feedIndexKey(userKey, slot));
+    if (raw === null) return { index: 0, profileId: null };
+    // New format is JSON `{index, profileId}`. Older entries are just
+    // a stringified integer — keep reading them for one slot rotation.
+    if (raw.startsWith("{")) {
+      const parsed = JSON.parse(raw) as Partial<SavedCursor>;
+      const index =
+        typeof parsed.index === "number" && parsed.index >= 0
+          ? Math.floor(parsed.index)
+          : 0;
+      const profileId =
+        typeof parsed.profileId === "string" && parsed.profileId
+          ? parsed.profileId
+          : null;
+      return { index, profileId };
+    }
     const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n >= 0 ? n : 0;
+    return {
+      index: Number.isFinite(n) && n >= 0 ? n : 0,
+      profileId: null,
+    };
   } catch {
-    return 0;
+    return { index: 0, profileId: null };
   }
 }
 
-/** Persist the current index, and garbage-collect entries from older slots. */
-function writeSavedIndex(
+/** Persist the cursor, and garbage-collect entries from older slots. */
+function writeSavedCursor(
   userKey: string,
   slot: number,
-  feedHash: string,
-  index: number,
+  cursor: SavedCursor,
 ) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(feedIndexKey(userKey, slot, feedHash), String(index));
+    localStorage.setItem(
+      feedIndexKey(userKey, slot),
+      JSON.stringify(cursor),
+    );
     const prefix = `${FEED_INDEX_KEY_PREFIX}:${userKey}:`;
     const stale: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (!k || !k.startsWith(prefix)) continue;
-      // key shape: `<prefix><slot>:<hash>`  — drop anything older than the current slot
+      // key shape: `<prefix><slot>` or legacy `<prefix><slot>:<hash>`.
       const rest = k.slice(prefix.length);
       const colon = rest.indexOf(":");
       const slotPart = colon === -1 ? rest : rest.slice(0, colon);
       const slotNum = parseInt(slotPart, 10);
       if (Number.isFinite(slotNum) && slotNum < slot) stale.push(k);
+      // Drop any legacy composition-keyed entry for the current slot too.
+      else if (colon !== -1 && slotNum === slot) stale.push(k);
     }
     for (const k of stale) localStorage.removeItem(k);
   } catch {
@@ -150,21 +173,34 @@ export function FeedStack({
   const [index, setIndex] = useState<number>(0);
   const [hydrated, setHydrated] = useState(false);
 
-  // Restore the saved index for this user + slot + composition on mount, and
-  // whenever any of those change. If we've already seen all profiles in this
-  // pack, this keeps the user on the end-state instead of bouncing them back
-  // to profile #1.
+  // Restore the cursor for this user + slot. If the saved profileId still
+  // exists in the current pack we resume on exactly that profile, even when
+  // earlier profiles were removed mid-slot (e.g. user opened a chat with
+  // one). Otherwise fall back to the saved integer position clamped to the
+  // current pack size. A new slot uses a fresh storage key so this is a
+  // natural reset when the timer rotates.
   useEffect(() => {
-    setIndex(readSavedIndex(userKey, feedSlot, feedHash));
+    const saved = readSavedCursor(userKey, feedSlot);
+    let resumeIndex = Math.min(Math.max(0, saved.index), profiles.length);
+    if (saved.profileId) {
+      const found = profiles.findIndex((p) => p.id === saved.profileId);
+      if (found >= 0) resumeIndex = found;
+    }
+    setIndex(resumeIndex);
     setHydrated(true);
-  }, [userKey, feedSlot, feedHash]);
+    // We intentionally re-derive on slot change; pack changes inside a slot
+    // shouldn't reset (the server keeps order stable), so `profiles` and
+    // `feedHash` are not deps here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userKey, feedSlot]);
 
   // Persist progress (skip the very first render before hydration to avoid
   // overwriting a saved value with the initial 0).
   useEffect(() => {
     if (!hydrated) return;
-    writeSavedIndex(userKey, feedSlot, feedHash, index);
-  }, [hydrated, userKey, feedSlot, feedHash, index]);
+    const profileId = profiles[index]?.id ?? null;
+    writeSavedCursor(userKey, feedSlot, { index, profileId });
+  }, [hydrated, userKey, feedSlot, index, profiles]);
 
   const [now, setNow] = useState<number>(() => Date.now());
   useEffect(() => {
