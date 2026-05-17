@@ -17,7 +17,14 @@ export const runtime = "nodejs";
  * the run because the worker chains itself server-side. */
 export const maxDuration = 30;
 
-const MAX_BATCH = 10;
+/** Hard cap on how many personas a single batch can request.
+ *
+ * Raised from 10 → 100 once the chain-and-recovery worker became
+ * stable: each persona takes ~1 minute of HF time on average, so a
+ * full 100-batch is ~100 minutes — well within a day's ZeroGPU
+ * budget once topped up with credits, but big enough to seed a
+ * production feed in one go without babysitting. */
+const MAX_BATCH = 100;
 const MIN_BRIEF_LEN = 8;
 const GALLERY_TARGET = 3;
 

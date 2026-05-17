@@ -76,7 +76,10 @@ type BatchSnapshot = {
 type Attractiveness = "striking" | "average" | "plain";
 type BodyType = "slim" | "average" | "plus";
 
-const MAX_BATCH = 10;
+/** UI cap on personas per batch — kept in sync with MAX_BATCH on
+ * the server side in app/api/admin/personas/batch/start/route.ts.
+ * Server still validates so changing this alone wouldn't bypass it. */
+const MAX_BATCH = 100;
 const MIN_BRIEF_LEN = 8;
 const AGE_FLOOR = 18;
 // 80 so seniors stay reachable. The diffusion + Grok pipeline both
