@@ -27,6 +27,7 @@ import { pickFreshSceneTemplate } from "@/lib/images/scene-templates";
 import { pickFreshNudeTemplates } from "@/lib/images/nude-scene-templates";
 import {
   loadActiveTemplatesForSlot,
+  loadActiveNudeTemplates,
   recordAndConsumeSceneTemplateUse,
 } from "@/lib/admin/scene-templates-store";
 
@@ -475,13 +476,46 @@ export async function appendNudeGalleryPhoto(
   if (loadErr) return { ok: false, error: loadErr.message, status: 500 };
   if (!persona) return { ok: false, error: "Persona niet gevonden.", status: 404 };
 
-  // Pick a fresh nude template (avoids recent repeats for this persona)
-  const [template] = pickFreshNudeTemplates(1, input.personaId);
+  // Prefer DB-managed nude templates (Grok-generated, admin-curated).
+  // Fall back to in-code NUDE_TEMPLATES if the DB pool is empty.
+  let template: Parameters<typeof buildPersonaPhotoPrompt>[0]["cameraStyle"] & { scene: string };
+  const dbNude = await loadActiveNudeTemplates(service);
+  if (dbNude && dbNude.length > 0) {
+    const pick = dbNude[Math.floor(Math.random() * dbNude.length)]!;
+    template = {
+      scene: pick.scene,
+      camera: pick.camera,
+      backdrop: pick.backdrop,
+      lighting: pick.lighting,
+      capture: pick.capture,
+      outfit: pick.outfit,
+      pose: pick.pose,
+    };
+    console.log("[persona-ops/append-nude] using DB template", {
+      pool: dbNude.length,
+      scene: pick.scene.slice(0, 60),
+    });
+  } else {
+    const [picked] = pickFreshNudeTemplates(1, input.personaId);
+    template = {
+      scene: picked.scene,
+      camera: picked.camera,
+      backdrop: picked.backdrop,
+      lighting: picked.lighting,
+      capture: picked.capture,
+      outfit: picked.outfit,
+      pose: picked.pose,
+    };
+    console.log("[persona-ops/append-nude] using in-code fallback template");
+  }
 
-  // Force explicit nude outfit on top of the template
-  const explicitOutfit =
-    "completely nude, no clothes at all, bare skin, full frontal nudity, " +
-    "breasts and vagina clearly visible, amateur self-taken";
+  // Reinforce explicit nude outfit on top of whatever the template specifies.
+  // The Grok-generated nude templates already include nudity tokens, but
+  // doubling them up guarantees nothing slips through clothed.
+  const baseOutfit = (template.outfit ?? "").trim();
+  const explicitOutfit = /naakt|nude|bare skin|no clothes|topless|breasts|vagina|pussy/i.test(baseOutfit)
+    ? baseOutfit
+    : "completely nude, no clothes at all, bare skin, full frontal nudity, breasts and vagina clearly visible, amateur self-taken";
 
   const { prompt, seed: anchorSeed, negativePrompt } = buildPersonaPhotoPrompt({
     profile: persona as Parameters<typeof buildPersonaPhotoPrompt>[0]["profile"],

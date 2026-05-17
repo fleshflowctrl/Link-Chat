@@ -102,15 +102,17 @@ export async function loadActiveTemplatesForSlot(
   slot: "avatar" | "gallery",
 ): Promise<SceneTemplate[] | null> {
   try {
-    // Avatar slot: prefer 'avatar' + 'mixed'. Gallery slot: any kind.
+    // Avatar slot: prefer 'avatar' + 'mixed'. Gallery slot: any non-nude kind.
+    // Nude templates have category="nude" and live in their own pool.
     const kinds = slot === "avatar" ? ["avatar", "mixed"] : ["avatar", "gallery", "mixed"];
     const { data, error } = await service
       .from(SCENE_TEMPLATES_TABLE)
       .select(
-        "scene, camera, backdrop, lighting, capture, outfit, pose, kind, template_id",
+        "scene, camera, backdrop, lighting, capture, outfit, pose, kind, template_id, category",
       )
       .eq("is_active", true)
-      .in("kind", kinds);
+      .in("kind", kinds)
+      .or("category.is.null,category.neq.nude");
     if (error) throw error;
     if (!data || data.length === 0) return null;
     return (data as Row[]).map((r) => ({
@@ -168,6 +170,7 @@ export async function listTemplates(
   let q = service
     .from(SCENE_TEMPLATES_TABLE)
     .select("*", { count: "exact" })
+    .or("category.is.null,category.neq.nude") // hide nude templates from the normal admin list
     .range(from, to);
 
   q = opts.sort === "oldest"
@@ -205,7 +208,8 @@ export async function getStats(
 ): Promise<StatsResult> {
   const { data, error } = await service
     .from(SCENE_TEMPLATES_TABLE)
-    .select("kind, category, is_active");
+    .select("kind, category, is_active")
+    .or("category.is.null,category.neq.nude"); // nudes managed separately on /admin/nudes
   if (error) throw error;
   const rows = (data ?? []) as Row[];
   let active = 0;
@@ -225,11 +229,13 @@ export async function getStats(
     .sort((a, b) => b.count - a.count);
 
   // Last 10 rejections — used by the admin UI as a "recent issues"
-  // sidebar and also fed back to Grok in the generator.
+  // sidebar and also fed back to Grok in the generator. Exclude nude
+  // rejections, those have their own admin panel.
   const { data: rj, error: rjErr } = await service
     .from(SCENE_TEMPLATES_TABLE)
     .select("*")
     .eq("is_active", false)
+    .or("category.is.null,category.neq.nude")
     .order("rejected_at", { ascending: false })
     .limit(10);
   if (rjErr) throw rjErr;
@@ -364,6 +370,7 @@ export async function listTemplateIds(
   let q = service
     .from(SCENE_TEMPLATES_TABLE)
     .select("id")
+    .or("category.is.null,category.neq.nude")
     .order("created_at", { ascending: false })
     .limit(10_000);
   if (opts.kind && opts.kind !== "any") q = q.eq("kind", opts.kind);
@@ -539,8 +546,9 @@ export async function loadRecentRejections(
   try {
     const { data, error } = await service
       .from(SCENE_TEMPLATES_TABLE)
-      .select("scene, outfit, pose, rejection_reason, rejection_tags")
+      .select("scene, outfit, pose, rejection_reason, rejection_tags, category")
       .eq("is_active", false)
+      .or("category.is.null,category.neq.nude")
       .not("rejection_reason", "is", null)
       .order("rejected_at", { ascending: false })
       .limit(capped);
@@ -564,6 +572,162 @@ export async function loadRecentRejections(
   }
 }
 
+// ============================================================================
+// NUDE TEMPLATES — same store, category = "nude" rows only (kind stays
+// "gallery" so we don't need a CHECK-constraint migration; every nude
+// query filters by category = "nude" and every non-nude query excludes
+// it via .neq("category", "nude")).
+// ============================================================================
+
+const NUDE_CATEGORY = "nude";
+
+/** Loads active NUDE templates from the DB. Returns null when the lookup
+ * fails or no nude rows exist (caller falls back to in-code NUDE_TEMPLATES). */
+export async function loadActiveNudeTemplates(
+  service: SupabaseClient,
+): Promise<SceneTemplate[] | null> {
+  try {
+    const { data, error } = await service
+      .from(SCENE_TEMPLATES_TABLE)
+      .select(
+        "scene, camera, backdrop, lighting, capture, outfit, pose, kind, template_id",
+      )
+      .eq("is_active", true)
+      .eq("category", NUDE_CATEGORY);
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+    return (data as Row[]).map((r) => ({
+      scene: String(r.scene ?? ""),
+      camera: String(r.camera ?? ""),
+      backdrop: String(r.backdrop ?? ""),
+      lighting: String(r.lighting ?? ""),
+      capture: String(r.capture ?? ""),
+      outfit: String(r.outfit ?? ""),
+      pose: String(r.pose ?? ""),
+      kind: "gallery" as SceneTemplate["kind"],
+    }));
+  } catch (err) {
+    console.warn("[scene-templates-store] loadActiveNudeTemplates failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+/** Sample a few active nude templates as few-shot examples for the Grok generator. */
+export async function sampleActiveNudeTemplatesForFewShot(
+  service: SupabaseClient,
+  count = 6,
+): Promise<SceneTemplate[]> {
+  try {
+    const { data, error } = await service
+      .from(SCENE_TEMPLATES_TABLE)
+      .select("scene, camera, backdrop, lighting, capture, outfit, pose, kind")
+      .eq("is_active", true)
+      .eq("category", NUDE_CATEGORY)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) throw error;
+    const pool = (data ?? []) as Row[];
+    if (pool.length === 0) return [];
+    const shuffled = [...pool];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+    }
+    return shuffled.slice(0, Math.min(count, shuffled.length)).map((r) => ({
+      scene: String(r.scene ?? ""),
+      camera: String(r.camera ?? ""),
+      backdrop: String(r.backdrop ?? ""),
+      lighting: String(r.lighting ?? ""),
+      capture: String(r.capture ?? ""),
+      outfit: String(r.outfit ?? ""),
+      pose: String(r.pose ?? ""),
+      kind: "gallery" as SceneTemplate["kind"],
+    }));
+  } catch (err) {
+    console.warn(
+      "[scene-templates-store] sampleActiveNudeTemplatesForFewShot failed",
+      { error: err instanceof Error ? err.message : String(err) },
+    );
+    return [];
+  }
+}
+
+/** Load recent rejections for the nude-templates feedback loop. */
+export async function loadRecentNudeRejections(
+  service: SupabaseClient,
+  limit = 15,
+): Promise<
+  Array<{
+    scene: string;
+    outfit: string;
+    pose: string;
+    rejection_reason: string | null;
+    rejection_tags: string[];
+  }>
+> {
+  const capped = Math.min(30, Math.max(1, limit));
+  try {
+    const { data, error } = await service
+      .from(SCENE_TEMPLATES_TABLE)
+      .select("scene, outfit, pose, rejection_reason, rejection_tags, category")
+      .eq("is_active", false)
+      .eq("category", NUDE_CATEGORY)
+      .not("rejection_reason", "is", null)
+      .order("rejected_at", { ascending: false })
+      .limit(capped);
+    if (error) throw error;
+    return ((data ?? []) as Row[]).map((r) => ({
+      scene: String(r.scene ?? ""),
+      outfit: String(r.outfit ?? ""),
+      pose: String(r.pose ?? ""),
+      rejection_reason: typeof r.rejection_reason === "string" ? r.rejection_reason : null,
+      rejection_tags: Array.isArray(r.rejection_tags)
+        ? (r.rejection_tags as unknown[]).filter(
+            (t): t is string => typeof t === "string",
+          )
+        : [],
+    }));
+  } catch (err) {
+    console.warn("[scene-templates-store] loadRecentNudeRejections failed", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return [];
+  }
+}
+
+/** List nude templates with pagination — used by the /admin/nudes templates panel. */
+export async function listNudeTemplates(
+  service: SupabaseClient,
+  opts: { page?: number; pageSize?: number; state?: "active" | "rejected" | "any" } = {},
+): Promise<ListResult> {
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const pageSize = Math.min(200, Math.max(1, Math.floor(opts.pageSize ?? 50)));
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let q = service
+    .from(SCENE_TEMPLATES_TABLE)
+    .select("*", { count: "exact" })
+    .eq("category", NUDE_CATEGORY)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (opts.state === "active") q = q.eq("is_active", true);
+  else if (opts.state === "rejected") q = q.eq("is_active", false);
+
+  const { data, error, count } = await q;
+  if (error) throw error;
+
+  return {
+    rows: ((data ?? []) as Row[]).map(rowToTemplateRow),
+    total: count ?? 0,
+    page,
+    pageSize,
+  };
+}
+
 /** Sample a handful of high-quality (active) templates as few-shot
  * examples for the Grok generator. We randomise the sample server-side
  * so successive generation batches see different few-shot examples and
@@ -578,8 +742,9 @@ export async function sampleActiveTemplatesForFewShot(
     // payloads anyway. Limit ~200 then shuffle.
     const { data, error } = await service
       .from(SCENE_TEMPLATES_TABLE)
-      .select("scene, camera, backdrop, lighting, capture, outfit, pose, kind")
+      .select("scene, camera, backdrop, lighting, capture, outfit, pose, kind, category")
       .eq("is_active", true)
+      .or("category.is.null,category.neq.nude")
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw error;

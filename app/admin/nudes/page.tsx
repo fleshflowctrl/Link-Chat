@@ -14,6 +14,23 @@ type Persona = {
   gallery_urls: string[];
 };
 
+type NudeTemplate = {
+  id: string;
+  template_id: string;
+  scene: string;
+  camera: string;
+  backdrop: string;
+  lighting: string;
+  capture: string;
+  outfit: string;
+  pose: string;
+  source: string;
+  is_active: boolean;
+  rejected_at: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+};
+
 export default function NudesAdminPage() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +41,17 @@ export default function NudesAdminPage() {
 
   const [modalPersona, setModalPersona] = useState<Persona | null>(null);
   const [deletingUrl, setDeletingUrl] = useState<string | null>(null);
+
+  // Nude template pool state
+  const [templates, setTemplates] = useState<NudeTemplate[]>([]);
+  const [templatesTotal, setTemplatesTotal] = useState(0);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [batchCount, setBatchCount] = useState(30);
+  const [generatingBatch, setGeneratingBatch] = useState(false);
+  const [batchHints, setBatchHints] = useState("");
+  const [batchStatus, setBatchStatus] = useState<string | null>(null);
+  const [templatesPanelOpen, setTemplatesPanelOpen] = useState(true);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   async function loadPersonas() {
     setLoading(true);
@@ -48,9 +76,79 @@ export default function NudesAdminPage() {
     }
   }
 
+  async function loadTemplates() {
+    setTemplatesLoading(true);
+    try {
+      const res = await fetch("/api/admin/nude-templates?state=active&pageSize=200", {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const json = await res.json();
+      setTemplates(Array.isArray(json.rows) ? json.rows : []);
+      setTemplatesTotal(typeof json.total === "number" ? json.total : 0);
+    } catch (e) {
+      setBatchStatus(`Templates laden faalde: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }
+
   useEffect(() => {
     void loadPersonas();
+    void loadTemplates();
   }, []);
+
+  async function generateBatch() {
+    setGeneratingBatch(true);
+    setBatchStatus(`Grok is bezig met ${batchCount} templates genereren…`);
+    try {
+      const hints = batchHints
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const res = await fetch("/api/admin/nude-templates/generate-batch", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ count: batchCount, hints }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        setBatchStatus(`Faalde: ${data.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      setBatchStatus(
+        `Klaar! ${data.inserted} nieuwe templates toegevoegd ` +
+          `(${data.generated} gegenereerd, ${data.droppedInvalid} ongeldig, ${data.dedupedSkipped} dubbel).`,
+      );
+      await loadTemplates();
+    } catch (e) {
+      setBatchStatus(`Netwerkfout: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setGeneratingBatch(false);
+    }
+  }
+
+  async function rejectTemplate(id: string, reason: string) {
+    setRejectingId(id);
+    try {
+      const res = await fetch(`/api/admin/nude-templates/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "reject", reason }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error ?? "Verwijderen mislukt");
+        return;
+      }
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      setTemplatesTotal((n) => Math.max(0, n - 1));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Netwerkfout");
+    } finally {
+      setRejectingId(null);
+    }
+  }
 
   async function generateNudes(personaId: string) {
     setGeneratingId(personaId);
@@ -167,6 +265,125 @@ export default function NudesAdminPage() {
             {error}
           </div>
         )}
+
+        {/* Nude template pool — Grok-generated, admin-curated */}
+        <div className="mb-8 overflow-hidden rounded-3xl border border-rose-200 bg-rose-50/40 shadow-sm">
+          <div className="flex items-center justify-between border-b border-rose-200 bg-rose-100/60 px-6 py-4">
+            <div>
+              <div className="text-sm font-semibold uppercase tracking-wider text-rose-700">
+                Nude Template Pool
+              </div>
+              <div className="mt-0.5 text-xs text-rose-600/80">
+                {templatesTotal} actieve templates · gebruik Grok om er honderden bij te genereren zodat geen twee foto's op elkaar lijken
+              </div>
+            </div>
+            <button
+              onClick={() => setTemplatesPanelOpen((v) => !v)}
+              className="rounded-full border border-rose-300 bg-white px-4 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+            >
+              {templatesPanelOpen ? "Verbergen" : "Tonen"}
+            </button>
+          </div>
+
+          {templatesPanelOpen && (
+            <div className="p-6">
+              <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[1fr,2fr]">
+                <div className="rounded-2xl border border-rose-200 bg-white p-4">
+                  <label className="block text-xs font-medium text-gray-600">
+                    Aantal templates (1–80)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={80}
+                    value={batchCount}
+                    onChange={(e) => setBatchCount(Math.max(1, Math.min(80, Number(e.target.value) || 1)))}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  />
+                  <button
+                    onClick={() => void generateBatch()}
+                    disabled={generatingBatch}
+                    className="mt-3 w-full rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:bg-rose-300"
+                  >
+                    {generatingBatch ? `Bezig…` : `Genereer ${batchCount} nude templates met Grok`}
+                  </button>
+                  <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
+                    Tip: doe in batches van 30–50. Grok ziet de huidige pool en je
+                    afwijzingen, en maakt elke batch maximaal divers (pose, hoek, locatie, licht).
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-rose-200 bg-white p-4">
+                  <label className="block text-xs font-medium text-gray-600">
+                    Extra wensen voor deze batch (optioneel, 1 per regel)
+                  </label>
+                  <textarea
+                    value={batchHints}
+                    onChange={(e) => setBatchHints(e.target.value)}
+                    rows={4}
+                    placeholder={"meer badkamer-poses\nmeer ongebruikelijke camerahoeken (van onderaf, van boven)\nminder spiegel-selfies, meer creatieve poses"}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono leading-relaxed"
+                  />
+                  {batchStatus && (
+                    <div className="mt-3 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                      {batchStatus}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Templates list */}
+              <div className="rounded-2xl border border-rose-200 bg-white">
+                <div className="flex items-center justify-between border-b border-rose-100 px-4 py-3">
+                  <div className="text-xs font-semibold text-gray-700">
+                    Actieve templates ({templates.length}
+                    {templatesTotal > templates.length ? ` van ${templatesTotal}` : ""})
+                  </div>
+                  <button
+                    onClick={() => void loadTemplates()}
+                    disabled={templatesLoading}
+                    className="rounded-full border border-gray-200 px-3 py-1 text-[11px] hover:bg-gray-50"
+                  >
+                    {templatesLoading ? "…" : "Vernieuwen"}
+                  </button>
+                </div>
+                {templates.length === 0 ? (
+                  <div className="px-4 py-10 text-center text-sm text-gray-400">
+                    Nog geen nude templates in de pool. Klik op "Genereer … met Grok" om te starten.
+                  </div>
+                ) : (
+                  <div className="max-h-96 divide-y divide-gray-100 overflow-y-auto">
+                    {templates.map((t) => (
+                      <div key={t.id} className="grid grid-cols-[1fr,auto] items-start gap-3 px-4 py-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-gray-900">{t.scene}</div>
+                          <div className="mt-0.5 truncate text-xs text-gray-500">
+                            <span className="font-mono text-[10px] text-rose-600">pose:</span> {t.pose}
+                          </div>
+                          <div className="mt-0.5 truncate text-xs text-gray-500">
+                            <span className="font-mono text-[10px] text-rose-600">camera:</span> {t.camera}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const reason = prompt("Waarom wijs je deze af? (komt terug in Grok-feedback)");
+                            if (reason && reason.trim()) {
+                              void rejectTemplate(t.id, reason.trim());
+                            }
+                          }}
+                          disabled={rejectingId === t.id}
+                          className="rounded-full border border-red-200 bg-white px-3 py-1 text-[11px] text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {rejectingId === t.id ? "…" : "Afwijzen"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="mb-6 flex items-center justify-between">
           <div>
