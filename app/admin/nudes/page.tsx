@@ -243,6 +243,13 @@ export default function NudesAdminPage() {
     let success = 0;
     let lastErr: string | null = null;
 
+    // Generate 3 photos with deliberate diversity in camera style
+    const diversityCycle: Array<"mirror" | "low" | "high" | "close" | "side"> = [
+      "mirror",
+      "low",
+      "close",
+    ];
+
     for (let i = 0; i < 3; i++) {
       try {
         const res = await fetch(`/api/admin/personas/${encodeURIComponent(personaId)}/append-gallery-photo`, {
@@ -251,6 +258,7 @@ export default function NudesAdminPage() {
           body: JSON.stringify({
             nude: true,
             variant: 15000 + i * 1337,
+            diversity: diversityCycle[i % diversityCycle.length],
           }),
         });
         const data = await res.json().catch(() => ({}));

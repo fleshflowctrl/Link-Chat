@@ -454,6 +454,11 @@ export async function appendPersonaGalleryPhoto(
 export type AppendNudeGalleryInput = {
   personaId: string;
   variant?: number;
+  /** Optional diversity hint to force different camera styles when generating
+   * multiple nudes for the same persona in one session.
+   * "mirror" | "low" | "high" | "close" | "side"
+   */
+  diversity?: "mirror" | "low" | "high" | "close" | "side";
 };
 
 export type AppendNudeGalleryResult =
@@ -482,8 +487,29 @@ export async function appendNudeGalleryPhoto(
   let template: Parameters<typeof buildPersonaPhotoPrompt>[0]["cameraStyle"] & { scene: string };
   let consumedTemplateId: string | null = null; // for DB consumption
   const dbNude = await loadActiveNudeTemplates(service);
+
+  let pick: (typeof dbNude)[number] | undefined;
+
   if (dbNude && dbNude.length > 0) {
-    const pick = dbNude[Math.floor(Math.random() * dbNude.length)]!;
+    if (input.diversity) {
+      // Try to find a template whose camera description matches the requested diversity
+      const keywords: Record<string, string[]> = {
+        mirror: ["mirror", "selfie", "reflection"],
+        low: ["low", "below", "under", "between legs", "ground"],
+        high: ["high", "above", "overhead", "looking down"],
+        close: ["close", "extreme", "tight", "nipple", "detail"],
+        side: ["side", "profile", "3/4", "over shoulder", "behind"],
+      };
+      const wanted = keywords[input.diversity] ?? [];
+      pick = dbNude.find((t) =>
+        wanted.some((k) => t.camera.toLowerCase().includes(k) || t.pose.toLowerCase().includes(k)),
+      );
+    }
+
+    if (!pick) {
+      pick = dbNude[Math.floor(Math.random() * dbNude.length)]!;
+    }
+
     template = {
       scene: pick.scene,
       camera: pick.camera,
@@ -496,6 +522,7 @@ export async function appendNudeGalleryPhoto(
     consumedTemplateId = pick.id;
     console.log("[persona-ops/append-nude] using DB template", {
       pool: dbNude.length,
+      diversity: input.diversity ?? "random",
       scene: pick.scene.slice(0, 60),
     });
   } else {

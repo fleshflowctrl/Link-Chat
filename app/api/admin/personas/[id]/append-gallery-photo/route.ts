@@ -18,6 +18,8 @@ type AppendBody = {
   scene?: string;
   /** When true, uses the dedicated nude template pool instead of normal scenes */
   nude?: boolean;
+  /** Diversity hint for nude generation to avoid repetitive camera styles */
+  diversity?: "mirror" | "low" | "high" | "close" | "side";
 };
 
 export async function POST(req: Request, ctx: RouteCtx) {
@@ -46,6 +48,7 @@ export async function POST(req: Request, ctx: RouteCtx) {
     ? await appendNudeGalleryPhoto(service, {
         personaId: ctx.params.id,
         variant: body.variant,
+        diversity: body.diversity,
       })
     : await appendPersonaGalleryPhoto(service, {
         personaId: ctx.params.id,
