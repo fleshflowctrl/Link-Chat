@@ -60,10 +60,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const { error: updateErr } = await service
     .from("chat_profiles")
-    .update({
-      gallery_urls: filtered,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ gallery_urls: filtered })
     .eq("id", personaId);
 
   if (updateErr) {

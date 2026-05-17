@@ -52,10 +52,7 @@ export async function POST(
 
   const { error: updateErr } = await service
     .from("chat_profiles")
-    .update({
-      avatar_url: url,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ avatar_url: url })
     .eq("id", params.id);
 
   if (updateErr) {
