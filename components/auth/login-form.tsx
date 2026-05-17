@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
 import { SITE_DISPLAY } from "@/lib/brand";
+import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import { createClient } from "@/utils/supabase/client";
 
 type LoginFormMode = "login" | "signup";
@@ -91,7 +92,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       });
       if (error) {
         setStatus("error");
-        setMessage(error.message);
+        setMessage(mapSupabaseAuthError(error.message));
         return;
       }
       await hydrateClientSessionFromServer();

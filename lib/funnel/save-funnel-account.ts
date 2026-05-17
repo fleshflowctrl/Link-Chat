@@ -9,6 +9,7 @@ import {
   CHAT_MESSAGE_COST_CREDITS,
   STARTING_USER_CREDITS,
 } from "@/lib/credits/pricing";
+import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import type {
@@ -77,7 +78,7 @@ export async function saveFunnelAccount(
   });
 
   if (signUpError) {
-    return { ok: false, error: signUpError.message };
+    return { ok: false, error: mapSupabaseAuthError(signUpError.message) };
   }
 
   const userId = signUpData.user?.id ?? null;

@@ -139,7 +139,10 @@ export default async function AdminUserMessagesPage({
                     {t.lastMessagePreview}
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                <span
+                  className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+                  title="Berichten verstuurd door deze gebruiker"
+                >
                   {t.messageCount}
                 </span>
               </Link>
