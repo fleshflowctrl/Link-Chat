@@ -64,13 +64,30 @@ function parseInterests(raw: unknown): ProfileInterest[] {
   return out.length ? out : [{ label: "Friendly", icon: "warm" }];
 }
 
+/** Profile page gallery: profielfoto first, then extra shots (no duplicates). */
 function galleryForRow(row: ChatProfileRow): string[] {
-  const urls = row.gallery_urls?.filter(
-    (u): u is string => typeof u === "string" && u.length > 0,
-  );
-  if (urls?.length) return urls;
-  const hero = row.avatar_url;
-  return Array.from({ length: 6 }, () => hero);
+  const hero =
+    typeof row.avatar_url === "string" && row.avatar_url.trim()
+      ? row.avatar_url.trim()
+      : "";
+  const extras =
+    row.gallery_urls?.filter(
+      (u): u is string => typeof u === "string" && u.length > 0,
+    ) ?? [];
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  if (hero) {
+    out.push(hero);
+    seen.add(hero);
+  }
+  for (const url of extras) {
+    if (!seen.has(url)) {
+      out.push(url);
+      seen.add(url);
+    }
+  }
+  return out;
 }
 
 /**
