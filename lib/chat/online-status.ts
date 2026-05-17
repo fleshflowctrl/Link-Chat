@@ -1,8 +1,12 @@
 /**
- * Peer "online" — only true briefly after she sent a message in this thread.
- * No random ambient online; that felt fake when the dot was on most of the day.
+ * Peer presence for chat header + inbox dot.
+ *
+ * "Nu online" only briefly after she sent in this thread. Otherwise show a
+ * realistic last-seen label, "Slapend" during her sleep window, or "Typt…"
+ * while a reply is being delivered.
  */
 
+import { getBedtimeContext } from "@/lib/ai/bedtime";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 
 /** Green dot / "Nu online" — phone still in hand after her last bubble. */
@@ -71,4 +75,120 @@ export function isPeerLiveInChat(opts: {
   if (!Number.isFinite(t)) return false;
   const age = now.getTime() - t;
   return age >= 0 && age <= RECENT_ACTIVITY_HARD_ONLINE_MS;
+}
+
+export type ChatHeaderPresenceVariant =
+  | "typing"
+  | "online"
+  | "offline"
+  | "asleep";
+
+export type ChatHeaderPresence = {
+  variant: ChatHeaderPresenceVariant;
+  label: string;
+  showGreenDot: boolean;
+};
+
+function defaultTimeZone(): string {
+  const env = process.env.PERSONA_DEFAULT_TZ?.trim();
+  return env || "Europe/Amsterdam";
+}
+
+function lastPeerMessageFromHistory(
+  messages: Array<{ sender: string; createdAt?: string }>,
+): Date | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.sender !== "peer" || !m.createdAt) continue;
+    const t = new Date(m.createdAt);
+    if (!Number.isNaN(t.getTime())) return t;
+  }
+  return null;
+}
+
+/** Dutch "Laatst gezien …" for the chat header when she's not live. */
+export function formatLastSeenNl(lastActiveAt: Date, now: Date = new Date()): string {
+  const ageMs = Math.max(0, now.getTime() - lastActiveAt.getTime());
+  const mins = Math.floor(ageMs / 60_000);
+  if (mins < 1) return "Laatst gezien zojuist";
+  if (mins < 60) {
+    return mins === 1
+      ? "Laatst gezien 1 min geleden"
+      : `Laatst gezien ${mins} min geleden`;
+  }
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) {
+    return hours === 1
+      ? "Laatst gezien 1 uur geleden"
+      : `Laatst gezien ${hours} uur geleden`;
+  }
+
+  const dayMs = 24 * 60 * 60_000;
+  const days = Math.floor(ageMs / dayMs);
+  if (days === 1) return "Laatst gezien gisteren";
+  if (days < 7) return `Laatst gezien ${days} dagen geleden`;
+
+  try {
+    const fmt = new Intl.DateTimeFormat("nl-NL", {
+      day: "numeric",
+      month: "short",
+      timeZone: defaultTimeZone(),
+    });
+    return `Laatst gezien ${fmt.format(lastActiveAt)}`;
+  } catch {
+    return "Offline";
+  }
+}
+
+/** Page-3 header subtitle — online, offline (last seen), asleep, or typing. */
+export function getChatHeaderPresence(opts: {
+  messages: Array<{ sender: string; createdAt?: string }>;
+  peerTyping?: boolean;
+  personaId: string;
+  now?: Date;
+  timeZone?: string;
+}): ChatHeaderPresence {
+  const now = opts.now ?? new Date();
+  const tz = opts.timeZone ?? defaultTimeZone();
+
+  if (opts.peerTyping) {
+    return { variant: "typing", label: "Typt…", showGreenDot: true };
+  }
+
+  const lastPeerMessageAt = lastPeerMessageFromHistory(opts.messages);
+  const last = opts.messages[opts.messages.length - 1];
+  const lastMessageSender =
+    last?.sender === "peer" ? "peer" : last?.sender === "me" ? "me" : null;
+
+  const bedtime = getBedtimeContext({
+    now,
+    timeZone: tz,
+    personaId: opts.personaId,
+    peerLastReplyAt: lastPeerMessageAt,
+  });
+
+  if (bedtime.phase === "asleep") {
+    return { variant: "asleep", label: "Slapend", showGreenDot: false };
+  }
+
+  const online = computePeerOnlineNow({
+    profile: {} as ChatProfileRow,
+    lastPeerMessageAt,
+    lastMessageSender,
+    now,
+  });
+
+  if (online) {
+    return { variant: "online", label: "Nu online", showGreenDot: true };
+  }
+
+  if (lastPeerMessageAt) {
+    return {
+      variant: "offline",
+      label: formatLastSeenNl(lastPeerMessageAt, now),
+      showGreenDot: false,
+    };
+  }
+
+  return { variant: "offline", label: "Offline", showGreenDot: false };
 }

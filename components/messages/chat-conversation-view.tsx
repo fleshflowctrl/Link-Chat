@@ -36,7 +36,7 @@ import {
   applyOptimisticUnreadDelta,
   setServerUnreadBaseline,
 } from "@/lib/messages-tab-badge";
-import { isPeerLiveInChat } from "@/lib/chat/online-status";
+import { getChatHeaderPresence } from "@/lib/chat/online-status";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
 import {
   applyServerCreditsUpdate,
@@ -192,7 +192,7 @@ export function ChatConversationView({
   /** Re-render so "Nu online" drops off ~90s after her last bubble. */
   const [onlineTick, setOnlineTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setOnlineTick((n) => (n + 1) & 0x7fffffff), 30_000);
+    const id = setInterval(() => setOnlineTick((n) => (n + 1) & 0x7fffffff), 15_000);
     return () => clearInterval(id);
   }, []);
   /** Ids that skip entry animation — SSR baseline, then full list after API sync. */
@@ -519,10 +519,17 @@ export function ChatConversationView({
     void markReadOnServer();
   }, [messages, markReadOnServer, chatId]);
 
-  const liveOnlineNow = useMemo(
-    () => isPeerLiveInChat({ messages }),
-    [messages, onlineTick],
+  const headerPresence = useMemo(
+    () =>
+      getChatHeaderPresence({
+        messages,
+        peerTyping,
+        personaId: chatId,
+      }),
+    [messages, peerTyping, chatId, onlineTick],
   );
+
+  const liveOnlineNow = headerPresence.showGreenDot;
 
   /** If mock transcript missed SSR, merge saved first outbound (dev without Supabase). */
   useEffect(() => {
@@ -1029,14 +1036,32 @@ export function ChatConversationView({
               />
             )}
           </div>
-          {liveOnlineNow ? (
-            <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-inkMuted">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-accentGreen shadow-[0_0_0_2px_rgba(124,92,255,0.12)]" />
-              <span className="font-medium text-primary">Nu online</span>
-            </p>
-          ) : (
-            <p className="mt-0.5 text-[12px] text-inkMuted">Offline</p>
-          )}
+          <p
+            className={`mt-0.5 flex items-center gap-1.5 text-[12px] ${
+              headerPresence.variant === "online" ||
+              headerPresence.variant === "typing"
+                ? "text-primary"
+                : "text-inkMuted"
+            }`}
+          >
+            {headerPresence.showGreenDot && (
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full bg-accentGreen shadow-[0_0_0_2px_rgba(124,92,255,0.12)] ${
+                  headerPresence.variant === "typing" ? "animate-pulse" : ""
+                }`}
+              />
+            )}
+            <span
+              className={
+                headerPresence.variant === "online" ||
+                headerPresence.variant === "typing"
+                  ? "font-medium"
+                  : "font-normal"
+              }
+            >
+              {headerPresence.label}
+            </span>
+          </p>
         </div>
         <div className="relative shrink-0">
           <button
