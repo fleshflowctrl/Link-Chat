@@ -46,12 +46,14 @@ Velden uitgelegd:
   • "naakte close-up van pussy, telefoon heel dichtbij tussen gespreide benen"
   • "naakte close-up van billen, telefoon laag achter haar gehouden"
   • "naakte close-up van voeten en onderbenen, telefoon op kniehoogte"
-  • "naakte vrouw bukt voorover op aanrecht in keuken"
-  • "naakt op trap zittend met benen gespreid"
-  • "naakte foto in inloopkast, kleren om haar heen op de grond"
-  • "naakte vrouw op make-uptafel zittend, voor make-upspiegel"
-  • "naakt staand voor groot raam met avondstad erachter, camera vanaf zij"
-  • "naakte zelf-portret op zolder met dakraam, op vloerkleed liggend"
+  • "naakte vrouw bukt voorover op aanrecht in keuken, tegels zichtbaar"
+  • "naakt op trap zittend met benen gespreid, houten trapleuning"
+  • "naakte foto in inloopkast, kleren om haar heen op de grond, beige tapijt"
+  • "naakte vrouw op make-uptafel zittend, voor make-upspiegel, lamp aan"
+  • "naakt staand voor groot raam met avondstad erachter, blauwe schemer"
+  • "naakte zelf-portret op zolder met dakraam, op vloerkleed liggend, warm oranje licht"
+  • "naakt in badkuip, witte tegels, waterdruppels, tl-licht"
+  • "naakte vrouw op bank in woonkamer, grijs fluwelen bank, avondlicht"
   Vermijd: ALTIJD "spiegel selfie in slaapkamer/badkamer" — dat is de DEFAULT die diffusion al zelf produceert.
 - camera (Engels): camera-afstand/hoek/framing als diffusion-tokens. ALLEEN self-taken varianten. Voorbeelden:
   • "mirror selfie, phone held in her own hand, arm visible in reflection, full body"
@@ -125,10 +127,22 @@ VERPLICHTE POSE-DISTRIBUTIE (HARD CHECK — als jouw batch deze verhouding niet 
 - MINIMAAL 10% creatieve hoeken: POV van bovenaf (vogelperspectief), POV van onder, extreme close-up van lichaamsdeel (borsten / billen / dijen), foto van iemand anders gemaakt, timer op kast, etc.
 - De rest (max ~15%) mag staand zonder spiegel / bukkend / leunend / op tafel / etc.
 
-VERPLICHTE LOCATIE-DISTRIBUTIE (per batch):
-- Verspreid over MINSTENS 8 verschillende locaties. Voorbeelden van locaties die JE MOET overwegen (niet alleen slaapkamer + badkamer):
-  slaapkamer, badkamer (douche/bad/spiegel), woonkamer-bank, keuken, eetkamer, gang/hal, kantoor/werkkamer, balkon, terras, slaapkamer-vloer, voor groot raam, in kledingkast/inloopkast, op trap, in auto, hotelkamer, sauna, kelder/bijkeuken, zolder, tuinhuis, vakantiehuis-living, airbnb, op make-up tafel, op aanrecht keuken, half in douchecabine, op gymmat in woonkamer, in stoel-onder-leeslampje, op bureaustoel met benen open, boven op wasmachine.
-- Verspreid ook over MINSTENS 6 verschillende meubelstukken of decor-elementen (bed, bank, stoel, badkuip, sink, vloerkleed, bureau, vensterbank, trap, aanrecht, tafel).
+VERPLICHTE LOCATIE-DISTRIBUTIE (HARD RULE — als je hier niet aan voldoet wordt de hele batch geweigerd):
+- MAX 25% van de templates mag in een slaapkamer zijn. Dat betekent: in een batch van 20 templates zijn er hooguit 5 slaapkamer-templates. De overige 75%+ MOET in andere kamers/locaties.
+- Verspreid over MINSTENS 8 verschillende locaties in één batch. Je MOET variëren tussen:
+  - Keuken (aanrecht, keukenvloer, voor koelkast, op barkruk)
+  - Badkamer (in badkuip, voor spiegel, in douche, op wasmachine, op toilet)
+  - Woonkamer (op bank, op vloerkleed, voor tv, bij raam)
+  - Hal/gang/trap (op trap zittend, in hal staand, voor garderobe)
+  - Balkon/terras (buiten, met uitzicht, bij balustrade)
+  - Kledingkast/inloopkast (tussen kleren, voor spiegel, op vloer)
+  - Hotelkamer / Airbnb (andere bed, andere gordijnen, andere lampen)
+  - Zolder / kelder / bijkeuken (andere sfeer, andere lichtinval)
+  - Bureau / werkkamer / make-up tafel
+- VERPLICHTE ACHTERGROND-VARIATIE (anti-kleurherhaling):
+  - Nooit 2 templates met dezelfde achtergrond-kleur/sfeer.
+  - Spreid over: wit beddengoed, grijs beddengoed, donkerblauw, zwart, beige, houtkleur, tegels (wit/zwart/grijs), tapijt, beton, bakstenen muur, raam met avondlicht, raam met daglicht, neon/gekleurde lamp, kaarslicht, tl-buis, etc.
+  - Als je "bed" gebruikt, varieer dan tenminste: witte lakens, grijze lakens, zwarte dekens, dekbed zonder hoes, gestreept, met kussens eromheen, half opgetrokken, etc.
 
 VERPLICHTE CAMERA-DISTRIBUTIE (per batch) — ALLEEN self-taken:
 - Verspreid over MINSTENS 7 verschillende self-taken camera-types:
@@ -176,16 +190,18 @@ ANTI-CLICHE — DEZE FOUTEN AUTOMATISCH AFWIJZEN (GROK MOET DIT LETTERLIJK CONTR
 - ❌ Templates die alleen verschillen in lichte detail-variatie van dezelfde basis-pose
 - ❌ **DISMEMBERED / FLOATING HAND OF PHONE**: Nooit "een hand die een telefoon vasthoudt zonder dat de arm zichtbaar is", nooit "telefoon zwevend in de lucht", nooit "hand komt van buiten het frame". Dit is een veelgemaakte fout — als de camera-beschrijving een hand noemt, MOET de arm ook beschreven zijn.
 - ❌ **PROFESSIONELE / BOUDOIR LOOK**: Nooit "zachte glamour lighting", "studio nude", "perfecte belichting", "mooie schaduwen op de huid". Alles moet eruitzien als een slecht belichte, imperfecte, amateur self-taken foto.
-- ❌ **GEEN TELEFOON BEWIJS**: Als de template full-body is, MOET er expliciet "phone in her hand" of "phone visible in mirror" in de camera of pose beschrijving staan. Anders wijs je de template intern af en maak je een nieuwe.
+- ❌ **GEEN TELEFOON BEWIJS**: Als de template full-body of 3/4 is, MOET er expliciet "phone in her hand" of "phone visible in mirror reflection" of "arm extended holding phone" in de camera- of pose-beschrijving staan. Als dat ontbreekt, wijs je de template intern af en genereer je een nieuwe die wél self-taken bewijs heeft.
 
-=== EINDELIJKE CHECKLIST — CONTROLEER ELKE TEMPLATE VOORDAT JE OUTPUT ===
+=== EINDELIJKE CHECKLIST — CONTROLEER ELKE TEMPLATE VOORDAT JE OUTPUT (DIT IS BINDEND) ===
 Voordat je de JSON output, MOET je voor ELKE template in je batch controleren:
-1. Is er een hand, arm of telefoon zichtbaar in de camera- of pose-beschrijving? Zo nee → herschrijf.
+1. Staat er een hand, arm of telefoon expliciet in de camera- of pose-beschrijving? Zo nee → herschrijf direct.
 2. Is de template een body-part close-up (borsten/pussy/billen/voeten)? Zo ja → zorg dat "phone almost touching skin" of "phone very close" of "phone between legs" erin staat.
-3. Is de template full-body? Zo ja → zorg dat "her own hand holding the phone" of "arm extended with phone" of "phone visible in mirror" erin staat.
+3. Is de template full-body of 3/4? Zo ja → MOET er "her own hand holding the phone" of "arm extended with phone in hand" of "phone visible in mirror reflection" in de camera- of pose-beschrijving staan. Anders wijs je af en maak je een nieuwe.
 4. Bevat de capture-beschrijving "self-taken", "her own phone" of "from her camera roll"?
 5. Bevat de scene het woord "naakt" of "naakte"?
-Als een template hier niet aan voldoet, pas hem aan voordat je de batch output.`;
+6. Is de achtergrond uniek ten opzichte van de andere templates in deze batch? (geen 2× "bed met witte lakens")
+7. Is de hand natuurlijk vastgehouden (niet zwevend, niet van buiten het frame)?
+Als een template hier niet aan voldoet, pas hem aan of vervang hem voordat je de batch output.`;
 
 function userPrompt(opts: {
   count: number;
