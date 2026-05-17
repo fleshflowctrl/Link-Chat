@@ -1,5 +1,12 @@
 /**
- * Welcome screen (funnel step 1) — cycling card sets. Photos: Unsplash (same style as `profiles.ts`).
+ * Welcome screen (funnel step 1) — cycling card sets.
+ *
+ * These are the FALLBACK reels shown when the live chat_profiles
+ * catalog is empty (fresh DB / Supabase unreachable). In normal
+ * production the funnel uses real personas via
+ * `buildWelcomeSetsFromCatalog` in components/funnel/onboarding-funnel.tsx.
+ *
+ * Photos: Unsplash (same style as `profiles.ts`).
  */
 
 const u = (id: string, w = 800) =>
@@ -10,7 +17,9 @@ export type FunnelWelcomeCard = {
   name: string;
   age: number;
   photo: string;
-  distance: string | null;
+  /** Shown under the name. Holds a city now (operator-requested):
+   * "Amsterdam", "Utrecht", etc. — used to be a "5 km" distance. */
+  city: string | null;
   status: "online" | "new" | null;
 };
 
@@ -21,7 +30,7 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Maya",
       age: 26,
       photo: u("photo-1534528741775-53994a69daeb"),
-      distance: "2 km",
+      city: "Amsterdam",
       status: "online",
     },
     {
@@ -29,7 +38,7 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Marcus",
       age: 29,
       photo: u("photo-1506794778202-cad84cf45f1d"),
-      distance: "5 km",
+      city: "Utrecht",
       status: "new",
     },
     {
@@ -37,15 +46,15 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Clara",
       age: 24,
       photo: u("photo-1524504388940-b1c1722653e1"),
-      distance: null,
-      status: null,
+      city: "Rotterdam",
+      status: "new",
     },
     {
       id: "sophie",
       name: "Sophie",
       age: 28,
       photo: u("photo-1544005313-94ddf0286df2"),
-      distance: "1 km",
+      city: "Den Haag",
       status: "online",
     },
   ],
@@ -55,7 +64,7 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Lena",
       age: 27,
       photo: u("photo-1494790108377-be9c29b29330"),
-      distance: "4 km",
+      city: "Eindhoven",
       status: "new",
     },
     {
@@ -63,7 +72,7 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Iris",
       age: 25,
       photo: u("photo-1531746020798-e6953c6e8e04"),
-      distance: "8 km",
+      city: "Groningen",
       status: "online",
     },
     {
@@ -71,16 +80,16 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Zoe",
       age: 26,
       photo: u("photo-1529626455594-4ff0802cfb7e"),
-      distance: null,
-      status: null,
+      city: "Tilburg",
+      status: "new",
     },
     {
       id: "nina",
       name: "Nina",
       age: 30,
       photo: u("photo-1517841905240-472988babdf9"),
-      distance: "3 km",
-      status: "new",
+      city: "Breda",
+      status: "online",
     },
   ],
   [
@@ -89,7 +98,7 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Mia",
       age: 25,
       photo: u("photo-1529626455594-4ff0802cfb7e"),
-      distance: "5 km",
+      city: "Nijmegen",
       status: "online",
     },
     {
@@ -97,15 +106,15 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Ava",
       age: 23,
       photo: u("photo-1438761681033-6461ffad8d80"),
-      distance: "2 km",
-      status: null,
+      city: "Haarlem",
+      status: "new",
     },
     {
       id: "liam",
       name: "Liam",
       age: 28,
       photo: u("photo-1472099645785-5658abf4ff4e"),
-      distance: "6 km",
+      city: "Amersfoort",
       status: "new",
     },
     {
@@ -113,7 +122,7 @@ export const funnelSets: FunnelWelcomeCard[][] = [
       name: "Noah",
       age: 27,
       photo: u("photo-1507003211169-0a1dd7228f2d"),
-      distance: "4 km",
+      city: "Maastricht",
       status: "online",
     },
   ],

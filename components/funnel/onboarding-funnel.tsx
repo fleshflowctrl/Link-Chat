@@ -633,30 +633,39 @@ const WELCOME_CARD_SLOTS = [
   },
 ] as const;
 
-/** Map a real catalog Profile to the FunnelWelcomeCard shape so the
- * welcome animation can show real personas instead of hardcoded
- * Unsplash stock photos. First-name-only keeps the layout compact;
- * status falls back to null when the profile isn't marked online/new. */
-function catalogProfileToWelcomeCard(profile: Profile): FunnelWelcomeCard {
+/** Per-slot status pattern: cycles online/new/null/online so every
+ * generated set has a couple of "NEW" badges and a couple of green
+ * online dots regardless of what the real persona rows are tagged
+ * with. Matches the visual rhythm of the hardcoded fallback sets. */
+const WELCOME_STATUS_PATTERN: ReadonlyArray<FunnelWelcomeCard["status"]> = [
+  "online",
+  "new",
+  "new",
+  "online",
+];
+
+/** Map a real catalog Profile to the FunnelWelcomeCard shape.
+ * First-name-only keeps the layout compact, city replaces the old
+ * "5 km" distance label so the funnel reads like a real feed, and
+ * status is assigned from the slot pattern (a real persona row's
+ * status.variant is almost always 'active', which would otherwise
+ * never produce a NEW badge). */
+function catalogProfileToWelcomeCard(
+  profile: Profile,
+  slotIndex: number,
+): FunnelWelcomeCard {
   const firstName = profile.name.split(/\s+/)[0] ?? profile.name;
-  const variant = profile.status?.variant;
-  const status: FunnelWelcomeCard["status"] =
-    variant === "online" || variant === "active"
-      ? "online"
-      : variant === "new"
-        ? "new"
-        : null;
-  const distance =
-    typeof profile.distanceKm === "number" && profile.distanceKm > 0
-      ? `${profile.distanceKm} km`
+  const city =
+    typeof profile.city === "string" && profile.city.trim().length > 0
+      ? profile.city.trim()
       : null;
   return {
     id: profile.id,
     name: firstName,
     age: profile.age,
     photo: profile.photo,
-    distance,
-    status,
+    city,
+    status: WELCOME_STATUS_PATTERN[slotIndex % WELCOME_STATUS_PATTERN.length] ?? null,
   };
 }
 
@@ -677,7 +686,7 @@ function buildWelcomeSetsFromCatalog(
   for (let s = 0; s < setCount; s++) {
     const slice = shuffled.slice(s * perSet, s * perSet + perSet);
     if (slice.length < perSet) break;
-    sets.push(slice.map(catalogProfileToWelcomeCard));
+    sets.push(slice.map((p, i) => catalogProfileToWelcomeCard(p, i)));
   }
   return sets.length > 0 ? sets : funnelSets;
 }
@@ -816,9 +825,9 @@ function StepWelcome({
                         <p className="text-left text-[12px] font-bold leading-tight text-white drop-shadow-sm">
                           {profile.name}, {profile.age}
                         </p>
-                        {profile.distance ? (
-                          <p className="mt-0.5 text-left text-[10px] font-medium text-white/85">
-                            {profile.distance}
+                        {profile.city ? (
+                          <p className="mt-0.5 truncate text-left text-[10px] font-medium text-white/85">
+                            {profile.city}
                           </p>
                         ) : null}
                       </div>
