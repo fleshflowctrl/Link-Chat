@@ -459,6 +459,13 @@ export type AppendNudeGalleryInput = {
    * "mirror" | "low" | "high" | "close" | "side"
    */
   diversity?: "mirror" | "low" | "high" | "close" | "side";
+  /** Optional explicit template id. When provided, the picker is bypassed
+   * entirely and this exact template is used (and consumed). The admin UI
+   * uses this to pre-select N visibly-different templates client-side so
+   * the resulting batch is guaranteed diverse — instead of relying on a
+   * keyword-match heuristic that often picks the same "mirror selfie"
+   * template repeatedly. */
+  templateId?: string;
 };
 
 export type AppendNudeGalleryResult =
@@ -486,16 +493,28 @@ export async function appendNudeGalleryPhoto(
   // When using a DB template we will consume (delete) it after successful render.
   let template: Parameters<typeof buildPersonaPhotoPrompt>[0]["cameraStyle"] & { scene: string };
   let consumedTemplateId: string | null = null; // for DB consumption
-  const dbNude = await loadActiveNudeTemplates(service);
 
   // Explicit type to avoid complex (typeof dbNude)[number] inference issues
   // when dbNude can be null.
   type NudeTemplate = NonNullable<Awaited<ReturnType<typeof loadActiveNudeTemplates>>>[number];
   let pick: NudeTemplate | undefined;
 
+  const dbNude = await loadActiveNudeTemplates(service);
+
+  // 1. If the caller explicitly named a template_id, use that one. This is
+  //    what the admin UI does so a batch of 3 photos uses 3 visibly
+  //    different templates instead of letting the picker accidentally
+  //    grab the same "mirror selfie" repeatedly.
+  if (input.templateId && dbNude && dbNude.length > 0) {
+    pick = dbNude.find((t) => t.id === input.templateId);
+  }
+
   if (dbNude && dbNude.length > 0) {
-    if (input.diversity) {
-      // Try to find a template whose camera description matches the requested diversity
+    if (!pick && input.diversity) {
+      // Try to find a template whose camera description matches the requested
+      // diversity. We collect ALL matches and then pick one at random — using
+      // .find() (which always returns the first) caused the same template to
+      // be picked across runs and produced near-identical batches.
       const keywords: Record<string, string[]> = {
         mirror: ["mirror", "selfie", "reflection"],
         low: ["low", "below", "under", "between legs", "ground"],
@@ -504,9 +523,16 @@ export async function appendNudeGalleryPhoto(
         side: ["side", "profile", "3/4", "over shoulder", "behind"],
       };
       const wanted = keywords[input.diversity] ?? [];
-      pick = dbNude.find((t) =>
-        wanted.some((k) => t.camera.toLowerCase().includes(k) || t.pose.toLowerCase().includes(k)),
+      const matches = dbNude.filter((t) =>
+        wanted.some(
+          (k) =>
+            t.camera.toLowerCase().includes(k) ||
+            t.pose.toLowerCase().includes(k),
+        ),
       );
+      if (matches.length > 0) {
+        pick = matches[Math.floor(Math.random() * matches.length)]!;
+      }
     }
 
     if (!pick) {
@@ -526,6 +552,8 @@ export async function appendNudeGalleryPhoto(
     console.log("[persona-ops/append-nude] using DB template", {
       pool: dbNude.length,
       diversity: input.diversity ?? "random",
+      forcedTemplateId: input.templateId ?? null,
+      pickedTemplateId: pick.id,
       scene: pick.scene.slice(0, 60),
     });
   } else {
@@ -563,12 +591,19 @@ export async function appendNudeGalleryPhoto(
     },
   });
 
-  const variantOffset =
+  // Nude renders ALWAYS mix in a fresh random component on top of any
+  // caller-supplied variant. Without this, repeated clicks of "generate 3
+  // exclusive photos" with the same variant series (15000, 16337, 17674)
+  // produced identical seeds → identical images even when the template
+  // differed. Identity stays consistent across the persona's photos
+  // because the persona-level appearance/identity tokens dominate; only
+  // composition noise varies with the seed.
+  const variantPart =
     typeof input.variant === "number" && Number.isFinite(input.variant)
       ? Math.floor(input.variant) * 7919
-      : Math.floor(Math.random() * 1_000_000);
-
-  const seed = (anchorSeed + variantOffset) >>> 0;
+      : 0;
+  const noisePart = Math.floor(Math.random() * 1_000_000_000);
+  const seed = (anchorSeed + variantPart + noisePart) >>> 0;
 
   console.log("[persona-ops/append-nude]", {
     persona: input.personaId,

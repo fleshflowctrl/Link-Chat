@@ -516,14 +516,18 @@ export function buildPersonaPhotoPrompt(args: {
     // here. The template (or the operator-supplied cameraStyle) drives those
     // entirely. The template knows whether this should be a mirror selfie, a
     // POV-from-above, an arm-extended low angle, a body-part close-up, etc.
+    //
+    // IMPORTANT: We deliberately do NOT inject "self-taken / phone in hand /
+    // mirror reflection" anchors here. Earlier versions did, and the result
+    // was that every nude render collapsed into the same arm-extended mirror
+    // selfie regardless of the template's `camera` / `pose` fields. The
+    // template pool already contains diverse framings (low angle from behind,
+    // overhead lying down, sitting on bathtub edge, kneeling, doggy from
+    // behind, etc.) — we have to let those tokens win, not drown them in
+    // a hardcoded "selfie with phone visible" instruction.
     promptParts.push(
       "completely nude, no clothes at all, bare skin, fully visible body, " +
         "breasts visible with nipples, explicit nudity",
-    );
-    // Self-taken reinforcement for nudes — EXTREMELY STRONG signal.
-    // The photo MUST show clear evidence she took it herself with a natural hand position.
-    promptParts.push(
-      "self-taken by the woman herself with her own phone, her own hand or arm clearly visible in the frame holding the phone or clearly reflected in a mirror, phone visibly held in her own hand, hand naturally attached to her arm and body, real amateur self-portrait from her personal camera roll, not taken by someone else, not third-person view, no floating hand, no disembodied hand, no random hand",
     );
   } else {
     promptParts.push(`wearing ${style}`);
@@ -581,11 +585,17 @@ export function buildPersonaPhotoPrompt(args: {
   // For explicit nudes we add an extra strong self-taken anchor so the
   // model cannot fall back to "someone else took this photo".
   if (isExplicitNude) {
-    // Realism block for nudes — reinforce that it is self-taken by her and looks amateur.
+    // Realism block for nudes — reinforce that it is self-taken by her and
+    // looks amateur. CRITICAL: we do NOT hardcode "phone visible in mirror
+    // reflection" here. That single token used to force every nude render
+    // into a standing mirror-selfie composition regardless of the template's
+    // actual camera/pose ("low angle between legs", "POV from above",
+    // "close-up of breasts", etc.). The template's `camera` field is the
+    // single source of truth for framing — we only push generic amateur-
+    // realism here.
     promptParts.push(
       "ordinary everyday iPhone snapshot from her own camera roll, totally unedited, " +
         "real amateur self-taken nude photo, slightly imperfect framing and angle, bad lighting, uneven exposure, " +
-        "her own hand or phone visible in frame or reflection, hand naturally holding the phone, " +
         "natural skin pores and small skin texture and small body imperfections, " +
         "no filter, no beauty filter, no smoothing, no airbrush, no glamour, no soft professional lighting, " +
         "everything in focus from foreground to background, no portrait mode, no bokeh, no blurred background, no motion blur, deep focus normal phone wide-angle, " +

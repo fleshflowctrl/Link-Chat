@@ -20,6 +20,11 @@ type AppendBody = {
   nude?: boolean;
   /** Diversity hint for nude generation to avoid repetitive camera styles */
   diversity?: "mirror" | "low" | "high" | "close" | "side";
+  /** Specific template id to use (preferred over diversity hint). When set,
+   * the backend uses exactly this template instead of letting the picker
+   * choose. Lets the admin UI pre-select 3 visibly different templates so
+   * the resulting batch is guaranteed diverse. */
+  template_id?: string;
 };
 
 export async function POST(req: Request, ctx: RouteCtx) {
@@ -49,6 +54,7 @@ export async function POST(req: Request, ctx: RouteCtx) {
         personaId: ctx.params.id,
         variant: body.variant,
         diversity: body.diversity,
+        templateId: body.template_id,
       })
     : await appendPersonaGalleryPhoto(service, {
         personaId: ctx.params.id,
