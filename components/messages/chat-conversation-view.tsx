@@ -21,7 +21,6 @@ import {
   MoreHorizontal,
   Plus,
   Send,
-  Smile,
 } from "lucide-react";
 import { type ChatMessage } from "@/data/messages";
 import type { ThreadMeta } from "@/lib/chat/server-data";
@@ -1514,16 +1513,8 @@ export function ChatConversationView({
                 }
               }}
               placeholder="Typ een bericht…"
-              className="h-12 w-full rounded-full border-0 bg-white pl-4 pr-12 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none transition placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
+              className="h-12 w-full rounded-full border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none transition placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
             />
-            <button
-              type="button"
-              className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-ink/40 transition hover:bg-black/[0.05] hover:text-ink/70"
-              aria-label="Emoji"
-              onClick={() => console.log("[chat] Emoji placeholder")}
-            >
-              <Smile className="h-5 w-5" strokeWidth={2} />
-            </button>
           </div>
           {input.trim() ? (
             <motion.button
