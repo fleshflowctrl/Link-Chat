@@ -8,6 +8,7 @@ import {
 } from "@/lib/catalog/hourly-feed";
 import { profiles, type Profile } from "@/data/profiles";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
+import { applyDiscoverFeedStatusToProfiles } from "@/lib/catalog/discover-feed-status";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
@@ -144,7 +145,8 @@ export async function POST() {
     /* fall back to static pool */
   }
 
-  const refreshed = pickHourlyFeed(pool, user.id, slot, HOURLY_FEED_SIZE);
+  const picked = pickHourlyFeed(pool, user.id, slot, HOURLY_FEED_SIZE);
+  const refreshed = applyDiscoverFeedStatusToProfiles(picked, user.id, slot);
 
   return NextResponse.json({
     ok: true,

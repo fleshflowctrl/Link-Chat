@@ -7,6 +7,7 @@ import {
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
+import { applyDiscoverFeedStatusToProfiles } from "@/lib/catalog/discover-feed-status";
 import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
 import {
   HOURLY_FEED_REFRESH_COST,
@@ -64,6 +65,16 @@ function bundleMeta(refreshOffset: number, now: number = Date.now()) {
   };
 }
 
+function pickDiscoverFeed(
+  pool: Profile[],
+  userKey: string,
+  feedSlot: number,
+  size: number = HOURLY_FEED_SIZE,
+): Profile[] {
+  const picked = pickHourlyFeed(pool, userKey, feedSlot, size);
+  return applyDiscoverFeedStatusToProfiles(picked, userKey, feedSlot);
+}
+
 export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundle> {
   const now = Date.now();
 
@@ -71,7 +82,7 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const meta = bundleMeta(0, now);
     return {
-      gridProfiles: pickHourlyFeed(profiles, "guest", meta.feedSlot),
+      gridProfiles: pickDiscoverFeed(profiles, "guest", meta.feedSlot),
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: false,
       ...meta,
@@ -85,7 +96,7 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const meta = bundleMeta(0, now);
     return {
-      gridProfiles: pickHourlyFeed(profiles, "guest", meta.feedSlot),
+      gridProfiles: pickDiscoverFeed(profiles, "guest", meta.feedSlot),
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: true,
       ...meta,
@@ -103,7 +114,7 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
   if (!user) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     return {
-      gridProfiles: pickHourlyFeed(profiles, userKey, meta.feedSlot),
+      gridProfiles: pickDiscoverFeed(profiles, userKey, meta.feedSlot),
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: false,
       ...meta,
@@ -128,12 +139,7 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     pool = (rows as ChatProfileRow[]).map(chatProfileRowToProfile);
   }
 
-  const gridProfiles = pickHourlyFeed(
-    pool,
-    userKey,
-    meta.feedSlot,
-    HOURLY_FEED_SIZE,
-  );
+  const gridProfiles = pickDiscoverFeed(pool, userKey, meta.feedSlot);
 
   const { data: actRows, error: actError } = await supabase
     .from("chat_profiles")

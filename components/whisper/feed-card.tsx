@@ -26,6 +26,7 @@ const INTEREST_EMOJI: Record<string, string> = {
 export function FeedCard({ profile }: Props) {
   const isOnline =
     profile.status.variant === "online" || profile.status.variant === "active";
+  const showStatusChip = profile.status.label.trim().length > 0;
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[28px] bg-gray-200 shadow-xl ring-1 ring-black/5">
@@ -51,18 +52,26 @@ export function FeedCard({ profile }: Props) {
         aria-hidden
       />
 
-      {/* Status chip — top left */}
-      <div className="absolute left-3 top-3 z-[1]">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-          {isOnline && (
-            <span
-              className="h-1.5 w-1.5 rounded-full bg-green-400"
-              aria-hidden
-            />
-          )}
-          {profile.status.label}
-        </span>
-      </div>
+      {/* Status chip — top left (only ~20% of discover cards) */}
+      {showStatusChip && (
+        <div className="absolute left-3 top-3 z-[1]">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md ${
+              profile.status.variant === "new"
+                ? "bg-pink-500/90"
+                : "bg-black/55"
+            }`}
+          >
+            {isOnline && (
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-green-400"
+                aria-hidden
+              />
+            )}
+            {profile.status.label}
+          </span>
+        </div>
+      )}
 
       {/* Overlay content — bottom */}
       <div className="absolute inset-x-0 bottom-0 z-[1] p-4 text-white">
