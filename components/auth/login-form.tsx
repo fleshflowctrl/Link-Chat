@@ -152,7 +152,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
             <>
               Nieuw hier?{" "}
               <Link
-                href={`/signup${authToggleQuery}`}
+                href="/"
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Registreren
@@ -300,7 +300,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
           <>
             Nieuw hier?{" "}
             <Link
-              href={`/signup${authToggleQuery}`}
+              href="/"
               className="font-semibold text-primary underline-offset-2 hover:underline"
             >
               Registreren
