@@ -106,13 +106,14 @@ Velden uitgelegd:
   • "completely nude, hair freshly washed and dripping wet"
 - pose (Engels): exacte lichaamshouding. ZIE de POSE-DISTRIBUTIE regels hieronder — geen 4 staande poses in 1 batch.
 
-HARDE REGELS — LEES DIT EERST (DÉZE ZIJN BINDEND):
+HARDE REGELS — LEES DIT EERST (DÉZE ZIJN BINDEND EN MOETEN LETTERLIJK GEVOLGD WORDEN):
 - ALLE personas zijn vrouwen tussen 18 en 99 met middellang tot lang haar.
-- **100% ZELF-GENOMEN — GEEN UITZONDERING**: Iedere foto MOET genomen zijn door de vrouw ZELF met haar eigen telefoon. Haar hand, arm, of telefoon MOET zichtbaar zijn in de foto of duidelijk gereflecteerd in een spiegel. 
-  - Verboden: "genomen door een vriendin", "door haar partner", "timer op de kast", "tripod", "iemand anders hield de camera", "no hand visible", "no phone visible".
-  - Verplicht: "her own hand holding the phone", "phone visible in mirror reflection", "arm extended with phone in hand", "phone between her legs", "phone very close to her skin".
-- Iedere template moet écht en geloofwaardig zijn als amateur self-taken nude photo.
-- **BODY-PART CLOSE-UPS ZIJN VERPLICHT**: MINIMAAL 35-40% van de templates in elke batch MOET een strakke close-up zijn van alleen borsten/tits, alleen pussy, alleen billen, alleen voeten, of een combinatie (borsten + buik, pussy close-up met gespreide benen, tepels detail, etc.). Dit is geen optie — het is een harde eis. De rest mag full-body of 3/4 zijn.
+- **100% ZELF-GENOMEN — GEEN ENKELE UITZONDERING**: Iedere foto MOET genomen zijn door de vrouw ZELF met haar eigen telefoon. Haar hand, arm, of telefoon MOET zichtbaar zijn in de foto of duidelijk gereflecteerd in een spiegel.
+  - Verboden (nooit gebruiken): "genomen door een vriendin", "door haar partner", "timer op de kast", "tripod", "iemand anders hield de camera", "no hand visible", "no phone visible", "disembodied hand", "floating hand", "random hand", "hand coming from off-frame".
+  - Verplicht (altijd gebruiken): "her own hand holding the phone", "phone visible in mirror reflection", "arm extended with phone in hand", "phone between her legs", "phone very close to her skin".
+- **PHONE MOET NATUURLIJK VASTGEHOUDEN WORDEN**: De telefoon mag nooit "zweven", nooit "willekeurig in de lucht hangen", nooit "een hand die uit het niets komt". De hand die de telefoon vasthoudt MOET duidelijk verbonden zijn aan haar arm en lichaam. Natuurlijke posities: telefoon in eigen hand aan de zijkant, telefoon voor haar gezicht in spiegel, telefoon tussen haar benen, telefoon dicht tegen haar borst, telefoon boven haar hoofd gehouden.
+- Iedere template moet écht en geloofwaardig zijn als amateur self-taken nude photo. Geen studio, geen professionele fotografie, geen "boudoir shoot", geen zachte glamour lighting.
+- **BODY-PART CLOSE-UPS ZIJN VERPLICHT**: MINIMAAL 45-50% van de templates in elke batch MOET een strakke close-up zijn van alleen borsten/tits, alleen pussy, alleen billen, alleen voeten, tepels, of een combinatie (borsten + buik, pussy close-up met gespreide benen, etc.). Dit is een harde eis. De rest mag full-body of 3/4 zijn.
 - ABSOLUUT NOOIT BLUR.
 
 VERPLICHTE POSE-DISTRIBUTIE (HARD CHECK — als jouw batch deze verhouding niet haalt, wordt 'ie afgewezen):
@@ -167,12 +168,15 @@ OUTFIT-VARIATIE (zelfs volledig naakt kan variëren):
 - "completely nude with light makeup, looks polished"
 - "completely nude with red painted toenails visible"
 
-ANTI-CLICHE — DEZE FOUTEN AUTOMATISCH AFWIJZEN:
+ANTI-CLICHE — DEZE FOUTEN AUTOMATISCH AFWIJZEN (GROK MOET DIT LETTERLIJK CONTROLEREN):
 - ❌ 3+ staande spiegel-selfies in 1 batch
 - ❌ "girl in lingerie" — outfit MOET expliciet naakt zijn
 - ❌ Vage poses zoals "sexy pose" — wees concreet over handen, benen, gezichtsrichting, blik
 - ❌ Twee templates met (vrijwel) zelfde achtergrond zoals "white tiled bathroom" 2×
 - ❌ Templates die alleen verschillen in lichte detail-variatie van dezelfde basis-pose
+- ❌ **DISMEMBERED / FLOATING HAND OF PHONE**: Nooit "een hand die een telefoon vasthoudt zonder dat de arm zichtbaar is", nooit "telefoon zwevend in de lucht", nooit "hand komt van buiten het frame". Dit is een veelgemaakte fout — als de camera-beschrijving een hand noemt, MOET de arm ook beschreven zijn.
+- ❌ **PROFESSIONELE / BOUDOIR LOOK**: Nooit "zachte glamour lighting", "studio nude", "perfecte belichting", "mooie schaduwen op de huid". Alles moet eruitzien als een slecht belichte, imperfecte, amateur self-taken foto.
+- ❌ **GEEN TELEFOON BEWIJS**: Als de template full-body is, MOET er expliciet "phone in her hand" of "phone visible in mirror" in de camera of pose beschrijving staan. Anders wijs je de template intern af en maak je een nieuwe.
 
 === EINDELIJKE CHECKLIST — CONTROLEER ELKE TEMPLATE VOORDAT JE OUTPUT ===
 Voordat je de JSON output, MOET je voor ELKE template in je batch controleren:

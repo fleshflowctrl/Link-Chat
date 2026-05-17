@@ -521,9 +521,9 @@ export function buildPersonaPhotoPrompt(args: {
         "breasts visible with nipples, explicit nudity",
     );
     // Self-taken reinforcement for nudes — EXTREMELY STRONG signal.
-    // The photo MUST show clear evidence she took it herself.
+    // The photo MUST show clear evidence she took it herself with a natural hand position.
     promptParts.push(
-      "self-taken by the woman herself with her own phone, her own hand or arm clearly visible in the frame holding the phone or clearly reflected in a mirror, phone visible in her hand or in the mirror reflection, real amateur self-portrait from her personal camera roll, not taken by someone else, not third-person view",
+      "self-taken by the woman herself with her own phone, her own hand or arm clearly visible in the frame holding the phone or clearly reflected in a mirror, phone visibly held in her own hand, hand naturally attached to her arm and body, real amateur self-portrait from her personal camera roll, not taken by someone else, not third-person view, no floating hand, no disembodied hand, no random hand",
     );
   } else {
     promptParts.push(`wearing ${style}`);
@@ -581,16 +581,16 @@ export function buildPersonaPhotoPrompt(args: {
   // For explicit nudes we add an extra strong self-taken anchor so the
   // model cannot fall back to "someone else took this photo".
   if (isExplicitNude) {
-    // Realism block for nudes — reinforce that it is self-taken by her.
+    // Realism block for nudes — reinforce that it is self-taken by her and looks amateur.
     promptParts.push(
       "ordinary everyday iPhone snapshot from her own camera roll, totally unedited, " +
-        "real amateur self-taken nude photo, slightly imperfect framing and angle, " +
-        "her own hand or phone visible in frame or reflection, " +
+        "real amateur self-taken nude photo, slightly imperfect framing and angle, bad lighting, uneven exposure, " +
+        "her own hand or phone visible in frame or reflection, hand naturally holding the phone, " +
         "natural skin pores and small skin texture and small body imperfections, " +
-        "no filter, no beauty filter, no smoothing, no airbrush, " +
+        "no filter, no beauty filter, no smoothing, no airbrush, no glamour, no soft professional lighting, " +
         "everything in focus from foreground to background, no portrait mode, no bokeh, no blurred background, no motion blur, deep focus normal phone wide-angle, " +
         "flat phone camera dynamic range, slight ISO noise, slight grain, " +
-        "regular phone photo not a photoshoot, no studio lighting, no professional setup",
+        "regular phone photo not a photoshoot, no studio lighting, no professional setup, looks like a quick casual self-taken nude",
     );
   } else {
     // STRONG everyday-iPhone realism block. Loaded with concrete phone-
@@ -706,16 +706,17 @@ export function buildPersonaPhotoPrompt(args: {
     "duplicate person, multiple women, twins, identical twins";
 
   // Negative tokens that ONLY apply to explicit nude shots.
-  // We want to STRONGLY forbid any "taken by someone else" feeling.
-  // These tokens are heavily weighted because diffusion otherwise defaults to
-  // clean full-body shots with no phone/hand evidence.
+  // We want to EXTREMELY STRONGLY forbid any "taken by someone else" feeling
+  // and any "random floating hand" or "professional boudoir" look.
   const explicitNegative =
     // anti-clothing
     "wearing clothes, shirt, top, jeans, pants, bra, panties, underwear, dress, jacket, hoodie, leggings, skirt, clothing, dressed, partially clothed, " +
     // anti-third-person / studio for explicit nudes — VERY STRONG push
-    "third person view, photographer, someone else took the photo, external camera, professional studio nude, studio lighting, " +
+    "third person view, photographer, someone else took the photo, external camera, professional studio nude, studio lighting, professional boudoir, glamour lighting, soft even lighting, " +
     "taken by a friend, taken by girlfriend, taken by partner, timer shot, tripod, no hand visible, no arm visible, no phone visible, no selfie angle, " +
-    "clean full body shot with no device, no phone in frame, empty hands, hands not holding anything, arms relaxed at sides with no phone";
+    // anti-floating / disembodied hand or phone — these are the exact problems we saw
+    "disembodied hand, floating hand, random hand, hand coming from off frame, hand coming from off-screen, hand not attached to body, floating phone, phone floating in air, phone not held by anyone, phone hovering, " +
+    "clean full body shot with no device, no phone in frame, empty hands, hands not holding anything, arms relaxed at sides with no phone, perfect lighting on nude body";
 
   const negParts = [baseNegative];
   if (isExplicitNude) negParts.push(explicitNegative);
