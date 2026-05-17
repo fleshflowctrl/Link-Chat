@@ -27,6 +27,12 @@
     },
     "app/api/me/process-pending-replies/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/webhooks/stripe/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/me/credits/checkout/route.ts": {
+      "maxDuration": 30
     }
   },
   "crons": [
