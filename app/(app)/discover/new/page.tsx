@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { SITE_NAME } from "@/lib/brand";
 
 export default function DiscoverNewPage() {
   return (
     <div className="px-5 py-8">
-      <h1 className="text-xl font-bold text-ink">Nieuw op whisper</h1>
+      <h1 className="text-xl font-bold text-ink">Nieuw op {SITE_NAME}</h1>
       <p className="mt-2 max-w-sm text-sm text-inkMuted">
         De volledige ontdek-feed komt eraan. Tot die tijd vind je nieuwe gezichten
         op de startpagina.

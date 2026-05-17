@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import type { NewWhisperUser } from "@/data/newUsers";
+import { SITE_NAME } from "@/lib/brand";
 import { showNewJoinBadge } from "@/data/newUsers";
 
 export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
@@ -18,7 +19,7 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
             aria-hidden
           />
           <h2 className="truncate text-[15px] font-bold text-ink">
-            Nieuw op whisper
+            Nieuw op {SITE_NAME}
           </h2>
         </div>
 

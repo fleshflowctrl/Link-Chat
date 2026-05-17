@@ -1,8 +1,9 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { AdminSidebarNav, AdminMobileNav } from "@/components/admin/sidebar-nav";
+import { SITE_HEADER } from "@/lib/brand";
 
 export const metadata = {
-  title: "whisper · admin",
+  title: `${SITE_HEADER} · admin`,
   robots: { index: false, follow: false },
 };
 

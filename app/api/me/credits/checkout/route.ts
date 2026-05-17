@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { packages } from "@/data/credits";
+import { SITE_NAME } from "@/lib/brand";
 import {
   applyDiscount,
   discountForNextPurchase,
@@ -129,7 +130,7 @@ export async function POST(req: Request) {
             currency: "eur",
             unit_amount: amountCents,
             product_data: {
-              name: `whisper · ${pkg.credits} credits`,
+              name: `${SITE_NAME} · ${pkg.credits} credits`,
               description,
             },
           },

@@ -16,9 +16,11 @@ const playfair = Playfair_Display({
   weight: ["400", "500", "600", "700"],
 });
 
+import { SITE_TAGLINE, SITE_TITLE } from "@/lib/brand";
+
 export const metadata: Metadata = {
-  title: "whisper — echte mensen, echte gesprekken",
-  description: "Een rustige plek om in je eigen tempo te chatten.",
+  title: SITE_TITLE,
+  description: `Een rustige plek om in je eigen tempo te chatten. ${SITE_TAGLINE}.`,
 };
 
 /** Lock mobile viewport so users can't pinch / double-tap zoom (native-app feel). */

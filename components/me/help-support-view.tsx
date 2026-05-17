@@ -19,6 +19,7 @@ import {
   User,
 } from "lucide-react";
 import { StatusBarMock } from "@/components/messages/status-bar-mock";
+import { SITE_DOMAIN, SITE_NAME, SUPPORT_EMAIL } from "@/lib/brand";
 
 /* ─────────────────── data ─────────────────── */
 
@@ -203,11 +204,11 @@ export function HelpSupportView() {
   }
 
   function handleEmail() {
-    const subject = encodeURIComponent("Hulp nodig met Whisper");
+    const subject = encodeURIComponent("Hulp nodig met StiekemSamen");
     const body = encodeURIComponent(
       "Hoi support team,\n\nIk heb hulp nodig met:\n\n",
     );
-    window.location.href = `mailto:support@whisper.app?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
   }
 
   return (
@@ -442,7 +443,7 @@ export function HelpSupportView() {
               <p className="text-[14.5px] font-bold text-ink">E-mail support</p>
               <p className="break-words text-[12px] leading-snug text-gray-500">
                 Antwoord binnen 24 uur ·{" "}
-                <span className="break-all">support@whisper.app</span>
+                <span className="break-all">{SUPPORT_EMAIL}</span>
               </p>
             </div>
             <ChevronRight
@@ -535,7 +536,7 @@ export function HelpSupportView() {
         </div>
 
         <p className="mt-4 text-center text-[11px] text-gray-500">
-          Whisper · v1.0 · Gemaakt met zorg in Amsterdam
+          {SITE_NAME} · v1.0 · {SITE_DOMAIN}
         </p>
       </div>
 

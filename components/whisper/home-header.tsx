@@ -3,6 +3,7 @@
 import { CreditsPill } from "@/components/ui/credits-pill";
 import { ProfileStrengthPill } from "@/components/whisper/profile-strength-pill";
 import type { EditProfileState } from "@/data/me-edit";
+import { SITE_HEADER } from "@/lib/brand";
 
 /**
  * Discover page header. Shows the brand mark on the left, with the credits
@@ -18,7 +19,7 @@ export function HomeHeader({
   return (
     <header className="flex items-start justify-between gap-3 px-5 pb-1 pt-[max(1rem,env(safe-area-inset-top))]">
       <h1 className="font-display text-[2rem] font-semibold leading-none tracking-tight text-ink lowercase">
-        whisper
+        {SITE_HEADER}
       </h1>
       <div className="flex shrink-0 items-center gap-1.5">
         {profile && <ProfileStrengthPill profile={profile} />}
