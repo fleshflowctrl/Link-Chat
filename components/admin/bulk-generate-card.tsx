@@ -290,9 +290,15 @@ export function BulkGenerateCard() {
     };
   }, [batchId, batch, fetchBatch, router]);
 
-  // If the server hasn't reported progress in ~22s, nudge the worker.
+  // If the server hasn't reported progress in ~12s, nudge the worker.
   // Do not bump lastProgressAt on kick — only real updated_at changes
-  // count as progress, otherwise a failed kick blocks retries for 30s.
+  // count as progress, otherwise a failed kick blocks retries.
+  //
+  // Threshold deliberately short: the tick endpoint acks in <100ms
+  // (the work runs in a background promise now), so a kick is cheap.
+  // 12s comfortably covers a normal in-flight photo call without
+  // false-firing, but catches a dropped chain inside the same
+  // interactive window where the operator notices "huh, it's stuck".
   useEffect(() => {
     if (!batchId || !batch) return;
     if (batch.status !== "pending" && batch.status !== "running") return;
@@ -301,9 +307,9 @@ export function BulkGenerateCard() {
       if (cancelled) return;
       const seenAt = lastProgressAtRef.current;
       const since = seenAt > 0 ? Date.now() - seenAt : 0;
-      if (since < 22_000) return;
+      if (since < 12_000) return;
       await kickWorker(batchId);
-    }, 5_000);
+    }, 3_000);
     return () => {
       cancelled = true;
       window.clearInterval(handle);

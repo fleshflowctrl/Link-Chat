@@ -31,11 +31,28 @@ import {
   type BodyType,
 } from "@/lib/admin/persona-ops";
 
-/** Hand a fire-and-forget promise to Vercel's runtime so it stays
- * alive long enough for the I/O to complete after our handler has
- * returned its response. Locally (next dev) we just await the
- * promise inline because there's no risk of the function getting
- * frozen mid-flight. */
+/** Hand a fire-and-forget promise to the runtime so it stays alive
+ * long enough for the I/O to complete after our handler has returned
+ * its response.
+ *
+ * On Vercel we use `@vercel/functions`'s `waitUntil` to extend the
+ * function lifetime up to `maxDuration`. Outside Vercel (local
+ * `next dev`, standalone Node), we just let the Node event loop keep
+ * the promise alive — the process isn't going anywhere mid-tick, and
+ * the chain of `triggerNextTick` fetches keeps the work moving from
+ * one in-flight microtask to the next.
+ *
+ * IMPORTANT: previously we awaited `p` inline in local dev. That made
+ * each tick's response wait for the entire downstream chain to
+ * complete, building up a deep nested promise tree (tick 1 ⊃ fetch 2
+ * ⊃ tick 2 ⊃ fetch 3 ⊃ …). When ANY step in that tree stalled — a
+ * 30s cold-start photo call, a 25s abort, a transient socket reset —
+ * the chain unwound back to the user as "stuck", and only reloading
+ * the page (which fired a fresh `kickWorker`) revived it. Switching
+ * to fire-and-forget matches the Vercel behaviour and lets the tick
+ * endpoint ack in <100ms regardless of how long the actual work
+ * takes. Failures still surface in console via the inner try/catch
+ * in {@link scheduleAfterResponse}. */
 async function vercelWaitUntil(p: Promise<unknown>): Promise<void> {
   // `process.env.VERCEL` is set on every Vercel deployment (preview +
   // production). Outside that, `@vercel/functions`'s waitUntil throws
@@ -48,13 +65,13 @@ async function vercelWaitUntil(p: Promise<unknown>): Promise<void> {
         return;
       }
     } catch {
-      // ignore — fall through to inline await
+      // ignore — fall through to fire-and-forget below
     }
   }
-  // Local dev / non-Vercel host: just wait for the fetch to round-trip.
-  // The trigger fetch returns quickly (the new tick endpoint validates
-  // its token, schedules the work, and responds in <100ms).
-  await p.catch(() => undefined);
+  // Local dev / standalone Node: attach a noop error handler so an
+  // unhandled rejection inside the background work doesn't crash the
+  // dev server, then return immediately. The promise keeps running.
+  p.catch(() => undefined);
 }
 
 /** Schedule arbitrary async work to run AFTER the current route
@@ -79,9 +96,10 @@ export async function scheduleAfterResponse(
  * have been orphaned by a crashed tick and get reset to 'pending' on
  * the next tick. Must stay above {@link PHOTO_TIMEOUT_MS} /
  * {@link PROFILE_TIMEOUT_MS} so we don't reset while work is still
- * in-flight — but lower than the old 90s so a dropped chain recovers
- * faster. */
-const STUCK_THRESHOLD_MS = 58 * 1000;
+ * in-flight — adding a small buffer so a render that finishes RIGHT
+ * at the timeout still gets a chance to write its result before we
+ * yank the row out from under it. */
+const STUCK_THRESHOLD_MS = 50 * 1000;
 
 function log(scope: string, msg: string, extra?: Record<string, unknown>) {
   // Persona-batch worker is hard to debug without per-step logs because
@@ -100,8 +118,14 @@ const PROFILE_TIMEOUT_MS = 40 * 1000;
 
 /** When a tick sees in-flight work (`waiting`), schedule another tick
  * after this delay so a dropped chain self-heals without waiting for
- * cron / the UI heartbeat. */
-const WAITING_RETRY_MS = 12 * 1000;
+ * cron / the UI heartbeat.
+ *
+ * Kept short (5s) on purpose: a stuck chain is the #1 user-visible
+ * pain. The tick endpoint is cheap when it returns `waiting` (one
+ * Supabase read + immediate response), so polling at 5s costs almost
+ * nothing — but cuts the average "wait to recovery" time from ~30s
+ * down to ~5s once the underlying photo call completes. */
+const WAITING_RETRY_MS = 5 * 1000;
 
 async function withTimeout<T>(
   promise: Promise<T>,
