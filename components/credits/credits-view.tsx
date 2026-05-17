@@ -78,16 +78,9 @@ function PackageCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[15px] font-bold text-ink">
-              {pkg.credits} credits
-            </span>
-            {pkg.bonus > 0 && (
-              <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
-                +{pkg.bonus} extra
-              </span>
-            )}
-          </div>
+          <span className="text-[15px] font-bold text-ink">
+            {pkg.credits} credits
+          </span>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 pr-0.5">
