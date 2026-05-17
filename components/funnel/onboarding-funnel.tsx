@@ -1624,7 +1624,7 @@ function StepCreateAccount({
                   ✓
                 </span>
                 <span>
-                  <b className="text-amber-700">25 free credits</b> on us 💰
+                  <b className="text-amber-700">250 free credits</b> on us 💰
                 </span>
               </div>
             </div>

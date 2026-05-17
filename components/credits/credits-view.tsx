@@ -69,7 +69,7 @@ function PackageCard({
       >
         <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-inner">
           <Image
-            src={`/assets/credits_${pkg.credits}.png`}
+            src={`/assets/credits_${pkg.iconAsset}.png`}
             alt={`${pkg.credits} credits`}
             fill
             className="object-cover"

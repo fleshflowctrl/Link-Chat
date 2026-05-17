@@ -130,7 +130,7 @@ export function CheckoutView({ pkg }: { pkg: CreditPackage }) {
           <div className="flex items-center gap-3">
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-inner">
               <Image
-                src={`/assets/credits_${pkg.credits}.png`}
+                src={`/assets/credits_${pkg.iconAsset}.png`}
                 alt={`${pkg.credits} credits`}
                 fill
                 className="object-cover"

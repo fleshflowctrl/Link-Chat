@@ -9,7 +9,7 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 
-const PRESETS = [5, 10, 25, 50, 100, 250] as const;
+const PRESETS = [50, 100, 250, 500, 1000, 2500] as const;
 
 type Props = {
   open: boolean;
