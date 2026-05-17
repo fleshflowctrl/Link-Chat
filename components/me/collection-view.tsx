@@ -199,14 +199,14 @@ export function CollectionView() {
               Nog geen content ontgrendeld
             </p>
             <p className="mx-auto mt-1.5 max-w-[260px] text-[12.5px] leading-relaxed text-gray-500">
-              Ontgrendel exclusieve content met credits — alles wat je koopt
-              komt hier te staan.
+              Ontgrendelde foto&apos;s uit chats en content die je koopt komen
+              hier te staan.
             </p>
             <Link
-              href="/links"
+              href="/discover"
               className="mt-4 inline-flex items-center justify-center rounded-full bg-[#7C5CFF] px-5 py-2.5 text-[13px] font-bold text-white shadow-sm transition active:scale-[0.98]"
             >
-              Bekijk Exclusief
+              Ontdek mensen
             </Link>
           </div>
         ) : (

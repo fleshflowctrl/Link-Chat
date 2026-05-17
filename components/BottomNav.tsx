@@ -12,7 +12,6 @@ import {
   Coins,
   MessageCircle,
   Search,
-  Star,
   User,
 } from "lucide-react";
 
@@ -27,7 +26,6 @@ const tabs = [
     Icon: MessageCircle,
     badge: null as string | null,
   },
-  { href: "/links", label: "Exclusief", Icon: Star, badge: null },
   { href: "/credits", label: "Credits", Icon: Coins, badge: null },
   { href: "/me", label: "Profiel", Icon: User, badge: null },
 ] as const;

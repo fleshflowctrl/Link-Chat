@@ -1,5 +1,6 @@
-import { LinksPageView } from "@/components/links/links-page-view";
+import { redirect } from "next/navigation";
 
+/** Exclusive content store removed for now — send old bookmarks to Discover. */
 export default function LinksPage() {
-  return <LinksPageView />;
+  redirect("/discover");
 }
