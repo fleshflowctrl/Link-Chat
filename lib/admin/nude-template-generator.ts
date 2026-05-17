@@ -50,18 +50,20 @@ Velden uitgelegd:
   • "naakt staand voor groot raam met avondstad erachter, camera vanaf zij"
   • "naakte zelf-portret op zolder met dakraam, op vloerkleed liggend"
   Vermijd: ALTIJD "spiegel selfie in slaapkamer/badkamer" — dat is de DEFAULT die diffusion al zelf produceert.
-- camera (Engels): camera-afstand/hoek/framing als diffusion-tokens. Voorbeelden van GROTE VARIATIE:
-  • "phone placed on dresser timer shot full body wide angle, no arm visible"
-  • "POV phone held high looking down at body lying on floor, full body in frame"
-  • "extreme close-up of breasts, phone almost touching skin, only breasts and stomach visible"
-  • "low ground-level angle, phone resting on floor pointing up at her body"
-  • "snapshot taken by a friend from across the room, wider full body composition, no selfie arm"
-  • "high overhead angle, phone above head pointing straight down at full body"
-  • "selfie from arm extended diagonally, body at 3/4 angle to camera"
-  • "tight crop on lower body only, from waist to knees, phone at hip level"
-  • "selfie shot from behind over her own shoulder, looking back at lens"
-  • "fish-eye-ish wide phone angle, body slightly distorted at edges"
-  Vermijd: ALTIJD "mirror selfie standing in front of mirror with phone in hand" — diffusion default.
+- camera (Engels): camera-afstand/hoek/framing als diffusion-tokens. ALLEEN self-taken varianten. Voorbeelden:
+  • "mirror selfie, phone held in her own hand, arm visible in reflection, full body"
+  • "arm extended high above her head, POV looking down at her own body lying on bed"
+  • "extreme close-up of breasts, phone held very close to chest, only boobs and torso visible"
+  • "phone held between her legs pointing up, low angle looking at pussy and stomach"
+  • "selfie from behind over her own shoulder, looking back at the lens, ass and back visible"
+  • "tight crop on pussy only, phone very close between spread legs, detailed view"
+  • "feet and lower legs in frame, phone held at knee height pointing down at her own feet"
+  • "high angle selfie, phone above her head, full body lying on floor with legs spread"
+  • "close-up of one breast and nipple, phone almost touching skin, soft bedroom light"
+  • "selfie in bathroom mirror, phone covering part of her face, other hand spreading pussy"
+  • "arm extended sideways, 3/4 body angle, full torso and pussy visible"
+  • "phone held low between thighs, looking down at her own spread legs and pussy"
+  Vermijd: ALLES wat "friend", "girlfriend", "timer", "tripod", "someone else" bevat. Vermijd ook de standaard "staande spiegel selfie met telefoon in hand" te vaak.
 - backdrop (Engels): zichtbare achtergrond met SPECIFIEKE details. NIET alleen "bedroom". Voorbeelden:
   • "modern Scandinavian kitchen with white cabinets, coffee maker on counter, plant on windowsill"
   • "small Dutch apartment hallway with coat rack, jackets hanging, wooden floor"
@@ -82,11 +84,11 @@ Velden uitgelegd:
   • "candle light only, very warm orange tones, intimate"
   • "string-light fairy glow from above, multi-point soft warm pinpoints"
   • "bright midday sun streaming through window, sharp window-frame shadow on body"
-- capture (Engels): apparaat-feel.
-  • "iPhone timer self-portrait, phone propped on shelf, slightly tilted framing"
-  • "phone taken by a girlfriend, wider candid composition, no selfie arm"
-  • "Samsung phone camera, slightly warmer colour cast than iPhone"
-  • "older phone camera, slight pinkish tint and visible noise"
+- capture (Engels): apparaat-feel. MOET altijd "self-taken" of "her own phone" bevatten.
+  • "real self-taken iPhone photo from her own camera roll, slightly imperfect angle"
+  • "amateur mirror selfie on her personal iPhone, unedited, casual framing"
+  • "self-taken Samsung phone photo, slightly warmer tones, from her camera roll"
+  • "her own phone, front camera, real amateur self-portrait, no edits"
 - outfit (Engels): MOET expliciet naakt zijn, maar met VARIATIE in detail:
   • "completely nude, hair tied up in messy bun, no jewellery"
   • "completely nude, water droplets on skin, wet hair"
@@ -97,9 +99,11 @@ Velden uitgelegd:
   • "completely nude, hair freshly washed and dripping wet"
 - pose (Engels): exacte lichaamshouding. ZIE de POSE-DISTRIBUTIE regels hieronder — geen 4 staande poses in 1 batch.
 
-HARDE REGELS:
+HARDE REGELS — LEES DIT EERST:
 - ALLE personas zijn vrouwen tussen 18 en 99 met middellang tot lang haar. Iedere template moet werken voor élke leeftijd binnen dat bereik.
+- **ABSOLUUT ZELF-GENOMEN**: Iedere foto moet genomen zijn door de vrouw ZELF met haar eigen telefoon. Haar hand, arm, of telefoon moet zichtbaar zijn in de foto of duidelijk gereflecteerd in een spiegel. Nooit "genomen door een vriendin", "door haar partner", "timer op de kast", "tripod", "iemand anders hield de camera".
 - Iedere template moet écht en geloofwaardig zijn als amateur self-taken nude photo. Geen studio, geen professionele fotografie, geen "art nude" abstractie.
+- **BODY-PART CLOSE-UPS ZIJN TOEGESTAAN EN GEWENST**: Ongeveer 20-25% van de templates mag een strakke close-up zijn van alleen borsten, alleen pussy, alleen billen, dijen, voeten, of een combinatie (bijv. borsten + buik, of pussy close-up met gespreide benen). Dit maakt de exclusive content veel realistischer en gevarieerder.
 - ABSOLUUT NOOIT BLUR. Gebruik NERGENS termen als "blur", "blurry", "blurred", "out of focus", "out-of-focus", "defocused", "bokeh", "shallow depth of field", "shallow DoF", "portrait mode", "soft focus", "motion blur", "creamy bokeh", "lens blur". Alles moet scherp zijn van voor- tot achtergrond zoals een gewone iPhone-snapshot.
 
 VERPLICHTE POSE-DISTRIBUTIE (HARD CHECK — als jouw batch deze verhouding niet haalt, wordt 'ie afgewezen):
@@ -116,15 +120,18 @@ VERPLICHTE LOCATIE-DISTRIBUTIE (per batch):
   slaapkamer, badkamer (douche/bad/spiegel), woonkamer-bank, keuken, eetkamer, gang/hal, kantoor/werkkamer, balkon, terras, slaapkamer-vloer, voor groot raam, in kledingkast/inloopkast, op trap, in auto, hotelkamer, sauna, kelder/bijkeuken, zolder, tuinhuis, vakantiehuis-living, airbnb, op make-up tafel, op aanrecht keuken, half in douchecabine, op gymmat in woonkamer, in stoel-onder-leeslampje, op bureaustoel met benen open, boven op wasmachine.
 - Verspreid ook over MINSTENS 6 verschillende meubelstukken of decor-elementen (bed, bank, stoel, badkuip, sink, vloerkleed, bureau, vensterbank, trap, aanrecht, tafel).
 
-VERPLICHTE CAMERA-DISTRIBUTIE (per batch):
-- Verspreid over MINSTENS 6 verschillende camera-types:
-  1. mirror-selfie (max 25% van batch — staand én niet-staand samen, dus zelfs in deze categorie veel variatie),
-  2. arm-held selfie zonder spiegel (gezicht naar camera vanaf arm-lengte),
-  3. POV van bovenaf (telefoon boven gehouden tijdens liggen),
-  4. POV van onderen (telefoon op grond / heupniveau),
-  5. timer/tripod op kast/plank (geen arm zichtbaar, hele lichaam in beeld),
-  6. close-up van specifiek lichaamsdeel (borsten, dijen, billen, schaamstreek-area in detail),
-  7. door iemand anders gemaakt (vriendin/partner, hele compositie wijder).
+VERPLICHTE CAMERA-DISTRIBUTIE (per batch) — ALLEEN self-taken:
+- Verspreid over MINSTENS 7 verschillende self-taken camera-types:
+  1. mirror-selfie (max 20% van batch — staand én niet-staand, veel variatie in hoek en afstand)
+  2. arm-extended selfie zonder spiegel (telefoon in eigen hand, arm zichtbaar in frame)
+  3. POV van bovenaf (telefoon hoog boven hoofd gehouden terwijl ze ligt of hurkt)
+  4. low angle / tussen benen (telefoon laag gehouden of tussen dijen, kijkend naar pussy of lichaam)
+  5. extreme body-part close-up (borsten alleen, pussy alleen, billen close-up, voeten, tepels, etc. — telefoon bijna tegen huid)
+  6. over-de-schouder van achteren (kijkend naar eigen reflectie of direct naar lens)
+  7. high-angle full body liggend (telefoon boven hoofd, hele lichaam met gespreide benen)
+  8. sideways / 3/4 arm-extended (lichaam schuin, telefoon aan de zijkant)
+
+BELANGRIJK: Close-up body-part templates (borsten, pussy, billen, voeten) zijn gewenst en moeten ongeveer 20-25% van de batch uitmaken. Dit maakt de exclusive content veel realistischer voor dating-app gebruik.
 
 VERPLICHTE BODY-VISIBILITY DISTRIBUTIE:
 - Niet ELKE template hoeft volledig frontaal lichaam te tonen. Mix:

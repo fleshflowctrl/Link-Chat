@@ -514,13 +514,17 @@ export function buildPersonaPhotoPrompt(args: {
     );
     // Nudity reinforcement only — DO NOT force mirror-selfie / pose / camera
     // here. The template (or the operator-supplied cameraStyle) drives those
-    // entirely. If we hardcode "mirror selfie + phone in hand" we collapse
-    // every nude render to the same composition, no matter how varied the
-    // templates are. The template knows whether this should be a selfie, a
-    // POV-from-above, a friend-snap, a body-part close-up, etc.
+    // entirely. The template knows whether this should be a mirror selfie, a
+    // POV-from-above, an arm-extended low angle, a body-part close-up, etc.
     promptParts.push(
       "completely nude, no clothes at all, bare skin, fully visible body, " +
         "breasts visible with nipples, explicit nudity",
+    );
+    // Self-taken reinforcement for nudes — every nude photo must look like
+    // she took it herself with her own phone. Her hand/arm or phone reflection
+    // must be visible. This is the key signal that makes it feel authentic.
+    promptParts.push(
+      "self-taken by the woman herself with her own phone, her own hand or arm visible in the frame or clearly reflected in a mirror, real amateur self-portrait from her personal camera roll, not taken by someone else",
     );
   } else {
     promptParts.push(`wearing ${style}`);
@@ -578,13 +582,11 @@ export function buildPersonaPhotoPrompt(args: {
   // For explicit nudes we add an extra strong self-taken anchor so the
   // model cannot fall back to "someone else took this photo".
   if (isExplicitNude) {
-    // Realism block for nudes — DO NOT specify mirror selfie / phone in
-    // hand / bedroom or bathroom here. Those were collapsing every nude
-    // render to the same composition. The template handles framing; this
-    // block only handles diffusion-realism artifacts.
+    // Realism block for nudes — reinforce that it is self-taken by her.
     promptParts.push(
-      "ordinary everyday iPhone snapshot from her camera roll, totally unedited, " +
-        "real amateur nude photo, slightly imperfect framing and angle, " +
+      "ordinary everyday iPhone snapshot from her own camera roll, totally unedited, " +
+        "real amateur self-taken nude photo, slightly imperfect framing and angle, " +
+        "her own hand or phone visible in frame or reflection, " +
         "natural skin pores and small skin texture and small body imperfections, " +
         "no filter, no beauty filter, no smoothing, no airbrush, " +
         "everything in focus from foreground to background, no portrait mode, no bokeh, no blurred background, no motion blur, deep focus normal phone wide-angle, " +
@@ -704,16 +706,14 @@ export function buildPersonaPhotoPrompt(args: {
     "perfectly white teeth, perfectly straight teeth, hollywood smile, " +
     "duplicate person, multiple women, twins, identical twins";
 
-  // Negative tokens that ONLY apply to explicit nude shots — pushing
-  // "no phone visible" or "wearing clothes" into a regular gallery photo
-  // would force a phone into every friend-taken candid shot or strip
-  // the persona's outfit. Keep these gated behind isExplicitNude.
+  // Negative tokens that ONLY apply to explicit nude shots.
+  // We want to strongly forbid any "taken by someone else" feeling.
   const explicitNegative =
     // anti-clothing
     "wearing clothes, shirt, top, jeans, pants, bra, panties, underwear, dress, jacket, hoodie, leggings, skirt, clothing, dressed, partially clothed, " +
-    // anti-third-person / studio for explicit nudes
+    // anti-third-person / studio for explicit nudes — push hard against "someone else took it"
     "third person view, photographer, someone else took the photo, external camera, professional studio nude, studio lighting, " +
-    "no phone visible, no mirror, no selfie, no arm visible, not self-taken";
+    "taken by a friend, taken by girlfriend, taken by partner, timer shot, tripod, no hand visible, no arm visible, no phone visible, no selfie angle";
 
   const negParts = [baseNegative];
   if (isExplicitNude) negParts.push(explicitNegative);
