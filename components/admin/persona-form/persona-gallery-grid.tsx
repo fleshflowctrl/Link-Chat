@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { CheckIcon, XIcon } from "@/components/admin/icons";
+import { swapPersonaAvatarWithGallery } from "@/lib/admin/swap-persona-avatar-gallery";
 
 type Props = {
   personaId: string;
@@ -45,8 +46,11 @@ export function PersonaGalleryGrid({
     return Array.isArray(data.gallery_urls) ? data.gallery_urls : null;
   }
 
-  async function persistAvatar(url: string): Promise<void> {
-    if (mode !== "edit" || !personaId) return;
+  async function persistAvatar(url: string): Promise<{
+    avatar_url: string;
+    gallery_urls: string[];
+  } | null> {
+    if (mode !== "edit" || !personaId) return null;
     const res = await fetch(
       `/api/admin/personas/${encodeURIComponent(personaId)}/set-avatar`,
       {
@@ -55,10 +59,19 @@ export function PersonaGalleryGrid({
         body: JSON.stringify({ url }),
       },
     );
-    const data = (await res.json()) as { ok?: boolean; error?: string };
+    const data = (await res.json()) as {
+      ok?: boolean;
+      avatar_url?: string;
+      gallery_urls?: string[];
+      error?: string;
+    };
     if (!res.ok || !data.ok) {
       throw new Error(data.error ?? `Avatar instellen mislukt (${res.status})`);
     }
+    return {
+      avatar_url: typeof data.avatar_url === "string" ? data.avatar_url : url,
+      gallery_urls: Array.isArray(data.gallery_urls) ? data.gallery_urls : [],
+    };
   }
 
   async function handleRemove(url: string) {
@@ -92,9 +105,16 @@ export function PersonaGalleryGrid({
     setBusyUrl(url);
     try {
       if (mode === "edit") {
-        await persistAvatar(url);
+        const saved = await persistAvatar(url);
+        if (saved) {
+          onAvatarChange(saved.avatar_url);
+          onGalleryChange(saved.gallery_urls);
+        }
+      } else {
+        const swapped = swapPersonaAvatarWithGallery(avatarUrl, galleryUrls, url);
+        onAvatarChange(swapped.avatar_url);
+        onGalleryChange(swapped.gallery_urls);
       }
-      onAvatarChange(url);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -169,7 +189,8 @@ export function PersonaGalleryGrid({
       {err ? <p className="mt-2 text-[11px] text-rose-600">{err}</p> : null}
       {mode === "edit" ? (
         <p className="mt-2 text-[10px] text-gray-500">
-          Wijzigingen aan galerij en profielfoto worden direct opgeslagen.
+          Bij &quot;Als profielfoto&quot; wisselen de oude profielfoto en de gekozen
+          galerijfoto van plek. Wijzigingen worden direct opgeslagen.
         </p>
       ) : null}
     </div>

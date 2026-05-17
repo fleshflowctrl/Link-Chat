@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
+import { swapPersonaAvatarWithGallery } from "@/lib/admin/swap-persona-avatar-gallery";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
+
+function asGalleryUrls(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((u): u is string => typeof u === "string" && u.length > 0);
+}
 
 /**
  * POST /api/admin/personas/[id]/set-avatar
@@ -39,7 +45,7 @@ export async function POST(
 
   const { data: row, error: loadErr } = await service
     .from("chat_profiles")
-    .select("id")
+    .select("id, avatar_url, gallery_urls")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -50,14 +56,29 @@ export async function POST(
     return NextResponse.json({ error: "Persona niet gevonden." }, { status: 404 });
   }
 
+  const previousAvatar =
+    typeof (row as { avatar_url?: unknown }).avatar_url === "string"
+      ? (row as { avatar_url: string }).avatar_url
+      : "";
+  const gallery = asGalleryUrls((row as { gallery_urls?: unknown }).gallery_urls);
+
+  const next = swapPersonaAvatarWithGallery(previousAvatar, gallery, url);
+
   const { error: updateErr } = await service
     .from("chat_profiles")
-    .update({ avatar_url: url })
+    .update({
+      avatar_url: next.avatar_url,
+      gallery_urls: next.gallery_urls,
+    })
     .eq("id", params.id);
 
   if (updateErr) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, avatar_url: url });
+  return NextResponse.json({
+    ok: true,
+    avatar_url: next.avatar_url,
+    gallery_urls: next.gallery_urls,
+  });
 }
