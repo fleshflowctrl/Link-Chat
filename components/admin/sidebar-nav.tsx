@@ -15,7 +15,7 @@ import {
   XIcon,
 } from "@/components/admin/icons";
 import type { ReactNode } from "react";
-import { SITE_HEADER } from "@/lib/brand";
+import { SITE_DISPLAY } from "@/lib/brand";
 
 type NavItem = {
   href: string;
@@ -102,7 +102,7 @@ export function AdminSidebarNav({ adminEmail }: { adminEmail: string | null }) {
           w
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold tracking-tight text-gray-900">{SITE_HEADER}</span>
+          <span className="text-sm font-semibold tracking-tight text-gray-900">{SITE_DISPLAY}</span>
           <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">admin</span>
         </div>
       </div>
@@ -164,7 +164,7 @@ export function AdminMobileNav({ adminEmail }: { adminEmail?: string | null }) {
             w
           </div>
           <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-gray-900">
-            {SITE_HEADER} · admin
+            {SITE_DISPLAY} · admin
           </span>
           <button
             type="button"

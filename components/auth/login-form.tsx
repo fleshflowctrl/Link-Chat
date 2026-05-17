@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
-import { SITE_HEADER } from "@/lib/brand";
+import { SITE_DISPLAY } from "@/lib/brand";
 import { createClient } from "@/utils/supabase/client";
 
 type LoginFormMode = "login" | "signup";
@@ -183,7 +183,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
   return (
     <div className="rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]">
       <p className="text-center font-serif text-sm font-medium uppercase tracking-[0.2em] text-primary">
-        {SITE_HEADER}
+        {SITE_DISPLAY}
       </p>
       <h1 className="mt-2 text-center font-serif text-2xl font-semibold text-ink">
         {title}

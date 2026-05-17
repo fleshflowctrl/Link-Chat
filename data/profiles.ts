@@ -111,7 +111,7 @@ function newHereProfiles(): Profile[] {
     isVerified: false,
     lastActive: "Zojuist",
     lookingFor: "Leuke gesprekken",
-    bio: `${name} is net lid geworden van StiekemSamen.`,
+    bio: `${name} is net lid geworden van StiekemSamen.nl.`,
     gallery: [u(photoId, 1200), ...extras],
     interests: [
       { label: "Nieuw hier", icon: "listener" },

@@ -51,7 +51,7 @@ import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
-import { SITE_HEADER, SITE_NAME } from "@/lib/brand";
+import { SITE_DISPLAY } from "@/lib/brand";
 
 const STEP_TOTAL = 7;
 const MSG_MAX = 240;
@@ -469,7 +469,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         ? "Account aangemaakt — check je e-mail om te bevestigen ✨"
         : didFirstMessage
           ? `Bericht verstuurd naar ${pickedMatch!.name} ✨`
-          : `Je bent binnen — welkom bij ${SITE_NAME} ✨`;
+          : `Je bent binnen — welkom bij ${SITE_DISPLAY} ✨`;
       sessionStorage.setItem("whisper_discover_toast", toast);
 
       router.push("/discover");
@@ -842,8 +842,8 @@ function StepWelcome({
       </div>
 
       <div className="pointer-events-auto z-20 shrink-0 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[clamp(0.75rem,2.5vmin,1.25rem)]">
-        <h1 className="font-display text-[clamp(2.25rem,9vmin,3rem)] font-semibold lowercase leading-none tracking-tight text-ink">
-          {SITE_HEADER}
+        <h1 className="font-display text-[clamp(2.25rem,9vmin,3rem)] font-semibold leading-none tracking-tight text-ink">
+          {SITE_DISPLAY}
         </h1>
 
         <h2 className="mt-2 max-w-[20ch] text-balance text-[clamp(1.35rem,5.2vmin,1.875rem)] font-extrabold leading-tight tracking-tight text-gray-900">

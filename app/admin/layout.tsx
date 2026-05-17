@@ -1,9 +1,9 @@
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { AdminSidebarNav, AdminMobileNav } from "@/components/admin/sidebar-nav";
-import { SITE_HEADER } from "@/lib/brand";
+import { SITE_DISPLAY } from "@/lib/brand";
 
 export const metadata = {
-  title: `${SITE_HEADER} · admin`,
+  title: `${SITE_DISPLAY} · admin`,
   robots: { index: false, follow: false },
 };
 

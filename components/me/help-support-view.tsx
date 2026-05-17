@@ -204,7 +204,7 @@ export function HelpSupportView() {
   }
 
   function handleEmail() {
-    const subject = encodeURIComponent("Hulp nodig met StiekemSamen");
+    const subject = encodeURIComponent(`Hulp nodig met ${SITE_NAME}`);
     const body = encodeURIComponent(
       "Hoi support team,\n\nIk heb hulp nodig met:\n\n",
     );
@@ -536,7 +536,7 @@ export function HelpSupportView() {
         </div>
 
         <p className="mt-4 text-center text-[11px] text-gray-500">
-          {SITE_NAME} · v1.0 · {SITE_DOMAIN}
+          {SITE_NAME} · v1.0
         </p>
       </div>
 
