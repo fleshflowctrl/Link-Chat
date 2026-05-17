@@ -12,7 +12,6 @@ import {
   MapPin,
   MessageCircle,
   MoreHorizontal,
-  Share2,
   Headphones,
   Users,
   Smile,
@@ -107,24 +106,14 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
               {profile.lastActive}
             </span>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => console.log("[profile] Share placeholder")}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
-              aria-label="Delen"
-            >
-              <Share2 className="h-5 w-5" strokeWidth={2} />
-            </button>
-            <button
-              type="button"
-              onClick={() => console.log("[profile] More options placeholder")}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
-              aria-label="Meer"
-            >
-              <MoreHorizontal className="h-5 w-5" strokeWidth={2} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => console.log("[profile] More options placeholder")}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
+            aria-label="Meer"
+          >
+            <MoreHorizontal className="h-5 w-5" strokeWidth={2} />
+          </button>
         </div>
 
         {/* bottom name / city overlay */}
