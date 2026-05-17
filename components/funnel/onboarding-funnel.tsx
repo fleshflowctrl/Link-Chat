@@ -120,7 +120,7 @@ function normalizeAgeRange(
 const DEFAULT_BASICS: FunnelBasics = {
   name: "",
   age: null,
-  location: "London, UK",
+  location: "Amsterdam",
   photo: null,
 };
 
@@ -454,7 +454,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         const sentAt = new Date().toISOString();
         setThreadPreview(pid, {
           lastMessage: msgTrim,
-          timestampLabel: "now",
+          timestampLabel: "nu",
           lastActivityAt: sentAt,
           name: meta.name,
           avatarUrl: meta.avatarUrl,
@@ -465,10 +465,10 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       }
 
       const toast = signupResult.needsEmailConfirm
-        ? "Account created — check your email to confirm ✨"
+        ? "Account aangemaakt — check je e-mail om te bevestigen ✨"
         : didFirstMessage
-          ? `Message sent to ${pickedMatch!.name} ✨`
-          : "You're in — welcome to whisper ✨";
+          ? `Bericht verstuurd naar ${pickedMatch!.name} ✨`
+          : "Je bent binnen — welkom bij whisper ✨";
       sessionStorage.setItem("whisper_discover_toast", toast);
 
       router.push("/discover");
@@ -495,7 +495,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
   if (!hydrated) {
     return (
       <div className="fixed inset-0 z-10 flex items-center justify-center overflow-hidden overscroll-none bg-[#F5F3EE] touch-manipulation">
-        <span className="text-sm text-gray-500">Loading…</span>
+        <span className="text-sm text-gray-500">Laden…</span>
       </div>
     );
   }
@@ -510,7 +510,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
                 type="button"
                 onClick={goBack}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95"
-                aria-label="Back"
+                aria-label="Terug"
               >
                 <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.2} />
               </button>
@@ -813,12 +813,12 @@ function StepWelcome({
                       {profile.status === "online" && (
                         <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500 pl-2 pr-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
                           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" aria-hidden />
-                          Online
+                          Nu online
                         </span>
                       )}
                       {profile.status === "new" && (
                         <span className="absolute left-2 top-2 rounded-full bg-pink-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
-                          NEW
+                          Nieuw
                         </span>
                       )}
                       <div className="absolute bottom-0 left-0 right-0 p-2 pt-7">
@@ -846,13 +846,13 @@ function StepWelcome({
         </h1>
 
         <h2 className="mt-2 max-w-[20ch] text-balance text-[clamp(1.35rem,5.2vmin,1.875rem)] font-extrabold leading-tight tracking-tight text-gray-900">
-          <span className="block">Find your</span>
-          <span className="block">kind of people.</span>
+          <span className="block">Vind jouw</span>
+          <span className="block">soort mensen.</span>
         </h2>
 
         <p className="mt-2 text-[clamp(12px,3.2vmin,14px)] leading-snug">
-          <span className="text-gray-600">Real conversations. </span>
-          <span className="font-bold text-[#7C5CFF]">At your pace.</span>
+          <span className="text-gray-600">Echte gesprekken. </span>
+          <span className="font-bold text-[#7C5CFF]">Op jouw tempo.</span>
         </p>
 
         <div className="mt-2 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -875,7 +875,7 @@ function StepWelcome({
               ))}
             </div>
             <p className="min-w-0 text-[11px] leading-snug text-gray-700">
-              <span className="font-bold tabular-nums text-gray-900">{countLabel}</span> connecting now
+              <span className="font-bold tabular-nums text-gray-900">{countLabel}</span> mensen online nu
             </p>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 shadow-sm ring-1 ring-black/[0.06]">
@@ -892,16 +892,16 @@ function StepWelcome({
           onClick={onStart}
           className="mt-3 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
-          Get started →
+          Aan de slag →
         </button>
 
         <p className="mt-1.5 text-center text-[11px] text-gray-500">
-          Already have an account?{" "}
+          Heb je al een account?{" "}
           <Link
             href="/login"
             className="font-bold text-[#7C5CFF] underline-offset-2 hover:underline"
           >
-            Log in
+            Inloggen
           </Link>
         </p>
       </div>
@@ -920,11 +920,11 @@ function StepLookingFor({
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
         <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
-          <span className="block">What brings</span>
-          <span className="block">you here?</span>
+          <span className="block">Waar kom je</span>
+          <span className="block">voor?</span>
         </h2>
         <p className="mt-1 text-[13px] leading-snug text-gray-600">
-          We&apos;ll personalize your feed.
+          We personaliseren je feed.
         </p>
       </div>
 
@@ -982,8 +982,8 @@ function StepLookingFor({
 }
 
 const GENDER_OPTIONS: { id: FunnelGender; emoji: string; label: string; sub: string; bg: string; ring: string }[] = [
-  { id: "man", emoji: "👨", label: "Man", sub: "I identify as male", bg: "bg-blue-50", ring: "ring-blue-400" },
-  { id: "woman", emoji: "👩", label: "Woman", sub: "I identify as female", bg: "bg-pink-50", ring: "ring-pink-400" },
+  { id: "man", emoji: "👨", label: "Man", sub: "Ik identificeer als man", bg: "bg-blue-50", ring: "ring-blue-400" },
+  { id: "woman", emoji: "👩", label: "Vrouw", sub: "Ik identificeer als vrouw", bg: "bg-pink-50", ring: "ring-pink-400" },
 ];
 
 function StepGender({
@@ -997,11 +997,11 @@ function StepGender({
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
         <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
-          <span className="block">Are you a</span>
-          <span className="block">man or woman?</span>
+          <span className="block">Ben je een</span>
+          <span className="block">man of vrouw?</span>
         </h2>
         <p className="mt-1 text-[13px] leading-snug text-gray-600">
-          This helps us personalize your experience.
+          Dit helpt ons je ervaring te personaliseren.
         </p>
       </div>
 
@@ -1050,9 +1050,9 @@ function StepGender({
 }
 
 const SEEKING_OPTIONS: { id: FunnelSeekingGender; emoji: string; label: string; sub: string; bg: string }[] = [
-  { id: "women", emoji: "👩", label: "Women", sub: "Show me women", bg: "bg-pink-50" },
-  { id: "men", emoji: "👨", label: "Men", sub: "Show me men", bg: "bg-blue-50" },
-  { id: "both", emoji: "💫", label: "Both", sub: "I'm open to everyone", bg: "bg-purple-50" },
+  { id: "women", emoji: "👩", label: "Vrouwen", sub: "Toon mij vrouwen", bg: "bg-pink-50" },
+  { id: "men", emoji: "👨", label: "Mannen", sub: "Toon mij mannen", bg: "bg-blue-50" },
+  { id: "both", emoji: "💫", label: "Beide", sub: "Ik sta open voor iedereen", bg: "bg-purple-50" },
 ];
 
 function StepSeekingGender({
@@ -1066,11 +1066,11 @@ function StepSeekingGender({
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
         <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
-          <span className="block">Who are you</span>
-          <span className="block">looking for?</span>
+          <span className="block">Wie zoek</span>
+          <span className="block">je?</span>
         </h2>
         <p className="mt-1 text-[13px] leading-snug text-gray-600">
-          We&apos;ll match you with the right people.
+          We matchen je met de juiste mensen.
         </p>
       </div>
 
@@ -1137,18 +1137,18 @@ function StepBasics({
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
       <div className="shrink-0 px-5 pt-1">
         <h2 className="text-balance text-[clamp(1.5rem,5.5vmin,1.875rem)] font-extrabold leading-tight text-gray-900">
-          <span className="block">Tell us</span>
-          <span className="block">about you</span>
+          <span className="block">Vertel iets</span>
+          <span className="block">over jezelf</span>
         </h2>
         <p className="mt-1 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
-          Just a few quick things.
+          Nog een paar snelle vragen.
         </p>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-center gap-y-[clamp(0.5rem,2vmin,1.25rem)] overflow-hidden px-5 py-1">
         <div className="min-h-0 w-full space-y-[clamp(0.75rem,2.5vmin,1.25rem)] text-[clamp(15px,3.8vmin,18px)] leading-relaxed text-gray-900">
           <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
-            <span>I&apos;m</span>
+            <span>Ik ben</span>
             <input
               autoFocus
               autoComplete="given-name"
@@ -1159,12 +1159,12 @@ function StepBasics({
               onBlur={() =>
                 setBasics((b) => ({ ...b, name: firstWordName(b.name) }))
               }
-              placeholder="Emily"
+              placeholder="Lisa"
               className="inline-block w-[min(140px,42vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
             />
           </p>
           <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
-            <span>I&apos;m</span>
+            <span>en ik ben</span>
             <input
               type="number"
               inputMode="numeric"
@@ -1187,17 +1187,17 @@ function StepBasics({
               placeholder="28"
               className="inline-block w-[min(80px,22vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-center text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
             />
-            <span>years old.</span>
+            <span>jaar.</span>
           </p>
           <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
-            <span>I live in</span>
+            <span>Ik woon in</span>
             <input
               autoComplete="address-level2"
               value={basics.location}
               onChange={(e) =>
                 setBasics((b) => ({ ...b, location: e.target.value }))
               }
-              placeholder="London"
+              placeholder="Amsterdam"
               className="inline-block w-[min(160px,48vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
             />
           </p>
@@ -1205,7 +1205,7 @@ function StepBasics({
 
         <div className="flex shrink-0 items-center gap-2 px-1 text-[10px] text-gray-500 sm:text-[11px]">
           <Lock className="h-3 w-3 shrink-0 text-gray-400" strokeWidth={2.5} aria-hidden />
-          <span>Your details stay private.</span>
+          <span>Je gegevens blijven privé.</span>
         </div>
       </div>
 
@@ -1220,7 +1220,7 @@ function StepBasics({
               : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
-          Continue →
+          Doorgaan →
         </button>
       </div>
     </div>
@@ -1269,11 +1269,11 @@ function StepPickMatch({
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-1 pt-1 [-webkit-overflow-scrolling:touch]">
         <div className="px-2 pb-1 pt-0">
           <h2 className="text-[clamp(1.15rem,4.2vmin,1.5rem)] font-extrabold leading-tight text-gray-900">
-            Your first link.
+            Je eerste match.
           </h2>
           <p className="mt-0.5 text-[clamp(11px,2.9vmin,13px)] text-gray-600">
-            <span className="font-bold text-pink-500">{n} people</span>{" "}
-            <span>online and matched to you. Pick one.</span>
+            <span className="font-bold text-pink-500">{n} mensen</span>{" "}
+            <span>online en bij jouw vibe. Kies er één.</span>
           </p>
         </div>
         <div className="grid auto-rows-min grid-cols-2 gap-3 px-2 pb-2 pt-2">
@@ -1371,14 +1371,14 @@ function StepPickMatch({
               : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
           }`}
         >
-          Send first message →
+          Eerste bericht sturen →
         </button>
         <button
           type="button"
           onClick={onSkip}
           className="mt-2 w-full py-2 text-center text-[13px] font-semibold text-[#7C5CFF] transition active:scale-[0.98] active:opacity-80"
         >
-          Skip — I&apos;ll message later
+          Overslaan — ik stuur later een bericht
         </button>
       </div>
     </div>
@@ -1399,11 +1399,11 @@ function StepFirstMessage({
   const ok = value.trim().length >= 10;
   const len = value.length;
 
-  const name = peer?.name ?? "you";
+  const name = peer?.name ?? "jou";
   const starterChips = useMemo(() => [
-    `Hey ${name}! What do you usually do on weekends?`,
-    `${name}, I have to say — your profile caught my eye 👀 what are you looking for on here?`,
-    `Not gonna lie ${name}, you're exactly my type 🔥 what would be your idea of a perfect first date?`,
+    `Hé ${name}! Wat doe je meestal in het weekend?`,
+    `${name}, ik moet zeggen — je profiel viel me op 👀 waar ben je hier naar op zoek?`,
+    `Eerlijk ${name}, jij bent precies mijn type 🔥 wat zou voor jou een perfecte eerste date zijn?`,
   ], [name]);
 
   return (
@@ -1416,12 +1416,12 @@ function StepFirstMessage({
         )}
         <div className="min-w-0">
           <h2 className="text-[clamp(1.15rem,4.5vmin,1.75rem)] font-extrabold leading-tight text-gray-900">
-            Say hi to {peer?.name ?? "…"}
+            Zeg hallo tegen {peer?.name ?? "…"}
           </h2>
         </div>
       </div>
       <p className="shrink-0 px-5 pt-1 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
-        A great first message asks a question.
+        Een goed eerste bericht stelt een vraag.
       </p>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-2 pt-2 [-webkit-overflow-scrolling:touch]">
         <div className="flex flex-col gap-2">
@@ -1443,7 +1443,7 @@ function StepFirstMessage({
             onChange={(e) => onChange(e.target.value.slice(0, MSG_MAX))}
             rows={4}
             className="w-full resize-none rounded-2xl border-0 bg-white p-3 text-[clamp(13px,3.4vmin,15px)] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[#7C5CFF]/40 sm:p-4"
-            placeholder="Write something kind…"
+            placeholder="Schrijf iets aardigs…"
           />
           <p className="mt-1 text-right text-[11px] font-medium text-gray-500">
             {len} / {MSG_MAX}
@@ -1462,7 +1462,7 @@ function StepFirstMessage({
               : "cursor-not-allowed bg-gray-200 text-gray-500"
           }`}
         >
-          Send message →
+          Bericht versturen →
         </button>
       </div>
     </div>
@@ -1547,12 +1547,12 @@ function StepCreateAccount({
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-1">
         <h2 className="shrink-0 text-[clamp(1.35rem,5vmin,1.875rem)] font-extrabold leading-tight text-gray-900">
-          Almost there <span className="text-amber-400">✨</span>
+          Bijna klaar <span className="text-amber-400">✨</span>
         </h2>
         <p className="mt-0.5 shrink-0 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
           {hasOutreach
-            ? "Save your profile + send your first message."
-            : "Save your profile — you can message anyone from Discover."}
+            ? "Sla je profiel op en verstuur je eerste bericht."
+            : "Sla je profiel op — je kunt iedereen berichten sturen via Ontdekken."}
         </p>
 
         <div className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-y-3 overflow-hidden">
@@ -1588,15 +1588,15 @@ function StepCreateAccount({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] font-bold uppercase tracking-wider text-[#7C5CFF] sm:text-[10px]">
-                  {hasOutreach ? "READY TO SEND" : "YOUR PROFILE"}
+                  {hasOutreach ? "KLAAR OM TE VERSTUREN" : "JOUW PROFIEL"}
                 </p>
                 <p className="mt-0.5 truncate text-[clamp(11px,3vmin,13px)] font-semibold text-gray-900">
-                  {hasOutreach ? quoted : "Browse profiles and start a chat when you’re ready."}
+                  {hasOutreach ? quoted : "Blader door profielen en start een chat wanneer je wilt."}
                 </p>
                 <p className="mt-0.5 text-[9px] text-gray-500 sm:text-[10px]">
                   {hasOutreach && peer
-                    ? `→ to ${peer.name}`
-                    : "No first message queued — totally fine."}
+                    ? `→ naar ${peer.name}`
+                    : "Geen eerste bericht in de wachtrij — helemaal oké."}
                 </p>
               </div>
             </div>
@@ -1609,14 +1609,14 @@ function StepCreateAccount({
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
                     ✓
                   </span>
-                  <span>Send your first message instantly</span>
+                  <span>Verstuur meteen je eerste bericht</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
                   <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
                     ✓
                   </span>
-                  <span>Discover people matched to your vibe</span>
+                  <span>Ontdek mensen die bij jouw vibe passen</span>
                 </div>
               )}
               <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
@@ -1624,7 +1624,7 @@ function StepCreateAccount({
                   ✓
                 </span>
                 <span>
-                  <b className="text-amber-700">250 free credits</b> on us 💰
+                  <b className="text-amber-700">250 gratis credits</b> van ons 💰
                 </span>
               </div>
             </div>
@@ -1649,7 +1649,7 @@ function StepCreateAccount({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email address"
+                placeholder="E-mailadres"
                 className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
                 autoComplete="email"
               />
@@ -1672,7 +1672,7 @@ function StepCreateAccount({
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder="Wachtwoord"
                 className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
                 autoComplete="new-password"
               />
@@ -1701,14 +1701,14 @@ function StepCreateAccount({
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat password"
+                placeholder="Herhaal wachtwoord"
                 className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
                 autoComplete="new-password"
               />
               {confirmOk ? (
                 <span
                   className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white"
-                  aria-label="Passwords match"
+                  aria-label="Wachtwoorden kloppen"
                 >
                   ✓
                 </span>
@@ -1716,7 +1716,7 @@ function StepCreateAccount({
             </div>
             {showMismatch ? (
               <p className="px-1 text-[12px] font-medium text-red-500">
-                Passwords don&apos;t match
+                Wachtwoorden komen niet overeen
               </p>
             ) : null}
           </div>
@@ -1740,15 +1740,15 @@ function StepCreateAccount({
           }`}
         >
           {submitting
-            ? "Creating account…"
+            ? "Account aanmaken…"
             : hasOutreach
-              ? "Create account & send →"
-              : "Create account →"}
+              ? "Account aanmaken en versturen →"
+              : "Account aanmaken →"}
         </button>
         <p className="mt-2 text-center text-[11px] leading-snug text-gray-500">
-          By continuing you agree to our{" "}
+          Door verder te gaan ga je akkoord met onze{" "}
           <Link href="/me/help" className="font-bold text-[#7C5CFF] hover:underline">
-            Terms
+            Voorwaarden
           </Link>{" "}
           ·{" "}
           <Link href="/me/privacy" className="font-bold text-[#7C5CFF] hover:underline">

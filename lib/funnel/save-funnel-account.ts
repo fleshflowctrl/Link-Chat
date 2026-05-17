@@ -56,7 +56,7 @@ export async function saveFunnelAccount(
       error:
         e instanceof Error
           ? e.message
-          : "Could not initialise Supabase client.",
+          : "Kon geen verbinding maken met de server.",
     };
   }
 
@@ -92,7 +92,7 @@ export async function saveFunnelAccount(
   if (!userId) {
     return {
       ok: false,
-      error: "Account created but user id missing — please log in.",
+      error: "Account aangemaakt maar gebruikers-id ontbreekt — log in.",
     };
   }
 
