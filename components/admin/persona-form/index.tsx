@@ -26,6 +26,7 @@ import {
   MultiCheck,
 } from "./primitives";
 import { ImageUploadField } from "./image-upload-field";
+import { PersonaGalleryGrid } from "./persona-gallery-grid";
 import { WorkScheduleBadge } from "@/components/admin/work-schedule-badge";
 import { PersonaSectionCard, PersonaSectionNav, type SectionDef } from "./section-nav";
 import {
@@ -342,7 +343,7 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
           icon={<IdIcon className="h-5 w-5" />}
         >
           <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
-            <Field label="Avatar" hint="hero op cards" required>
+            <Field label="Profielfoto" hint="hero op cards — of kies uit galerij" required>
               <ImageUploadField
                 personaId={v.id}
                 slot="avatar"
@@ -431,31 +432,14 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
 
           <Field label="Galerij" hint="extra foto's op haar profielpagina (min. 3 aanbevolen)">
             <div className="space-y-3">
-              {v.gallery_urls.length === 0 ? (
-                <p className="text-xs text-gray-400">
-                  Nog geen foto's. Voeg minimaal 3 toe — dating-app cards voelen leeg
-                  zonder galerij.
-                </p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                  {v.gallery_urls.map((u, i) => (
-                    <div
-                      key={`${u}-${i}`}
-                      className="group relative aspect-[3/4] overflow-hidden rounded-xl bg-gray-100 ring-1 ring-black/5"
-                    >
-                      {u ? <Image src={u} alt="" fill sizes="200px" className="object-cover" /> : null}
-                      <button
-                        type="button"
-                        onClick={() => set("gallery_urls", v.gallery_urls.filter((_, idx) => idx !== i))}
-                        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity backdrop-blur-sm group-hover:opacity-100 hover:bg-black/70"
-                        aria-label="verwijder foto"
-                      >
-                        <XIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <PersonaGalleryGrid
+                personaId={v.id}
+                mode={mode}
+                avatarUrl={v.avatar_url}
+                galleryUrls={v.gallery_urls}
+                onAvatarChange={(u) => set("avatar_url", u)}
+                onGalleryChange={(urls) => set("gallery_urls", urls)}
+              />
 
               {mode === "edit" && v.id ? (
                 <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-lavender/30 to-white p-3">
