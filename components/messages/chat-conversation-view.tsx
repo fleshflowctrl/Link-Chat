@@ -220,7 +220,6 @@ export function ChatConversationView({
   /** True only while she's actively delivering a reply (send in-flight or
    * due async delivery) — not during idle waits for a future scheduled_at. */
   const [peerTyping, setPeerTyping] = useState(false);
-  const peerTypingArmRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** ISO timestamp when the next async-scheduled AI reply should land, or null
    * if nothing is queued. Set by POST /messages (when a long pause was
    * scheduled), GET /messages (catch-up), and POST /poll-pending. The timer
@@ -229,19 +228,7 @@ export function ChatConversationView({
   /** Guard against overlapping pollPending invocations. */
   const pollingRef = useRef(false);
 
-  const armPeerTyping = useCallback((delayMs = 700) => {
-    if (peerTypingArmRef.current) clearTimeout(peerTypingArmRef.current);
-    peerTypingArmRef.current = setTimeout(() => {
-      peerTypingArmRef.current = null;
-      setPeerTyping(true);
-    }, delayMs);
-  }, []);
-
   const stopPeerTyping = useCallback(() => {
-    if (peerTypingArmRef.current) {
-      clearTimeout(peerTypingArmRef.current);
-      peerTypingArmRef.current = null;
-    }
     setPeerTyping(false);
   }, []);
   const [composerLift, setComposerLift] = useState(0);
@@ -687,7 +674,6 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
-      armPeerTyping();
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
@@ -808,11 +794,9 @@ export function ChatConversationView({
           return rest;
         });
         setInput(trimmed);
-      } finally {
-        stopPeerTyping();
       }
     },
-    [armPeerTyping, blockIfNoProfilePhoto, chatId, openCreditsGate, useSupabase, meta, stopPeerTyping],
+    [blockIfNoProfilePhoto, chatId, openCreditsGate, useSupabase, meta],
   );
 
   const sendImage = useCallback(
@@ -866,7 +850,6 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
-      armPeerTyping();
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
@@ -925,11 +908,9 @@ export function ChatConversationView({
           e instanceof Error ? e.message : "Foto versturen mislukt",
         );
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      } finally {
-        stopPeerTyping();
       }
     },
-    [armPeerTyping, blockIfNoProfilePhoto, chatId, openCreditsGate, useSupabase, meta, stopPeerTyping],
+    [blockIfNoProfilePhoto, chatId, openCreditsGate, useSupabase, meta],
   );
 
   const sendGift = useCallback(
@@ -961,7 +942,6 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
-      armPeerTyping();
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/gifts`,
@@ -1002,11 +982,9 @@ export function ChatConversationView({
         );
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         return { ok: false as const, error: "Netwerkfout" };
-      } finally {
-        stopPeerTyping();
       }
     },
-    [armPeerTyping, blockIfNoProfilePhoto, chatId, meta, stopPeerTyping],
+    [blockIfNoProfilePhoto, chatId, meta],
   );
 
   function attachReactionTo(messageId: string, emoji: string) {
