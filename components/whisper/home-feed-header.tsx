@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Coins, Heart, RefreshCcw, Timer } from "lucide-react";
-import { HOURLY_FEED_SIZE } from "@/lib/catalog/hourly-feed";
+import {
+  FEED_ROTATION_HOURS,
+  HOURLY_FEED_SIZE,
+} from "@/lib/catalog/hourly-feed";
 
 type Props = {
   /** Epoch-ms timestamp of the next natural hourly rotation. */
@@ -87,7 +90,8 @@ export function HomeFeedHeader({
             </span>
           </div>
           <p className="mt-0.5 text-[13px] leading-snug text-inkMuted">
-            Elk uur {HOURLY_FEED_SIZE} nieuwe profielen voor jou
+            Elke {FEED_ROTATION_HOURS} uur {HOURLY_FEED_SIZE} nieuwe profielen
+            voor jou
           </p>
         </div>
       </div>

@@ -1,26 +1,27 @@
 /**
- * Hourly-rotating "Speciaal voor jou" feed.
+ * Timed-rotating "Speciaal voor jou" feed.
  *
- * Every wall-clock hour the home grid swaps to a fresh deterministic slice of
- * 30 profiles. Each user sees their own rotation: the picker hashes
- * `<userKey>:<slot>` so two visitors never see the same set in the same hour
- * (and a single visitor sees a different set next hour).
+ * Every {@link FEED_ROTATION_HOURS} hours the home grid swaps to a fresh
+ * deterministic slice of 30 profiles. Each user sees their own rotation: the
+ * picker hashes `<userKey>:<slot>` so two visitors never see the same set in
+ * the same slot (and a single visitor sees a different set next rotation).
  *
  * Users can pay {@link HOURLY_FEED_REFRESH_COST} credits to skip ahead a slot
  * without waiting; the bump is persisted in `home_feed_state.refresh_offset`
  * server-side so it survives reloads and is consistent across devices.
  */
 
-export const HOUR_MS = 60 * 60 * 1000;
+export const FEED_ROTATION_HOURS = 2;
+export const HOUR_MS = FEED_ROTATION_HOURS * 60 * 60 * 1000;
 export const HOURLY_FEED_SIZE = 30;
 export { HOURLY_FEED_REFRESH_COST_CREDITS as HOURLY_FEED_REFRESH_COST } from "@/lib/credits/pricing";
 
-/** Whole hours since epoch — increments at the top of every wall-clock hour. */
+/** Whole rotation slots since epoch — increments every {@link FEED_ROTATION_HOURS}h. */
 export function currentHourBucket(now: number = Date.now()): number {
   return Math.floor(now / HOUR_MS);
 }
 
-/** Epoch-ms timestamp of the next natural hour boundary (for the countdown). */
+/** Epoch-ms timestamp of the next natural rotation boundary (for the countdown). */
 export function nextHourBoundary(now: number = Date.now()): number {
   return (currentHourBucket(now) + 1) * HOUR_MS;
 }
