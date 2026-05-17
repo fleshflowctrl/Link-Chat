@@ -91,21 +91,16 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/50" />
 
-        {/* top bar: back + lastActive badge + actions */}
+        {/* top bar: back + actions */}
         <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
-              aria-label="Terug"
-            >
-              <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
-            </button>
-            <span className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-white shadow-md ring-2 ring-white/25">
-              {profile.lastActive}
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
+            aria-label="Terug"
+          >
+            <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
+          </button>
           <button
             type="button"
             onClick={() => console.log("[profile] More options placeholder")}
