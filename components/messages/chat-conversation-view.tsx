@@ -1516,11 +1516,6 @@ export function ChatConversationView({
               placeholder="Typ een bericht…"
               className="h-12 w-full rounded-full border-0 bg-white pl-4 pr-12 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none transition placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
             />
-            {useSupabase && (
-              <span className="pointer-events-none absolute -bottom-4 left-4 text-[10px] text-inkMuted">
-                {CHAT_MESSAGE_COST_CREDITS} credits per bericht
-              </span>
-            )}
             <button
               type="button"
               className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-ink/40 transition hover:bg-black/[0.05] hover:text-ink/70"
