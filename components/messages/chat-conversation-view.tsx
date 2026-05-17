@@ -1599,7 +1599,7 @@ export function ChatConversationView({
                   {CHAT_MESSAGE_COST_CREDITS} per bericht). Koop extra credits om
                   het gesprek voort te zetten.
                 </p>
-              </motion.div>
+              </div>
 
               <Link
                 href="/credits"
