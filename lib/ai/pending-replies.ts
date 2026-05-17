@@ -52,6 +52,95 @@ export type ProcessDueResult = {
   hadDuePending: boolean;
 };
 
+type LockedPendingRow = {
+  id: string;
+  user_message_id: string | null;
+  payload_text?: string | null;
+};
+
+/** Atomically claim pending rows one-by-one so parallel workers cannot double-deliver. */
+async function claimPendingRows(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+  ids: string[],
+  select = "id, user_message_id",
+): Promise<LockedPendingRow[]> {
+  const claimed: LockedPendingRow[] = [];
+  const now = new Date().toISOString();
+  for (const id of ids) {
+    const { data } = await supabase
+      .from("chat_pending_replies")
+      .update({ status: "processing", updated_at: now })
+      .eq("id", id)
+      .eq("owner_user_id", ownerUserId)
+      .eq("status", "pending")
+      .select(select)
+      .maybeSingle();
+    if (data && typeof data === "object" && "id" in data) {
+      claimed.push(data as LockedPendingRow);
+    }
+  }
+  return claimed;
+}
+
+/** True when the persona already sent a peer message after the trigger user message(s). */
+function peerAlreadyRepliedAfterUserMessages(
+  history: ChatMessageRow[],
+  userMessageIds: string[],
+): boolean {
+  const indices = userMessageIds
+    .map((id) => history.findIndex((m) => m.id === id))
+    .filter((i) => i >= 0);
+  if (indices.length === 0) return false;
+  const start = Math.min(...indices);
+  return history.slice(start + 1).some((m) => m.sender === "peer");
+}
+
+function latestPeerMessageAfterUserMessages(
+  history: ChatMessageRow[],
+  userMessageIds: string[],
+): ChatMessageRow | null {
+  const indices = userMessageIds
+    .map((id) => history.findIndex((m) => m.id === id))
+    .filter((i) => i >= 0);
+  if (indices.length === 0) return null;
+  const start = Math.min(...indices);
+  for (let i = history.length - 1; i > start; i--) {
+    if (history[i].sender === "peer") return history[i];
+  }
+  return null;
+}
+
+async function finalizeLockedReplyRows(
+  supabase: SupabaseClient,
+  locked: LockedPendingRow[],
+  assistantMessageId: string,
+): Promise<void> {
+  const finishedAt = new Date().toISOString();
+  await supabase
+    .from("chat_pending_replies")
+    .update({
+      status: "done",
+      assistant_message_id: assistantMessageId,
+      updated_at: finishedAt,
+    })
+    .eq("id", locked[0].id);
+
+  if (locked.length > 1) {
+    await supabase
+      .from("chat_pending_replies")
+      .update({
+        status: "superseded",
+        assistant_message_id: assistantMessageId,
+        updated_at: finishedAt,
+      })
+      .in(
+        "id",
+        locked.slice(1).map((r) => r.id),
+      );
+  }
+}
+
 /**
  * Process all `pending` rows for this thread whose `scheduled_at` is in the
  * past. Returns the new peer messages produced (chunk inserts + at most one
@@ -98,16 +187,12 @@ export async function processDuePendingReplies(
 
   // ----- 1. Chunk rows: lock each, insert payload_text as peer message -----
   if (chunkRows.length > 0) {
-    const ids = chunkRows.map((r) => r.id);
-    const { data: lockedChunks } = await supabase
-      .from("chat_pending_replies")
-      .update({ status: "processing", updated_at: new Date().toISOString() })
-      .in("id", ids)
-      .eq("owner_user_id", args.ownerUserId)
-      .eq("status", "pending")
-      .select("id, payload_text");
-
-    const locked = (lockedChunks ?? []) as Array<{ id: string; payload_text: string | null }>;
+    const locked = await claimPendingRows(
+      supabase,
+      args.ownerUserId,
+      chunkRows.map((r) => r.id),
+      "id, payload_text",
+    );
     for (const ch of locked) {
       const text = (ch.payload_text ?? "").trim();
       if (!text) {
@@ -281,18 +366,17 @@ export async function processDuePendingReplies(
 
   // ----- 2. Reply rows: coalesce into ONE Grok call -----
   if (replyRows.length > 0) {
-    const ids = replyRows.map((r) => r.id);
-    const { data: lockedReplies } = await supabase
-      .from("chat_pending_replies")
-      .update({ status: "processing", updated_at: new Date().toISOString() })
-      .in("id", ids)
-      .eq("owner_user_id", args.ownerUserId)
-      .eq("status", "pending")
-      .select("id, user_message_id");
+    const locked = await claimPendingRows(
+      supabase,
+      args.ownerUserId,
+      replyRows.map((r) => r.id),
+    );
 
-    const locked = (lockedReplies ?? []) as Array<{ id: string; user_message_id: string | null }>;
     if (locked.length > 0) {
       const triggerId = locked[0].user_message_id ?? null;
+      const triggerUserIds = locked
+        .map((r) => r.user_message_id)
+        .filter((id): id is string => Boolean(id));
 
       const { data: historyRows, error: histErr } = await supabase
         .from("chat_messages")
@@ -311,46 +395,57 @@ export async function processDuePendingReplies(
           })
           .in("id", locked.map((r) => r.id));
       } else {
-        const result = await generatePeerReply(supabase, {
-          profile: args.profile,
-          history: historyRows as ChatMessageRow[],
-          ownerUserId: args.ownerUserId,
-          peerId: args.peerId,
-          options: { triggerUserMessageId: triggerId ?? undefined },
-        });
+        const history = historyRows as ChatMessageRow[];
 
-        const finishedAt = new Date().toISOString();
-        if (!result.ok) {
-          await supabase
-            .from("chat_pending_replies")
-            .update({
-              status: "failed",
-              error: result.error.slice(0, 500),
-              updated_at: finishedAt,
-            })
-            .in("id", locked.map((r) => r.id));
-        } else {
-          // First locked row -> done with assistant link; rest -> superseded.
-          await supabase
-            .from("chat_pending_replies")
-            .update({
-              status: "done",
-              assistant_message_id: result.assistantRow.id,
-              updated_at: finishedAt,
-            })
-            .eq("id", locked[0].id);
-
-          if (locked.length > 1) {
+        // Cron + client poll + waitUntil can race; never call Grok twice.
+        if (peerAlreadyRepliedAfterUserMessages(history, triggerUserIds)) {
+          const existing = latestPeerMessageAfterUserMessages(
+            history,
+            triggerUserIds,
+          );
+          if (existing) {
+            await finalizeLockedReplyRows(
+              supabase,
+              locked,
+              existing.id,
+            );
+            newPeerMessages.push(existing);
+          } else {
             await supabase
               .from("chat_pending_replies")
               .update({
                 status: "superseded",
-                assistant_message_id: result.assistantRow.id,
+                updated_at: new Date().toISOString(),
+              })
+              .in("id", locked.map((r) => r.id));
+          }
+        } else {
+          const result = await generatePeerReply(supabase, {
+            profile: args.profile,
+            history,
+            ownerUserId: args.ownerUserId,
+            peerId: args.peerId,
+            options: { triggerUserMessageId: triggerId ?? undefined },
+          });
+
+          const finishedAt = new Date().toISOString();
+          if (!result.ok) {
+            await supabase
+              .from("chat_pending_replies")
+              .update({
+                status: "failed",
+                error: result.error.slice(0, 500),
                 updated_at: finishedAt,
               })
-              .in("id", locked.slice(1).map((r) => r.id));
+              .in("id", locked.map((r) => r.id));
+          } else {
+            await finalizeLockedReplyRows(
+              supabase,
+              locked,
+              result.assistantRow.id,
+            );
+            newPeerMessages.push(result.assistantRow);
           }
-          newPeerMessages.push(result.assistantRow);
         }
       }
     }

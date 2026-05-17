@@ -63,6 +63,7 @@ export async function recoverStuckPendingReplies(
     .from("chat_pending_replies")
     .update({ status: "pending", updated_at: new Date().toISOString() })
     .eq("status", "processing")
+    .is("assistant_message_id", null)
     .lt("updated_at", staleBefore);
   if (error) {
     console.warn("[process-pending] recover stuck", error.message);
