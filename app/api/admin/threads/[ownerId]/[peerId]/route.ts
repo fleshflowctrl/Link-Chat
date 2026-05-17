@@ -2,23 +2,13 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import {
-  messageRowToUi,
-  type ChatMessageRow,
-  type ChatProfileRow,
-} from "@/lib/chat/map-rows";
+  loadAdminThreadDetail,
+  type AdminThreadDetail,
+} from "@/lib/admin/chat-threads";
 
 export const dynamic = "force-dynamic";
 
-export type AdminThreadDetail = {
-  ownerUserId: string;
-  ownerEmail: string | null;
-  peer: {
-    id: string;
-    name: string;
-    avatarUrl: string;
-  };
-  messages: ReturnType<typeof messageRowToUi>[];
-};
+export type { AdminThreadDetail };
 
 /** Returns the full message list for a single (user, peer) thread. */
 export async function GET(
@@ -43,44 +33,16 @@ export async function GET(
 
   const { ownerId, peerId } = params;
 
-  const [{ data: msgs, error: me }, { data: prof }, { data: userData }] =
-    await Promise.all([
-      service
-        .from("chat_messages")
-        .select("*")
-        .eq("owner_user_id", ownerId)
-        .eq("peer_id", peerId)
-        .order("created_at", { ascending: true }),
-      service
-        .from("chat_profiles")
-        .select("id, display_name, avatar_url")
-        .eq("id", peerId)
-        .maybeSingle(),
-      service.auth.admin.getUserById(ownerId),
-    ]);
-
-  if (me) {
+  try {
+    const detail = await loadAdminThreadDetail(service, ownerId, peerId);
+    return NextResponse.json({ ok: true, ...detail });
+  } catch (e) {
     return NextResponse.json(
-      { ok: false, error: me.message },
+      {
+        ok: false,
+        error: e instanceof Error ? e.message : "Laden mislukt",
+      },
       { status: 500 },
     );
   }
-
-  const profile = prof as Pick<
-    ChatProfileRow,
-    "id" | "display_name" | "avatar_url"
-  > | null;
-
-  const detail: AdminThreadDetail = {
-    ownerUserId: ownerId,
-    ownerEmail: userData?.user?.email ?? null,
-    peer: {
-      id: peerId,
-      name: profile?.display_name ?? peerId,
-      avatarUrl: profile?.avatar_url ?? "",
-    },
-    messages: ((msgs ?? []) as ChatMessageRow[]).map(messageRowToUi),
-  };
-
-  return NextResponse.json({ ok: true, ...detail });
 }

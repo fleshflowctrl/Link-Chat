@@ -4,10 +4,10 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import {
-  messageRowToUi,
-  type ChatMessageRow,
-  type ChatProfileRow,
-} from "@/lib/chat/map-rows";
+  loadAdminThreadDetail,
+  type AdminThreadDetail,
+} from "@/lib/admin/chat-threads";
+import { AdminPageHeader } from "@/components/admin/page-header";
 
 export const dynamic = "force-dynamic";
 
@@ -49,73 +49,81 @@ export default async function AdminThreadDetailPage({
 
   const { ownerId, peerId } = params;
 
-  const [{ data: msgs, error: me }, { data: prof }, { data: userData }] =
-    await Promise.all([
-      service
-        .from("chat_messages")
-        .select("*")
-        .eq("owner_user_id", ownerId)
-        .eq("peer_id", peerId)
-        .order("created_at", { ascending: true }),
-      service
-        .from("chat_profiles")
-        .select("id, display_name, avatar_url")
-        .eq("id", peerId)
-        .maybeSingle(),
-      service.auth.admin.getUserById(ownerId),
-    ]);
+  let detail: AdminThreadDetail | null = null;
+  let loadError: string | null = null;
+  try {
+    detail = await loadAdminThreadDetail(service, ownerId, peerId);
+  } catch (e) {
+    loadError = e instanceof Error ? e.message : "Laden mislukt";
+    detail = null;
+  }
 
-  if (me) {
+  if (loadError || !detail) {
     return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900">
-        Fout bij laden: {me.message}
+      <div className="mx-auto max-w-5xl">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900">
+          {loadError ?? "Gesprek niet gevonden"}
+        </div>
+        <Link
+          href={`/admin/messages/${ownerId}`}
+          className="mt-4 inline-block text-sm text-primary hover:underline"
+        >
+          ← Terug naar gesprekken
+        </Link>
       </div>
     );
   }
 
-  const profile = prof as Pick<
-    ChatProfileRow,
-    "id" | "display_name" | "avatar_url"
-  > | null;
-  const ownerEmail = userData?.user?.email ?? null;
-  const messages = ((msgs ?? []) as ChatMessageRow[]).map(messageRowToUi);
-
-  const peerName = profile?.display_name ?? peerId;
-  const peerAvatar = profile?.avatar_url ?? "";
+  const { peer, messages, ownerEmail } = detail;
+  const ownerLabel = ownerEmail ?? `${ownerId.slice(0, 8)}…`;
 
   return (
     <div className="mx-auto max-w-5xl">
-      <Link
-        href="/admin/messages"
-        className="inline-flex items-center gap-1 text-xs text-gray-500 transition-colors hover:text-gray-900"
-      >
-        ← Alle berichten
-      </Link>
+      <AdminPageHeader
+        crumbs={[
+          { label: "Admin" },
+          { label: "Berichten", href: "/admin/messages" },
+          { label: ownerLabel, href: `/admin/messages/${ownerId}` },
+          { label: peer.name },
+        ]}
+        title={peer.name}
+        description={
+          <>
+            Gesprek met{" "}
+            <span className="font-medium text-gray-900">{ownerLabel}</span>
+            {" · "}
+            {messages.length} berichten
+          </>
+        }
+      />
 
-      <div className="mt-4 flex items-center gap-4 rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-4 rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
         <div className="relative h-14 w-14 overflow-hidden rounded-full bg-gray-100 ring-1 ring-black/5">
-          {peerAvatar ? (
+          {peer.avatarUrl ? (
             <Image
-              src={peerAvatar}
-              alt={peerName}
+              src={peer.avatarUrl}
+              alt={peer.name}
               fill
               sizes="56px"
               className="object-cover"
             />
           ) : null}
         </div>
-        <div className="min-w-0">
-          <p className="font-display text-lg font-semibold tracking-tight">{peerName}</p>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-lg font-semibold tracking-tight">
+            {peer.name}
+          </p>
           <p className="mt-0.5 text-sm text-gray-600">
             Gebruiker:{" "}
-            <span className="font-medium text-gray-900">
-              {ownerEmail ?? ownerId}
-            </span>
+            <span className="font-medium text-gray-900">{ownerLabel}</span>
           </p>
         </div>
-        <span className="ml-auto rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-          {messages.length} berichten
-        </span>
+        <Link
+          href={`/admin/messages/${ownerId}`}
+          className="shrink-0 rounded-full border border-black/10 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+        >
+          Andere gesprekken
+        </Link>
       </div>
 
       <div className="mt-6 space-y-3">
@@ -124,8 +132,7 @@ export default async function AdminThreadDetailPage({
             Geen berichten in dit gesprek.
           </div>
         ) : (
-          messages.map((m, i) => {
-            const row = (msgs ?? [])[i] as ChatMessageRow;
+          messages.map((m) => {
             const mine = m.sender === "me";
             return (
               <div
@@ -136,7 +143,7 @@ export default async function AdminThreadDetailPage({
                   className={`max-w-[75%] rounded-2xl px-4 py-3 text-[15px] leading-snug shadow-sm ${
                     mine
                       ? "bg-[#7C5CFF] text-white"
-                      : "bg-white text-gray-900 border border-black/5"
+                      : "border border-black/5 bg-white text-gray-900"
                   }`}
                 >
                   {m.kind === "image" && m.imageUrl ? (
@@ -159,8 +166,7 @@ export default async function AdminThreadDetailPage({
                       mine ? "text-white/70" : "text-gray-500"
                     }`}
                   >
-                    {mine ? "User" : peerName} ·{" "}
-                    {formatDateTime(row.created_at)}
+                    {mine ? "User" : peer.name} · {formatDateTime(m.createdAt)}
                   </p>
                 </div>
               </div>
