@@ -163,6 +163,40 @@ type GradioClient = {
   ) => Promise<{ data: unknown[] }>;
 };
 
+/** Extract a human-readable message from anything an async function may
+ * throw. The @gradio/client commonly rejects with a plain object like
+ * `{ type: "status", stage: "error", message: "...", code: "...", ... }`
+ * — `String(obj)` on those gives the useless "[object Object]", which is
+ * exactly what showed up in the persona-batch UI. We walk a few known
+ * shapes before falling back to a JSON dump so the operator can actually
+ * see what HF returned (queue full, quota exceeded, ZeroGPU cold-start,
+ * NSFW filter, etc.). */
+function describeError(e: unknown): string {
+  if (e == null) return "unknown";
+  if (typeof e === "string") return e;
+  if (e instanceof Error) return e.message || e.name || "Error";
+  if (typeof e === "object") {
+    const o = e as Record<string, unknown>;
+    const parts: string[] = [];
+    const msg = typeof o.message === "string" ? o.message : null;
+    const stage = typeof o.stage === "string" ? o.stage : null;
+    const code = typeof o.code === "string" || typeof o.code === "number" ? String(o.code) : null;
+    const type = typeof o.type === "string" ? o.type : null;
+    if (msg) parts.push(msg);
+    if (stage && stage !== "error") parts.push(`stage=${stage}`);
+    if (code) parts.push(`code=${code}`);
+    if (type && type !== "status") parts.push(`type=${type}`);
+    if (parts.length > 0) return parts.join(" · ");
+    try {
+      const dump = JSON.stringify(e);
+      if (dump && dump !== "{}") return dump.slice(0, 400);
+    } catch {
+      // fall through
+    }
+  }
+  return String(e);
+}
+
 async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GeneratePhotoResult> {
   const seed = opts.seed ?? Math.floor(Math.random() * 0xffffffff);
 
@@ -177,7 +211,7 @@ async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GenerateP
   } catch (e) {
     return {
       ok: false,
-      error: `@gradio/client niet beschikbaar: ${e instanceof Error ? e.message : String(e)}`,
+      error: `@gradio/client niet beschikbaar: ${describeError(e)}`,
       backend: "hf-space",
     };
   }
@@ -192,7 +226,7 @@ async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GenerateP
   } catch (e) {
     return {
       ok: false,
-      error: `Space connect failed: ${e instanceof Error ? e.message : String(e)}`,
+      error: `Space connect failed: ${describeError(e)}`,
       backend: "hf-space",
     };
   }
@@ -216,7 +250,13 @@ async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GenerateP
       result = await app.predict(endpoint, payload);
       break;
     } catch (e) {
-      lastErr = e instanceof Error ? e.message : String(e);
+      lastErr = describeError(e);
+      // Also log the raw object server-side so we have the full shape
+      // available in Vercel logs (the operator-facing string is
+      // necessarily truncated). This is critical for debugging HF
+      // failures like queue overflow, NSFW filter, or stage=error
+      // messages that the human-readable summary alone hides.
+      console.error("[generate-photo] predict failed", endpoint, e);
       // If predict throws because the endpoint doesn't exist we want to
       // try the next one; for transient errors (queue full, timeout)
       // there's not much value in retrying the alternate so we still
