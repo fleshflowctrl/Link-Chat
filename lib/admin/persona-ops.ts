@@ -478,7 +478,9 @@ export async function appendNudeGalleryPhoto(
 
   // Prefer DB-managed nude templates (Grok-generated, admin-curated).
   // Fall back to in-code NUDE_TEMPLATES if the DB pool is empty.
+  // When using a DB template we will consume (delete) it after successful render.
   let template: Parameters<typeof buildPersonaPhotoPrompt>[0]["cameraStyle"] & { scene: string };
+  let consumedTemplateId: string | null = null; // for DB consumption
   const dbNude = await loadActiveNudeTemplates(service);
   if (dbNude && dbNude.length > 0) {
     const pick = dbNude[Math.floor(Math.random() * dbNude.length)]!;
@@ -491,6 +493,7 @@ export async function appendNudeGalleryPhoto(
       outfit: pick.outfit,
       pose: pick.pose,
     };
+    consumedTemplateId = pick.id;
     console.log("[persona-ops/append-nude] using DB template", {
       pool: dbNude.length,
       scene: pick.scene.slice(0, 60),
@@ -581,6 +584,15 @@ export async function appendNudeGalleryPhoto(
 
   if (updateErr) {
     return { ok: false, error: `DB-update faalde: ${updateErr.message}`, status: 500 };
+  }
+
+  // Consume the DB template so it is never used again (single-use pool).
+  if (consumedTemplateId) {
+    try {
+      await service.from("scene_templates").delete().eq("id", consumedTemplateId);
+    } catch (e) {
+      console.warn("[persona-ops/append-nude] failed to consume template", e);
+    }
   }
 
   return {

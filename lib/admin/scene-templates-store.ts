@@ -582,21 +582,25 @@ export async function loadRecentRejections(
 const NUDE_CATEGORY = "nude";
 
 /** Loads active NUDE templates from the DB. Returns null when the lookup
- * fails or no nude rows exist (caller falls back to in-code NUDE_TEMPLATES). */
+ * fails or no nude rows exist (caller falls back to in-code NUDE_TEMPLATES).
+ * Each returned template includes `id` and `template_id` so the caller can
+ * consume (delete) the template after use. */
 export async function loadActiveNudeTemplates(
   service: SupabaseClient,
-): Promise<SceneTemplate[] | null> {
+): Promise<(SceneTemplate & { id: string; template_id: string })[] | null> {
   try {
     const { data, error } = await service
       .from(SCENE_TEMPLATES_TABLE)
       .select(
-        "scene, camera, backdrop, lighting, capture, outfit, pose, kind, template_id",
+        "id, template_id, scene, camera, backdrop, lighting, capture, outfit, pose, kind",
       )
       .eq("is_active", true)
       .eq("category", NUDE_CATEGORY);
     if (error) throw error;
     if (!data || data.length === 0) return null;
     return (data as Row[]).map((r) => ({
+      id: String(r.id ?? ""),
+      template_id: String(r.template_id ?? ""),
       scene: String(r.scene ?? ""),
       camera: String(r.camera ?? ""),
       backdrop: String(r.backdrop ?? ""),
