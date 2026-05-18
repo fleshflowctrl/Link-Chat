@@ -1,0 +1,221 @@
+/**
+ * V2 (FetLife) theme overrides — scoped to app + funnel wrappers.
+ * Tailwind semantic tokens (canvas, ink, primary) come from CSS vars in globals.css;
+ * this file remaps legacy v1 utility classes on shared components.
+ */
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) {
+  color: rgb(var(--ink));
+}
+
+/* ── Surfaces ─────────────────────────────────────────────────────────── */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"])
+  .bg-white:not([class*="bg-white/"]) {
+  background-color: #2a2a2b !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-50,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-100 {
+  background-color: #1d1d1e !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-ink\/\[0\.04\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-ink\/\[0\.08\] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#F5F3EE\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#FDFCF9\] {
+  background-color: rgb(var(--canvas)) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#EDE7FF\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#F4EFFF\] {
+  background-color: #2a2a2b !important;
+}
+
+/* ── Typography ───────────────────────────────────────────────────────── */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-gray-900,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-gray-800,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-gray-700 {
+  color: #e8e8e8 !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-gray-600,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-gray-500 {
+  color: #9b9b9b !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-gray-400 {
+  color: #7a7a7a !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-ink\/30,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-ink\/35,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-ink\/40 {
+  color: rgba(232, 232, 232, 0.45) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-pink-600 {
+  color: #d63b3a !important;
+}
+
+/* ── Borders & dividers ───────────────────────────────────────────────── */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-gray-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-gray-200,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-gray-300 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-black\/\[0\.06\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-black\/\[0\.04\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-black\/\[0\.05\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-black\/\[0\.08\] {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"])
+  .divide-gray-100
+  > :not([hidden])
+  ~ :not([hidden]) {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-black\/\[0\.06\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-black\/\[0\.04\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-black\/\[0\.05\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-black\/\[0\.08\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-black\/\[0\.1\] {
+  --tw-ring-color: rgba(181, 43, 42, 0.22) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-gray-200,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-gray-300 {
+  --tw-ring-color: rgba(181, 43, 42, 0.2) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-lavender\/60,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-primary\/15,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-primary\/10 {
+  --tw-ring-color: rgba(181, 43, 42, 0.28) !important;
+}
+
+/* ── Purple / pink gradients → FetLife red ───────────────────────────── */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-primary {
+  --tw-gradient-from: rgb(181 43 42) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(181 43 42 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-\[\#EDE7FF\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#FDE4F0\] {
+  --tw-gradient-from: #3a2a2a var(--tw-gradient-from-position) !important;
+  --tw-gradient-via: #2a2a2b var(--tw-gradient-via-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via),
+    var(--tw-gradient-to) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#FDE4F0\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#EDE7FF\] {
+  --tw-gradient-to: #2a2a2b var(--tw-gradient-to-position) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#8B6BFF\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#8E6BFF\] {
+  --tw-gradient-via: #c93535 var(--tw-gradient-via-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via),
+    var(--tw-gradient-to) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-accentPink,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-accentPink\/15,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-accentPink\/20 {
+  --tw-gradient-to: #d63b3a var(--tw-gradient-to-position) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-primary\/25,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-primary\/10 {
+  --tw-gradient-from: rgb(181 43 42 / 0.25) var(--tw-gradient-from-position) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .shadow-card,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .shadow-sm,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .shadow-xl {
+  --tw-shadow-color: rgba(0, 0, 0, 0.45);
+}
+
+/* ── Form fields ────────────────────────────────────────────────────────── */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"])
+  input:not([type="checkbox"]):not([type="radio"]),
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) textarea,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) select {
+  background-color: #1d1d1e !important;
+  color: #e8e8e8 !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) input::placeholder,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) textarea::placeholder {
+  color: #6b6b6b !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) input:focus,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) textarea:focus {
+  --tw-ring-color: rgba(181, 43, 42, 0.45) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-gray-200.bg-white,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"])
+  .rounded-full.border-2.border-gray-200.bg-white {
+  background-color: #1d1d1e !important;
+  border-color: rgba(181, 43, 42, 0.35) !important;
+  color: #e8e8e8 !important;
+}
+
+/* Chat: peer bubble */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .rounded-bl-md.bg-white {
+  background-color: #353536 !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .hover\:bg-gray-50:hover {
+  background-color: #353536 !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .hover\:bg-black\/\[0\.03\]:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-900 {
+  background-color: #b52b2a !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"])
+  .focus-visible\:ring-gray-900:focus-visible {
+  --tw-ring-color: #b52b2a !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-red-50 {
+  background-color: rgba(181, 43, 42, 0.12) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-red-700 {
+  color: #f0a0a0 !important;
+}
+
+/* Funnel vibe tiles — muted on dark */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-pink-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-purple-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-yellow-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-red-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-green-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-amber-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-sky-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-blue-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-orange-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-teal-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-indigo-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-fuchsia-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-rose-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-violet-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-emerald-100 {
+  background-color: #353536 !important;
+}
