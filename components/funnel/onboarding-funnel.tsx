@@ -412,7 +412,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       const pid = firstContact.profileId;
       const msgTrim = firstMessage.trim();
       const didFirstMessage = Boolean(
-        pid && pickedMatch && msgTrim.length >= 10,
+        pid && pickedMatch && msgTrim.length > 0,
       );
 
       const signupResult = await saveFunnelAccount({
@@ -1397,7 +1397,7 @@ function StepFirstMessage({
   onChange: (s: string) => void;
   onContinue: () => void;
 }) {
-  const ok = value.trim().length >= 10;
+  const ok = value.trim().length > 0;
   const len = value.length;
 
   const name = peer?.name ?? "jou";
