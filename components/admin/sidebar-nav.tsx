@@ -26,7 +26,8 @@ type NavItem = {
 };
 
 export const ADMIN_NAV: NavItem[] = [
-  { href: "/admin/metrics", label: "Statistieken", icon: <ChartIcon />, matchPrefix: true },
+  { href: "/admin/metrics", label: "Statistieken (live)", icon: <ChartIcon /> },
+  { href: "/admin/metrics/totaal", label: "Statistieken (totaal)", icon: <ChartIcon /> },
   { href: "/admin/users", label: "Gebruikers", icon: <IdIcon />, matchPrefix: true },
   { href: "/admin/personas", label: "Personas", icon: <UsersIcon />, matchPrefix: true },
   { href: "/admin/messages", label: "Berichten", icon: <ChatBubbleIcon />, matchPrefix: true },

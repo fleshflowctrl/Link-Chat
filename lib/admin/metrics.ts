@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { listAllAuthUsers } from "@/lib/admin/auth-users";
+import { listAllAuthUsers, type AdminAuthUser } from "@/lib/admin/auth-users";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 
 export type AdminMetrics = {
@@ -65,6 +65,9 @@ export type AdminMetrics = {
     /** Of the eligible cohort, how many were still active ≥ N days later. */
     retained: number;
   }>;
+
+  /** ISO timestamp the live view counts from (`null` = all-time). */
+  metricsSince: string | null;
 };
 
 /** Labels for the 7-step onboarding funnel. Update if steps change. */
@@ -78,13 +81,93 @@ export const FUNNEL_STEP_LABELS: Record<number, string> = {
   7: "Account aanmaken",
 };
 
+export type LoadMetricsOptions = {
+  /** ISO timestamp — when set, every count is filtered to events
+   *  happening on/after this moment. `null`/undefined = all-time. */
+  since?: string | null;
+};
+
+/**
+ * Aggregates the admin dashboard metrics. Pass `since` to compute the
+ * "live" view that counts from the last reset; omit it for the all-time
+ * dashboard.
+ */
 export async function loadAdminMetrics(
   service: SupabaseClient,
+  options: LoadMetricsOptions = {},
 ): Promise<AdminMetrics> {
   const now = Date.now();
   const day = 24 * 60 * 60 * 1000;
   const since7d = new Date(now - 7 * day).toISOString();
   const since30d = new Date(now - 30 * day).toISOString();
+  const since = options.since ?? null;
+
+  // ---------------------------------------------------------------------
+  // Query builders. Each is conditionally filtered by `since` on the
+  // appropriate timestamp column so the live view starts fresh after a
+  // reset while the all-time view keeps everything.
+  // ---------------------------------------------------------------------
+  let visitorsTotalQuery = service
+    .from("site_visits")
+    .select("visitor_id", { count: "exact", head: true });
+  if (since) visitorsTotalQuery = visitorsTotalQuery.gte("first_visit_at", since);
+
+  const visitors7Query = service
+    .from("site_visits")
+    .select("visitor_id", { count: "exact", head: true })
+    .gte("first_visit_at", since && since > since7d ? since : since7d);
+
+  const visitors30Query = service
+    .from("site_visits")
+    .select("visitor_id", { count: "exact", head: true })
+    .gte("first_visit_at", since && since > since30d ? since : since30d);
+
+  let msgQuery = service
+    .from("chat_messages")
+    .select("owner_user_id, sender, created_at")
+    .eq("sender", "me");
+  if (since) msgQuery = msgQuery.gte("created_at", since);
+
+  // user_profiles holds the *current* balance; reset doesn't change it.
+  const profileQuery = service
+    .from("user_profiles")
+    .select("user_id, purchase_count, credits");
+
+  let clicksTotalQuery = service
+    .from("credit_checkout_clicks")
+    .select("id", { count: "exact", head: true });
+  if (since) clicksTotalQuery = clicksTotalQuery.gte("created_at", since);
+
+  const clicks7Query = service
+    .from("credit_checkout_clicks")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", since && since > since7d ? since : since7d);
+
+  let clickRowsQuery = service.from("credit_checkout_clicks").select("user_id");
+  if (since) clickRowsQuery = clickRowsQuery.gte("created_at", since);
+
+  let purchasesTotalQuery = service
+    .from("credit_purchases")
+    .select("id", { count: "exact", head: true });
+  if (since) purchasesTotalQuery = purchasesTotalQuery.gte("created_at", since);
+
+  const purchases7Query = service
+    .from("credit_purchases")
+    .select("id", { count: "exact", head: true })
+    .gte("created_at", since && since > since7d ? since : since7d);
+
+  let stepViewQuery = service.from("funnel_step_views").select("step");
+  if (since) stepViewQuery = stepViewQuery.gte("first_viewed_at", since);
+
+  let purchaseGrantQuery = service
+    .from("credit_purchases")
+    .select("user_id, granted_credits");
+  if (since) purchaseGrantQuery = purchaseGrantQuery.gte("created_at", since);
+
+  let rewardQuery = service
+    .from("user_profile_rewards")
+    .select("owner_user_id, credits_paid");
+  if (since) rewardQuery = rewardQuery.gte("awarded_at", since);
 
   const [
     visitorsTotal,
@@ -92,7 +175,7 @@ export async function loadAdminMetrics(
     visitors30,
     msgRows,
     profRows,
-    users,
+    allUsers,
     clicksTotal,
     clicks7d,
     clickRows,
@@ -102,51 +185,32 @@ export async function loadAdminMetrics(
     purchaseGrantRows,
     rewardRows,
   ] = await Promise.all([
-    service.from("site_visits").select("visitor_id", {
-      count: "exact",
-      head: true,
-    }),
-    service
-      .from("site_visits")
-      .select("visitor_id", { count: "exact", head: true })
-      .gte("first_visit_at", since7d),
-    service
-      .from("site_visits")
-      .select("visitor_id", { count: "exact", head: true })
-      .gte("first_visit_at", since30d),
-    service
-      .from("chat_messages")
-      .select("owner_user_id, sender, created_at")
-      .eq("sender", "me"),
-    service
-      .from("user_profiles")
-      .select("user_id, purchase_count, credits"),
+    visitorsTotalQuery,
+    visitors7Query,
+    visitors30Query,
+    msgQuery,
+    profileQuery,
     listAllAuthUsers(service),
-    service
-      .from("credit_checkout_clicks")
-      .select("id", { count: "exact", head: true }),
-    service
-      .from("credit_checkout_clicks")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", since7d),
-    service.from("credit_checkout_clicks").select("user_id"),
-    service
-      .from("credit_purchases")
-      .select("id", { count: "exact", head: true }),
-    service
-      .from("credit_purchases")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", since7d),
-    service.from("funnel_step_views").select("step"),
-    service.from("credit_purchases").select("user_id, granted_credits"),
-    service
-      .from("user_profile_rewards")
-      .select("owner_user_id, credits_paid"),
+    clicksTotalQuery,
+    clicks7Query,
+    clickRowsQuery,
+    purchasesTotalQuery,
+    purchases7Query,
+    stepViewQuery,
+    purchaseGrantQuery,
+    rewardQuery,
   ]);
 
   const visitors = visitorsTotal.count ?? 0;
   const visitorsLast7d = visitors7.count ?? 0;
   const visitorsLast30d = visitors30.count ?? 0;
+
+  // Restrict the user cohort itself when a cutoff is set so all per-user
+  // metrics (paying, credits-spent, retention) describe the same window.
+  const users: AdminAuthUser[] = since
+    ? allUsers.filter((u) => u.createdAt && u.createdAt >= since)
+    : allUsers;
+  const cohortIds = new Set(users.map((u) => u.id));
 
   const msgs =
     (msgRows.data as Array<{
@@ -173,18 +237,19 @@ export async function loadAdminMetrics(
       purchase_count: number | null;
       credits: number | null;
     }> | null) ?? [];
-  const payingUsers = profiles.filter(
-    (p) => typeof p.purchase_count === "number" && p.purchase_count > 0,
-  ).length;
 
-  // Per-user accounting of credits.
-  //
-  //   credited = STARTING + rewards + grants_from_purchases
+  // Paying = profile.purchase_count > 0, restricted to the cohort when a
+  // cutoff is set. (purchase_count is cumulative; the credit_purchases
+  // counts above are the cutoff-aware version of that signal.)
+  const payingUsers = profiles.filter((p) => {
+    if (typeof p.purchase_count !== "number" || p.purchase_count <= 0) return false;
+    if (since && !cohortIds.has(p.user_id)) return false;
+    return true;
+  }).length;
+
+  // Per-user credit accounting on the active cohort.
+  //   credited = STARTING + rewards-within-window + grants-within-window
   //   spent    = credited - current_balance
-  //
-  // We use user_profiles as the authoritative balance and union user-ids
-  // from auth.users so newly signed-up accounts (no profile row yet) are
-  // counted with just their starting credits.
   const balanceByUser = new Map<string, number>();
   for (const p of profiles) {
     if (typeof p.credits === "number") balanceByUser.set(p.user_id, Math.max(0, p.credits));
@@ -239,11 +304,7 @@ export async function loadAdminMetrics(
   const avgCreditsSpentPerChatter =
     chatterSet.size > 0 ? chatterCreditsSpent / chatterSet.size : 0;
 
-  // Retention: of users whose account is at least N days old, how many
-  // were active (= sent a message) at least N days after their signup?
-  // This is the standard "Day-N retention" definition that survives
-  // small cohorts without going to 0 when nobody happens to come back
-  // exactly on day N.
+  // Retention: standard Day-N within the active cohort.
   const retentionDays = [1, 7, 30];
   const retention = retentionDays.map((days) => {
     const cutoffMs = days * day;
@@ -287,9 +348,7 @@ export async function loadAdminMetrics(
   }
   const checkoutClickers = checkoutClickerSet.size;
 
-  // Per-step funnel reach (distinct visitors per step). The table's
-  // primary key already enforces "first view only", so a simple bucket
-  // count is the same as a distinct visitor count.
+  // Per-step funnel reach (distinct visitors per step).
   const stepCounts = new Map<number, number>();
   const rawSteps =
     (stepViewRows.data as Array<{ step: number | null }> | null) ?? [];
@@ -308,10 +367,12 @@ export async function loadAdminMetrics(
   }));
 
   // Visitor → conversion linkage via site_visits.signed_up_user_id.
-  const { data: linkedRows } = await service
+  let linkedQuery = service
     .from("site_visits")
     .select("signed_up_user_id")
     .not("signed_up_user_id", "is", null);
+  if (since) linkedQuery = linkedQuery.gte("first_visit_at", since);
+  const { data: linkedRows } = await linkedQuery;
   const linked =
     (linkedRows as Array<{ signed_up_user_id: string | null }> | null) ?? [];
   const linkedIds = new Set<string>();
@@ -350,6 +411,7 @@ export async function loadAdminMetrics(
     avgCreditsSpentPerSignup,
     avgCreditsSpentPerChatter,
     retention,
+    metricsSince: since,
   };
 }
 

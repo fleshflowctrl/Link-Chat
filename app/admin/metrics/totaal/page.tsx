@@ -3,14 +3,13 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { MetricsDashboard } from "@/components/admin/metrics-dashboard";
-import { MetricsResetButton } from "@/components/admin/metrics-reset-button";
 import { loadAdminMetrics, type AdminMetrics } from "@/lib/admin/metrics";
 import { getMetricsSince } from "@/lib/admin/metrics-settings";
 
 export const dynamic = "force-dynamic";
 
 async function loadMetrics(): Promise<
-  | { ok: true; metrics: AdminMetrics; metricsSince: string | null }
+  | { ok: true; metrics: AdminMetrics; liveSince: string | null }
   | { ok: false; error: string }
 > {
   const service = getServiceSupabase();
@@ -21,9 +20,11 @@ async function loadMetrics(): Promise<
     };
   }
   try {
-    const metricsSince = await getMetricsSince(service);
-    const metrics = await loadAdminMetrics(service, { since: metricsSince });
-    return { ok: true, metrics, metricsSince };
+    // Read the live cutoff just for context display; the all-time view
+    // intentionally ignores it when loading metrics.
+    const liveSince = await getMetricsSince(service);
+    const metrics = await loadAdminMetrics(service, { since: null });
+    return { ok: true, metrics, liveSince };
   } catch (e) {
     return {
       ok: false,
@@ -43,10 +44,10 @@ function formatTs(iso: string): string {
   }
 }
 
-export default async function AdminMetricsPage() {
+export default async function AdminMetricsTotalPage() {
   const auth = await requireAdmin();
   if (!auth.ok) {
-    if (auth.status === 401) redirect("/login?next=/admin/metrics");
+    if (auth.status === 401) redirect("/login?next=/admin/metrics/totaal");
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900">
         <h1 className="text-lg font-semibold">Geen toegang</h1>
@@ -56,19 +57,21 @@ export default async function AdminMetricsPage() {
   }
 
   const res = await loadMetrics();
-  const metricsSince = res.ok ? res.metricsSince : null;
 
   return (
     <div className="mx-auto max-w-7xl">
       <AdminPageHeader
-        crumbs={[{ label: "Admin" }, { label: "Statistieken" }]}
-        title="Statistieken (live)"
+        crumbs={[
+          { label: "Admin" },
+          { label: "Statistieken", href: "/admin/metrics" },
+          { label: "Totaal" },
+        ]}
+        title="Statistieken (totaal)"
         description={
-          metricsSince
-            ? `Telt vanaf ${formatTs(metricsSince)}. Gebruik 'Totaal' voor alle data sinds het begin.`
-            : "Live view — nog nooit gereset. Gebruik 'Totaal' voor de all-time view."
+          res.ok && res.liveSince
+            ? `Alle data sinds het begin. Live-view telt vanaf ${formatTs(res.liveSince)}.`
+            : "Alle data sinds het begin — nooit gereset."
         }
-        actions={<MetricsResetButton metricsSince={metricsSince} />}
       />
 
       {!res.ok ? (
