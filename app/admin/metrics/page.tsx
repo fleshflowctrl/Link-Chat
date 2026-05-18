@@ -171,9 +171,9 @@ export default async function AdminMetricsPage() {
               tone="warn"
             />
             <StatCard
-              label="Klikken op Betaal"
-              value={nf(res.metrics.checkoutClicks)}
-              hint={`${nf(res.metrics.checkoutClickers)} unieke users · ${nf(res.metrics.checkoutClicksLast7d)} laatste 7d`}
+              label="Unieke betaal-klikkers"
+              value={nf(res.metrics.checkoutClickers)}
+              hint={`${nf(res.metrics.checkoutClicks)} totale kliks · ${nf(res.metrics.checkoutClicksLast7d)} laatste 7d`}
               tone="primary"
             />
             <StatCard
