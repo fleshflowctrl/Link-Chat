@@ -236,59 +236,10 @@ export function ChatConversationView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
-  /**
-   * Profile-photo gate. We require a profile photo before the user starts a
-   * brand-new chat (= sends their first outbound message in this thread).
-   * `myPhotoUrl === ""` means we've confirmed (server) that no photo is set.
-   * `null` means we haven't fetched yet — gate is permissive in that case.
-   */
-  const [myPhotoUrl, setMyPhotoUrl] = useState<string | null>(null);
-  const [photoGate, setPhotoGate] = useState<{
-    open: boolean;
-    /** What the user was trying to do; stored only for UX clarity (toast). */
-    intent: "text" | "image" | "gift";
-  } | null>(null);
 
   /** Per-message blur unlock state for this chat session. */
   const [unlockedBlurred, setUnlockedBlurred] = useState<Record<string, boolean>>({});
   const [unlockBusy, setUnlockBusy] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch("/api/me/profile", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: { profile?: { mainPhotoUrl?: string } } | null) => {
-        if (cancelled || !data?.profile) return;
-        setMyPhotoUrl(data.profile.mainPhotoUrl ?? "");
-      })
-      .catch(() => {
-        /* leave null = permissive */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /** True when this thread has no outbound message from the user yet. */
-  const isBrandNewChat = useMemo(
-    () => messages.every((m) => m.sender !== "me"),
-    [messages],
-  );
-
-  /**
-   * Returns true if the action should be blocked. Opens the gate modal as a
-   * side-effect. Caller should early-return when this returns true.
-   */
-  const blockIfNoProfilePhoto = useCallback(
-    (intent: "text" | "image" | "gift"): boolean => {
-      if (!isBrandNewChat) return false;
-      if (myPhotoUrl === null) return false; // not yet fetched — be permissive
-      if (myPhotoUrl.trim().length > 0) return false;
-      setPhotoGate({ open: true, intent });
-      return true;
-    },
-    [isBrandNewChat, myPhotoUrl],
-  );
 
   const [creditsGateOpen, setCreditsGateOpen] = useState(false);
 
@@ -611,8 +562,6 @@ export function ChatConversationView({
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
-      if (blockIfNoProfilePhoto("text")) return;
-
       if (useSupabase) {
         const bal = getCreditsSnapshot().balance;
         if (bal < CHAT_MESSAGE_COST_CREDITS) {
@@ -804,13 +753,12 @@ export function ChatConversationView({
         setInput(trimmed);
       }
     },
-    [blockIfNoProfilePhoto, chatId, openCreditsGate, useSupabase, meta],
+    [chatId, openCreditsGate, useSupabase, meta],
   );
 
   const sendImage = useCallback(
     async (publicUrl: string) => {
       if (!publicUrl) return;
-      if (blockIfNoProfilePhoto("image")) return;
       if (useSupabase) {
         const bal = getCreditsSnapshot().balance;
         if (bal < CHAT_MESSAGE_COST_CREDITS) {
@@ -918,13 +866,12 @@ export function ChatConversationView({
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
       }
     },
-    [blockIfNoProfilePhoto, chatId, openCreditsGate, useSupabase, meta],
+    [chatId, openCreditsGate, useSupabase, meta],
   );
 
   const sendGift = useCallback(
     async (amount: number) => {
       if (!Number.isFinite(amount) || amount <= 0) return { ok: false as const, error: "Ongeldig bedrag" };
-      if (blockIfNoProfilePhoto("gift")) return { ok: false as const, error: "Profielfoto vereist" };
 
       const { timeLabel, minuteOfDay } = nowAmsterdamClock();
       const tempId = `tmp-${gid()}`;
@@ -992,7 +939,7 @@ export function ChatConversationView({
         return { ok: false as const, error: "Netwerkfout" };
       }
     },
-    [blockIfNoProfilePhoto, chatId, meta],
+    [chatId, meta],
   );
 
   function attachReactionTo(messageId: string, emoji: string) {
@@ -1618,66 +1565,6 @@ export function ChatConversationView({
                 className="mt-2 w-full py-2.5 text-[13px] font-semibold text-gray-500"
               >
                 Niet nu
-              </button>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {photoGate?.open && (
-          <>
-            <motion.div
-              key="photo-gate-bg"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[210] bg-black/45"
-              onClick={() => setPhotoGate(null)}
-            />
-            <motion.div
-              key="photo-gate-sheet"
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "tween", duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-              className="fixed inset-x-0 bottom-0 z-[220] mx-auto max-w-[430px] rounded-t-3xl bg-white px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl"
-            >
-              <div className="mb-4 flex justify-center">
-                <div className="h-1 w-10 rounded-full bg-gray-200" />
-              </div>
-
-              <div className="flex flex-col items-center text-center">
-                <span
-                  className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#7C5CFF] to-[#9B7BFF] text-2xl text-white shadow-md"
-                  aria-hidden
-                >
-                  📸
-                </span>
-                <h2 className="text-[18px] font-extrabold text-ink">
-                  Voeg eerst een profielfoto toe
-                </h2>
-                <p className="mt-1.5 text-[13px] leading-snug text-gray-600">
-                  Profielen met een foto krijgen tot{" "}
-                  <span className="font-bold text-ink">5× meer</span> antwoorden.
-                  Voor je een nieuwe chat begint moet je dus eerst een foto
-                  toevoegen.
-                </p>
-              </div>
-
-              <Link
-                href="/me/edit?focus=photo"
-                onClick={() => setPhotoGate(null)}
-                className="mt-5 flex w-full items-center justify-center rounded-full bg-[#7C5CFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
-              >
-                Profielfoto toevoegen
-              </Link>
-              <button
-                type="button"
-                onClick={() => setPhotoGate(null)}
-                className="mt-2 w-full py-2 text-[13px] font-semibold text-gray-500"
-              >
-                Later
               </button>
             </motion.div>
           </>

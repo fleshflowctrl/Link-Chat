@@ -148,10 +148,7 @@ export function getProfileCompleteness(
   return { fields, completedCount, totalCount, percent, nextSteps };
 }
 
-/**
- * Hard requirement: a profile photo must be set before the user starts a
- * brand-new conversation. Used by the chat composer to gate `sendText`.
- */
+/** Whether the user has set a main profile photo (completeness / rewards). */
 export function hasProfilePhoto(
   state: Pick<EditProfileState, "mainPhotoUrl">,
 ): boolean {
