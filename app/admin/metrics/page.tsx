@@ -237,14 +237,78 @@ export default async function AdminMetricsPage() {
                 label="Sign-up → klikte op Betaal"
                 num={res.metrics.checkoutClickers}
                 denom={res.metrics.signups}
-                hint="Unieke users die de Betaal-knop indrukten"
+                hint="Unieke users die minstens 1× op Betaal klikten"
+              />
+              <FunnelRow
+                label="Betaal-klikker → betaalde klant"
+                num={res.metrics.payingUsers}
+                denom={res.metrics.checkoutClickers}
+                hint="Van de mensen die klikten — hoeveel rondden af"
               />
               <FunnelRow
                 label="Klik op Betaal → voltooide aankoop"
                 num={res.metrics.paidPurchases}
                 denom={res.metrics.checkoutClicks}
-                hint="Hoeveel kliks daadwerkelijk een betaling worden"
+                hint="Per losse klik (incl. herhalingen door dezelfde user)"
               />
+            </ul>
+          </section>
+
+          <section className="mb-8 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+            <header className="border-b border-black/5 px-5 py-4">
+              <h2 className="text-sm font-semibold tracking-tight text-gray-900">
+                Funnel doorloop — per stap
+              </h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Unieke bezoekers per onboarding-stap. Drop-off is het
+                verschil met de vorige stap.
+              </p>
+            </header>
+            <ul className="divide-y divide-black/5">
+              {res.metrics.funnelSteps.map((s, i) => {
+                const base = res.metrics.funnelSteps[0]?.visitors ?? 0;
+                const prev = i > 0 ? res.metrics.funnelSteps[i - 1].visitors : null;
+                const dropoff =
+                  prev !== null && prev > 0
+                    ? Math.max(0, prev - s.visitors)
+                    : 0;
+                const dropoffPct =
+                  prev !== null && prev > 0 ? (dropoff / prev) * 100 : 0;
+                const reachPct = base > 0 ? (s.visitors / base) * 100 : 0;
+                return (
+                  <li key={s.step} className="flex items-center gap-4 px-5 py-4">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-gray-600">
+                      {s.step}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {s.label}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {prev === null
+                          ? "Startpunt van de funnel"
+                          : dropoff > 0
+                            ? `−${nf(dropoff)} bezoeker${dropoff === 1 ? "" : "s"} (${pctLabel(dropoffPct)} drop-off)`
+                            : "Niemand viel hier af"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <div className="hidden h-2 w-40 overflow-hidden rounded-full bg-gray-100 sm:block">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-primary to-pink-400"
+                          style={{ width: `${Math.min(100, reachPct)}%` }}
+                        />
+                      </div>
+                      <div className="w-20 text-right text-sm font-semibold tabular-nums text-gray-900">
+                        {pctLabel(reachPct)}
+                      </div>
+                      <div className="w-24 text-right text-xs tabular-nums text-gray-500">
+                        {nf(s.visitors)} bezoekers
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </section>
 

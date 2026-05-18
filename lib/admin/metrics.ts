@@ -40,6 +40,20 @@ export type AdminMetrics = {
 
   /** Visitors whose linked user has at least one chat message. */
   visitorsConvertedToChat: number;
+
+  /** Per-step funnel reach (distinct visitors who saw each step). */
+  funnelSteps: Array<{ step: number; label: string; visitors: number }>;
+};
+
+/** Labels for the 7-step onboarding funnel. Update if steps change. */
+export const FUNNEL_STEP_LABELS: Record<number, string> = {
+  1: "Welkom",
+  2: "Op zoek naar",
+  3: "Geslacht",
+  4: "Voorkeurs-geslacht",
+  5: "Eerste match kiezen",
+  6: "Eerste bericht",
+  7: "Account aanmaken",
 };
 
 export async function loadAdminMetrics(
@@ -62,6 +76,7 @@ export async function loadAdminMetrics(
     clickRows,
     purchasesTotal,
     purchases7d,
+    stepViewRows,
   ] = await Promise.all([
     service.from("site_visits").select("visitor_id", {
       count: "exact",
@@ -96,6 +111,7 @@ export async function loadAdminMetrics(
       .from("credit_purchases")
       .select("id", { count: "exact", head: true })
       .gte("created_at", since7d),
+    service.from("funnel_step_views").select("step"),
   ]);
 
   const visitors = visitorsTotal.count ?? 0;
@@ -143,6 +159,26 @@ export async function loadAdminMetrics(
   }
   const checkoutClickers = checkoutClickerSet.size;
 
+  // Per-step funnel reach (distinct visitors per step). The table's
+  // primary key already enforces "first view only", so a simple bucket
+  // count is the same as a distinct visitor count.
+  const stepCounts = new Map<number, number>();
+  const rawSteps =
+    (stepViewRows.data as Array<{ step: number | null }> | null) ?? [];
+  for (const row of rawSteps) {
+    if (typeof row.step !== "number") continue;
+    stepCounts.set(row.step, (stepCounts.get(row.step) ?? 0) + 1);
+  }
+  const stepKeys = Object.keys(FUNNEL_STEP_LABELS)
+    .map((k) => Number(k))
+    .filter((n) => Number.isFinite(n))
+    .sort((a, b) => a - b);
+  const funnelSteps = stepKeys.map((step) => ({
+    step,
+    label: FUNNEL_STEP_LABELS[step] ?? `Stap ${step}`,
+    visitors: stepCounts.get(step) ?? 0,
+  }));
+
   // Visitor → conversion linkage via site_visits.signed_up_user_id.
   const { data: linkedRows } = await service
     .from("site_visits")
@@ -179,6 +215,7 @@ export async function loadAdminMetrics(
     paidPurchasesLast7d,
     visitorsConvertedToSignup,
     visitorsConvertedToChat,
+    funnelSteps,
   };
 }
 

@@ -47,6 +47,7 @@ import {
   prepareNewAccountClientSession,
 } from "@/lib/client-user-session";
 import { fireAffiliateSignupConversion } from "@/lib/affiliate/911-for-me";
+import { trackFunnelStep } from "@/lib/analytics/visitor-id";
 import { stashFunnelPendingProfile } from "@/lib/funnel/pending-profile";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
@@ -376,6 +377,14 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
     if (!hydrated) return;
     persistNow();
   }, [hydrated, persistNow]);
+
+  // Server-side funnel-step tracking. The upsert is keyed on
+  // (visitor_id, step) so repeated effects (HMR, double mount, back/next)
+  // are idempotent — totals stay accurate.
+  useEffect(() => {
+    if (!hydrated) return;
+    void trackFunnelStep(step);
+  }, [hydrated, step]);
 
   const goNext = useCallback(() => {
     setNavDir(1);

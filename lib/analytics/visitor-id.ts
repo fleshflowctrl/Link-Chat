@@ -48,6 +48,27 @@ export async function trackVisit(): Promise<void> {
   }
 }
 
+/**
+ * Records the first time the visitor reaches an onboarding funnel step.
+ * Server-side upsert deduplicates on (visitor, step), so it's safe to
+ * fire on every render.
+ */
+export async function trackFunnelStep(step: number): Promise<void> {
+  const visitorId = getOrCreateVisitorId();
+  if (!visitorId) return;
+  if (!Number.isFinite(step) || step < 1) return;
+  try {
+    await fetch("/api/track/funnel-step", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ visitorId, step }),
+      keepalive: true,
+    });
+  } catch {
+    // Best-effort.
+  }
+}
+
 /** Links the current visitor to a newly signed-up user. */
 export async function trackSignupLink(userId: string | null): Promise<void> {
   const visitorId = getOrCreateVisitorId();
