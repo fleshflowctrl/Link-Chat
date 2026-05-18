@@ -16,6 +16,7 @@ import {
   RefreshCcw,
   Sparkles,
   Timer,
+  Zap,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
 import { HOURLY_FEED_SIZE } from "@/lib/catalog/hourly-feed";
@@ -402,54 +403,93 @@ function FeedEndCard({
   onRefreshNow,
 }: EndProps) {
   return (
-    <div className="flex flex-col items-center gap-2 rounded-3xl bg-white p-4 text-center shadow-lg ring-1 ring-black/5">
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-lavender">
+    <div className="relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl bg-white p-5 text-center shadow-xl ring-1 ring-black/5">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gradient-to-br from-primary/25 via-accentPink/15 to-transparent blur-2xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-gradient-to-tr from-accentPink/20 via-primary/10 to-transparent blur-2xl"
+      />
+
+      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accentPink shadow-md ring-4 ring-lavender/60">
         <Sparkles
-          className="h-5 w-5 text-primary"
+          className="h-7 w-7 text-white"
           strokeWidth={2.25}
           aria-hidden
         />
       </span>
-      <h2 className="text-[16px] font-extrabold tracking-tight text-ink">
-        Klaar met deze ronde
-      </h2>
-      <p className="text-[12px] leading-snug text-inkMuted">
-        Dit waren je {HOURLY_FEED_SIZE} matches van dit uur — er staan{" "}
-        <span className="font-bold text-ink">honderden andere profielen</span>{" "}
-        klaar. Nieuwe selectie over{" "}
-        <span className="font-bold text-ink">{countdown}</span>.
-      </p>
+
+      <div className="relative flex flex-col items-center gap-1">
+        <h2 className="text-[20px] font-extrabold tracking-tight text-ink">
+          Klaar voor meer?
+        </h2>
+        <p className="text-[13px] leading-snug text-inkMuted">
+          Je hebt de {HOURLY_FEED_SIZE} matches van dit uur bekeken — maar{" "}
+          <span className="font-bold text-ink">
+            honderden andere profielen
+          </span>{" "}
+          wachten al.
+        </p>
+      </div>
 
       {!isAnonymous && (
-        <button
-          type="button"
-          onClick={() => {
-            void onRefreshNow();
-          }}
-          disabled={refreshing || insufficient}
-          className="mt-0.5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-primary px-3 py-2.5 text-[13px] font-bold text-white shadow-md transition active:scale-[0.98] disabled:opacity-60"
-        >
-          <RefreshCcw
-            className={`h-4 w-4 shrink-0 ${refreshing ? "animate-spin" : ""}`}
-            strokeWidth={2.5}
-            aria-hidden
-          />
-          <span className="truncate">
-            {refreshing
-              ? "Vernieuwen…"
-              : insufficient
-                ? `Te weinig credits (${refreshCost} nodig)`
-                : `Toon nu ${HOURLY_FEED_SIZE} nieuwe profielen`}
-          </span>
-          {!refreshing && !insufficient && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">
-              <Coins className="h-3 w-3" strokeWidth={2.5} aria-hidden />
-              {refreshCost}
+        <div className="relative w-full">
+          <button
+            type="button"
+            onClick={() => {
+              void onRefreshNow();
+            }}
+            disabled={refreshing || insufficient}
+            className="group relative flex w-full flex-col items-center gap-1 overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-[#8B6BFF] to-accentPink px-4 py-3 text-white shadow-lg transition active:scale-[0.98] disabled:opacity-60"
+          >
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full group-active:translate-x-full"
+            />
+            <span className="relative flex items-center gap-2 text-[15px] font-extrabold">
+              {refreshing ? (
+                <RefreshCcw
+                  className="h-4 w-4 animate-spin"
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+              ) : (
+                <Zap
+                  className="h-4 w-4"
+                  fill="currentColor"
+                  strokeWidth={0}
+                  aria-hidden
+                />
+              )}
+              {refreshing
+                ? "Vernieuwen…"
+                : insufficient
+                  ? `Te weinig credits (${refreshCost} nodig)`
+                  : `Ontgrendel ${HOURLY_FEED_SIZE} nieuwe matches`}
             </span>
-          )}
-        </button>
-      )}
+            {!refreshing && !insufficient && (
+              <span className="relative flex items-center gap-1.5 text-[11px] font-semibold text-white/90">
+                <span>Geen ruzie met de wachttijd —</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold tabular-nums backdrop-blur-sm">
+                  <Coins className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+                  {refreshCost}
+                </span>
+              </span>
+            )}
+          </button>
 
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] font-medium text-inkMuted">
+            <Timer className="h-3 w-3" strokeWidth={2.5} aria-hidden />
+            <span>
+              Of wacht{" "}
+              <span className="font-bold text-ink">{countdown}</span> op de
+              volgende ronde
+            </span>
+          </p>
+        </div>
+      )}
     </div>
   );
 }
