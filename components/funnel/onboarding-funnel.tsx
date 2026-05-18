@@ -46,6 +46,7 @@ import {
   clearLegacyFunnelLocalStorage,
   prepareNewAccountClientSession,
 } from "@/lib/client-user-session";
+import { fireAffiliateSignupConversion } from "@/lib/affiliate/911-for-me";
 import { stashFunnelPendingProfile } from "@/lib/funnel/pending-profile";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
@@ -430,6 +431,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       if (!signupResult.ok) {
         return { ok: false, error: signupResult.error };
       }
+
+      fireAffiliateSignupConversion({ txid: signupResult.userId });
 
       const credits = STARTING_USER_CREDITS;
 
