@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { VariantLink as Link } from "@/components/variant-link";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 import { BadgeCheck, MapPin, User } from "lucide-react";
 import type { Profile } from "@/data/profiles";
 
@@ -24,6 +26,7 @@ const INTEREST_EMOJI: Record<string, string> = {
  * no matter how light or busy the photo behind it is.
  */
 export function FeedCard({ profile }: Props) {
+  const { variant } = useAppVariant();
   const isOnline =
     profile.status.variant === "online" || profile.status.variant === "active";
   const isNew = profile.status.variant === "new";
@@ -116,7 +119,7 @@ export function FeedCard({ profile }: Props) {
         )}
 
         <Link
-          href={`/profile/${profile.id}`}
+          href={withVariantPath(`/profile/${profile.id}`, variant)}
           className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white/95 py-2.5 text-[13px] font-bold text-ink shadow-lg ring-1 ring-black/5 backdrop-blur-md transition active:scale-[0.98]"
         >
           <User className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />

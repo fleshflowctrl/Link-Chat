@@ -1,6 +1,27 @@
 "use client";
 
+import {
+  APP_VARIANT_STORAGE,
+  parseAppVariant,
+  type AppVariant,
+} from "@/lib/app-variant";
+
 const STORAGE_KEY = "whisper:vid";
+
+function resolveTrackingVariant(explicit?: AppVariant): AppVariant {
+  if (explicit) return explicit;
+  if (typeof window === "undefined") return "v1";
+  try {
+    const stored = window.localStorage.getItem(APP_VARIANT_STORAGE);
+    if (stored) return parseAppVariant(stored);
+  } catch {
+    /* ignore */
+  }
+  return parseAppVariant(
+    document.cookie.match(/(?:^|; )whisper_app_variant=([^;]*)/)?.[1] ??
+      null,
+  );
+}
 
 function generateUuid(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -29,15 +50,17 @@ export function getOrCreateVisitorId(): string | null {
 }
 
 /** Fire-and-forget visitor ping. Safe to call repeatedly. */
-export async function trackVisit(): Promise<void> {
+export async function trackVisit(variant?: AppVariant): Promise<void> {
   const visitorId = getOrCreateVisitorId();
   if (!visitorId) return;
+  const appVariant = resolveTrackingVariant(variant);
   try {
     await fetch("/api/track/visit", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         visitorId,
+        appVariant,
         referrer:
           typeof document !== "undefined" ? document.referrer || null : null,
       }),
@@ -53,15 +76,19 @@ export async function trackVisit(): Promise<void> {
  * Server-side upsert deduplicates on (visitor, step), so it's safe to
  * fire on every render.
  */
-export async function trackFunnelStep(step: number): Promise<void> {
+export async function trackFunnelStep(
+  step: number,
+  variant?: AppVariant,
+): Promise<void> {
   const visitorId = getOrCreateVisitorId();
   if (!visitorId) return;
   if (!Number.isFinite(step) || step < 1) return;
+  const appVariant = resolveTrackingVariant(variant);
   try {
     await fetch("/api/track/funnel-step", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ visitorId, step }),
+      body: JSON.stringify({ visitorId, step, appVariant }),
       keepalive: true,
     });
   } catch {
@@ -70,14 +97,22 @@ export async function trackFunnelStep(step: number): Promise<void> {
 }
 
 /** Links the current visitor to a newly signed-up user. */
-export async function trackSignupLink(userId: string | null): Promise<void> {
+export async function trackSignupLink(
+  userId: string | null,
+  variant?: AppVariant,
+): Promise<void> {
   const visitorId = getOrCreateVisitorId();
   if (!visitorId) return;
+  const appVariant = resolveTrackingVariant(variant);
   try {
     await fetch("/api/track/signup", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ visitorId, userId: userId ?? undefined }),
+      body: JSON.stringify({
+        visitorId,
+        userId: userId ?? undefined,
+        appVariant,
+      }),
       keepalive: true,
     });
   } catch {

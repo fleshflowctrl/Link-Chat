@@ -16,29 +16,34 @@ import {
   User,
 } from "lucide-react";
 
-const PURPLE = "#7C5CFF";
 const GRAY = "#9CA3AF";
 
-const tabs = [
-  { href: "/discover", label: "Ontdekken", Icon: Search, badge: null as string | null },
+const TAB_SUFFIXES = [
+  { suffix: "/discover", label: "Ontdekken", Icon: Search, badge: null as string | null },
   {
-    href: "/messages",
+    suffix: "/messages",
     label: "Berichten",
     Icon: MessageCircle,
     badge: null as string | null,
   },
-  { href: "/credits", label: "Credits", Icon: Coins, badge: null },
-  { href: "/me", label: "Profiel", Icon: User, badge: null },
+  { suffix: "/credits", label: "Credits", Icon: Coins, badge: null },
+  { suffix: "/me", label: "Profiel", Icon: User, badge: null },
 ] as const;
 
 function isActive(pathname: string, href: string) {
-  if (href === "/discover") return pathname === "/discover" || pathname === "/discover/new";
+  if (href.endsWith("/discover")) {
+    return (
+      pathname === href ||
+      pathname === `${href}/new` ||
+      pathname.startsWith(`${href}/new/`)
+    );
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function hideBottomNavOnPath(pathname: string | null) {
   if (!pathname) return false;
-  const m = pathname.match(/^\/messages\/([^/]+)$/);
+  const m = pathname.match(/^\/(?:v2\/)?messages\/([^/]+)$/);
   return Boolean(m && m[1] !== "new");
 }
 
@@ -57,18 +62,35 @@ async function fetchUnreadCount(): Promise<number | null> {
   }
 }
 
-export function BottomNav({ initialUnread = 0 }: { initialUnread?: number }) {
+export function BottomNav({
+  initialUnread = 0,
+  basePath = "",
+  accentColor = "#7C5CFF",
+  navSurfaceClass = "border-t border-black/[0.06] bg-[#FDFCF9]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#FDFCF9]/90",
+  badgeRingClass = "ring-[#FDFCF9]",
+}: {
+  initialUnread?: number;
+  /** `""` for v1, `"/v2"` for the A/B variant shell. */
+  basePath?: string;
+  accentColor?: string;
+  navSurfaceClass?: string;
+  badgeRingClass?: string;
+}) {
   const pathname = usePathname();
   const router = useRouter();
+  const tabs = TAB_SUFFIXES.map((t) => ({
+    ...t,
+    href: `${basePath}${t.suffix}`,
+  }));
 
   useEffect(() => {
     setServerUnreadBaseline(initialUnread);
   }, [initialUnread]);
 
   useEffect(() => {
-    router.prefetch("/messages");
+    router.prefetch(`${basePath}/messages`);
     void warmInboxThreadsCache();
-  }, [router]);
+  }, [router, basePath]);
 
   /**
    * Keep the unread badge accurate on every page (not just /messages):
@@ -115,10 +137,7 @@ export function BottomNav({ initialUnread = 0 }: { initialUnread?: number }) {
   }
 
   return (
-    <nav
-      className="shrink-0 border-t border-black/[0.06] bg-[#FDFCF9]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#FDFCF9]/90"
-      aria-label="Hoofdnavigatie"
-    >
+    <nav className={`shrink-0 ${navSurfaceClass}`} aria-label="Hoofdnavigatie">
       <div className="mx-auto flex max-w-[430px] justify-between gap-0.5 px-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {tabs.map(({ href, label, Icon, badge }) => {
           const active = isActive(pathname, href);
@@ -133,11 +152,13 @@ export function BottomNav({ initialUnread = 0 }: { initialUnread?: number }) {
                 <Icon
                   className="h-[20px] w-[20px] sm:h-[22px] sm:w-[22px]"
                   fill="none"
-                  stroke={active ? PURPLE : GRAY}
+                  stroke={active ? accentColor : GRAY}
                   strokeWidth={active ? 2.4 : 2}
                 />
                 {badgeLabel && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white shadow-sm ring-2 ring-[#FDFCF9] sm:h-[18px] sm:min-w-[18px] sm:text-[10px]">
+                  <span
+                    className={`absolute -right-0.5 -top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold leading-none text-white shadow-sm ring-2 ${badgeRingClass} sm:h-[18px] sm:min-w-[18px] sm:text-[10px]`}
+                  >
                     {badgeLabel}
                   </span>
                 )}
@@ -145,16 +166,16 @@ export function BottomNav({ initialUnread = 0 }: { initialUnread?: number }) {
               <span className="flex max-w-full flex-col items-center px-0.5">
                 <span
                   className={`max-w-full truncate ${
-                    active
-                      ? "font-bold text-[#7C5CFF]"
-                      : "font-medium text-gray-500"
+                    active ? "font-bold" : "font-medium text-gray-500"
                   }`}
+                  style={active ? { color: accentColor } : undefined}
                 >
                   {label}
                 </span>
                 {active && (
                   <span
-                    className="mt-0.5 h-0.5 w-5 shrink-0 rounded-full bg-[#7C5CFF]"
+                    className="mt-0.5 h-0.5 w-5 shrink-0 rounded-full"
+                    style={{ backgroundColor: accentColor }}
                     aria-hidden
                   />
                 )}

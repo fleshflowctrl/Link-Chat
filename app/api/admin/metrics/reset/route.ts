@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
+import { parseAppVariant } from "@/lib/app-variant";
 import { captureAndResetMetrics } from "@/lib/admin/metrics-snapshots";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,10 @@ export async function POST(req: Request) {
   // Snapshot the current live metrics first, then move the cutoff. The
   // snapshot row keeps the closing period intact even if the cutoff
   // update later fails.
-  const result = await captureAndResetMetrics(service, label);
+  const variant = parseAppVariant(
+    typeof obj.variant === "string" ? obj.variant : null,
+  );
+  const result = await captureAndResetMetrics(service, label, variant);
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: result.error },

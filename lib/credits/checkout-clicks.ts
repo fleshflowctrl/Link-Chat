@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppVariant } from "@/lib/app-variant";
+import { DEFAULT_APP_VARIANT } from "@/lib/app-variant";
 
 /** Source of the checkout click (Stripe redirect vs local dev purchase). */
 export type CheckoutClickSource = "stripe" | "dev";
@@ -10,6 +12,7 @@ type RecordInput = {
   discount: number;
   purchaseCountBefore: number;
   source: CheckoutClickSource;
+  appVariant?: AppVariant;
 };
 
 /**
@@ -28,6 +31,7 @@ export async function recordCheckoutClick(
       discount: input.discount,
       purchase_count_before: Math.max(0, Math.floor(input.purchaseCountBefore)),
       source: input.source,
+      app_variant: input.appVariant ?? DEFAULT_APP_VARIANT,
     });
     if (error) {
       console.warn("[credit_checkout_clicks insert]", error.message);

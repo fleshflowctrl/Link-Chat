@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import type { AppVariant } from "@/lib/app-variant";
 import { trackVisit } from "@/lib/analytics/visitor-id";
 
 /**
@@ -8,9 +9,9 @@ import { trackVisit } from "@/lib/analytics/visitor-id";
  * Mount this on landing pages where you want to count unique visitors
  * (e.g. the public funnel entry).
  */
-export function VisitorTracker() {
+export function VisitorTracker({ variant }: { variant?: AppVariant } = {}) {
   useEffect(() => {
-    void trackVisit();
-  }, []);
+    void trackVisit(variant);
+  }, [variant]);
   return null;
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { VariantLink as Link } from "@/components/variant-link";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 import { ArrowRight, MapPin } from "lucide-react";
 import { type ReactNode } from "react";
 import type { Profile, ProfileStatusVariant } from "@/data/profiles";
@@ -49,7 +51,8 @@ function StatusChip({ status }: { status: Profile["status"] }) {
 }
 
 export function ProfileCard({ profile }: { profile: Profile }) {
-  const profileHref = `/profile/${profile.id}`;
+  const { variant } = useAppVariant();
+  const profileHref = withVariantPath(`/profile/${profile.id}`, variant);
 
   return (
     <Link

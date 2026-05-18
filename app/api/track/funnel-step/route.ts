@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseAppVariant } from "@/lib/app-variant";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -51,12 +52,17 @@ export async function POST(req: Request) {
     );
   }
 
+  const appVariant = parseAppVariant(
+    typeof obj.appVariant === "string" ? obj.appVariant : null,
+  );
+
   const { error } = await service
     .from("funnel_step_views")
     .upsert(
       {
         visitor_id: visitorId,
         step,
+        app_variant: appVariant,
         first_viewed_at: new Date().toISOString(),
       },
       { onConflict: "visitor_id,step", ignoreDuplicates: true },

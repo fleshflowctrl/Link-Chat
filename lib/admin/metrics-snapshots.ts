@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppVariant } from "@/lib/app-variant";
 import { loadAdminMetrics, type AdminMetrics } from "@/lib/admin/metrics";
 import {
   getMetricsSince,
@@ -38,14 +39,18 @@ function mapRow(row: SnapshotRow): AdminMetricsSnapshot {
 export async function captureAndResetMetrics(
   service: SupabaseClient,
   label?: string,
+  variant: AppVariant = "v1",
 ): Promise<
   | { ok: true; snapshot: AdminMetricsSnapshot; metricsSince: string }
   | { ok: false; error: string }
 > {
-  const previousSince = await getMetricsSince(service);
+  const previousSince = await getMetricsSince(service, variant);
   let liveMetrics: AdminMetrics;
   try {
-    liveMetrics = await loadAdminMetrics(service, { since: previousSince });
+    liveMetrics = await loadAdminMetrics(service, {
+      since: previousSince,
+      variant,
+    });
   } catch (e) {
     return {
       ok: false,
@@ -75,7 +80,7 @@ export async function captureAndResetMetrics(
     };
   }
 
-  const update = await setMetricsSince(service, now);
+  const update = await setMetricsSince(service, now, variant);
   if (!update.ok) {
     return { ok: false, error: update.error };
   }

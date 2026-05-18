@@ -8,6 +8,15 @@
   --primary-soft: #9b7bff;
 }
 
+/** V2 A/B shell — discreet swinger-club aesthetic (only under /v2/* layout). */
+[data-app-variant="v2"] {
+  --canvas: #1a1816;
+  --primary: #c9a227;
+  --primary-soft: #e8d48b;
+  --ink: #f5f0e6;
+  color-scheme: dark;
+}
+
 html {
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;

@@ -15,6 +15,7 @@ import {
 } from "@/lib/stripe/server";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+import { parseAppVariant, variantBasePath } from "@/lib/app-variant";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { recordCheckoutClick } from "@/lib/credits/checkout-clicks";
 
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
 
   const { data: prof, error: readErr } = await supabase
     .from("user_profiles")
-    .select("credits, purchase_count")
+    .select("credits, purchase_count, app_variant")
     .eq("user_id", user.id)
     .maybeSingle();
   if (readErr) {
@@ -109,7 +110,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const row = prof as { purchase_count?: number } | null;
+  const row = prof as { purchase_count?: number; app_variant?: string | null } | null;
+  const userVariant = parseAppVariant(row?.app_variant ?? null);
   const purchaseCountBefore =
     typeof row?.purchase_count === "number" && row.purchase_count >= 0
       ? row.purchase_count
@@ -132,6 +134,7 @@ export async function POST(req: Request) {
       discount,
       purchaseCountBefore,
       source: "stripe",
+      appVariant: userVariant,
     });
   }
 
@@ -143,8 +146,9 @@ export async function POST(req: Request) {
   }
 
   const origin = getAppOrigin(req);
-  const successUrl = `${origin}/credits/checkout/${encodeURIComponent(pkg.id)}?success=1&session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${origin}/credits/checkout/${encodeURIComponent(pkg.id)}?canceled=1`;
+  const creditsBase = `${variantBasePath(userVariant)}/credits/checkout/${encodeURIComponent(pkg.id)}`;
+  const successUrl = `${origin}${creditsBase}?success=1&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${origin}${creditsBase}?canceled=1`;
 
   const description =
     pkg.bonus > 0

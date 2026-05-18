@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseAppVariant } from "@/lib/app-variant";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
     );
   }
 
+  const appVariant = parseAppVariant(
+    typeof obj.appVariant === "string" ? obj.appVariant : null,
+  );
+
   const userAgent = clamp(req.headers.get("user-agent"), 300);
   const referrer =
     clamp(typeof obj.referrer === "string" ? obj.referrer : null, 500) ??
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
         : 1;
     await service
       .from("site_visits")
-      .update({ last_visit_at: now, visit_count: next })
+      .update({ last_visit_at: now, visit_count: next, app_variant: appVariant })
       .eq("visitor_id", visitorId);
   } else {
     await service.from("site_visits").insert({
@@ -69,6 +74,7 @@ export async function POST(req: Request) {
       visit_count: 1,
       user_agent: userAgent,
       referrer,
+      app_variant: appVariant,
     });
   }
 

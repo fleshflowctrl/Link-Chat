@@ -1,13 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { VariantLink as Link } from "@/components/variant-link";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 import { Sparkles } from "lucide-react";
 import type { NewWhisperUser } from "@/data/newUsers";
 import { SITE_NAME } from "@/lib/brand";
 import { showNewJoinBadge } from "@/data/newUsers";
 
 export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
+  const { variant } = useAppVariant();
 
   return (
     <div className="px-4 pt-0">
@@ -27,7 +30,7 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
           {users.map((user) => (
             <Link
               key={user.id}
-              href={`/profile/${user.id}`}
+              href={withVariantPath(`/profile/${user.id}`, variant)}
               className="flex w-[68px] shrink-0 flex-col items-center gap-1 text-center"
             >
               <div className="relative shrink-0">

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseAppVariant } from "@/lib/app-variant";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
 
@@ -61,6 +62,9 @@ export async function POST(req: Request) {
   }
 
   const now = new Date().toISOString();
+  const appVariant = parseAppVariant(
+    typeof obj.appVariant === "string" ? obj.appVariant : null,
+  );
 
   // Upsert: if visitor row doesn't exist yet (rare race), create it.
   const { data: existing } = await service
@@ -74,7 +78,11 @@ export async function POST(req: Request) {
     if (!row.signed_up_user_id) {
       await service
         .from("site_visits")
-        .update({ signed_up_user_id: userId, signed_up_at: now })
+        .update({
+          signed_up_user_id: userId,
+          signed_up_at: now,
+          app_variant: appVariant,
+        })
         .eq("visitor_id", visitorId);
     }
   } else {
@@ -85,8 +93,14 @@ export async function POST(req: Request) {
       visit_count: 1,
       signed_up_user_id: userId,
       signed_up_at: now,
+      app_variant: appVariant,
     });
   }
+
+  await service
+    .from("user_profiles")
+    .update({ app_variant: appVariant })
+    .eq("user_id", userId);
 
   return NextResponse.json({ ok: true });
 }

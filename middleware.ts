@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { APP_VARIANT_COOKIE, variantFromPathname } from "@/lib/app-variant";
 import {
   DEV_BYPASS_COOKIE,
   DEV_BYPASS_VALUE,
@@ -19,7 +20,10 @@ function isPublicPath(pathname: string): boolean {
   /** Funnel + discover home for first-time / anonymous onboarding flows */
   if (pathname === "/" || pathname === "/discover" || pathname.startsWith("/discover/"))
     return true;
+  if (pathname === "/v2/discover" || pathname.startsWith("/v2/discover/"))
+    return true;
   if (pathname.startsWith("/profile/")) return true;
+  if (pathname.startsWith("/v2/profile/")) return true;
   return false;
 }
 
@@ -44,6 +48,31 @@ function redirectPreservingSessionCookies(
   return redirect;
 }
 
+function applyVariantCookie(
+  request: NextRequest,
+  response: NextResponse,
+): NextResponse {
+  const variant = variantFromPathname(request.nextUrl.pathname);
+  if (variant === "v2") {
+    response.cookies.set(APP_VARIANT_COOKIE, "v2", {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  }
+  return response;
+}
+
+function postLoginPath(request: NextRequest): string {
+  const next = request.nextUrl.searchParams.get("next");
+  if (next && next.startsWith("/") && !next.startsWith("//")) {
+    return next;
+  }
+  const variant = request.cookies.get(APP_VARIANT_COOKIE)?.value;
+  if (variant === "v2") return "/v2/discover";
+  return "/discover";
+}
+
 export async function middleware(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl;
@@ -53,26 +82,27 @@ export async function middleware(request: NextRequest) {
     }
 
     const { response, user, supabaseConfigured } = await updateSession(request);
+    let out = applyVariantCookie(request, response);
 
     if (pathname.startsWith("/api")) {
-      return response;
+      return out;
     }
 
     if (supabaseConfigured) {
       if (!user && !isPublicPath(pathname)) {
         if (hasDevBypassCookie(request)) {
-          return response;
+          return out;
         }
         const url = request.nextUrl.clone();
         url.pathname = "/login";
         url.searchParams.set("next", pathname + request.nextUrl.search);
-        return redirectPreservingSessionCookies(response, url);
+        return redirectPreservingSessionCookies(out, url);
       }
       if (user && (pathname === "/login" || pathname === "/signup")) {
         const url = request.nextUrl.clone();
-        url.pathname = "/discover";
+        url.pathname = postLoginPath(request);
         url.search = "";
-        return redirectPreservingSessionCookies(response, url);
+        return redirectPreservingSessionCookies(out, url);
       }
 
       if (
@@ -81,13 +111,15 @@ export async function middleware(request: NextRequest) {
         request.nextUrl.searchParams.get("testFunnel") !== "1"
       ) {
         const url = request.nextUrl.clone();
-        url.pathname = "/discover";
+        const variant = request.cookies.get(APP_VARIANT_COOKIE)?.value;
+        url.pathname =
+          variant === "v2" ? "/v2/discover" : "/discover";
         url.search = "";
-        return redirectPreservingSessionCookies(response, url);
+        return redirectPreservingSessionCookies(out, url);
       }
     }
 
-    return response;
+    return out;
   } catch (err) {
     console.error("[middleware]", err);
     return NextResponse.next();

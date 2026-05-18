@@ -4,9 +4,12 @@ import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw } from "lucide-react";
 
+import type { AppVariant } from "@/lib/app-variant";
+
 type Props = {
   /** Current cutoff so we can render "laatst gereset op …". */
   metricsSince: string | null;
+  variant?: AppVariant;
 };
 
 function formatTs(iso: string): string {
@@ -25,7 +28,10 @@ function formatTs(iso: string): string {
  * password check happens server-side in /api/admin/metrics/reset; this
  * component only collects input and triggers the request.
  */
-export function MetricsResetButton({ metricsSince }: Props) {
+export function MetricsResetButton({
+  metricsSince,
+  variant = "v1",
+}: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
@@ -50,7 +56,7 @@ export function MetricsResetButton({ metricsSince }: Props) {
         const res = await fetch("/api/admin/metrics/reset", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ password, label }),
+          body: JSON.stringify({ password, label, variant }),
         });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -70,7 +76,7 @@ export function MetricsResetButton({ metricsSince }: Props) {
         setSubmitting(false);
       }
     },
-    [close, label, password, router],
+    [close, label, password, variant, router],
   );
 
   return (

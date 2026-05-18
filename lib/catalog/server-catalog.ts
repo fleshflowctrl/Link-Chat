@@ -21,8 +21,15 @@ import {
   loadProfileViewHistory,
   type ProfileViewHistory,
 } from "@/lib/me/profile-views";
+import type { AppVariant } from "@/lib/app-variant";
+import { DEFAULT_APP_VARIANT } from "@/lib/app-variant";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+
+export type CatalogVariantOptions = {
+  /** Which bot pool to load. Defaults to v1 (unchanged behaviour). */
+  variant?: AppVariant;
+};
 
 export type HomePageCatalogBundle = {
   gridProfiles: Profile[];
@@ -184,7 +191,19 @@ export async function buildDiscoverPackForRefresh(
   });
 }
 
-export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundle> {
+function applyChatProfilesVariantFilter<T>(
+  query: T,
+  variant: AppVariant,
+): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const q = query as any;
+  return q.eq("app_variant", variant) as T;
+}
+
+export async function fetchHomePageCatalogServer(
+  options: CatalogVariantOptions = {},
+): Promise<HomePageCatalogBundle> {
+  const variant = options.variant ?? DEFAULT_APP_VARIANT;
   const now = Date.now();
 
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
@@ -237,12 +256,14 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
   }
 
   // Pull a wide pool so the hourly picker can rotate through many subsets.
-  const { data: rows, error: gridError } = await supabase
+  let gridQuery = supabase
     .from("chat_profiles")
     .select("*")
     .order("home_sort", { ascending: true })
     .order("display_name", { ascending: true })
     .limit(120);
+  gridQuery = applyChatProfilesVariantFilter(gridQuery, variant);
+  const { data: rows, error: gridError } = await gridQuery;
 
   let pool: Profile[];
   let gridDegraded = false;
@@ -263,12 +284,14 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
     history,
   );
 
-  const { data: actRows, error: actError } = await supabase
+  let actQuery = supabase
     .from("chat_profiles")
     .select("id, display_name, avatar_url, joined_at")
     .not("joined_at", "is", null)
     .order("joined_at", { ascending: false })
     .limit(12);
+  actQuery = applyChatProfilesVariantFilter(actQuery, variant);
+  const { data: actRows, error: actError } = await actQuery;
 
   let activityUsers: NewWhisperUser[];
   if (actError || !actRows?.length) {
@@ -299,10 +322,13 @@ export async function fetchHomePageCatalogServer(): Promise<HomePageCatalogBundl
  * Full AI catalog for onboarding step 6 (vibe + age + intent matching).
  * Uses anon session when not signed in; RLS allows `SELECT` on `is_ai` rows only.
  */
-export async function fetchFunnelCatalogProfilesServer(): Promise<{
+export async function fetchFunnelCatalogProfilesServer(
+  options: CatalogVariantOptions = {},
+): Promise<{
   profiles: Profile[];
   catalogDegraded: boolean;
 }> {
+  const variant = options.variant ?? DEFAULT_APP_VARIANT;
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     return { profiles, catalogDegraded: false };
   }
@@ -314,13 +340,15 @@ export async function fetchFunnelCatalogProfilesServer(): Promise<{
     return { profiles, catalogDegraded: true };
   }
 
-  const { data: rows, error } = await supabase
+  let funnelQuery = supabase
     .from("chat_profiles")
     .select("*")
     .eq("is_ai", true)
     .order("home_sort", { ascending: true })
     .order("display_name", { ascending: true })
     .limit(250);
+  funnelQuery = applyChatProfilesVariantFilter(funnelQuery, variant);
+  const { data: rows, error } = await funnelQuery;
 
   if (error || !rows?.length) {
     if (error) console.error("[fetchFunnelCatalogProfilesServer]", error.message);

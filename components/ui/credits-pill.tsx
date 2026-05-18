@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { VariantLink as Link } from "@/components/variant-link";
 import { useEffect, useSyncExternalStore } from "react";
 import {
   getCreditsSnapshot,

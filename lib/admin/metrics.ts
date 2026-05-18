@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listAllAuthUsers, type AdminAuthUser } from "@/lib/admin/auth-users";
+import type { AppVariant } from "@/lib/app-variant";
+import { DEFAULT_APP_VARIANT } from "@/lib/app-variant";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 
 export type AdminMetrics = {
@@ -91,6 +93,8 @@ export type LoadMetricsOptions = {
   /** ISO timestamp — when set, every count is filtered to events
    *  happening on/after this moment. `null`/undefined = all-time. */
   since?: string | null;
+  /** When set, restrict all counts to this app variant (v1 or v2). */
+  variant?: AppVariant;
 };
 
 /**
@@ -107,6 +111,7 @@ export async function loadAdminMetrics(
   const since7d = new Date(now - 7 * day).toISOString();
   const since30d = new Date(now - 30 * day).toISOString();
   const since = options.since ?? null;
+  const variant = options.variant ?? DEFAULT_APP_VARIANT;
 
   // ---------------------------------------------------------------------
   // Query builders. Each is conditionally filtered by `since` on the
@@ -115,17 +120,20 @@ export async function loadAdminMetrics(
   // ---------------------------------------------------------------------
   let visitorsTotalQuery = service
     .from("site_visits")
-    .select("visitor_id", { count: "exact", head: true });
+    .select("visitor_id", { count: "exact", head: true })
+    .eq("app_variant", variant);
   if (since) visitorsTotalQuery = visitorsTotalQuery.gte("first_visit_at", since);
 
   const visitors7Query = service
     .from("site_visits")
     .select("visitor_id", { count: "exact", head: true })
+    .eq("app_variant", variant)
     .gte("first_visit_at", since && since > since7d ? since : since7d);
 
   const visitors30Query = service
     .from("site_visits")
     .select("visitor_id", { count: "exact", head: true })
+    .eq("app_variant", variant)
     .gte("first_visit_at", since && since > since30d ? since : since30d);
 
   let msgQuery = service
@@ -138,32 +146,41 @@ export async function loadAdminMetrics(
   // doesn't touch either column.
   const profileQuery = service
     .from("user_profiles")
-    .select("user_id, purchase_count, credits, last_active_at");
+    .select("user_id, purchase_count, credits, last_active_at, app_variant")
+    .eq("app_variant", variant);
 
   let clicksTotalQuery = service
     .from("credit_checkout_clicks")
-    .select("id", { count: "exact", head: true });
+    .select("id", { count: "exact", head: true })
+    .eq("app_variant", variant);
   if (since) clicksTotalQuery = clicksTotalQuery.gte("created_at", since);
 
   const clicks7Query = service
     .from("credit_checkout_clicks")
     .select("id", { count: "exact", head: true })
+    .eq("app_variant", variant)
     .gte("created_at", since && since > since7d ? since : since7d);
 
-  let clickRowsQuery = service.from("credit_checkout_clicks").select("user_id");
+  let clickRowsQuery = service
+    .from("credit_checkout_clicks")
+    .select("user_id")
+    .eq("app_variant", variant);
   if (since) clickRowsQuery = clickRowsQuery.gte("created_at", since);
 
   let purchasesTotalQuery = service
     .from("credit_purchases")
-    .select("id", { count: "exact", head: true });
+    .select("user_id, created_at");
   if (since) purchasesTotalQuery = purchasesTotalQuery.gte("created_at", since);
 
-  const purchases7Query = service
+  let purchases7Query = service
     .from("credit_purchases")
-    .select("id", { count: "exact", head: true })
+    .select("user_id, created_at")
     .gte("created_at", since && since > since7d ? since : since7d);
 
-  let stepViewQuery = service.from("funnel_step_views").select("step");
+  let stepViewQuery = service
+    .from("funnel_step_views")
+    .select("step")
+    .eq("app_variant", variant);
   if (since) stepViewQuery = stepViewQuery.gte("first_viewed_at", since);
 
   let purchaseGrantQuery = service
@@ -212,11 +229,18 @@ export async function loadAdminMetrics(
   const visitorsLast7d = visitors7.count ?? 0;
   const visitorsLast30d = visitors30.count ?? 0;
 
-  // Restrict the user cohort itself when a cutoff is set so all per-user
-  // metrics (paying, credits-spent, retention) describe the same window.
-  const users: AdminAuthUser[] = since
-    ? allUsers.filter((u) => u.createdAt && u.createdAt >= since)
-    : allUsers;
+  // Sign-up cohort = auth users with a profile tagged for this variant.
+  const variantProfileIds = new Set(
+    (
+      (profRows.data as Array<{ user_id: string }> | null) ?? []
+    ).map((p) => p.user_id),
+  );
+  let users: AdminAuthUser[] = allUsers.filter((u) =>
+    variantProfileIds.has(u.id),
+  );
+  if (since) {
+    users = users.filter((u) => u.createdAt && u.createdAt >= since);
+  }
   const cohortIds = new Set(users.map((u) => u.id));
 
   const msgs =
@@ -228,7 +252,7 @@ export async function loadAdminMetrics(
   /** Latest message timestamp per user (ms epoch) — used for retention. */
   const lastActiveByUser = new Map<string, number>();
   for (const m of msgs) {
-    if (!m.owner_user_id) continue;
+    if (!m.owner_user_id || !variantProfileIds.has(m.owner_user_id)) continue;
     chatterSet.add(m.owner_user_id);
     const ts = m.created_at ? Date.parse(m.created_at) : NaN;
     if (Number.isFinite(ts)) {
@@ -281,7 +305,12 @@ export async function loadAdminMetrics(
       granted_credits: number | null;
     }> | null) ?? [];
   for (const row of purchaseGrants) {
-    if (!row.user_id || typeof row.granted_credits !== "number") continue;
+    if (
+      !row.user_id ||
+      !variantProfileIds.has(row.user_id) ||
+      typeof row.granted_credits !== "number"
+    )
+      continue;
     purchaseGrantByUser.set(
       row.user_id,
       (purchaseGrantByUser.get(row.user_id) ?? 0) + row.granted_credits,
@@ -295,7 +324,12 @@ export async function loadAdminMetrics(
       credits_paid: number | null;
     }> | null) ?? [];
   for (const row of rewardRowsTyped) {
-    if (!row.owner_user_id || typeof row.credits_paid !== "number") continue;
+    if (
+      !row.owner_user_id ||
+      !variantProfileIds.has(row.owner_user_id) ||
+      typeof row.credits_paid !== "number"
+    )
+      continue;
     rewardsByUser.set(
       row.owner_user_id,
       (rewardsByUser.get(row.owner_user_id) ?? 0) + row.credits_paid,
@@ -356,8 +390,23 @@ export async function loadAdminMetrics(
 
   const checkoutClicks = clicksTotal.count ?? 0;
   const checkoutClicksLast7d = clicks7d.count ?? 0;
-  const paidPurchases = purchasesTotal.count ?? 0;
-  const paidPurchasesLast7d = purchases7d.count ?? 0;
+
+  const purchaseRowsTyped =
+    (purchasesTotal.data as Array<{
+      user_id: string | null;
+      created_at: string | null;
+    }> | null) ?? [];
+  const paidPurchases = purchaseRowsTyped.filter(
+    (p) => p.user_id && variantProfileIds.has(p.user_id),
+  ).length;
+  const purchases7Rows =
+    (purchases7d.data as Array<{
+      user_id: string | null;
+      created_at: string | null;
+    }> | null) ?? [];
+  const paidPurchasesLast7d = purchases7Rows.filter(
+    (p) => p.user_id && variantProfileIds.has(p.user_id),
+  ).length;
 
   const clickRowsTyped =
     (clickRows.data as Array<{ user_id: string | null }> | null) ?? [];
@@ -389,6 +438,7 @@ export async function loadAdminMetrics(
   let linkedQuery = service
     .from("site_visits")
     .select("signed_up_user_id")
+    .eq("app_variant", variant)
     .not("signed_up_user_id", "is", null);
   if (since) linkedQuery = linkedQuery.gte("first_visit_at", since);
   const { data: linkedRows } = await linkedQuery;
@@ -396,7 +446,9 @@ export async function loadAdminMetrics(
     (linkedRows as Array<{ signed_up_user_id: string | null }> | null) ?? [];
   const linkedIds = new Set<string>();
   for (const l of linked) {
-    if (l.signed_up_user_id) linkedIds.add(l.signed_up_user_id);
+    if (l.signed_up_user_id && variantProfileIds.has(l.signed_up_user_id)) {
+      linkedIds.add(l.signed_up_user_id);
+    }
   }
   const visitorsConvertedToSignup = linkedIds.size;
 

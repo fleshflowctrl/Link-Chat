@@ -27,6 +27,12 @@ type NavItem = {
 
 export const ADMIN_NAV: NavItem[] = [
   { href: "/admin/metrics", label: "Statistieken (live)", icon: <ChartIcon /> },
+  { href: "/admin/metrics/v2", label: "Statistieken V2", icon: <ChartIcon /> },
+  {
+    href: "/admin/metrics/vergelijk",
+    label: "V1 vs V2",
+    icon: <ChartIcon />,
+  },
   { href: "/admin/metrics/totaal", label: "Statistieken (totaal)", icon: <ChartIcon /> },
   {
     href: "/admin/metrics/snapshots",
