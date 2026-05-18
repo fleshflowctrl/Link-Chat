@@ -36,30 +36,10 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
     "idle" | "loading" | "needs_confirm" | "error"
   >("idle");
   const [message, setMessage] = useState<string | null>(null);
-  const [testBypassLoading, setTestBypassLoading] = useState(false);
 
   const supabaseConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL?.length,
   );
-
-  async function continueWithoutLogin() {
-    setMessage(null);
-    setTestBypassLoading(true);
-    try {
-      const res = await fetch("/api/dev/bypass", { method: "POST" });
-      if (!res.ok) {
-        setStatus("error");
-        setMessage(
-          "Test-bypass staat uit voor deze host. Gebruik je een eigen domein? Zet ALLOW_TEST_BYPASS=1 of NEXT_PUBLIC_ALLOW_TEST_BYPASS=true en deploy opnieuw.",
-        );
-        return;
-      }
-      router.replace(nextPath);
-      router.refresh();
-    } finally {
-      setTestBypassLoading(false);
-    }
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -109,7 +89,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
 
     if (error) {
       setStatus("error");
-      setMessage(error.message);
+      setMessage(mapSupabaseAuthError(error.message));
       return;
     }
 
@@ -268,23 +248,6 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
             {submitLabel}
           </button>
         </form>
-      )}
-
-      {supabaseConfigured && (
-        <div className="mt-5 rounded-2xl border border-dashed border-amber-400/60 bg-amber-50/80 px-4 py-3">
-          <p className="text-center text-[11px] font-medium text-amber-900/80">
-            Sla inloggen over voor UI-testen (localhost, *.vercel.app, of zet
-            ALLOW_TEST_BYPASS op een eigen domein)
-          </p>
-          <button
-            type="button"
-            disabled={testBypassLoading}
-            onClick={() => void continueWithoutLogin()}
-            className="mt-2 flex h-11 w-full items-center justify-center rounded-full bg-amber-200/90 text-[13px] font-bold text-amber-950 transition enabled:active:scale-[0.98] disabled:opacity-60"
-          >
-            {testBypassLoading ? "Openen…" : "Doorgaan zonder inloggen"}
-          </button>
-        </div>
       )}
 
       <p className="mt-6 text-center text-sm text-inkMuted">
