@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
-import { setMetricsSince } from "@/lib/admin/metrics-settings";
+import { captureAndResetMetrics } from "@/lib/admin/metrics-snapshots";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -39,6 +39,7 @@ export async function POST(req: Request) {
   >;
   const password =
     typeof obj.password === "string" ? obj.password.trim() : "";
+  const label = typeof obj.label === "string" ? obj.label : "";
 
   if (password !== getResetPassword()) {
     return NextResponse.json(
@@ -55,7 +56,10 @@ export async function POST(req: Request) {
     );
   }
 
-  const result = await setMetricsSince(service);
+  // Snapshot the current live metrics first, then move the cutoff. The
+  // snapshot row keeps the closing period intact even if the cutoff
+  // update later fails.
+  const result = await captureAndResetMetrics(service, label);
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: result.error },
@@ -63,5 +67,9 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, metricsSince: result.metricsSince });
+  return NextResponse.json({
+    ok: true,
+    metricsSince: result.metricsSince,
+    snapshotId: result.snapshot.id,
+  });
 }

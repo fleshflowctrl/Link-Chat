@@ -29,6 +29,7 @@ export function MetricsResetButton({ metricsSince }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
+  const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [submitting, setSubmitting] = useState(false);
@@ -36,6 +37,7 @@ export function MetricsResetButton({ metricsSince }: Props) {
   const close = useCallback(() => {
     setOpen(false);
     setPassword("");
+    setLabel("");
     setError(null);
   }, []);
 
@@ -48,7 +50,7 @@ export function MetricsResetButton({ metricsSince }: Props) {
         const res = await fetch("/api/admin/metrics/reset", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ password }),
+          body: JSON.stringify({ password, label }),
         });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -68,7 +70,7 @@ export function MetricsResetButton({ metricsSince }: Props) {
         setSubmitting(false);
       }
     },
-    [close, password, router],
+    [close, label, password, router],
   );
 
   return (
@@ -104,12 +106,27 @@ export function MetricsResetButton({ metricsSince }: Props) {
               Statistieken resetten
             </h3>
             <p className="mt-1 text-xs text-gray-600">
-              De live-pagina begint daarna vanaf 0. Bestaande data blijft
-              bewaard en is zichtbaar op{" "}
-              <span className="font-semibold text-gray-900">/admin/metrics/totaal</span>.
+              De huidige cijfers worden opgeslagen als{" "}
+              <span className="font-semibold text-gray-900">snapshot</span> en
+              de live-pagina begint vanaf 0. Bestaande data blijft staan
+              (zichtbaar op{" "}
+              <span className="font-semibold text-gray-900">/admin/metrics/totaal</span>).
             </p>
 
             <label className="mt-4 block text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Snapshot-label (optioneel)
+            </label>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="bv. 'Voor TikTok-campagne'"
+              maxLength={120}
+              autoComplete="off"
+              className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-wider text-gray-500">
               Wachtwoord
             </label>
             <input
