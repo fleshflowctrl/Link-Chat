@@ -1,6 +1,7 @@
 "use client";
 
 import { VariantLink as Link } from "@/components/variant-link";
+import { useAppVariant } from "@/components/app-variant-provider";
 import { useEffect, useSyncExternalStore } from "react";
 import {
   getCreditsSnapshot,
@@ -13,6 +14,8 @@ import {
  * Reads live from credits-store — no props needed.
  */
 export function CreditsPill() {
+  const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
   useEffect(() => { initCreditsStore(); }, []);
 
   const balance = useSyncExternalStore(

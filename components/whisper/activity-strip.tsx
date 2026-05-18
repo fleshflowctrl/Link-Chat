@@ -8,13 +8,21 @@ import { Sparkles } from "lucide-react";
 import type { NewWhisperUser } from "@/data/newUsers";
 import { SITE_NAME } from "@/lib/brand";
 import { showNewJoinBadge } from "@/data/newUsers";
+import { V2_GRADIENT_RING, V2_THEME } from "@/lib/v2-theme";
 
 export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
   const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
 
   return (
     <div className="px-4 pt-0">
-      <div className="overflow-hidden rounded-2xl bg-[#EDE7FF] px-3 pb-3 pt-2.5">
+      <div
+        className={
+          isV2
+            ? "overflow-hidden rounded-2xl bg-[#252526] px-3 pb-3 pt-2.5 ring-1 ring-[#B52B2A]/20"
+            : "overflow-hidden rounded-2xl bg-[#EDE7FF] px-3 pb-3 pt-2.5"
+        }
+      >
         <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
           <Sparkles
             className="h-4 w-4 shrink-0 text-primary"
@@ -37,8 +45,9 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
                 <div
                   className="rounded-full p-[2px]"
                   style={{
-                    background:
-                      "linear-gradient(135deg, #9B7BFF 0%, #7C5CFF 100%)",
+                    background: isV2
+                      ? V2_GRADIENT_RING
+                      : "linear-gradient(135deg, #9B7BFF 0%, #7C5CFF 100%)",
                   }}
                 >
                   <div className="rounded-full bg-white p-[2px]">
@@ -54,7 +63,13 @@ export function ActivityStrip({ users }: { users: NewWhisperUser[] }) {
                   </div>
                 </div>
                 {showNewJoinBadge(user.joinedAt) && (
-                  <span className="absolute -right-0.5 -top-0.5 z-10 rounded-full bg-[#EC4899] px-1 py-0.5 text-[7px] font-bold uppercase leading-none tracking-wide text-white shadow-sm ring-[2px] ring-[#EDE7FF]">
+                  <span
+                    className={`absolute -right-0.5 -top-0.5 z-10 rounded-full px-1 py-0.5 text-[7px] font-bold uppercase leading-none tracking-wide text-white shadow-sm ring-[2px] ${
+                      isV2
+                        ? "bg-[#B52B2A] ring-[#252526]"
+                        : "bg-[#EC4899] ring-[#EDE7FF]"
+                    }`}
+                  >
                     NIEUW
                   </span>
                 )}

@@ -11,7 +11,7 @@ export default async function V2DiscoverPage() {
 
   return (
     <>
-      <div className="border-b border-[#c9a227]/15 bg-[#141210]/90 px-4 py-2 text-center text-[11px] font-medium tracking-wide text-[#c9a227]/90">
+      <div className="border-b border-[#B52B2A]/25 bg-[#1D1D1E]/95 px-4 py-2 text-center text-[11px] font-medium tracking-wide text-[#B52B2A]">
         Discreet · Geverifieerd · Alleen 18+
       </div>
       <PostDiscoverToast />

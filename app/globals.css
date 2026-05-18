@@ -8,13 +8,72 @@
   --primary-soft: #9b7bff;
 }
 
-/** V2 A/B shell — discreet swinger-club aesthetic (only under /v2/* layout). */
+/** V2 — FetLife-inspired: #1D1D1E shell, #B52B2A accent (only under /v2/*). */
 [data-app-variant="v2"] {
-  --canvas: #1a1816;
-  --primary: #c9a227;
-  --primary-soft: #e8d48b;
-  --ink: #f5f0e6;
+  --canvas: #252526;
+  --primary: #b52b2a;
+  --primary-soft: #d63b3a;
+  --ink: #e8e8e8;
+  --ink-muted: #9b9b9b;
+  --lavender: #2a2a2b;
+  --lavender-deep: #1d1d1e;
   color-scheme: dark;
+}
+
+[data-app-variant="v2"] .bg-gradient-primary {
+  background-image: linear-gradient(135deg, #b52b2a 0%, #d63b3a 100%);
+}
+
+[data-app-variant="v2"] .bg-gradient-ring {
+  background-image: linear-gradient(
+    135deg,
+    #b52b2a 0%,
+    #d63b3a 55%,
+    #c93535 100%
+  );
+}
+
+/** Shared pages that still use v1 light page fills — map to v2 canvas. */
+[data-app-variant="v2"] .bg-\[\#F5F3EE\],
+[data-app-variant="v2"] .bg-\[\#FDFCF9\] {
+  background-color: var(--canvas) !important;
+}
+
+[data-app-variant="v2"] .bg-\[\#EDE7FF\],
+[data-app-variant="v2"] .bg-\[\#F4EFFF\] {
+  background-color: #2a2a2b !important;
+}
+
+[data-app-variant="v2"] .text-\[\#7C5CFF\] {
+  color: var(--primary) !important;
+}
+
+[data-app-variant="v2"] .ring-\[\#7C5CFF\] {
+  --tw-ring-color: var(--primary) !important;
+}
+
+[data-app-variant="v2"] .border-\[\#7C5CFF\] {
+  border-color: var(--primary) !important;
+}
+
+[data-app-variant="v2"] .from-\[\#7C5CFF\],
+[data-app-variant="v2"] .via-\[\#8E6BFF\],
+[data-app-variant="v2"] .to-\[\#B68BFF\],
+[data-app-variant="v2"] .to-\[\#9B7BFF\] {
+  --tw-gradient-from: #b52b2a var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(181 43 42 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+[data-app-variant="v2"] .via-\[\#8E6BFF\] {
+  --tw-gradient-via: #d63b3a var(--tw-gradient-via-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via),
+    var(--tw-gradient-to) !important;
+}
+
+[data-app-variant="v2"] .to-\[\#B68BFF\],
+[data-app-variant="v2"] .to-\[\#9B7BFF\] {
+  --tw-gradient-to: #d63b3a var(--tw-gradient-to-position) !important;
 }
 
 html {
@@ -35,7 +94,6 @@ html.funnel-scroll-lock body {
   height: 100% !important;
   overflow: hidden !important;
   overscroll-behavior: none !important;
-  /* Block document pan-scroll; interactive UI under the funnel sets `touch-manipulation` where needed */
   touch-action: none !important;
 }
 
@@ -49,7 +107,6 @@ html.funnel-scroll-lock body {
   }
 }
 
-/** Discover feed — online / Actief nu chip */
 @keyframes discoverBadgeLive {
   0%,
   100% {
@@ -60,16 +117,15 @@ html.funnel-scroll-lock body {
   }
 }
 
-/** Discover feed — Nieuw chip */
 @keyframes discoverBadgeNew {
   0%,
   100% {
     transform: scale(1);
-    box-shadow: 0 2px 8px rgba(236, 72, 153, 0.25);
+    box-shadow: 0 2px 8px rgba(181, 43, 42, 0.35);
   }
   50% {
     transform: scale(1.06);
-    box-shadow: 0 4px 14px rgba(236, 72, 153, 0.45);
+    box-shadow: 0 4px 14px rgba(181, 43, 42, 0.55);
   }
 }
 

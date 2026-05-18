@@ -1,5 +1,6 @@
 import type { AppVariant } from "@/lib/app-variant";
 import { withVariantPath } from "@/lib/app-variant";
+import { V2_THEME } from "@/lib/v2-theme";
 
 export type FunnelVariantConfig = {
   variant: AppVariant;
@@ -25,11 +26,11 @@ export function getFunnelVariantConfig(variant: AppVariant): FunnelVariantConfig
       loginPath: `/login?next=${loginNext}`,
       helpPath: withVariantPath("/me/help", variant),
       privacyPath: withVariantPath("/me/privacy", variant),
-      outerBg: "bg-[#0f0e0c]",
-      cardBg: "bg-[#1a1816]",
-      headerBg: "bg-[#141210]/95 border-[#c9a227]/10",
-      accent: "#C9A227",
-      accentSoft: "#E8D48B",
+      outerBg: "bg-[#1D1D1E]",
+      cardBg: "bg-[#252526]",
+      headerBg: "bg-[#2A2A2B]/95 border-[#B52B2A]/15",
+      accent: V2_THEME.red,
+      accentSoft: V2_THEME.redSoft,
     };
   }
 

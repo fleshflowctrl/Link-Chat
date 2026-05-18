@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { VariantLink as Link } from "@/components/variant-link";
+import { useAppVariant } from "@/components/app-variant-provider";
 import {
   COMPLETENESS_FIELDS,
   getProfileCompleteness,
@@ -26,17 +27,23 @@ export function ProfileStrengthBanner({
   /** Slim inline variant — smaller padding, single-row layout. */
   compact?: boolean;
 }) {
+  const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
   const report = getProfileCompleteness(profile);
   const top = report.nextSteps[0];
   if (!top) return null;
 
   const nextReward = top.reward;
+  const gradient = isV2
+    ? "bg-gradient-to-br from-[#B52B2A] via-[#C93535] to-[#D63B3A]"
+    : "bg-gradient-to-br from-[#7C5CFF] via-[#8E6BFF] to-[#B68BFF]";
+  const ctaText = isV2 ? "text-[#B52B2A]" : "text-[#7C5CFF]";
 
   if (compact) {
     return (
       <Link
         href={`/me/edit?focus=${top.focus}`}
-        className="flex items-center gap-2.5 rounded-2xl bg-gradient-to-br from-[#7C5CFF] via-[#8E6BFF] to-[#B68BFF] px-3 py-2.5 text-white shadow-md transition active:scale-[0.99]"
+        className={`flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-white shadow-md transition active:scale-[0.99] ${gradient}`}
       >
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-base"
@@ -52,7 +59,9 @@ export function ProfileStrengthBanner({
               : `Vereist · ${report.percent}% af`}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-white px-3 py-1.5 text-[11px] font-extrabold text-[#7C5CFF] shadow-sm">
+        <span
+          className={`shrink-0 rounded-full bg-white px-3 py-1.5 text-[11px] font-extrabold shadow-sm ${ctaText}`}
+        >
           Doen ›
         </span>
       </Link>
@@ -63,7 +72,7 @@ export function ProfileStrengthBanner({
     <div className="px-4 pt-3">
       <Link
         href={`/me/edit?focus=${top.focus}`}
-        className="block overflow-hidden rounded-2xl bg-gradient-to-br from-[#7C5CFF] via-[#8E6BFF] to-[#B68BFF] px-4 pb-3.5 pt-3 text-white shadow-lg active:scale-[0.99]"
+        className={`block overflow-hidden rounded-2xl px-4 pb-3.5 pt-3 text-white shadow-lg active:scale-[0.99] ${gradient}`}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -96,7 +105,9 @@ export function ProfileStrengthBanner({
           </p>
         )}
 
-        <span className="mt-3 flex w-full items-center justify-center rounded-full bg-white py-2 text-[13px] font-extrabold text-[#7C5CFF] shadow-sm">
+        <span
+          className={`mt-3 flex w-full items-center justify-center rounded-full bg-white py-2 text-[13px] font-extrabold shadow-sm ${ctaText}`}
+        >
           Doen ›
         </span>
       </Link>
