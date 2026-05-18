@@ -188,6 +188,12 @@ export default async function AdminMetricsPage() {
               hint="Gemiddeld over alle accounts"
             />
             <StatCard
+              label="Credits gebruikt per sign-up"
+              value={nf(res.metrics.avgCreditsSpentPerSignup, 0)}
+              hint={`${nf(res.metrics.avgCreditsSpentPerChatter, 0)} gem. per chattende user · totaal ${nf(res.metrics.creditsSpentTotal)} uitgegeven`}
+              tone="warn"
+            />
+            <StatCard
               label="Bezoekers → sign-up"
               value={nf(res.metrics.visitorsConvertedToSignup)}
               hint="Met visitor-cookie gekoppeld"

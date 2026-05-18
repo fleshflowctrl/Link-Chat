@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listAllAuthUsers } from "@/lib/admin/auth-users";
+import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 
 export type AdminMetrics = {
   /** Distinct browsers that hit the landing/funnel page. */
@@ -43,6 +44,17 @@ export type AdminMetrics = {
 
   /** Per-step funnel reach (distinct visitors who saw each step). */
   funnelSteps: Array<{ step: number; label: string; visitors: number }>;
+
+  /** Total credits ever credited to all signed-up users (start + rewards + purchases). */
+  creditsCreditedTotal: number;
+  /** Current credit balance summed across all signed-up users. */
+  creditsBalanceTotal: number;
+  /** Total credits spent = credited - current balance (never negative). */
+  creditsSpentTotal: number;
+  /** Average credits spent per signed-up user. */
+  avgCreditsSpentPerSignup: number;
+  /** Average credits spent among users that sent at least one message. */
+  avgCreditsSpentPerChatter: number;
 };
 
 /** Labels for the 7-step onboarding funnel. Update if steps change. */
@@ -77,6 +89,8 @@ export async function loadAdminMetrics(
     purchasesTotal,
     purchases7d,
     stepViewRows,
+    purchaseGrantRows,
+    rewardRows,
   ] = await Promise.all([
     service.from("site_visits").select("visitor_id", {
       count: "exact",
@@ -94,7 +108,9 @@ export async function loadAdminMetrics(
       .from("chat_messages")
       .select("owner_user_id, sender")
       .eq("sender", "me"),
-    service.from("user_profiles").select("user_id, purchase_count"),
+    service
+      .from("user_profiles")
+      .select("user_id, purchase_count, credits"),
     listAllAuthUsers(service),
     service
       .from("credit_checkout_clicks")
@@ -112,6 +128,10 @@ export async function loadAdminMetrics(
       .select("id", { count: "exact", head: true })
       .gte("created_at", since7d),
     service.from("funnel_step_views").select("step"),
+    service.from("credit_purchases").select("user_id, granted_credits"),
+    service
+      .from("user_profile_rewards")
+      .select("owner_user_id, credits_paid"),
   ]);
 
   const visitors = visitorsTotal.count ?? 0;
@@ -130,10 +150,73 @@ export async function loadAdminMetrics(
     (profRows.data as Array<{
       user_id: string;
       purchase_count: number | null;
+      credits: number | null;
     }> | null) ?? [];
   const payingUsers = profiles.filter(
     (p) => typeof p.purchase_count === "number" && p.purchase_count > 0,
   ).length;
+
+  // Per-user accounting of credits.
+  //
+  //   credited = STARTING + rewards + grants_from_purchases
+  //   spent    = credited - current_balance
+  //
+  // We use user_profiles as the authoritative balance and union user-ids
+  // from auth.users so newly signed-up accounts (no profile row yet) are
+  // counted with just their starting credits.
+  const balanceByUser = new Map<string, number>();
+  for (const p of profiles) {
+    if (typeof p.credits === "number") balanceByUser.set(p.user_id, Math.max(0, p.credits));
+  }
+
+  const purchaseGrantByUser = new Map<string, number>();
+  const purchaseGrants =
+    (purchaseGrantRows.data as Array<{
+      user_id: string | null;
+      granted_credits: number | null;
+    }> | null) ?? [];
+  for (const row of purchaseGrants) {
+    if (!row.user_id || typeof row.granted_credits !== "number") continue;
+    purchaseGrantByUser.set(
+      row.user_id,
+      (purchaseGrantByUser.get(row.user_id) ?? 0) + row.granted_credits,
+    );
+  }
+
+  const rewardsByUser = new Map<string, number>();
+  const rewardRowsTyped =
+    (rewardRows.data as Array<{
+      owner_user_id: string | null;
+      credits_paid: number | null;
+    }> | null) ?? [];
+  for (const row of rewardRowsTyped) {
+    if (!row.owner_user_id || typeof row.credits_paid !== "number") continue;
+    rewardsByUser.set(
+      row.owner_user_id,
+      (rewardsByUser.get(row.owner_user_id) ?? 0) + row.credits_paid,
+    );
+  }
+
+  let creditsCreditedTotal = 0;
+  let creditsBalanceTotal = 0;
+  let creditsSpentTotal = 0;
+  let chatterCreditsSpent = 0;
+  for (const u of users) {
+    const id = u.id;
+    const balance = balanceByUser.get(id) ?? 0;
+    const grants = purchaseGrantByUser.get(id) ?? 0;
+    const rewards = rewardsByUser.get(id) ?? 0;
+    const credited = STARTING_USER_CREDITS + grants + rewards;
+    const spent = Math.max(0, credited - balance);
+    creditsCreditedTotal += credited;
+    creditsBalanceTotal += balance;
+    creditsSpentTotal += spent;
+    if (chatterSet.has(id)) chatterCreditsSpent += spent;
+  }
+  const avgCreditsSpentPerSignup =
+    users.length > 0 ? creditsSpentTotal / users.length : 0;
+  const avgCreditsSpentPerChatter =
+    chatterSet.size > 0 ? chatterCreditsSpent / chatterSet.size : 0;
 
   const signups = users.length;
   const signupsLast7d = users.filter(
@@ -216,6 +299,11 @@ export async function loadAdminMetrics(
     visitorsConvertedToSignup,
     visitorsConvertedToChat,
     funnelSteps,
+    creditsCreditedTotal,
+    creditsBalanceTotal,
+    creditsSpentTotal,
+    avgCreditsSpentPerSignup,
+    avgCreditsSpentPerChatter,
   };
 }
 
