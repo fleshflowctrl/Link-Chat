@@ -66,9 +66,15 @@ export type AdminMetrics = {
     retained: number;
   }>;
 
+  /** Signed-in users with a heartbeat in the last PRESENCE_WINDOW_MS. */
+  usersOnlineNow: number;
+
   /** ISO timestamp the live view counts from (`null` = all-time). */
   metricsSince: string | null;
 };
+
+/** How recent a heartbeat counts as "online" (3× the 30s ping cadence). */
+const PRESENCE_WINDOW_MS = 90_000;
 
 /** Labels for the 7-step onboarding funnel. Update if steps change. */
 export const FUNNEL_STEP_LABELS: Record<number, string> = {
@@ -128,10 +134,11 @@ export async function loadAdminMetrics(
     .eq("sender", "me");
   if (since) msgQuery = msgQuery.gte("created_at", since);
 
-  // user_profiles holds the *current* balance; reset doesn't change it.
+  // user_profiles holds the *current* balance & last heartbeat; reset
+  // doesn't touch either column.
   const profileQuery = service
     .from("user_profiles")
-    .select("user_id, purchase_count, credits");
+    .select("user_id, purchase_count, credits, last_active_at");
 
   let clicksTotalQuery = service
     .from("credit_checkout_clicks")
@@ -236,7 +243,19 @@ export async function loadAdminMetrics(
       user_id: string;
       purchase_count: number | null;
       credits: number | null;
+      last_active_at: string | null;
     }> | null) ?? [];
+
+  // "Online now" = any signed-in user whose last heartbeat is within
+  // the presence window. This always reflects the live state — it is
+  // intentionally not gated by the metrics_since cutoff.
+  const onlineCutoffMs = now - PRESENCE_WINDOW_MS;
+  let usersOnlineNow = 0;
+  for (const p of profiles) {
+    if (!p.last_active_at) continue;
+    const ts = Date.parse(p.last_active_at);
+    if (Number.isFinite(ts) && ts >= onlineCutoffMs) usersOnlineNow += 1;
+  }
 
   // Paying = profile.purchase_count > 0, restricted to the cohort when a
   // cutoff is set. (purchase_count is cumulative; the credit_purchases
@@ -411,6 +430,7 @@ export async function loadAdminMetrics(
     avgCreditsSpentPerSignup,
     avgCreditsSpentPerChatter,
     retention,
+    usersOnlineNow,
     metricsSince: since,
   };
 }

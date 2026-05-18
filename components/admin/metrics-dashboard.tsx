@@ -100,6 +100,12 @@ export function MetricsDashboard({ metrics }: { metrics: AdminMetrics }) {
     <>
       <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard
+          label="Online nu"
+          value={nf(metrics.usersOnlineNow)}
+          hint="Ingelogde users met activiteit in de laatste 90s"
+          tone="success"
+        />
+        <StatCard
           label="Website bezoekers"
           value={nf(metrics.visitors)}
           hint={`${nf(metrics.visitorsLast7d)} laatste 7d · ${nf(metrics.visitorsLast30d)} laatste 30d`}
