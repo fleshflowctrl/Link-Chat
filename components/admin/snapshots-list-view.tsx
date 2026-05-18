@@ -114,7 +114,7 @@ export function SnapshotsListView({
                   <p className="mt-0.5 text-xs text-gray-500">
                     Periode: {formatTs(s.periodStart)} → {formatTs(s.periodEnd)}
                   </p>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[12px] sm:grid-cols-5">
+                  <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px] sm:grid-cols-3 lg:grid-cols-5">
                     <Stat label="Bezoekers" value={nf(m.visitors)} />
                     <Stat label="Sign-ups" value={nf(m.signups)} />
                     <Stat label="Chatters" value={nf(m.chatters)} />

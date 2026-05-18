@@ -66,25 +66,27 @@ function FunnelRow({
 }) {
   const p = pct(num, denom);
   return (
-    <li className="flex items-center gap-4 px-5 py-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-gray-900">{label}</p>
-        {hint ? (
-          <p className="mt-0.5 text-xs text-gray-500">{hint}</p>
-        ) : null}
-      </div>
-      <div className="flex shrink-0 items-center gap-3">
-        <div className="hidden h-2 w-40 overflow-hidden rounded-full bg-gray-100 sm:block">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-primary to-pink-400"
-            style={{ width: `${Math.min(100, p)}%` }}
-          />
+    <li className="px-4 py-3 sm:px-5 sm:py-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900">{label}</p>
+          {hint ? (
+            <p className="mt-0.5 text-xs text-gray-500">{hint}</p>
+          ) : null}
         </div>
-        <div className="w-20 text-right text-sm font-semibold tabular-nums text-gray-900">
-          {pctLabel(p)}
-        </div>
-        <div className="w-32 text-right text-xs tabular-nums text-gray-500">
-          {nf(num)} / {nf(denom)}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:shrink-0">
+          <div className="h-2 w-full max-w-[10rem] flex-1 overflow-hidden rounded-full bg-gray-100 sm:w-40 sm:flex-none">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-pink-400"
+              style={{ width: `${Math.min(100, p)}%` }}
+            />
+          </div>
+          <div className="w-16 text-right text-sm font-semibold tabular-nums text-gray-900 sm:w-20">
+            {pctLabel(p)}
+          </div>
+          <div className="w-full text-right text-xs tabular-nums text-gray-500 sm:w-32">
+            {nf(num)} / {nf(denom)}
+          </div>
         </div>
       </div>
     </li>
@@ -265,34 +267,38 @@ export function MetricsDashboard({ metrics }: { metrics: AdminMetrics }) {
               prev !== null && prev > 0 ? (dropoff / prev) * 100 : 0;
             const reachPct = base > 0 ? (s.visitors / base) * 100 : 0;
             return (
-              <li key={s.step} className="flex items-center gap-4 px-5 py-4">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-gray-600">
-                  {s.step}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900">
-                    {s.label}
-                  </p>
-                  <p className="mt-0.5 text-xs text-gray-500">
-                    {prev === null
-                      ? "Startpunt van de funnel"
-                      : dropoff > 0
-                        ? `−${nf(dropoff)} bezoeker${dropoff === 1 ? "" : "s"} (${pctLabel(dropoffPct)} drop-off)`
-                        : "Niemand viel hier af"}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <div className="hidden h-2 w-40 overflow-hidden rounded-full bg-gray-100 sm:block">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-primary to-pink-400"
-                      style={{ width: `${Math.min(100, reachPct)}%` }}
-                    />
+              <li key={s.step} className="px-4 py-3 sm:px-5 sm:py-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                  <div className="flex items-start gap-3 sm:contents">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-gray-600">
+                      {s.step}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {s.label}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {prev === null
+                          ? "Startpunt van de funnel"
+                          : dropoff > 0
+                            ? `−${nf(dropoff)} bezoeker${dropoff === 1 ? "" : "s"} (${pctLabel(dropoffPct)} drop-off)`
+                            : "Niemand viel hier af"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="w-20 text-right text-sm font-semibold tabular-nums text-gray-900">
-                    {pctLabel(reachPct)}
-                  </div>
-                  <div className="w-24 text-right text-xs tabular-nums text-gray-500">
-                    {nf(s.visitors)} bezoekers
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:shrink-0">
+                    <div className="h-2 w-full max-w-[10rem] flex-1 overflow-hidden rounded-full bg-gray-100 sm:w-40 sm:flex-none">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-primary to-pink-400"
+                        style={{ width: `${Math.min(100, reachPct)}%` }}
+                      />
+                    </div>
+                    <div className="w-16 text-right text-sm font-semibold tabular-nums text-gray-900 sm:w-20">
+                      {pctLabel(reachPct)}
+                    </div>
+                    <div className="w-full text-right text-xs tabular-nums text-gray-500 sm:w-24">
+                      {nf(s.visitors)} bezoekers
+                    </div>
                   </div>
                 </div>
               </li>

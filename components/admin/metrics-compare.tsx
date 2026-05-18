@@ -112,17 +112,31 @@ export function MetricsCompare({
   a: AdminMetricsSnapshot;
   b: AdminMetricsSnapshot;
 }) {
+  const labelA = a.label ?? formatTs(a.takenAt);
+  const labelB = b.label ?? formatTs(b.takenAt);
+
   return (
     <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
-      <div className="grid grid-cols-[1.4fr_repeat(3,_1fr)] gap-0 border-b border-black/5 bg-gray-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+      <div className="hidden grid-cols-[1.4fr_repeat(3,_1fr)] gap-0 border-b border-black/5 bg-gray-50/80 px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500 sm:grid">
         <div>Metric</div>
-        <div className="truncate" title={a.label ?? ""}>
-          A · {a.label ?? formatTs(a.takenAt)}
+        <div className="truncate" title={labelA}>
+          A · {labelA}
         </div>
         <div>Δ</div>
-        <div className="truncate" title={b.label ?? ""}>
-          B · {b.label ?? formatTs(b.takenAt)}
+        <div className="truncate" title={labelB}>
+          B · {labelB}
         </div>
+      </div>
+
+      <div className="border-b border-black/5 bg-gray-50/80 px-4 py-3 text-[11px] font-semibold text-gray-500 sm:hidden">
+        <p className="truncate">
+          <span className="uppercase tracking-wider">A · </span>
+          <span className="font-bold text-gray-700">{labelA}</span>
+        </p>
+        <p className="mt-0.5 truncate">
+          <span className="uppercase tracking-wider">B · </span>
+          <span className="font-bold text-gray-700">{labelB}</span>
+        </p>
       </div>
 
       <div>
@@ -131,7 +145,7 @@ export function MetricsCompare({
             return (
               <div
                 key={`group-${i}`}
-                className="border-t border-black/[0.04] bg-gradient-to-b from-gray-50/60 to-white px-5 pt-4 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500"
+                className="border-t border-black/[0.04] bg-gradient-to-b from-gray-50/60 to-white px-4 pt-4 pb-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 sm:px-5"
               >
                 {row}
               </div>
@@ -146,20 +160,44 @@ export function MetricsCompare({
               : tone === "bad"
                 ? "text-red-700"
                 : "text-gray-400";
+
           return (
             <div
               key={row.label}
-              className="grid grid-cols-[1.4fr_repeat(3,_1fr)] items-baseline gap-0 border-t border-black/[0.04] px-5 py-2.5 text-sm"
+              className="border-t border-black/[0.04] px-4 py-3 text-sm sm:grid sm:grid-cols-[1.4fr_repeat(3,_1fr)] sm:items-baseline sm:gap-0 sm:px-5 sm:py-2.5"
             >
-              <div className="text-gray-700">{row.label}</div>
-              <div className="font-semibold tabular-nums text-gray-900">
-                {nf(va, row.digits ?? 0)}
-              </div>
-              <div className={`font-medium tabular-nums ${toneClass}`}>
-                {formatDelta(va, vb, row.digits ?? 0)}
-              </div>
-              <div className="font-semibold tabular-nums text-gray-900">
-                {nf(vb, row.digits ?? 0)}
+              {/* Mobile layout: label on one line, A | Δ | B on the next. */}
+              <div className="text-gray-700 sm:text-gray-700">{row.label}</div>
+
+              <div className="mt-1 flex items-baseline justify-between gap-3 sm:contents">
+                <div className="flex flex-col items-start sm:contents">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:hidden">
+                    A
+                  </span>
+                  <span className="font-semibold tabular-nums text-gray-900">
+                    {nf(va, row.digits ?? 0)}
+                  </span>
+                </div>
+
+                <div className="flex flex-col items-center sm:contents">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:hidden">
+                    Δ
+                  </span>
+                  <span
+                    className={`text-center font-medium tabular-nums ${toneClass}`}
+                  >
+                    {formatDelta(va, vb, row.digits ?? 0)}
+                  </span>
+                </div>
+
+                <div className="flex flex-col items-end sm:contents">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:hidden">
+                    B
+                  </span>
+                  <span className="font-semibold tabular-nums text-gray-900">
+                    {nf(vb, row.digits ?? 0)}
+                  </span>
+                </div>
               </div>
             </div>
           );

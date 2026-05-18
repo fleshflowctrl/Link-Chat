@@ -75,20 +75,22 @@ export function MetricsResetButton({ metricsSince }: Props) {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
-      >
-        <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-        Reset statistieken
-      </button>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+        >
+          <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+          Reset statistieken
+        </button>
 
-      {metricsSince ? (
-        <span className="ml-2 text-[11px] text-gray-500">
-          Laatste reset: {formatTs(metricsSince)}
-        </span>
-      ) : null}
+        {metricsSince ? (
+          <span className="text-[11px] text-gray-500">
+            Laatste reset: {formatTs(metricsSince)}
+          </span>
+        ) : null}
+      </div>
 
       {open ? (
         <div
