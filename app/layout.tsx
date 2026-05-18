@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import { MicrosoftClarity } from "@/components/analytics/microsoft-clarity";
 import { NoZoom } from "@/components/system/no-zoom";
 import "./globals.css";
 
@@ -43,6 +44,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${playfair.variable} font-sans`}>
         <NoZoom />
         {children}
+        <MicrosoftClarity />
       </body>
     </html>
   );
