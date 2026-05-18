@@ -263,6 +263,33 @@ export default async function AdminMetricsPage() {
           <section className="mb-8 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
             <header className="border-b border-black/5 px-5 py-4">
               <h2 className="text-sm font-semibold tracking-tight text-gray-900">
+                Retentie
+              </h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Van de users die al lang genoeg een account hebben — hoeveel
+                stuurden ≥ N dagen ná hun signup nog een bericht?
+              </p>
+            </header>
+            <ul className="divide-y divide-black/5">
+              {res.metrics.retention.map((r) => (
+                <FunnelRow
+                  key={r.days}
+                  label={`D${r.days} retentie`}
+                  num={r.retained}
+                  denom={r.eligible}
+                  hint={
+                    r.eligible === 0
+                      ? "Nog geen accounts ouder dan deze periode"
+                      : `Cohort: accounts ≥ ${r.days} dag${r.days === 1 ? "" : "en"} oud`
+                  }
+                />
+              ))}
+            </ul>
+          </section>
+
+          <section className="mb-8 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+            <header className="border-b border-black/5 px-5 py-4">
+              <h2 className="text-sm font-semibold tracking-tight text-gray-900">
                 Funnel doorloop — per stap
               </h2>
               <p className="mt-0.5 text-xs text-gray-500">

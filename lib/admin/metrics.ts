@@ -55,6 +55,16 @@ export type AdminMetrics = {
   avgCreditsSpentPerSignup: number;
   /** Average credits spent among users that sent at least one message. */
   avgCreditsSpentPerChatter: number;
+
+  /** D1/D7/D30 retention buckets (chat activity ≥ N days after signup). */
+  retention: Array<{
+    /** Number of days after signup (1, 7, 30). */
+    days: number;
+    /** Users whose account is at least `days` days old. */
+    eligible: number;
+    /** Of the eligible cohort, how many were still active ≥ N days later. */
+    retained: number;
+  }>;
 };
 
 /** Labels for the 7-step onboarding funnel. Update if steps change. */
@@ -106,7 +116,7 @@ export async function loadAdminMetrics(
       .gte("first_visit_at", since30d),
     service
       .from("chat_messages")
-      .select("owner_user_id, sender")
+      .select("owner_user_id, sender, created_at")
       .eq("sender", "me"),
     service
       .from("user_profiles")
@@ -139,10 +149,21 @@ export async function loadAdminMetrics(
   const visitorsLast30d = visitors30.count ?? 0;
 
   const msgs =
-    (msgRows.data as Array<{ owner_user_id: string | null }> | null) ?? [];
+    (msgRows.data as Array<{
+      owner_user_id: string | null;
+      created_at: string | null;
+    }> | null) ?? [];
   const chatterSet = new Set<string>();
+  /** Latest message timestamp per user (ms epoch) — used for retention. */
+  const lastActiveByUser = new Map<string, number>();
   for (const m of msgs) {
-    if (m.owner_user_id) chatterSet.add(m.owner_user_id);
+    if (!m.owner_user_id) continue;
+    chatterSet.add(m.owner_user_id);
+    const ts = m.created_at ? Date.parse(m.created_at) : NaN;
+    if (Number.isFinite(ts)) {
+      const prev = lastActiveByUser.get(m.owner_user_id) ?? 0;
+      if (ts > prev) lastActiveByUser.set(m.owner_user_id, ts);
+    }
   }
   const totalUserMessages = msgs.length;
 
@@ -217,6 +238,30 @@ export async function loadAdminMetrics(
     users.length > 0 ? creditsSpentTotal / users.length : 0;
   const avgCreditsSpentPerChatter =
     chatterSet.size > 0 ? chatterCreditsSpent / chatterSet.size : 0;
+
+  // Retention: of users whose account is at least N days old, how many
+  // were active (= sent a message) at least N days after their signup?
+  // This is the standard "Day-N retention" definition that survives
+  // small cohorts without going to 0 when nobody happens to come back
+  // exactly on day N.
+  const retentionDays = [1, 7, 30];
+  const retention = retentionDays.map((days) => {
+    const cutoffMs = days * day;
+    let eligible = 0;
+    let retained = 0;
+    for (const u of users) {
+      const signupMs = u.createdAt ? Date.parse(u.createdAt) : NaN;
+      if (!Number.isFinite(signupMs)) continue;
+      const ageMs = now - signupMs;
+      if (ageMs < cutoffMs) continue;
+      eligible += 1;
+      const lastActive = lastActiveByUser.get(u.id);
+      if (typeof lastActive === "number" && lastActive - signupMs >= cutoffMs) {
+        retained += 1;
+      }
+    }
+    return { days, eligible, retained };
+  });
 
   const signups = users.length;
   const signupsLast7d = users.filter(
@@ -304,6 +349,7 @@ export async function loadAdminMetrics(
     creditsSpentTotal,
     avgCreditsSpentPerSignup,
     avgCreditsSpentPerChatter,
+    retention,
   };
 }
 
