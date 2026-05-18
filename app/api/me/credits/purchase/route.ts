@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { packages } from "@/data/credits";
 import { fulfillCreditPurchase } from "@/lib/credits/fulfill-purchase";
+import { recordCheckoutClick } from "@/lib/credits/checkout-clicks";
 import { isStripeConfigured } from "@/lib/stripe/server";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { createClient } from "@/utils/supabase/server";
@@ -80,6 +81,17 @@ export async function POST(req: Request) {
       { status: 503 },
     );
   }
+
+  // Mirror the click log we keep for the Stripe flow so the admin metrics
+  // page treats dev purchases the same way for the click → paid funnel.
+  void recordCheckoutClick(service, {
+    userId: user.id,
+    packageId: pkg.id,
+    amountCents: Math.round(pkg.price * 100),
+    discount: 0,
+    purchaseCountBefore: 0,
+    source: "dev",
+  });
 
   const result = await fulfillCreditPurchase(service, {
     userId: user.id,

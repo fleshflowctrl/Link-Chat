@@ -15,6 +15,8 @@ import {
 } from "@/lib/stripe/server";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+import { getServiceSupabase } from "@/lib/supabase/admin";
+import { recordCheckoutClick } from "@/lib/credits/checkout-clicks";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -117,6 +119,21 @@ export async function POST(req: Request) {
   const paid = applyDiscount(pkg.price, discount);
   const grantedCredits = pkg.credits + pkg.bonus;
   const amountCents = Math.round(paid * 100);
+
+  // Log the click attempt before we hand off to Stripe so the admin dash
+  // can show click → paid conversion. Best-effort: service role write that
+  // never blocks the actual checkout.
+  const service = getServiceSupabase();
+  if (service) {
+    void recordCheckoutClick(service, {
+      userId: user.id,
+      packageId: pkg.id,
+      amountCents,
+      discount,
+      purchaseCountBefore,
+      source: "stripe",
+    });
+  }
 
   if (amountCents < 50) {
     return NextResponse.json(

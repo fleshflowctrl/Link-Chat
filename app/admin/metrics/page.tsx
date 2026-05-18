@@ -171,6 +171,18 @@ export default async function AdminMetricsPage() {
               tone="warn"
             />
             <StatCard
+              label="Klikken op Betaal"
+              value={nf(res.metrics.checkoutClicks)}
+              hint={`${nf(res.metrics.checkoutClickers)} unieke users · ${nf(res.metrics.checkoutClicksLast7d)} laatste 7d`}
+              tone="primary"
+            />
+            <StatCard
+              label="Voltooide aankopen"
+              value={nf(res.metrics.paidPurchases)}
+              hint={`${nf(res.metrics.paidPurchasesLast7d)} laatste 7d · klik → koop ${pctLabel(pct(res.metrics.paidPurchases, res.metrics.checkoutClicks))}`}
+              tone="success"
+            />
+            <StatCard
               label="Berichten per sign-up"
               value={nf(res.metrics.avgMessagesPerSignup, 1)}
               hint="Gemiddeld over alle accounts"
@@ -220,6 +232,18 @@ export default async function AdminMetricsPage() {
                 num={res.metrics.payingUsers}
                 denom={res.metrics.signups}
                 hint="Account met ≥1 credit-pack aankoop"
+              />
+              <FunnelRow
+                label="Sign-up → klikte op Betaal"
+                num={res.metrics.checkoutClickers}
+                denom={res.metrics.signups}
+                hint="Unieke users die de Betaal-knop indrukten"
+              />
+              <FunnelRow
+                label="Klik op Betaal → voltooide aankoop"
+                num={res.metrics.paidPurchases}
+                denom={res.metrics.checkoutClicks}
+                hint="Hoeveel kliks daadwerkelijk een betaling worden"
               />
             </ul>
           </section>

@@ -24,6 +24,17 @@ export type AdminMetrics = {
   /** Users that completed at least one paid credit purchase. */
   payingUsers: number;
 
+  /** Distinct users that clicked the "Betaal" button on the credits page. */
+  checkoutClickers: number;
+  /** Total clicks on the checkout button (incl. repeats from same user). */
+  checkoutClicks: number;
+  /** Total successful credit purchases recorded in credit_purchases. */
+  paidPurchases: number;
+  /** Clicks in the last 7 days. */
+  checkoutClicksLast7d: number;
+  /** Successful purchases in the last 7 days. */
+  paidPurchasesLast7d: number;
+
   /** Visitors that became signups (via visitor_id linkage). */
   visitorsConvertedToSignup: number;
 
@@ -39,27 +50,53 @@ export async function loadAdminMetrics(
   const since7d = new Date(now - 7 * day).toISOString();
   const since30d = new Date(now - 30 * day).toISOString();
 
-  const [visitorsTotal, visitors7, visitors30, msgRows, profRows, users] =
-    await Promise.all([
-      service.from("site_visits").select("visitor_id", {
-        count: "exact",
-        head: true,
-      }),
-      service
-        .from("site_visits")
-        .select("visitor_id", { count: "exact", head: true })
-        .gte("first_visit_at", since7d),
-      service
-        .from("site_visits")
-        .select("visitor_id", { count: "exact", head: true })
-        .gte("first_visit_at", since30d),
-      service
-        .from("chat_messages")
-        .select("owner_user_id, sender")
-        .eq("sender", "me"),
-      service.from("user_profiles").select("user_id, purchase_count"),
-      listAllAuthUsers(service),
-    ]);
+  const [
+    visitorsTotal,
+    visitors7,
+    visitors30,
+    msgRows,
+    profRows,
+    users,
+    clicksTotal,
+    clicks7d,
+    clickRows,
+    purchasesTotal,
+    purchases7d,
+  ] = await Promise.all([
+    service.from("site_visits").select("visitor_id", {
+      count: "exact",
+      head: true,
+    }),
+    service
+      .from("site_visits")
+      .select("visitor_id", { count: "exact", head: true })
+      .gte("first_visit_at", since7d),
+    service
+      .from("site_visits")
+      .select("visitor_id", { count: "exact", head: true })
+      .gte("first_visit_at", since30d),
+    service
+      .from("chat_messages")
+      .select("owner_user_id, sender")
+      .eq("sender", "me"),
+    service.from("user_profiles").select("user_id, purchase_count"),
+    listAllAuthUsers(service),
+    service
+      .from("credit_checkout_clicks")
+      .select("id", { count: "exact", head: true }),
+    service
+      .from("credit_checkout_clicks")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since7d),
+    service.from("credit_checkout_clicks").select("user_id"),
+    service
+      .from("credit_purchases")
+      .select("id", { count: "exact", head: true }),
+    service
+      .from("credit_purchases")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since7d),
+  ]);
 
   const visitors = visitorsTotal.count ?? 0;
   const visitorsLast7d = visitors7.count ?? 0;
@@ -93,6 +130,19 @@ export async function loadAdminMetrics(
   const avgMessagesPerSignup =
     signups > 0 ? totalUserMessages / signups : 0;
 
+  const checkoutClicks = clicksTotal.count ?? 0;
+  const checkoutClicksLast7d = clicks7d.count ?? 0;
+  const paidPurchases = purchasesTotal.count ?? 0;
+  const paidPurchasesLast7d = purchases7d.count ?? 0;
+
+  const clickRowsTyped =
+    (clickRows.data as Array<{ user_id: string | null }> | null) ?? [];
+  const checkoutClickerSet = new Set<string>();
+  for (const c of clickRowsTyped) {
+    if (c.user_id) checkoutClickerSet.add(c.user_id);
+  }
+  const checkoutClickers = checkoutClickerSet.size;
+
   // Visitor → conversion linkage via site_visits.signed_up_user_id.
   const { data: linkedRows } = await service
     .from("site_visits")
@@ -122,6 +172,11 @@ export async function loadAdminMetrics(
     totalUserMessages,
     avgMessagesPerSignup,
     payingUsers,
+    checkoutClickers,
+    checkoutClicks,
+    paidPurchases,
+    checkoutClicksLast7d,
+    paidPurchasesLast7d,
     visitorsConvertedToSignup,
     visitorsConvertedToChat,
   };
