@@ -796,7 +796,7 @@ function StepWelcome({
   const activeSet = welcomeSets[setIndex] ?? welcomeSets[0];
 
   return (
-    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F5F3EE] font-sans">
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-canvas font-sans">
       <div
         className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[var(--funnel-accent-soft)]/30 blur-3xl"
         aria-hidden
@@ -1269,7 +1269,7 @@ function StepBasics({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
+      <div className="shrink-0 border-t border-black/[0.04] bg-canvas px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
         <button
           type="button"
           disabled={!ok}
@@ -1420,7 +1420,7 @@ function StepPickMatch({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="shrink-0 border-t border-black/[0.04] bg-canvas px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <button
           type="button"
           disabled={!ok}
@@ -1511,7 +1511,7 @@ function StepFirstMessage({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
+      <div className="shrink-0 border-t border-black/[0.04] bg-canvas px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
         <button
           type="button"
           disabled={!ok}
@@ -1784,7 +1784,7 @@ function StepCreateAccount({
         </div>
       </div>
 
-      <div className="z-20 shrink-0 border-t border-black/[0.04] bg-[#F5F3EE] px-5 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:py-3">
+      <div className="z-20 shrink-0 border-t border-black/[0.04] bg-canvas px-5 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:py-3">
         {errorMsg ? (
           <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-center text-[12px] font-medium text-red-600 ring-1 ring-red-100">
             {errorMsg}

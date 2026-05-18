@@ -122,7 +122,7 @@ function UnlockSheet({
         </div>
       </div>
 
-      <div className="my-4 flex items-center justify-between rounded-2xl bg-[#F5F3EE] px-4 py-3">
+      <div className="my-4 flex items-center justify-between rounded-2xl bg-canvas px-4 py-3">
         <span className="text-[13px] font-semibold text-gray-600">Prijs</span>
         <span className="flex items-center gap-1.5 text-[16px] font-extrabold text-gray-900">
           <Sparkles className="h-4 w-4 text-[#7C5CFF]" strokeWidth={2} />

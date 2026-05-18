@@ -209,7 +209,7 @@ export function CheckoutView({
   const busy = submitting || (query.success === "1" && !success && !error);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#F5F3EE]">
+    <div className="flex h-full min-h-0 flex-col bg-canvas">
       <header className="shrink-0 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between gap-3">
           <Link

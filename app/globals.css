@@ -1,30 +1,43 @@
+@import "./v2-theme.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --canvas: #f5f3ee;
-  --primary: #7c5cff;
-  --primary-soft: #9b7bff;
+  --canvas: 245 243 238;
+  --ink: 43 43 43;
+  --ink-muted: 92 92 92;
+  --primary: 124 92 255;
+  --primary-soft: 155 123 255;
+  --accent-pink: 255 107 157;
+  --accent-orange: 255 138 76;
+  --accent-green: 34 197 94;
+  --lavender: 237 232 255;
+  --lavender-deep: 228 220 255;
 }
 
 /** V2 — FetLife-inspired: #1D1D1E shell, #B52B2A accent (only under /v2/*). */
-[data-app-variant="v2"] {
-  --canvas: #252526;
-  --primary: #b52b2a;
-  --primary-soft: #d63b3a;
-  --ink: #e8e8e8;
-  --ink-muted: #9b9b9b;
-  --lavender: #2a2a2b;
-  --lavender-deep: #1d1d1e;
+[data-app-variant="v2"],
+[data-funnel-variant="v2"] {
+  --canvas: 37 37 38;
+  --ink: 232 232 232;
+  --ink-muted: 155 155 155;
+  --primary: 181 43 42;
+  --primary-soft: 214 59 58;
+  --accent-pink: 214 59 58;
+  --accent-orange: 201 53 53;
+  --accent-green: 34 197 94;
+  --lavender: 42 42 43;
+  --lavender-deep: 29 29 30;
   color-scheme: dark;
 }
 
-[data-app-variant="v2"] .bg-gradient-primary {
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gradient-primary {
   background-image: linear-gradient(135deg, #b52b2a 0%, #d63b3a 100%);
 }
 
-[data-app-variant="v2"] .bg-gradient-ring {
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gradient-ring {
   background-image: linear-gradient(
     135deg,
     #b52b2a 0%,
@@ -33,47 +46,37 @@
   );
 }
 
-/** Shared pages that still use v1 light page fills — map to v2 canvas. */
-[data-app-variant="v2"] .bg-\[\#F5F3EE\],
-[data-app-variant="v2"] .bg-\[\#FDFCF9\] {
-  background-color: var(--canvas) !important;
+/** Legacy hardcoded purple utilities → v2 red (app + funnel). */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-\[\#7C5CFF\] {
+  color: rgb(var(--primary)) !important;
 }
 
-[data-app-variant="v2"] .bg-\[\#EDE7FF\],
-[data-app-variant="v2"] .bg-\[\#F4EFFF\] {
-  background-color: #2a2a2b !important;
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-\[\#7C5CFF\] {
+  --tw-ring-color: rgb(var(--primary)) !important;
 }
 
-[data-app-variant="v2"] .text-\[\#7C5CFF\] {
-  color: var(--primary) !important;
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-\[\#7C5CFF\] {
+  border-color: rgb(var(--primary)) !important;
 }
 
-[data-app-variant="v2"] .ring-\[\#7C5CFF\] {
-  --tw-ring-color: var(--primary) !important;
-}
-
-[data-app-variant="v2"] .border-\[\#7C5CFF\] {
-  border-color: var(--primary) !important;
-}
-
-[data-app-variant="v2"] .from-\[\#7C5CFF\],
-[data-app-variant="v2"] .via-\[\#8E6BFF\],
-[data-app-variant="v2"] .to-\[\#B68BFF\],
-[data-app-variant="v2"] .to-\[\#9B7BFF\] {
-  --tw-gradient-from: #b52b2a var(--tw-gradient-from-position) !important;
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-\[\#7C5CFF\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#8E6BFF\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#B68BFF\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#9B7BFF\] {
+  --tw-gradient-from: rgb(181 43 42) var(--tw-gradient-from-position) !important;
   --tw-gradient-to: rgb(181 43 42 / 0) var(--tw-gradient-to-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }
 
-[data-app-variant="v2"] .via-\[\#8E6BFF\] {
-  --tw-gradient-via: #d63b3a var(--tw-gradient-via-position) !important;
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#8E6BFF\] {
+  --tw-gradient-via: rgb(214 59 58) var(--tw-gradient-via-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via),
     var(--tw-gradient-to) !important;
 }
 
-[data-app-variant="v2"] .to-\[\#B68BFF\],
-[data-app-variant="v2"] .to-\[\#9B7BFF\] {
-  --tw-gradient-to: #d63b3a var(--tw-gradient-to-position) !important;
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#B68BFF\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#9B7BFF\] {
+  --tw-gradient-to: rgb(214 59 58) var(--tw-gradient-to-position) !important;
 }
 
 html {

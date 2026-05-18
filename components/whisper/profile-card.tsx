@@ -52,12 +52,18 @@ function StatusChip({ status }: { status: Profile["status"] }) {
 
 export function ProfileCard({ profile }: { profile: Profile }) {
   const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
   const profileHref = withVariantPath(`/profile/${profile.id}`, variant);
 
   return (
     <Link
       href={profileHref}
-      className="block w-full overflow-hidden rounded-2xl bg-white shadow-sm outline-none ring-black/5 transition active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+      className={
+        "block w-full overflow-hidden rounded-2xl shadow-sm outline-none transition active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-offset-2 " +
+        (isV2
+          ? "bg-[#2A2A2B] ring-1 ring-[#B52B2A]/20 focus-visible:ring-[#B52B2A]"
+          : "bg-white ring-black/5 focus-visible:ring-gray-900")
+      }
       aria-label={`Profiel van ${profile.name} bekijken`}
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden">
@@ -86,14 +92,22 @@ export function ProfileCard({ profile }: { profile: Profile }) {
       </div>
 
       <div className="p-2.5">
-        <div className="flex items-center gap-1 text-[11px] text-gray-500">
+        <div
+          className={`flex items-center gap-1 text-[11px] ${isV2 ? "text-[#9B9B9B]" : "text-gray-500"}`}
+        >
           <MapPin className="size-3 shrink-0" strokeWidth={2.25} aria-hidden />
           <span className="truncate">{profile.city}</span>
         </div>
-        <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-gray-700">
+        <p
+          className={`mt-1 line-clamp-2 text-[11px] leading-snug ${isV2 ? "text-[#C8C8C8]" : "text-gray-700"}`}
+        >
           {profile.bio}
         </p>
-        <div className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-full bg-gray-900 py-1.5 text-[11px] font-bold text-white">
+        <div
+          className={`mt-2.5 flex w-full items-center justify-center gap-1 rounded-full py-1.5 text-[11px] font-bold text-white ${
+            isV2 ? "bg-[#B52B2A]" : "bg-gray-900"
+          }`}
+        >
           Bekijken
           <ArrowRight className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
         </div>

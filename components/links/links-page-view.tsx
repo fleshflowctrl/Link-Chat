@@ -5,7 +5,7 @@ import { ExclusiveContentStore } from "@/components/links/exclusive-content-stor
 
 export function LinksPageView() {
   return (
-    <div className="bg-[#F5F3EE] pb-6">
+    <div className="bg-canvas pb-6">
       <StatusBarMock />
       <ExclusiveContentStore />
     </div>

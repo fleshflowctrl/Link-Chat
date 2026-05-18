@@ -43,16 +43,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        canvas: "#F5F3EE",
-        ink: "#2B2B2B",
-        inkMuted: "#5C5C5C",
-        primary: "#7C5CFF",
-        primarySoft: "#9B7BFF",
-        accentPink: "#FF6B9D",
-        accentOrange: "#FF8A4C",
-        accentGreen: "#22C55E",
-        lavender: "#EDE8FF",
-        lavenderDeep: "#E4DCFF",
+        canvas: "rgb(var(--canvas) / <alpha-value>)",
+        ink: "rgb(var(--ink) / <alpha-value>)",
+        inkMuted: "rgb(var(--ink-muted) / <alpha-value>)",
+        primary: "rgb(var(--primary) / <alpha-value>)",
+        primarySoft: "rgb(var(--primary-soft) / <alpha-value>)",
+        accentPink: "rgb(var(--accent-pink) / <alpha-value>)",
+        accentOrange: "rgb(var(--accent-orange) / <alpha-value>)",
+        accentGreen: "rgb(var(--accent-green) / <alpha-value>)",
+        lavender: "rgb(var(--lavender) / <alpha-value>)",
+        lavenderDeep: "rgb(var(--lavender-deep) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],

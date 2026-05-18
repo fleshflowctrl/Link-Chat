@@ -26,6 +26,7 @@ import {
   getCreditsSnapshot,
   subscribeCredits,
 } from "@/lib/credits-store";
+import { useAppVariant } from "@/components/app-variant-provider";
 import { FeedCard } from "./feed-card";
 import { ProfileStrengthBanner } from "./profile-strength-banner";
 
@@ -402,18 +403,37 @@ function FeedEndCard({
   refreshing,
   onRefreshNow,
 }: EndProps) {
-  return (
-    <div className="relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl bg-white p-5 text-center shadow-xl ring-1 ring-black/5">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gradient-to-br from-primary/25 via-accentPink/15 to-transparent blur-2xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-gradient-to-tr from-accentPink/20 via-primary/10 to-transparent blur-2xl"
-      />
+  const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
 
-      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accentPink shadow-md ring-4 ring-lavender/60">
+  return (
+    <div
+      className={
+        isV2
+          ? "relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl border border-white/10 bg-[#2A2A2B] p-5 text-center shadow-xl ring-1 ring-[#B52B2A]/25"
+          : "relative flex flex-col items-center gap-3 overflow-hidden rounded-3xl bg-white p-5 text-center shadow-xl ring-1 ring-black/5"
+      }
+    >
+      {!isV2 && (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-gradient-to-br from-primary/25 via-accentPink/15 to-transparent blur-2xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-16 bottom-0 h-40 w-40 rounded-full bg-gradient-to-tr from-accentPink/20 via-primary/10 to-transparent blur-2xl"
+          />
+        </>
+      )}
+
+      <span
+        className={
+          isV2
+            ? "relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#B52B2A] to-[#D63B3A] shadow-md ring-4 ring-[#B52B2A]/30"
+            : "relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accentPink shadow-md ring-4 ring-lavender/60"
+        }
+      >
         <Sparkles
           className="h-7 w-7 text-white"
           strokeWidth={2.25}
@@ -442,7 +462,11 @@ function FeedEndCard({
               void onRefreshNow();
             }}
             disabled={refreshing || insufficient}
-            className="group relative flex w-full flex-col items-center gap-1 overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-[#8B6BFF] to-accentPink px-4 py-3 text-white shadow-lg transition active:scale-[0.98] disabled:opacity-60"
+            className={
+              isV2
+                ? "group relative flex w-full flex-col items-center gap-1 overflow-hidden rounded-2xl bg-gradient-to-r from-[#B52B2A] via-[#C93535] to-[#D63B3A] px-4 py-3 text-white shadow-lg transition active:scale-[0.98] disabled:opacity-60"
+                : "group relative flex w-full flex-col items-center gap-1 overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-[#8B6BFF] to-accentPink px-4 py-3 text-white shadow-lg transition active:scale-[0.98] disabled:opacity-60"
+            }
           >
             <span
               aria-hidden

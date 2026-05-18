@@ -212,7 +212,7 @@ export function HelpSupportView() {
   }
 
   return (
-    <div className="min-h-full overflow-x-hidden bg-[#F5F3EE] pb-[max(3rem,env(safe-area-inset-bottom))]">
+    <div className="min-h-full overflow-x-hidden bg-canvas pb-[max(3rem,env(safe-area-inset-bottom))]">
       <StatusBarMock />
 
       <header className="flex items-center gap-3 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">

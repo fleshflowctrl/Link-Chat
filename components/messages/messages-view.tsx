@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { VariantLink as Link } from "@/components/variant-link";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 import {
   useCallback,
   useEffect,
@@ -77,11 +79,13 @@ function TypingDots() {
 
 
 function PinnedSection({ threads }: { threads: MessageThread[] }) {
+  const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
   if (threads.length === 0) return null;
 
   return (
     <section className="px-5 pb-4 pt-2">
-      <div className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+      <div className="mb-3 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-inkMuted">
         <Pin className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.5} />
         <span>Vastgezet · {threads.length}</span>
       </div>
@@ -90,10 +94,20 @@ function PinnedSection({ threads }: { threads: MessageThread[] }) {
           <Link
             key={t.id}
             href={`/messages/${t.id}`}
-            className="flex min-h-[72px] items-start gap-3 rounded-2xl bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0] p-3 shadow-sm transition active:scale-[0.99]"
+            className={
+              isV2
+                ? "flex min-h-[72px] items-start gap-3 rounded-2xl border border-white/10 bg-[#2A2A2B] p-3 shadow-sm transition active:scale-[0.99]"
+                : "flex min-h-[72px] items-start gap-3 rounded-2xl bg-gradient-to-br from-[#EDE7FF] to-[#FDE4F0] p-3 shadow-sm transition active:scale-[0.99]"
+            }
           >
             <div className="relative shrink-0">
-              <span className="relative block h-12 w-12 overflow-hidden rounded-full bg-white ring-1 ring-black/[0.06]">
+              <span
+                className={
+                  isV2
+                    ? "relative block h-12 w-12 overflow-hidden rounded-full bg-[#353536] ring-1 ring-white/10"
+                    : "relative block h-12 w-12 overflow-hidden rounded-full bg-white ring-1 ring-black/[0.06]"
+                }
+              >
                 <Image
                   src={t.avatarUrl}
                   alt=""
@@ -317,6 +331,7 @@ function ConversationRow({
 }
 
 export function MessagesView() {
+  const { variant } = useAppVariant();
   const [revealedLocked, setRevealedLocked] = useState<Set<string>>(() => new Set());
   const [serverThreads, setServerThreads] = useState<MessageThread[]>([]);
   const cacheHydratedRef = useRef(false);
@@ -453,7 +468,7 @@ export function MessagesView() {
   };
 
   return (
-    <div className="bg-[#F5F3EE] pb-6">
+    <div className="bg-canvas pb-6">
       <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
           Berichten
@@ -475,7 +490,7 @@ export function MessagesView() {
                 je chats verschijnen hier.
               </p>
               <Link
-                href="/discover"
+                href={withVariantPath("/discover", variant)}
                 className="mt-6 inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-6 py-2.5 text-[14px] font-bold text-white shadow-pill transition active:scale-[0.99]"
               >
                 Profielen bekijken

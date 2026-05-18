@@ -125,7 +125,7 @@ export function CreditsView() {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#F5F3EE]">
+    <div className="flex h-full min-h-0 flex-col bg-canvas">
       <header className="shrink-0 px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-start justify-between gap-3">
           <div>
