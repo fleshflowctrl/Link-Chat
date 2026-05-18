@@ -12,9 +12,9 @@ import Link from "next/link";
 import {
   ChevronsRight,
   Coins,
-  Heart,
   MessageCircle,
   RefreshCcw,
+  Sparkles,
   Timer,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
@@ -404,18 +404,19 @@ function FeedEndCard({
   return (
     <div className="flex flex-col items-center gap-2 rounded-3xl bg-white p-4 text-center shadow-lg ring-1 ring-black/5">
       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-lavender">
-        <Heart
+        <Sparkles
           className="h-5 w-5 text-primary"
-          fill="currentColor"
-          strokeWidth={0}
+          strokeWidth={2.25}
           aria-hidden
         />
       </span>
       <h2 className="text-[16px] font-extrabold tracking-tight text-ink">
-        Je hebt alle {HOURLY_FEED_SIZE} gezien
+        Klaar met deze ronde
       </h2>
       <p className="text-[12px] leading-snug text-inkMuted">
-        Volgende selectie komt over{" "}
+        Dit waren je {HOURLY_FEED_SIZE} matches van dit uur — er staan{" "}
+        <span className="font-bold text-ink">honderden andere profielen</span>{" "}
+        klaar. Nieuwe selectie over{" "}
         <span className="font-bold text-ink">{countdown}</span>.
       </p>
 
@@ -438,7 +439,7 @@ function FeedEndCard({
               ? "Vernieuwen…"
               : insufficient
                 ? `Te weinig credits (${refreshCost} nodig)`
-                : `Direct ${HOURLY_FEED_SIZE} nieuwe profielen`}
+                : `Toon nu ${HOURLY_FEED_SIZE} nieuwe profielen`}
           </span>
           {!refreshing && !insufficient && (
             <span className="flex shrink-0 items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-bold">
