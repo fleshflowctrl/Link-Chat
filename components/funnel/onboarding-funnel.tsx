@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -48,6 +49,12 @@ import {
 } from "@/lib/client-user-session";
 import { fireAffiliateSignupConversion } from "@/lib/affiliate/911-for-me";
 import { trackFunnelStep } from "@/lib/analytics/visitor-id";
+import type { AppVariant } from "@/lib/app-variant";
+import { DEFAULT_APP_VARIANT } from "@/lib/app-variant";
+import {
+  FunnelConfigProvider,
+  useFunnelConfig,
+} from "@/components/funnel/funnel-config-context";
 import { stashFunnelPendingProfile } from "@/lib/funnel/pending-profile";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
@@ -257,7 +264,26 @@ function saveSession(p: FunnelPersist) {
   sessionStorage.setItem(FUNNEL_SESSION_KEY, JSON.stringify(p));
 }
 
-export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[] }) {
+export function OnboardingFunnel({
+  initialCatalog,
+  variant = DEFAULT_APP_VARIANT,
+}: {
+  initialCatalog?: Profile[];
+  variant?: AppVariant;
+}) {
+  return (
+    <FunnelConfigProvider variant={variant}>
+      <OnboardingFunnelInner initialCatalog={initialCatalog} />
+    </FunnelConfigProvider>
+  );
+}
+
+function OnboardingFunnelInner({
+  initialCatalog,
+}: {
+  initialCatalog?: Profile[];
+}) {
+  const cfg = useFunnelConfig();
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(1);
@@ -316,7 +342,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
           } = await supabase.auth.getUser();
           if (cancelled) return;
           if (user) {
-            router.replace("/discover");
+            router.replace(cfg.discoverPath);
             return;
           }
         } catch {
@@ -325,7 +351,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
       }
 
       if (localStorage.getItem(ONBOARDED_KEY) === "true") {
-        router.replace("/discover");
+        router.replace(cfg.discoverPath);
         return;
       }
 
@@ -347,7 +373,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, cfg.discoverPath]);
 
   const persistNow = useCallback(() => {
     const p: FunnelPersist = {
@@ -383,8 +409,8 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
   // are idempotent — totals stay accurate.
   useEffect(() => {
     if (!hydrated) return;
-    void trackFunnelStep(step);
-  }, [hydrated, step]);
+    void trackFunnelStep(step, cfg.variant);
+  }, [hydrated, step, cfg.variant]);
 
   const goNext = useCallback(() => {
     setNavDir(1);
@@ -425,17 +451,20 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
         pid && pickedMatch && msgTrim.length > 0,
       );
 
-      const signupResult = await saveFunnelAccount({
-        email,
-        password,
-        lookingFor,
-        gender,
-        seekingGender,
-        ageRange,
-        startingCredits: STARTING_USER_CREDITS,
-        pickedMatchId: firstContact.profileId,
-        firstMessage: didFirstMessage ? msgTrim : null,
-      });
+      const signupResult = await saveFunnelAccount(
+        {
+          email,
+          password,
+          lookingFor,
+          gender,
+          seekingGender,
+          ageRange,
+          startingCredits: STARTING_USER_CREDITS,
+          pickedMatchId: firstContact.profileId,
+          firstMessage: didFirstMessage ? msgTrim : null,
+        },
+        { variant: cfg.variant },
+      );
 
       if (!signupResult.ok) {
         return { ok: false, error: signupResult.error };
@@ -484,11 +513,13 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
           : `Je bent binnen — welkom bij ${SITE_DISPLAY} ✨`;
       sessionStorage.setItem("whisper_discover_toast", toast);
 
-      router.push("/discover");
+      router.push(cfg.discoverPath);
       return { ok: true };
     },
     [
       ageRange,
+      cfg.discoverPath,
+      cfg.variant,
       firstContact.profileId,
       firstMessage,
       gender,
@@ -505,19 +536,34 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
     exit: (dir: number) => ({ x: dir < 0 ? 28 : -28, opacity: 0 }),
   };
 
+  const accentStyle = {
+    "--funnel-accent": cfg.accent,
+    "--funnel-accent-soft": cfg.accentSoft,
+  } as CSSProperties;
+
   if (!hydrated) {
     return (
-      <div className="fixed inset-0 z-10 flex items-center justify-center overflow-hidden overscroll-none bg-[#F5F3EE] touch-manipulation">
+      <div
+        className={`fixed inset-0 z-10 flex items-center justify-center overflow-hidden overscroll-none touch-manipulation ${cfg.cardBg}`}
+        style={accentStyle}
+      >
         <span className="text-sm text-gray-500">Laden…</span>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex justify-center overflow-hidden overscroll-none bg-[#E4DFD4] touch-manipulation">
-      <div className="relative flex h-full min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none bg-[#F5F3EE] shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)] touch-manipulation">
+    <div
+      className={`fixed inset-0 z-10 flex justify-center overflow-hidden overscroll-none touch-manipulation ${cfg.outerBg}`}
+      style={accentStyle}
+    >
+      <div
+        className={`relative flex h-full min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none touch-manipulation ${cfg.cardBg} shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]`}
+      >
         {step > 1 && (
-          <header className="z-20 flex shrink-0 items-center gap-3 border-b border-black/[0.04] bg-[#F5F3EE]/95 px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm">
+          <header
+            className={`z-20 flex shrink-0 items-center gap-3 border-b px-4 py-2.5 pt-[max(6px,env(safe-area-inset-top))] backdrop-blur-sm ${cfg.headerBg}`}
+          >
             <div className="flex w-8 shrink-0 items-center justify-center">
               <button
                 type="button"
@@ -531,7 +577,7 @@ export function OnboardingFunnel({ initialCatalog }: { initialCatalog?: Profile[
             <div className="min-w-0 flex-1">
               <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
                 <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)]"
                   initial={false}
                   animate={{ width: `${progress}%` }}
                   transition={{ type: "tween", duration: 0.25 }}
@@ -711,6 +757,7 @@ function StepWelcome({
   onStart: () => void;
   catalog: Profile[];
 }) {
+  const cfg = useFunnelConfig();
   const countMv = useMotionValue(0);
   const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
@@ -751,7 +798,7 @@ function StepWelcome({
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#F5F3EE] font-sans">
       <div
-        className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#9B7BFF]/30 blur-3xl"
+        className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[var(--funnel-accent-soft)]/30 blur-3xl"
         aria-hidden
       />
       <div
@@ -763,7 +810,7 @@ function StepWelcome({
         <div className="min-w-0 flex-1">
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
             <div
-              className="h-full w-[14.3%] rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF]"
+              className="h-full w-[14.3%] rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)]"
               aria-hidden
             />
           </div>
@@ -865,7 +912,7 @@ function StepWelcome({
 
         <p className="mt-2 text-[clamp(12px,3.2vmin,14px)] leading-snug">
           <span className="text-gray-600">Echte gesprekken. </span>
-          <span className="font-bold text-[#7C5CFF]">Op jouw tempo.</span>
+          <span className="font-bold text-[var(--funnel-accent)]">Op jouw tempo.</span>
         </p>
 
         <div className="mt-2 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -903,7 +950,7 @@ function StepWelcome({
         <button
           type="button"
           onClick={onStart}
-          className="mt-3 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
+          className="mt-3 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
           Aan de slag →
         </button>
@@ -911,8 +958,8 @@ function StepWelcome({
         <p className="mt-1.5 text-center text-[11px] text-gray-500">
           Heb je al een account?{" "}
           <Link
-            href="/login"
-            className="font-bold text-[#7C5CFF] underline-offset-2 hover:underline"
+            href={cfg.loginPath}
+            className="font-bold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
           >
             Inloggen
           </Link>
@@ -951,7 +998,7 @@ function StepLookingFor({
                 onClick={() => onSelect(opt.id)}
                 className={`flex w-full min-h-0 items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left transition active:scale-[0.98] ${opt.cardBg} ${
                   isSel
-                    ? "border-2 border-[#7C5CFF] ring-2 ring-[#7C5CFF]/30"
+                    ? "border-2 border-[var(--funnel-accent)] ring-2 ring-[var(--funnel-accent)]/30"
                     : `border ${opt.cardBorder}`
                 }`}
               >
@@ -978,7 +1025,7 @@ function StepLookingFor({
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7C5CFF] text-[11px] font-bold text-white"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[11px] font-bold text-white"
                       >
                         ✓
                       </motion.span>
@@ -1028,7 +1075,7 @@ function StepGender({
                 onClick={() => onSelect(opt.id)}
                 className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left transition active:scale-[0.98] ${opt.bg} ${
                   isSel
-                    ? `border-2 border-[#7C5CFF] ring-2 ring-[#7C5CFF]/30`
+                    ? `border-2 border-[var(--funnel-accent)] ring-2 ring-[var(--funnel-accent)]/30`
                     : "border border-gray-200"
                 }`}
               >
@@ -1046,7 +1093,7 @@ function StepGender({
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7C5CFF] text-[11px] font-bold text-white"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[11px] font-bold text-white"
                       >
                         ✓
                       </motion.span>
@@ -1097,7 +1144,7 @@ function StepSeekingGender({
                 onClick={() => onSelect(opt.id)}
                 className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left transition active:scale-[0.98] ${opt.bg} ${
                   isSel
-                    ? "border-2 border-[#7C5CFF] ring-2 ring-[#7C5CFF]/30"
+                    ? "border-2 border-[var(--funnel-accent)] ring-2 ring-[var(--funnel-accent)]/30"
                     : "border border-gray-200"
                 }`}
               >
@@ -1115,7 +1162,7 @@ function StepSeekingGender({
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[#7C5CFF] text-[11px] font-bold text-white"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[11px] font-bold text-white"
                       >
                         ✓
                       </motion.span>
@@ -1173,7 +1220,7 @@ function StepBasics({
                 setBasics((b) => ({ ...b, name: firstWordName(b.name) }))
               }
               placeholder="Lisa"
-              className="inline-block w-[min(140px,42vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
+              className="inline-block w-[min(140px,42vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[var(--funnel-accent)] focus:ring-2 focus:ring-[var(--funnel-accent)]/30 sm:px-3 sm:py-1.5"
             />
           </p>
           <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1.5">
@@ -1198,7 +1245,7 @@ function StepBasics({
                 }));
               }}
               placeholder="28"
-              className="inline-block w-[min(80px,22vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-center text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
+              className="inline-block w-[min(80px,22vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-center text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[var(--funnel-accent)] focus:ring-2 focus:ring-[var(--funnel-accent)]/30 sm:px-3 sm:py-1.5"
             />
             <span>jaar.</span>
           </p>
@@ -1211,7 +1258,7 @@ function StepBasics({
                 setBasics((b) => ({ ...b, location: e.target.value }))
               }
               placeholder="Amsterdam"
-              className="inline-block w-[min(160px,48vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[#7C5CFF] focus:ring-2 focus:ring-[#7C5CFF]/30 sm:px-3 sm:py-1.5"
+              className="inline-block w-[min(160px,48vw)] rounded-full border-2 border-gray-200 bg-white px-2.5 py-1 text-[clamp(14px,3.6vmin,16px)] font-bold text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-[var(--funnel-accent)] focus:ring-2 focus:ring-[var(--funnel-accent)]/30 sm:px-3 sm:py-1.5"
             />
           </p>
         </div>
@@ -1229,8 +1276,8 @@ function StepBasics({
           onClick={onContinue}
           className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
             ok
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
-              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
+              ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-lg"
+              : "cursor-not-allowed bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white opacity-50 shadow-none"
           }`}
         >
           Doorgaan →
@@ -1301,7 +1348,7 @@ function StepPickMatch({
                 onClick={() => onSelect(p.id)}
                 className={`group relative aspect-[3/4] w-full min-w-0 overflow-hidden rounded-2xl text-left shadow-md ring-2 transition active:scale-[0.98] [transform:translateZ(0)] [isolation:isolate] ${
                   sel
-                    ? "ring-[#7C5CFF] ring-offset-2 ring-offset-[#F5F3EE]"
+                    ? "ring-[var(--funnel-accent)] ring-offset-2 ring-offset-[#F5F3EE]"
                     : "ring-black/[0.06] ring-offset-0"
                 }`}
               >
@@ -1329,7 +1376,7 @@ function StepPickMatch({
 
                 {sel ? (
                   <div
-                    className="pointer-events-none absolute inset-0 z-[14] ring-2 ring-inset ring-[#7C5CFF]/90"
+                    className="pointer-events-none absolute inset-0 z-[14] ring-2 ring-inset ring-[var(--funnel-accent)]/90"
                     aria-hidden
                   />
                 ) : null}
@@ -1359,9 +1406,9 @@ function StepPickMatch({
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
                       transition={{ duration: 0.2, ease: "easeOut" }}
-                      className="absolute inset-0 z-[40] flex items-center justify-center bg-[#7C5CFF]/10"
+                      className="absolute inset-0 z-[40] flex items-center justify-center bg-[var(--funnel-accent)]/10"
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-base font-extrabold text-[#7C5CFF] shadow-lg ring-2 ring-[#7C5CFF]/25 sm:h-11 sm:w-11 sm:text-lg">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-base font-extrabold text-[var(--funnel-accent)] shadow-lg ring-2 ring-[var(--funnel-accent)]/25 sm:h-11 sm:w-11 sm:text-lg">
                         ✓
                       </div>
                     </motion.div>
@@ -1380,8 +1427,8 @@ function StepPickMatch({
           onClick={onContinue}
           className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
             ok
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
-              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
+              ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-lg"
+              : "cursor-not-allowed bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white opacity-50 shadow-none"
           }`}
         >
           Eerste bericht sturen →
@@ -1389,7 +1436,7 @@ function StepPickMatch({
         <button
           type="button"
           onClick={onSkip}
-          className="mt-2 w-full py-2 text-center text-[13px] font-semibold text-[#7C5CFF] transition active:scale-[0.98] active:opacity-80"
+          className="mt-2 w-full py-2 text-center text-[13px] font-semibold text-[var(--funnel-accent)] transition active:scale-[0.98] active:opacity-80"
         >
           Overslaan — ik stuur later een bericht
         </button>
@@ -1455,7 +1502,7 @@ function StepFirstMessage({
             value={value}
             onChange={(e) => onChange(e.target.value.slice(0, MSG_MAX))}
             rows={4}
-            className="w-full resize-none rounded-2xl border-0 bg-white p-3 text-[clamp(13px,3.4vmin,15px)] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[#7C5CFF]/40 sm:p-4"
+            className="w-full resize-none rounded-2xl border-0 bg-white p-3 text-[clamp(13px,3.4vmin,15px)] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[var(--funnel-accent)]/40 sm:p-4"
             placeholder="Schrijf iets aardigs…"
           />
           <p className="mt-1 text-right text-[11px] font-medium text-gray-500">
@@ -1471,7 +1518,7 @@ function StepFirstMessage({
           onClick={onContinue}
           className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-bold transition active:scale-95 ${
             ok
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-pill"
+              ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-pill"
               : "cursor-not-allowed bg-gray-200 text-gray-500"
           }`}
         >
@@ -1522,6 +1569,7 @@ function StepCreateAccount({
     password: string;
   }) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
+  const cfg = useFunnelConfig();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -1587,7 +1635,7 @@ function StepCreateAccount({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#7C5CFF]/20 to-[#9B7BFF]/30 text-lg" aria-hidden>
+                    <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--funnel-accent)]/20 to-[var(--funnel-accent-soft)]/30 text-lg" aria-hidden>
                       ✨
                     </span>
                   )}
@@ -1600,7 +1648,7 @@ function StepCreateAccount({
                 ) : null}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-[#7C5CFF] sm:text-[10px]">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--funnel-accent)] sm:text-[10px]">
                   {hasOutreach ? "KLAAR OM TE VERSTUREN" : "JOUW PROFIEL"}
                 </p>
                 <p className="mt-0.5 truncate text-[clamp(11px,3vmin,13px)] font-semibold text-gray-900">
@@ -1619,14 +1667,14 @@ function StepCreateAccount({
             <div className="relative space-y-1 sm:space-y-1.5">
               {hasOutreach ? (
                 <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
                     ✓
                   </span>
                   <span>Verstuur meteen je eerste bericht</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#7C5CFF] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
                     ✓
                   </span>
                   <span>Ontdek mensen die bij jouw vibe passen</span>
@@ -1644,7 +1692,7 @@ function StepCreateAccount({
           </div>
 
           <div className="shrink-0 space-y-2.5">
-            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition focus-within:border-[#7C5CFF] focus-within:ring-2 focus-within:ring-[#7C5CFF]/20">
+            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition focus-within:border-[var(--funnel-accent)] focus-within:ring-2 focus-within:ring-[var(--funnel-accent)]/20">
               <svg
                 className="h-4 w-4 shrink-0 text-gray-400"
                 viewBox="0 0 24 24"
@@ -1667,7 +1715,7 @@ function StepCreateAccount({
                 autoComplete="email"
               />
             </div>
-            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition focus-within:border-[#7C5CFF] focus-within:ring-2 focus-within:ring-[#7C5CFF]/20">
+            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition focus-within:border-[var(--funnel-accent)] focus-within:ring-2 focus-within:ring-[var(--funnel-accent)]/20">
               <svg
                 className="h-4 w-4 shrink-0 text-gray-400"
                 viewBox="0 0 24 24"
@@ -1694,7 +1742,7 @@ function StepCreateAccount({
               className={`flex items-center gap-3 rounded-2xl border bg-white px-4 shadow-sm transition focus-within:ring-2 ${
                 showMismatch
                   ? "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/20"
-                  : "border-gray-200 focus-within:border-[#7C5CFF] focus-within:ring-[#7C5CFF]/20"
+                  : "border-gray-200 focus-within:border-[var(--funnel-accent)] focus-within:ring-[var(--funnel-accent)]/20"
               }`}
             >
               <svg
@@ -1748,8 +1796,8 @@ function StepCreateAccount({
           onClick={handleSubmit}
           className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
             formOk
-              ? "bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white shadow-lg"
-              : "cursor-not-allowed bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] text-white opacity-50 shadow-none"
+              ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-lg"
+              : "cursor-not-allowed bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white opacity-50 shadow-none"
           }`}
         >
           {submitting
@@ -1760,11 +1808,11 @@ function StepCreateAccount({
         </button>
         <p className="mt-2 text-center text-[11px] leading-snug text-gray-500">
           Door verder te gaan ga je akkoord met onze{" "}
-          <Link href="/me/help" className="font-bold text-[#7C5CFF] hover:underline">
+          <Link href={cfg.helpPath} className="font-bold text-[var(--funnel-accent)] hover:underline">
             Voorwaarden
           </Link>{" "}
           ·{" "}
-          <Link href="/me/privacy" className="font-bold text-[#7C5CFF] hover:underline">
+          <Link href={cfg.privacyPath} className="font-bold text-[var(--funnel-accent)] hover:underline">
             Privacy
           </Link>
         </p>

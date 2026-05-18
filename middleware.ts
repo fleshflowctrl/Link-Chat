@@ -20,6 +20,8 @@ function isPublicPath(pathname: string): boolean {
   /** Funnel + discover home for first-time / anonymous onboarding flows */
   if (pathname === "/" || pathname === "/discover" || pathname.startsWith("/discover/"))
     return true;
+  /** V2 funnel entry + discover (ads may land on either). */
+  if (pathname === "/v2") return true;
   if (pathname === "/v2/discover" || pathname.startsWith("/v2/discover/"))
     return true;
   if (pathname.startsWith("/profile/")) return true;
@@ -107,11 +109,16 @@ export async function middleware(request: NextRequest) {
 
       if (
         user &&
-        pathname === "/" &&
-        request.nextUrl.searchParams.get("testFunnel") !== "1"
+        request.nextUrl.searchParams.get("testFunnel") !== "1" &&
+        (pathname === "/" ||
+          (pathname === "/v2" &&
+            !pathname.startsWith("/v2/discover")))
       ) {
         const url = request.nextUrl.clone();
-        const variant = request.cookies.get(APP_VARIANT_COOKIE)?.value;
+        const variant =
+          pathname === "/v2"
+            ? "v2"
+            : request.cookies.get(APP_VARIANT_COOKIE)?.value;
         url.pathname =
           variant === "v2" ? "/v2/discover" : "/discover";
         url.search = "";

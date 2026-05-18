@@ -11,6 +11,8 @@ import {
 } from "@/lib/credits/pricing";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+import type { AppVariant } from "@/lib/app-variant";
+import { DEFAULT_APP_VARIANT, withVariantPath } from "@/lib/app-variant";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import type {
   FunnelAgeRange,
@@ -44,7 +46,10 @@ export type FunnelSignupResult =
  */
 export async function saveFunnelAccount(
   input: FunnelSignupInput,
+  options: { variant?: AppVariant } = {},
 ): Promise<FunnelSignupResult> {
+  const variant = options.variant ?? DEFAULT_APP_VARIANT;
+  const discoverPath = withVariantPath("/discover", variant);
   if (!isSupabaseConfigured()) {
     return { ok: true, needsEmailConfirm: false, userId: null };
   }
@@ -68,7 +73,7 @@ export async function saveFunnelAccount(
   const origin =
     typeof window !== "undefined" ? window.location.origin : "";
   const emailRedirectTo = origin
-    ? `${origin}/auth/callback?next=${encodeURIComponent("/discover")}`
+    ? `${origin}/auth/callback?next=${encodeURIComponent(discoverPath)}`
     : undefined;
 
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -87,7 +92,7 @@ export async function saveFunnelAccount(
   // Link the anonymous visitor (localStorage UUID) to this brand-new auth
   // user so the admin metrics page can compute visitor → signup funnel.
   // Best-effort; never blocks signup completion.
-  void trackSignupLink(userId);
+  void trackSignupLink(userId, variant);
 
   // Without a session (email confirmation flow) we can't upsert under RLS.
   // We still return ok so the funnel can finish; profile data is also kept in
@@ -132,6 +137,7 @@ export async function saveFunnelAccount(
         age_range_max: input.ageRange.anyAge ? 99 : input.ageRange.max,
         age_range_any: input.ageRange.anyAge,
         discovery_prefs: discoveryPrefsToJson(discoveryPrefs),
+        app_variant: variant,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
