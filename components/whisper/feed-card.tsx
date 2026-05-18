@@ -43,6 +43,7 @@ export function FeedCard({ profile }: Props) {
         sizes="(max-width: 480px) 100vw, 420px"
         className="object-cover"
         priority
+        fetchPriority="high"
       />
 
       {/* Dark bottom gradient so overlaid text is always legible. Stronger

@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import {
   ChevronsRight,
@@ -113,6 +120,36 @@ function postProfileSeen(profileId: string) {
   }
 }
 
+/** Number of upcoming profile photos to preload while the user is browsing. */
+const PRELOAD_AHEAD = 3;
+
+/**
+ * Warm the browser image cache for the next `count` profiles so rapid
+ * "Volgende" taps swap to a fully-decoded image without a flash of blank.
+ */
+function usePreloadNextPhotos(
+  profiles: Profile[],
+  index: number,
+  count: number,
+) {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refs: HTMLImageElement[] = [];
+    for (let i = 1; i <= count; i++) {
+      const next = profiles[index + i];
+      if (!next?.photo) continue;
+      const img = new window.Image();
+      img.decoding = "async";
+      img.loading = "eager";
+      img.src = next.photo;
+      refs.push(img);
+    }
+    return () => {
+      for (const img of refs) img.src = "";
+    };
+  }, [profiles, index, count]);
+}
+
 type Props = {
   profiles: Profile[];
   /** Active hourly slot — used to reset the index when a fresh pack lands. */
@@ -213,13 +250,25 @@ export function FeedStack({
   const current: Profile | undefined = profiles[safeIndex];
   const atEnd = !current;
 
-  // Fire a `seen` ping when the visible profile changes. Best-effort, so a
-  // failed network call never blocks the UI; the server uses it to push this
-  // profile to the back of the next pack and out of the rotation for a while.
+  // Fire a `seen` ping when the visible profile changes. Debounced so rapid
+  // "Volgende" taps don't flood /api/me/feed/seen — we only record the profile
+  // the user actually lingered on (~350 ms). Best-effort either way.
+  const seenSentRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!hydrated || !current?.id) return;
-    postProfileSeen(current.id);
+    const id = current.id;
+    if (seenSentRef.current.has(id)) return;
+    const t = window.setTimeout(() => {
+      seenSentRef.current.add(id);
+      postProfileSeen(id);
+    }, 350);
+    return () => window.clearTimeout(t);
   }, [hydrated, current?.id]);
+
+  // Pre-warm the next few photos so the image is already decoded by the
+  // time the user taps "Volgende" — eliminates the lag where the new card
+  // briefly shows the gray bg or stale photo while the next file loads.
+  usePreloadNextPhotos(profiles, safeIndex, PRELOAD_AHEAD);
 
   const remaining = Math.max(0, nextRefreshAt - now);
   const countdown = formatCountdown(remaining);
@@ -228,9 +277,18 @@ export function FeedStack({
   const insufficient = !isAnonymous && balance < refreshCost;
   const showProfileNudge = profile != null && !hasProfileBasics(profile);
 
-  function handleNext() {
+  // Always advance from the *latest* index using a functional update so
+  // rapid taps queue up correctly in React 18's automatic batching.
+  const handleNext = useCallback(() => {
     setIndex((i) => Math.min(i + 1, total));
-  }
+  }, [total]);
+
+  // Stable href for "Open gesprek" so React doesn't churn the link on every
+  // tap. (Not strictly needed but keeps the render hot-path tiny.)
+  const openHref = useMemo(
+    () => (current ? `/messages/${current.id}` : "#"),
+    [current],
+  );
 
   return (
     <section className="flex min-h-0 w-full flex-1 flex-col gap-2 px-4 pb-3 pt-2">
@@ -274,12 +332,12 @@ export function FeedStack({
       ) : (
         <>
           <div className="flex min-h-0 flex-1">
-            <FeedCard profile={current} />
+            <FeedCard key={current.id} profile={current} />
           </div>
 
           <div className="grid shrink-0 grid-cols-2 gap-2.5">
             <Link
-              href={`/messages/${current.id}`}
+              href={openHref}
               className="flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-primary px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
             >
               <MessageCircle
