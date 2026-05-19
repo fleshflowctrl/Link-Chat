@@ -55,6 +55,16 @@ import {
   FunnelConfigProvider,
   useFunnelConfig,
 } from "@/components/funnel/funnel-config-context";
+import {
+  funnelChoiceRowClass,
+  funnelEmojiTileClass,
+  funnelLookingForRowClass,
+  funnelOptionSubClass,
+  funnelOptionSubClassSm,
+  funnelOptionTitleClass,
+  funnelStepSubtitleClass,
+  funnelStepTitleClass,
+} from "@/lib/funnel/tile-styles";
 import { stashFunnelPendingProfile } from "@/lib/funnel/pending-profile";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
@@ -568,14 +578,20 @@ function OnboardingFunnelInner({
               <button
                 type="button"
                 onClick={goBack}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-gray-700 shadow-sm ring-1 ring-black/[0.06] transition active:scale-95"
+                className={`flex h-8 w-8 items-center justify-center rounded-full shadow-sm ring-1 transition active:scale-95 ${
+                  cfg.variant === "v2"
+                    ? "bg-[#353536] text-ink ring-white/10"
+                    : "bg-white text-gray-700 ring-black/[0.06]"
+                }`}
                 aria-label="Terug"
               >
                 <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.2} />
               </button>
             </div>
             <div className="min-w-0 flex-1">
-              <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+              <div className={`h-1.5 overflow-hidden rounded-full ${
+                cfg.variant === "v2" ? "bg-white/10" : "bg-gray-200"
+              }`}>
                 <motion.div
                   className="h-full rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)]"
                   initial={false}
@@ -584,7 +600,9 @@ function OnboardingFunnelInner({
                 />
               </div>
             </div>
-            <div className="w-9 shrink-0 text-right text-[10px] font-medium text-gray-500">
+            <div className={`w-9 shrink-0 text-right text-[10px] font-medium ${
+              cfg.variant === "v2" ? "text-inkMuted" : "text-gray-500"
+            }`}>
               {step} / {STEP_TOTAL}
             </div>
           </header>
@@ -976,14 +994,16 @@ function StepLookingFor({
   selected: FunnelLookingFor | null;
   onSelect: (id: FunnelLookingFor) => void;
 }) {
+  const { variant } = useFunnelConfig();
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
-        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+        <h2 className={funnelStepTitleClass(variant)}>
           <span className="block">Waar kom je</span>
           <span className="block">voor?</span>
         </h2>
-        <p className="mt-1 text-[13px] leading-snug text-gray-600">
+        <p className={funnelStepSubtitleClass(variant)}>
           We personaliseren je feed.
         </p>
       </div>
@@ -996,23 +1016,24 @@ function StepLookingFor({
               <button
                 type="button"
                 onClick={() => onSelect(opt.id)}
-                className={`flex w-full min-h-0 items-center gap-2.5 rounded-2xl px-3 py-2.5 text-left transition active:scale-[0.98] ${opt.cardBg} ${
-                  isSel
-                    ? "border-2 border-[var(--funnel-accent)] ring-2 ring-[var(--funnel-accent)]/30"
-                    : `border ${opt.cardBorder}`
-                }`}
+                className={funnelLookingForRowClass(
+                  variant,
+                  isSel,
+                  opt.cardBg,
+                  opt.cardBorder,
+                )}
               >
                 <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xl ${opt.tileBg}`}
+                  className={funnelEmojiTileClass(variant, opt.tileBg)}
                   aria-hidden
                 >
                   {opt.emoji}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-bold text-[14px] leading-snug text-gray-900">
+                  <span className={funnelOptionTitleClass(variant, "md")}>
                     {opt.label}
                   </span>
-                  <span className="mt-0.5 block text-[11px] leading-snug text-gray-600">
+                  <span className={funnelOptionSubClass(variant)}>
                     {opt.description}
                   </span>
                 </span>
@@ -1041,9 +1062,15 @@ function StepLookingFor({
   );
 }
 
-const GENDER_OPTIONS: { id: FunnelGender; emoji: string; label: string; sub: string; bg: string; ring: string }[] = [
-  { id: "man", emoji: "👨", label: "Man", sub: "Ik identificeer als man", bg: "bg-blue-50", ring: "ring-blue-400" },
-  { id: "woman", emoji: "👩", label: "Vrouw", sub: "Ik identificeer als vrouw", bg: "bg-pink-50", ring: "ring-pink-400" },
+const GENDER_OPTIONS: {
+  id: FunnelGender;
+  emoji: string;
+  label: string;
+  sub: string;
+  bg: string;
+}[] = [
+  { id: "man", emoji: "👨", label: "Man", sub: "Ik identificeer als man", bg: "bg-blue-50" },
+  { id: "woman", emoji: "👩", label: "Vrouw", sub: "Ik identificeer als vrouw", bg: "bg-pink-50" },
 ];
 
 function StepGender({
@@ -1053,14 +1080,16 @@ function StepGender({
   selected: FunnelGender | null;
   onSelect: (g: FunnelGender) => void;
 }) {
+  const { variant } = useFunnelConfig();
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
-        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+        <h2 className={funnelStepTitleClass(variant)}>
           <span className="block">Ben je een</span>
           <span className="block">man of vrouw?</span>
         </h2>
-        <p className="mt-1 text-[13px] leading-snug text-gray-600">
+        <p className={funnelStepSubtitleClass(variant)}>
           Dit helpt ons je ervaring te personaliseren.
         </p>
       </div>
@@ -1073,16 +1102,12 @@ function StepGender({
               <button
                 type="button"
                 onClick={() => onSelect(opt.id)}
-                className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left transition active:scale-[0.98] ${opt.bg} ${
-                  isSel
-                    ? `border-2 border-[var(--funnel-accent)] ring-2 ring-[var(--funnel-accent)]/30`
-                    : "border border-gray-200"
-                }`}
+                className={funnelChoiceRowClass(variant, isSel, opt.bg)}
               >
                 <span className="text-4xl" aria-hidden>{opt.emoji}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[18px] font-extrabold text-gray-900">{opt.label}</span>
-                  <span className="block text-[12px] text-gray-500">{opt.sub}</span>
+                  <span className={funnelOptionTitleClass(variant)}>{opt.label}</span>
+                  <span className={funnelOptionSubClassSm(variant)}>{opt.sub}</span>
                 </span>
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center">
                   <AnimatePresence mode="wait">
@@ -1122,14 +1147,16 @@ function StepSeekingGender({
   selected: FunnelSeekingGender | null;
   onSelect: (g: FunnelSeekingGender) => void;
 }) {
+  const { variant } = useFunnelConfig();
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
-        <h2 className="text-balance text-3xl font-extrabold leading-tight text-gray-900">
+        <h2 className={funnelStepTitleClass(variant)}>
           <span className="block">Wie zoek</span>
           <span className="block">je?</span>
         </h2>
-        <p className="mt-1 text-[13px] leading-snug text-gray-600">
+        <p className={funnelStepSubtitleClass(variant)}>
           We matchen je met de juiste mensen.
         </p>
       </div>
@@ -1142,16 +1169,12 @@ function StepSeekingGender({
               <button
                 type="button"
                 onClick={() => onSelect(opt.id)}
-                className={`flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-left transition active:scale-[0.98] ${opt.bg} ${
-                  isSel
-                    ? "border-2 border-[var(--funnel-accent)] ring-2 ring-[var(--funnel-accent)]/30"
-                    : "border border-gray-200"
-                }`}
+                className={funnelChoiceRowClass(variant, isSel, opt.bg)}
               >
                 <span className="text-4xl" aria-hidden>{opt.emoji}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[18px] font-extrabold text-gray-900">{opt.label}</span>
-                  <span className="block text-[12px] text-gray-500">{opt.sub}</span>
+                  <span className={funnelOptionTitleClass(variant)}>{opt.label}</span>
+                  <span className={funnelOptionSubClassSm(variant)}>{opt.sub}</span>
                 </span>
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center">
                   <AnimatePresence mode="wait">
@@ -1177,7 +1200,6 @@ function StepSeekingGender({
     </div>
   );
 }
-
 
 function StepBasics({
   basics,

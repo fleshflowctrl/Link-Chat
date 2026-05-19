@@ -15,8 +15,27 @@
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-50,
-:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-100 {
-  background-color: #1d1d1e !important;
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-blue-50,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-yellow-50,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-purple-50,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-pink-50 {
+  background-color: #2a2a2b !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-blue-200\/70,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-yellow-200\/70,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-purple-200\/70,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-pink-200\/70,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-200\/70 {
+  background-color: #353536 !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-blue-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-yellow-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-purple-100,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-pink-100 {
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-ink\/\[0\.04\],
