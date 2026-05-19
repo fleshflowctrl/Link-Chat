@@ -28,6 +28,7 @@ const INTEREST_EMOJI: Record<string, string> = {
  */
 export function FeedCard({ profile, compact = false }: Props) {
   const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
   const isOnline =
     profile.status.variant === "online" || profile.status.variant === "active";
   const isNew = profile.status.variant === "new";
@@ -140,9 +141,12 @@ export function FeedCard({ profile, compact = false }: Props) {
         <Link
           href={withVariantPath(`/profile/${profile.id}`, variant)}
           className={
-            compact
-              ? "mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white/95 py-2 text-[12px] font-bold text-ink shadow-lg ring-1 ring-black/5 backdrop-blur-md transition active:scale-[0.98]"
-              : "mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white/95 py-2.5 text-[13px] font-bold text-ink shadow-lg ring-1 ring-black/5 backdrop-blur-md transition active:scale-[0.98]"
+            (compact
+              ? "mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-full py-2 text-[12px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] "
+              : "mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-[13px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] ") +
+            (isV2
+              ? "bg-white/95 text-[#3D3D3D] ring-1 ring-white/30"
+              : "bg-white/95 text-ink ring-1 ring-black/5")
           }
         >
           <User className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
