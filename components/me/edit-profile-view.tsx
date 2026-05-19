@@ -35,6 +35,8 @@ import {
   COMPLETENESS_FIELDS,
   type CompletenessField,
 } from "@/lib/me/profile-completeness";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { getEditProfileUi } from "@/lib/me/edit-profile-styles";
 
 const BIO_MAX = 280;
 
@@ -56,6 +58,8 @@ export function EditProfileView({
   syncToken,
 }: EditProfileViewProps) {
   const router = useRouter();
+  const { variant } = useAppVariant();
+  const ui = useMemo(() => getEditProfileUi(variant), [variant]);
   const searchParams = useSearchParams();
   const focusKey = searchParams?.get("focus");
   const mainInputRef = useRef<HTMLInputElement>(null);
@@ -395,7 +399,7 @@ export function EditProfileView({
           type="button"
           onClick={() => void handleBack()}
           disabled={saving}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/80 text-white shadow-md transition active:scale-95 disabled:opacity-60"
+          className={ui.backBtn}
           aria-label="Terug"
         >
           <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
@@ -409,8 +413,8 @@ export function EditProfileView({
 
       <div id="section-photo" className="flex flex-col items-center px-5 pt-1">
         <div className="relative">
-          <div className="rounded-full bg-gradient-to-br from-primary via-primarySoft to-accentPink p-[3px] shadow-card">
-            <div className="relative h-32 w-32 overflow-hidden rounded-full bg-canvas ring-2 ring-white">
+          <div className={ui.avatarRing}>
+            <div className={ui.avatarInner}>
               {state.mainPhotoUrl ? (
                 <Image
                   src={state.mainPhotoUrl}
@@ -421,7 +425,7 @@ export function EditProfileView({
                   unoptimized={state.mainPhotoUrl.startsWith("blob:")}
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-lavender/40 to-canvas text-ink/25">
+                <div className={ui.avatarPlaceholder}>
                   <User className="h-12 w-12" strokeWidth={1.5} aria-hidden />
                 </div>
               )}
@@ -430,7 +434,7 @@ export function EditProfileView({
           <button
             type="button"
             onClick={() => mainInputRef.current?.click()}
-            className="absolute bottom-0.5 right-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink shadow-lg ring-2 ring-canvas transition active:scale-95"
+            className={ui.cameraBtn}
             aria-label="Foto wijzigen"
           >
             <Camera className="h-[18px] w-[18px]" strokeWidth={2} />
@@ -470,7 +474,7 @@ export function EditProfileView({
             return (
               <div
                 key={`grid-${item.id}`}
-                className="relative aspect-square overflow-hidden rounded-2xl bg-ink/10 ring-1 ring-black/[0.06] shadow-sm"
+                className={ui.galleryTile}
               >
                 <Image
                   src={item.url}
@@ -499,7 +503,7 @@ export function EditProfileView({
             <button
               type="button"
               onClick={() => galleryInputRef.current?.click()}
-              className="flex aspect-square items-center justify-center rounded-2xl border-2 border-dashed border-primary/45 bg-primary/[0.04] text-primary transition active:bg-primary/10"
+              className={ui.galleryAdd}
               aria-label="Foto toevoegen"
             >
               <Plus className="h-7 w-7" strokeWidth={2} />
@@ -521,7 +525,7 @@ export function EditProfileView({
       </section>
 
       <section id="section-name" className="mt-5 px-5">
-        <div className="overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-black/[0.06]">
+        <div className={ui.card}>
           <FieldRow label="Naam">
             <input
               className="w-full border-0 bg-transparent py-0.5 text-[16px] font-semibold text-ink outline-none ring-0 placeholder:text-ink/30"
@@ -531,7 +535,7 @@ export function EditProfileView({
               }
             />
           </FieldRow>
-          <div className="mx-4 h-px bg-black/[0.06]" />
+          <div className={ui.divider} />
           <FieldRow label="Leeftijd">
             <input
               id="section-age"
@@ -553,7 +557,7 @@ export function EditProfileView({
               }}
             />
           </FieldRow>
-          <div className="mx-4 h-px bg-black/[0.06]" />
+          <div className={ui.divider} />
           <FieldRow label="Locatie">
             <div id="section-location" className="flex items-center gap-2 scroll-mt-24">
               <MapPin className="h-[18px] w-[18px] shrink-0 text-ink/35" strokeWidth={2} />
@@ -576,7 +580,7 @@ export function EditProfileView({
         <div className="relative mt-2">
           <textarea
             rows={3}
-            className={`w-full resize-none rounded-xl bg-ink/[0.04] px-3 py-2.5 pb-7 text-[14px] leading-relaxed text-ink outline-none ring-1 ring-black/[0.06] ${
+            className={`${ui.bio} ${
               bioOver ? "ring-2 ring-red-400/70" : ""
             }`}
             value={state.bio}
@@ -596,13 +600,13 @@ export function EditProfileView({
         <button
           type="button"
           onClick={() => setLookingOpen(true)}
-          className="flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-100 via-rose-100 to-pink-200 px-4 py-3 text-left shadow-card ring-1 ring-accentPink/20 transition active:scale-[0.99]"
+          className={ui.lookingBtn}
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accentPink to-primary text-white shadow-md">
+          <span className={ui.lookingIcon}>
             <Heart className="h-[18px] w-[18px]" fill="currentColor" strokeWidth={0} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-accentPink">
+            <p className={ui.lookingLabel}>
               Op zoek naar
             </p>
             <p className="truncate text-[14px] font-bold text-ink">
@@ -625,12 +629,12 @@ export function EditProfileView({
           {state.interests.map((label) => (
             <span
               key={label}
-              className="inline-flex items-center gap-1 rounded-full bg-ink/[0.08] px-2.5 py-1.5 text-[13px] font-bold text-ink ring-1 ring-black/[0.05]"
+              className={ui.interestChip}
             >
               {label}
               <button
                 type="button"
-                className="ml-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-ink/70 transition hover:bg-black/15"
+                className={ui.interestRemove}
                 aria-label={`${label} verwijderen`}
                 onClick={() => toggleInterest(label)}
               >
@@ -641,7 +645,7 @@ export function EditProfileView({
           <button
             type="button"
             onClick={() => setInterestsOpen(true)}
-            className="inline-flex items-center rounded-full border-2 border-dashed border-primary/45 px-2.5 py-1.5 text-[13px] font-bold text-primary"
+            className={ui.addInterestBtn}
           >
             + Meer toevoegen
           </button>
@@ -652,7 +656,7 @@ export function EditProfileView({
         <button
           type="button"
           onClick={() => setPrefsOpen((o) => !o)}
-          className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-2.5 shadow-card ring-1 ring-black/[0.06]"
+          className={ui.cardFlat}
         >
           <span className="text-[15px] font-bold text-ink">Voorkeuren</span>
           <ChevronDown
@@ -667,7 +671,7 @@ export function EditProfileView({
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden"
             >
-              <div className="mt-2 space-y-0 overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-black/[0.06]">
+              <div className={`mt-2 ${ui.card}`}>
                 <ToggleRow
                   label="Toon mijn afstand"
                   checked={state.preferences.showDistance}
@@ -678,7 +682,7 @@ export function EditProfileView({
                     }))
                   }
                 />
-                <div className="mx-4 h-px bg-black/[0.06]" />
+                <div className={ui.divider} />
                 <ToggleRow
                   label="Toon onlinestatus"
                   checked={state.preferences.showOnlineStatus}
@@ -689,7 +693,7 @@ export function EditProfileView({
                     }))
                   }
                 />
-                <div className="mx-4 h-px bg-black/[0.06]" />
+                <div className={ui.divider} />
                 <ToggleRow
                   label="Sta nieuwe chatverzoeken toe"
                   checked={state.preferences.allowNewChatRequests}
@@ -700,7 +704,7 @@ export function EditProfileView({
                     }))
                   }
                 />
-                <div className="mx-4 h-px bg-black/[0.06]" />
+                <div className={ui.divider} />
                 <ToggleRow
                   label="Pushmeldingen"
                   checked={state.preferences.pushNotifications}
@@ -747,7 +751,11 @@ export function EditProfileView({
         )}
       </AnimatePresence>
 
-      <Sheet open={lookingOpen} onClose={() => setLookingOpen(false)}>
+      <Sheet
+        open={lookingOpen}
+        onClose={() => setLookingOpen(false)}
+        panelClassName={ui.sheet}
+      >
         <h3 className="mb-3 text-lg font-bold text-ink">Op zoek naar</h3>
         <div className="flex flex-col gap-1">
           <button
@@ -756,11 +764,7 @@ export function EditProfileView({
               setState((s) => ({ ...s, lookingFor: "" }));
               setLookingOpen(false);
             }}
-            className={`rounded-xl px-4 py-3 text-left text-[15px] font-semibold transition ${
-              state.lookingFor === ""
-                ? "bg-primary/12 text-primary ring-1 ring-primary/25"
-                : "text-ink hover:bg-black/[0.03]"
-            }`}
+            className={ui.sheetOption(state.lookingFor === "")}
           >
             Nog niet ingesteld
           </button>
@@ -772,11 +776,7 @@ export function EditProfileView({
                 setState((s) => ({ ...s, lookingFor: opt }));
                 setLookingOpen(false);
               }}
-              className={`rounded-xl px-4 py-3 text-left text-[15px] font-semibold transition ${
-                state.lookingFor === opt
-                  ? "bg-primary/12 text-primary ring-1 ring-primary/25"
-                  : "text-ink hover:bg-black/[0.03]"
-              }`}
+              className={ui.sheetOption(state.lookingFor === opt)}
             >
               {opt}
             </button>
@@ -784,7 +784,11 @@ export function EditProfileView({
         </div>
       </Sheet>
 
-      <Sheet open={interestsOpen} onClose={() => setInterestsOpen(false)}>
+      <Sheet
+        open={interestsOpen}
+        onClose={() => setInterestsOpen(false)}
+        panelClassName={ui.sheet}
+      >
         <h3 className="mb-3 text-lg font-bold text-ink">Interesses toevoegen</h3>
         <p className="mb-3 text-[12px] text-inkMuted">
           {state.interests.length} / 8 geselecteerd
@@ -806,13 +810,7 @@ export function EditProfileView({
                       type="button"
                       disabled={maxed}
                       onClick={() => toggleInterest(item)}
-                      className={`rounded-full px-3 py-2 text-[13px] font-semibold transition ${
-                        active
-                          ? "bg-primary text-white shadow-sm"
-                          : maxed
-                            ? "cursor-not-allowed bg-ink/[0.04] text-ink/30"
-                            : "bg-ink/[0.06] text-ink ring-1 ring-black/[0.06]"
-                      }`}
+                      className={ui.interestPicker(active, maxed)}
                     >
                       {item}
                     </button>
@@ -853,6 +851,9 @@ function ToggleRow({
   checked: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
+
   return (
     <div className="flex min-h-[44px] items-center justify-between gap-3 px-4 py-2">
       <span className="text-[14px] font-semibold text-ink">{label}</span>
@@ -862,13 +863,13 @@ function ToggleRow({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-8 w-[52px] shrink-0 rounded-full transition-colors ${
-          checked ? "bg-primary" : "bg-ink/15"
+          checked ? "bg-primary" : isV2 ? "bg-white/15" : "bg-ink/15"
         }`}
       >
         <span
-          className={`absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${
-            checked ? "translate-x-[22px]" : "translate-x-0"
-          }`}
+          className={`absolute left-1 top-1 h-6 w-6 rounded-full shadow transition-transform ${
+            isV2 ? "bg-[#E8E8E8]" : "bg-white"
+          } ${checked ? "translate-x-[22px]" : "translate-x-0"}`}
         />
       </button>
     </div>
@@ -878,10 +879,12 @@ function ToggleRow({
 function Sheet({
   open,
   onClose,
+  panelClassName,
   children,
 }: {
   open: boolean;
   onClose: () => void;
+  panelClassName: string;
   children: ReactNode;
 }) {
   return (
@@ -900,7 +903,7 @@ function Sheet({
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 320 }}
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[85vh] w-full max-w-[430px] overflow-y-auto rounded-t-3xl bg-canvas px-5 pb-10 pt-5 shadow-2xl"
+            className={panelClassName}
           >
             {children}
           </motion.div>
