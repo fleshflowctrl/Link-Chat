@@ -148,6 +148,12 @@ export function MetricsDashboard({ metrics }: { metrics: AdminMetrics }) {
           hint="Gemiddeld over alle accounts"
         />
         <StatCard
+          label="Credits saldo (totaal)"
+          value={nf(metrics.creditsBalanceTotal)}
+          hint={`Gem. ${nf(metrics.signups > 0 ? metrics.creditsBalanceTotal / metrics.signups : 0, 1)} per account · ${nf(metrics.creditsCreditedTotal)} ooit toegekend`}
+          tone="primary"
+        />
+        <StatCard
           label="Credits gebruikt per sign-up"
           value={nf(metrics.avgCreditsSpentPerSignup, 0)}
           hint={`${nf(metrics.avgCreditsSpentPerChatter, 0)} gem. per chattende user · totaal ${nf(metrics.creditsSpentTotal)} uitgegeven`}

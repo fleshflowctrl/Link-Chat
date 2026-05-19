@@ -15,8 +15,25 @@ function formatDateTime(iso: string | null): string {
   });
 }
 
+type AdminUserRow = AdminAuthUser & { credits: number | null };
+
+async function loadUserCreditsById(
+  service: NonNullable<ReturnType<typeof getServiceSupabase>>,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  const { data, error } = await service.from("user_profiles").select("user_id, credits");
+  if (error) throw new Error(error.message);
+  for (const row of data ?? []) {
+    const id = row.user_id;
+    if (!id || typeof id !== "string") continue;
+    const credits = row.credits;
+    if (typeof credits === "number" && credits >= 0) out.set(id, credits);
+  }
+  return out;
+}
+
 async function loadUsers(): Promise<
-  | { ok: true; users: AdminAuthUser[] }
+  | { ok: true; users: AdminUserRow[] }
   | { ok: false; error: string }
 > {
   const service = getServiceSupabase();
@@ -27,8 +44,17 @@ async function loadUsers(): Promise<
     };
   }
   try {
-    const users = await listAllAuthUsers(service);
-    return { ok: true, users };
+    const [users, creditsById] = await Promise.all([
+      listAllAuthUsers(service),
+      loadUserCreditsById(service),
+    ]);
+    return {
+      ok: true,
+      users: users.map((u) => ({
+        ...u,
+        credits: creditsById.get(u.id) ?? null,
+      })),
+    };
   } catch (e) {
     return {
       ok: false,
@@ -85,6 +111,7 @@ export default async function AdminUsersPage() {
                 <tr className="border-b border-black/5 bg-gray-50/80 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                   <th className="px-5 py-3">E-mail</th>
                   <th className="hidden px-5 py-3 sm:table-cell">User ID</th>
+                  <th className="px-5 py-3 text-right">Credits</th>
                   <th className="px-5 py-3">Aangemeld</th>
                   <th className="hidden px-5 py-3 md:table-cell">Laatste login</th>
                 </tr>
@@ -106,6 +133,15 @@ export default async function AdminUsersPage() {
                       <code className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600">
                         {u.id.slice(0, 8)}…
                       </code>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-right tabular-nums">
+                      {u.credits === null ? (
+                        <span className="text-gray-400">—</span>
+                      ) : (
+                        <span className="font-semibold text-gray-900">
+                          {u.credits.toLocaleString("nl-NL")}
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-5 py-3.5 text-gray-600">
                       {formatDateTime(u.createdAt)}
