@@ -15,8 +15,8 @@ export const STARTING_USER_CREDITS = 1000;
 /** Outgoing chat text or image — €0.30 at base pack rate. */
 export const CHAT_MESSAGE_COST_CREDITS = 30;
 
-/** Skip to next feed slot — ~€2.50 at base rate. */
-export const HOURLY_FEED_REFRESH_COST_CREDITS = 250;
+/** Skip to next feed slot — ~€2.60 at base rate. */
+export const HOURLY_FEED_REFRESH_COST_CREDITS = 260;
 
 /** Default blurred photo unlock when blur_cost is unset — ~€5.00. */
 export const DEFAULT_PHOTO_UNLOCK_COST_CREDITS = 500;
