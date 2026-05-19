@@ -114,12 +114,64 @@ function Field({
   );
 }
 
+type ReferenceState = {
+  baseResult: LabResult;
+  variantPrompt: string;
+  count: number;
+};
+
+async function generateOne(payload: Record<string, unknown>): Promise<
+  | {
+      ok: true;
+      data: {
+        url: string;
+        seed: number;
+        backend: string;
+        elapsedMs: number;
+      };
+    }
+  | { ok: false; error: string }
+> {
+  try {
+    const res = await fetch("/api/admin/image-lab", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      url?: string;
+      seed?: number;
+      backend?: string;
+      elapsedMs?: number;
+      error?: string;
+    };
+    if (!res.ok || !data.ok || !data.url) {
+      return { ok: false, error: data.error || `HTTP ${res.status}` };
+    }
+    return {
+      ok: true,
+      data: {
+        url: data.url,
+        seed: data.seed ?? 0,
+        backend: data.backend ?? "?",
+        elapsedMs: data.elapsedMs ?? 0,
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export function ImageLab() {
   const [form, setForm] = useState<FormState>(DEFAULTS);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<LabResult[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [reference, setReference] = useState<ReferenceState | null>(null);
+  const [variantBusy, setVariantBusy] = useState(false);
+  const [variantError, setVariantError] = useState<string | null>(null);
 
   const update = useCallback(
     <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -128,73 +180,146 @@ export function ImageLab() {
     [],
   );
 
+  const buildPayload = useCallback(
+    (overrides: Partial<FormState> = {}) => {
+      const merged = { ...form, ...overrides };
+      const payload: Record<string, unknown> = {
+        prompt: merged.prompt,
+        negativePrompt: merged.negativePrompt,
+        width: merged.width,
+        height: merged.height,
+        steps: merged.steps,
+        skipFinish: merged.skipFinish,
+      };
+      const parsedSeed = Number.parseInt(String(merged.seed).trim(), 10);
+      if (Number.isFinite(parsedSeed) && parsedSeed >= 0) {
+        payload.seed = parsedSeed;
+      }
+      if (!merged.skipFinish) {
+        payload.blurSigma = merged.blurSigma;
+        payload.grainOpacity = merged.grainOpacity;
+        payload.grainStrength = merged.grainStrength;
+      }
+      return { payload, merged };
+    },
+    [form],
+  );
+
   const onSubmit = useCallback(
     async (event: React.FormEvent) => {
       event.preventDefault();
       setBusy(true);
       setError(null);
-      try {
-        const payload: Record<string, unknown> = {
-          prompt: form.prompt,
-          negativePrompt: form.negativePrompt,
-          width: form.width,
-          height: form.height,
-          steps: form.steps,
-          skipFinish: form.skipFinish,
-        };
-        const parsedSeed = Number.parseInt(form.seed.trim(), 10);
-        if (Number.isFinite(parsedSeed) && parsedSeed >= 0) {
-          payload.seed = parsedSeed;
-        }
-        if (!form.skipFinish) {
-          payload.blurSigma = form.blurSigma;
-          payload.grainOpacity = form.grainOpacity;
-          payload.grainStrength = form.grainStrength;
-        }
-
-        const res = await fetch("/api/admin/image-lab", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          url?: string;
-          seed?: number;
-          backend?: string;
-          elapsedMs?: number;
-          error?: string;
-        };
-        if (!res.ok || !data.ok || !data.url) {
-          throw new Error(data.error || `HTTP ${res.status}`);
-        }
-
-        const result: LabResult = {
-          id: uniqueId(),
-          url: data.url,
-          prompt: form.prompt,
-          negativePrompt: form.negativePrompt,
-          seed: data.seed ?? 0,
-          width: form.width,
-          height: form.height,
-          steps: form.steps,
-          skipFinish: form.skipFinish,
-          blurSigma: form.blurSigma,
-          grainOpacity: form.grainOpacity,
-          grainStrength: form.grainStrength,
-          backend: data.backend ?? "?",
-          elapsedMs: data.elapsedMs ?? 0,
-          createdAt: new Date().toISOString(),
-        };
-        setHistory((prev) => [result, ...prev].slice(0, 16));
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
+      const { payload, merged } = buildPayload();
+      const res = await generateOne(payload);
+      if (!res.ok) {
+        setError(res.error);
         setBusy(false);
+        return;
       }
+      const result: LabResult = {
+        id: uniqueId(),
+        url: res.data.url,
+        prompt: merged.prompt,
+        negativePrompt: merged.negativePrompt,
+        seed: res.data.seed,
+        width: merged.width,
+        height: merged.height,
+        steps: merged.steps,
+        skipFinish: merged.skipFinish,
+        blurSigma: merged.blurSigma,
+        grainOpacity: merged.grainOpacity,
+        grainStrength: merged.grainStrength,
+        backend: res.data.backend,
+        elapsedMs: res.data.elapsedMs,
+        createdAt: new Date().toISOString(),
+      };
+      setHistory((prev) => [result, ...prev].slice(0, 24));
+      setBusy(false);
     },
-    [form],
+    [buildPayload],
   );
+
+  const onUseAsReference = useCallback((result: LabResult) => {
+    setReference({ baseResult: result, variantPrompt: "", count: 2 });
+    setVariantError(null);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, []);
+
+  const onGenerateVariants = useCallback(async () => {
+    if (!reference) return;
+    const base = reference.baseResult;
+    const extra = reference.variantPrompt.trim();
+    const count = Math.max(1, Math.min(4, reference.count));
+
+    // Combine base prompt with the operator's extra scene/pose words so
+    // the identity-anchoring tokens (face, hair, build, age) stay intact
+    // while only the scene/wardrobe shifts. Z-Image is text-to-image
+    // only — true image-to-image / IP-Adapter isn't supported on the
+    // current Space — so we lean on `seed + identity tokens` for
+    // visual continuity, exactly like the persona pipeline does.
+    const combinedPrompt = extra ? `${base.prompt}, ${extra}` : base.prompt;
+
+    setVariantBusy(true);
+    setVariantError(null);
+
+    // We deliberately call sequentially. Z-Image's HF Space ZeroGPU
+    // tier serializes requests under the hood; firing them in parallel
+    // just makes the operator wait the same wall-time but with one
+    // ambiguous "still rendering" spinner instead of N progressive
+    // results.
+    const errors: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const res = await generateOne({
+        prompt: combinedPrompt,
+        negativePrompt: base.negativePrompt,
+        // Same seed = best identity match. We jitter by +i so each
+        // variant differs but stays in the same "neighborhood" of
+        // the latent space.
+        seed: base.seed + i,
+        width: base.width,
+        height: base.height,
+        steps: base.steps,
+        skipFinish: base.skipFinish,
+        ...(base.skipFinish
+          ? {}
+          : {
+              blurSigma: base.blurSigma,
+              grainOpacity: base.grainOpacity,
+              grainStrength: base.grainStrength,
+            }),
+      });
+      if (!res.ok) {
+        errors.push(`Variant ${i + 1}: ${res.error}`);
+        continue;
+      }
+      const variant: LabResult = {
+        id: uniqueId(),
+        url: res.data.url,
+        prompt: combinedPrompt,
+        negativePrompt: base.negativePrompt,
+        seed: res.data.seed,
+        width: base.width,
+        height: base.height,
+        steps: base.steps,
+        skipFinish: base.skipFinish,
+        blurSigma: base.blurSigma,
+        grainOpacity: base.grainOpacity,
+        grainStrength: base.grainStrength,
+        backend: res.data.backend,
+        elapsedMs: res.data.elapsedMs,
+        createdAt: new Date().toISOString(),
+      };
+      setHistory((prev) => [variant, ...prev].slice(0, 24));
+    }
+
+    if (errors.length > 0) {
+      setVariantError(errors.join(" · "));
+    }
+    setVariantBusy(false);
+  }, [reference]);
 
   const onPresetPick = useCallback((preset: Preset) => {
     setForm((prev) => ({ ...prev, prompt: preset.prompt }));
@@ -245,6 +370,113 @@ export function ImageLab() {
 
   return (
     <div className="space-y-6">
+      {reference ? (
+        <section className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-5 shadow-sm">
+          <header className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">
+                Referentie-foto · genereer varianten van dezelfde persoon
+              </h2>
+              <p className="mt-0.5 text-[11px] text-gray-600">
+                Z-Image-Turbo ondersteunt geen echte image-to-image. We
+                hergebruiken de <b>seed + originele prompt</b> en plakken jouw
+                variant-prompt er achteraan — dat geeft op deze pipeline de
+                stabielste "zelfde persoon"-look.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReference(null)}
+              className="rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium hover:bg-gray-50"
+            >
+              Sluiten
+            </button>
+          </header>
+
+          <div className="grid gap-5 sm:grid-cols-[12rem,1fr]">
+            <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-black/5 bg-black/5">
+              <Image
+                src={reference.baseResult.url}
+                alt="Referentie"
+                fill
+                sizes="12rem"
+                className="object-cover"
+                unoptimized
+              />
+              <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-white shadow">
+                REF · seed {reference.baseResult.seed}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <Field
+                label="Basisprompt (vast — identiteit)"
+                hint="Wordt automatisch voor je variant-prompt geplakt zodat de gezichtskenmerken behouden blijven."
+              >
+                <textarea
+                  value={reference.baseResult.prompt}
+                  readOnly
+                  rows={3}
+                  className="w-full resize-y rounded-xl border border-black/10 bg-gray-50 px-3 py-2 font-mono text-[12px] text-gray-600"
+                />
+              </Field>
+
+              <Field
+                label="Variant-prompt (alleen scène / pose / outfit)"
+                hint='Bijv. "now sitting on a balcony at sunset, wearing a denim jacket" — laat de identiteit-woorden weg, die zitten al in de basisprompt.'
+              >
+                <textarea
+                  value={reference.variantPrompt}
+                  onChange={(e) =>
+                    setReference({ ...reference, variantPrompt: e.target.value })
+                  }
+                  rows={3}
+                  className="w-full resize-y rounded-xl border border-black/10 bg-white px-3 py-2 font-mono text-[13px] text-gray-900 outline-none focus:border-primary/60"
+                  placeholder="Wat moet er anders zijn op de nieuwe foto's?"
+                />
+              </Field>
+
+              <div className="flex flex-wrap items-end gap-3">
+                <Field label="Aantal varianten">
+                  <input
+                    type="number"
+                    min={1}
+                    max={4}
+                    value={reference.count}
+                    onChange={(e) =>
+                      setReference({
+                        ...reference,
+                        count: Math.max(
+                          1,
+                          Math.min(4, Number(e.target.value) || 1),
+                        ),
+                      })
+                    }
+                    className="w-24 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm outline-none focus:border-primary/60"
+                  />
+                </Field>
+                <button
+                  type="button"
+                  onClick={onGenerateVariants}
+                  disabled={variantBusy}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
+                >
+                  {variantBusy
+                    ? `Renderen ${reference.count} variant${reference.count > 1 ? "en" : ""}…`
+                    : `Genereer ${reference.count} variant${reference.count > 1 ? "en" : ""}`}
+                </button>
+              </div>
+
+              {variantError ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
+                  {variantError}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr,18rem]">
         <div className="space-y-4">
           <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
@@ -470,7 +702,9 @@ export function ImageLab() {
                 onReuse={() => onReuse(r)}
                 onReroll={() => onReroll(r)}
                 onToggleCompare={() => toggleCompare(r.id)}
+                onUseAsReference={() => onUseAsReference(r)}
                 compareSelected={compareIds.includes(r.id)}
+                isCurrentReference={reference?.baseResult.id === r.id}
               />
             ))}
           </div>
@@ -485,14 +719,18 @@ function ResultCard({
   onReuse,
   onReroll,
   onToggleCompare,
+  onUseAsReference,
   compareSelected,
+  isCurrentReference,
   compact = false,
 }: {
   result: LabResult;
   onReuse?: () => void;
   onReroll?: () => void;
   onToggleCompare?: () => void;
+  onUseAsReference?: () => void;
   compareSelected?: boolean;
+  isCurrentReference?: boolean;
   compact?: boolean;
 }) {
   return (
@@ -533,8 +771,21 @@ function ResultCard({
             {result.prompt}
           </p>
         ) : null}
-        {!compact && (onReuse || onReroll || onToggleCompare) ? (
+        {!compact && (onReuse || onReroll || onToggleCompare || onUseAsReference) ? (
           <div className="flex flex-wrap gap-1.5 pt-1">
+            {onUseAsReference ? (
+              <button
+                type="button"
+                onClick={onUseAsReference}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  isCurrentReference
+                    ? "border border-primary bg-primary text-white"
+                    : "border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
+                }`}
+              >
+                {isCurrentReference ? "✓ Referentie" : "Als referentie"}
+              </button>
+            ) : null}
             {onReuse ? (
               <button
                 type="button"
