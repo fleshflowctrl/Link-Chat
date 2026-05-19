@@ -83,6 +83,26 @@ function gid() {
   return `m-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function messageSortKey(m: ChatMessage): number {
+  if (m.createdAt) {
+    const t = new Date(m.createdAt).getTime();
+    if (Number.isFinite(t)) return t;
+  }
+  return m.minuteOfDay * 60_000;
+}
+
+/** Merge server transcript with optimistic rows; never drop in-flight temps. */
+function mergeChatMessages(
+  prev: ChatMessage[],
+  server: ChatMessage[],
+): ChatMessage[] {
+  const serverIds = new Set(server.map((m) => m.id));
+  const optimistic = prev.filter((m) => !serverIds.has(m.id));
+  return [...server, ...optimistic].sort(
+    (a, b) => messageSortKey(a) - messageSortKey(b),
+  );
+}
+
 const REACTION_PICK = ["❤️", "😂", "🔥", "😮"] as const;
 
 function GiftBubble({
@@ -227,6 +247,8 @@ export function ChatConversationView({
   const [nextPendingAt, setNextPendingAt] = useState<string | null>(null);
   /** Guard against overlapping pollPending invocations. */
   const pollingRef = useRef(false);
+  /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
+  const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
 
   const stopPeerTyping = useCallback(() => {
     setPeerTyping(false);
@@ -281,9 +303,19 @@ export function ChatConversationView({
    * `showTyping` (scheduled delivery) — silent on mount / catch-up.
    */
   const pollPending = useCallback(
-    async (options?: { showTyping?: boolean }) => {
+    async (options?: { showTyping?: boolean; force?: boolean }) => {
       if (!useSupabase) return;
       if (pollingRef.current) return;
+
+      // Never hit the server before scheduled_at — early polls return empty and
+      // used to kill the delivery timer (same nextPendingAt → effect no-op).
+      if (!options?.force && nextPendingAt) {
+        const msUntilDue = new Date(nextPendingAt).getTime() - Date.now();
+        if (Number.isFinite(msUntilDue) && msUntilDue > 0) {
+          return;
+        }
+      }
+
       pollingRef.current = true;
       const showTyping = options?.showTyping === true;
       if (showTyping) setPeerTyping(true);
@@ -315,7 +347,16 @@ export function ChatConversationView({
           });
           requestThreadsRefetch();
         }
-        setNextPendingAt(data.nextPendingAt ?? null);
+        const nextAt = data.nextPendingAt ?? null;
+        setNextPendingAt(nextAt);
+        // Still waiting — re-arm timer if this poll was too early or raced.
+        if (
+          fresh.length === 0 &&
+          nextAt &&
+          new Date(nextAt).getTime() > Date.now()
+        ) {
+          setPendingScheduleKey((k) => k + 1);
+        }
       } catch {
         /* network blip — next interaction will retry */
       } finally {
@@ -323,7 +364,7 @@ export function ChatConversationView({
         stopPeerTyping();
       }
     },
-    [chatId, useSupabase, stopPeerTyping],
+    [chatId, useSupabase, stopPeerTyping, nextPendingAt],
   );
 
   /**
@@ -339,8 +380,7 @@ export function ChatConversationView({
   }, [chatId]);
 
   /**
-   * Fire delivery (with typing) only when scheduled_at is actually due —
-   * re-arm without polling if the browser wakes early (avoids fake typing).
+   * Arm delivery timers: show typing slightly early, poll only when due.
    */
   useEffect(() => {
     if (!nextPendingAt || !useSupabase) return;
@@ -349,33 +389,59 @@ export function ChatConversationView({
 
     const TYPING_LEAD_MS = 1200;
     let cancelled = false;
-    let timer: number | undefined;
+    let typingTimer: number | undefined;
+    let pollTimer: number | undefined;
 
-    const arm = () => {
+    const schedule = () => {
       if (cancelled) return;
       const msUntilDue = target - Date.now();
+
       if (msUntilDue <= 0) {
-        void pollPending({ showTyping: true });
+        setPeerTyping(true);
+        void pollPending({ showTyping: true, force: true });
         return;
       }
-      const wakeIn =
-        msUntilDue > TYPING_LEAD_MS ? msUntilDue - TYPING_LEAD_MS : msUntilDue;
-      const clamped = Math.min(Math.max(wakeIn, 500), 30 * 60_000);
-      timer = window.setTimeout(() => {
+
+      const msUntilTyping = msUntilDue - TYPING_LEAD_MS;
+      if (msUntilTyping <= 0) {
+        setPeerTyping(true);
+      } else {
+        typingTimer = window.setTimeout(() => {
+          if (!cancelled) setPeerTyping(true);
+        }, Math.min(msUntilTyping, 30 * 60_000));
+      }
+
+      const wakeForPoll = Math.min(Math.max(msUntilDue, 250), 30 * 60_000);
+      pollTimer = window.setTimeout(() => {
         if (cancelled) return;
-        if (Date.now() >= target - TYPING_LEAD_MS) {
-          void pollPending({ showTyping: true });
+        if (Date.now() >= target) {
+          void pollPending({ showTyping: true, force: true });
         } else {
-          arm();
+          schedule();
         }
-      }, clamped);
+      }, wakeForPoll);
     };
 
-    arm();
+    schedule();
     return () => {
       cancelled = true;
-      if (timer) window.clearTimeout(timer);
+      if (typingTimer) window.clearTimeout(typingTimer);
+      if (pollTimer) window.clearTimeout(pollTimer);
     };
+  }, [nextPendingAt, pendingScheduleKey, pollPending, useSupabase]);
+
+  /** Tab wake / return: deliver overdue replies the timer may have missed. */
+  useEffect(() => {
+    if (!useSupabase || !nextPendingAt) return;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const msUntilDue = new Date(nextPendingAt).getTime() - Date.now();
+      if (Number.isFinite(msUntilDue) && msUntilDue <= 0) {
+        void pollPending({ showTyping: true, force: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [nextPendingAt, pollPending, useSupabase]);
 
   const markReadOnServer = useCallback(async () => {
@@ -515,7 +581,7 @@ export function ChatConversationView({
     }
   }, [chatId, useSupabase]);
 
-  /** Load persisted thread from API — RSC payload can be stale/empty after navigation. */
+  /** Load persisted thread from API — merge so a slow GET cannot wipe new replies. */
   useEffect(() => {
     if (!useSupabase) return;
     let cancelled = false;
@@ -528,12 +594,17 @@ export function ChatConversationView({
         const data = (await res.json()) as {
           ok?: boolean;
           messages?: ChatMessage[];
+          nextPendingAt?: string | null;
         };
         if (cancelled || !res.ok || !data.ok || !Array.isArray(data.messages)) {
           return;
         }
-        setMessages(data.messages.map(withAmsterdamMessageTimes));
-        setSkipEntryAnimateIds(new Set(data.messages.map((m) => m.id)));
+        const server = data.messages.map(withAmsterdamMessageTimes);
+        setMessages((prev) => mergeChatMessages(prev, server));
+        setSkipEntryAnimateIds(new Set(server.map((m) => m.id)));
+        if (data.nextPendingAt) {
+          setNextPendingAt(data.nextPendingAt);
+        }
       } catch {
         /* keep SSR / local state */
       }
