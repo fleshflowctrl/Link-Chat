@@ -12,6 +12,9 @@ export default async function V2DiscoverPage() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <PostDiscoverToast />
+      <div className="shrink-0 border-b border-[#B52B2A]/25 bg-[#1D1D1E]/95 px-4 py-2 text-center text-[11px] font-medium tracking-wide text-[#B52B2A]">
+        Discreet · Geverifieerd · Alleen 18+
+      </div>
       <HomeScreen
         gridProfiles={catalog.gridProfiles}
         activityUsers={catalog.activityUsers}
@@ -22,7 +25,6 @@ export default async function V2DiscoverPage() {
         refreshCost={catalog.refreshCost}
         feedHash={catalog.feedHash}
         fitViewport
-        trustStrip="Discreet · Geverifieerd · Alleen 18+"
       />
     </div>
   );

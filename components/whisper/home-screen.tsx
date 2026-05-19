@@ -38,8 +38,6 @@ type Props = {
   feedHash: string;
   /** v2: fit header + feed in viewport without page scroll. */
   fitViewport?: boolean;
-  /** One-line trust copy shown under the header (v2 discover). */
-  trustStrip?: string;
 };
 
 type FeedRefreshResponse = {
@@ -75,7 +73,6 @@ export function HomeScreen({
   refreshCost,
   feedHash,
   fitViewport = false,
-  trustStrip,
 }: Props) {
   const [profile, setProfile] = useState<EditProfileState | null>(initialProfile);
 
@@ -196,11 +193,6 @@ export function HomeScreen({
       }
     >
       <HomeHeader profile={profile} compact={fitViewport} />
-      {trustStrip ? (
-        <p className="shrink-0 px-4 pb-1 text-center text-[10px] font-medium leading-tight tracking-wide text-[#B52B2A]">
-          {trustStrip}
-        </p>
-      ) : null}
       <CatalogFallbackBanner show={catalogDegraded} compact={fitViewport} />
       <FeedStack
         profiles={profilesState}
