@@ -12,6 +12,7 @@
  *   { ok: false, error } — short Dutch error, suitable for surfacing
  */
 
+import { parseAppVariant, type AppVariant } from "@/lib/app-variant";
 import { FUNNEL_LOOKING_ID_SET, FUNNEL_VIBE_ID_SET } from "@/data/funnel";
 
 const SLUG_RE = /^[a-z][a-z0-9_-]{1,40}$/;
@@ -270,6 +271,7 @@ export type PersonaInsertRow = {
   chat_style: ChatStyle | null;
   photo_style: PhotoStyle | null;
   persona_meta: PersonaMeta | null;
+  app_variant: AppVariant;
 };
 
 export type ParsePersonaResult =
@@ -353,6 +355,14 @@ export function parsePersonaPayload(
   const photo_style = asPhotoStyle(p.photo_style ?? e.photo_style ?? null);
   const persona_meta = asPersonaMeta(p.persona_meta ?? e.persona_meta ?? null);
 
+  const app_variant = parseAppVariant(
+    typeof p.app_variant === "string"
+      ? p.app_variant
+      : typeof e.app_variant === "string"
+        ? e.app_variant
+        : null,
+  );
+
   const row: PersonaInsertRow = {
     id,
     display_name,
@@ -381,6 +391,7 @@ export function parsePersonaPayload(
     chat_style,
     photo_style,
     persona_meta,
+    app_variant,
   };
 
   return { ok: true, row };

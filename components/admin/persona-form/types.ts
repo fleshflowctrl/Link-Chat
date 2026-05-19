@@ -1,3 +1,5 @@
+import type { AppVariant } from "@/lib/app-variant";
+
 /**
  * Form-state types for the admin persona-create/edit experience.
  *
@@ -69,6 +71,8 @@ export type PersonaFormValues = {
   chat_style: ChatStyleForm;
   photo_style: PhotoStyleForm;
   persona_meta: PersonaMetaForm;
+  /** v1 = default discover; v2 = FetLife pool (/v2/*). */
+  app_variant: AppVariant;
 };
 
 export const FILTER_TAG_OPTIONS: Array<{ id: string; label: string; hint: string }> = [
@@ -141,6 +145,26 @@ export function emptyPersonaFormValues(): PersonaFormValues {
       relationship_hint: "",
       timezone: "Europe/Amsterdam",
       voice_style: "",
+    },
+    app_variant: "v1",
+  };
+}
+
+export function emptyPersonaFormValuesForVariant(
+  variant: AppVariant = "v1",
+): PersonaFormValues {
+  const base = emptyPersonaFormValues();
+  if (variant !== "v2") return base;
+  return {
+    ...base,
+    app_variant: "v2",
+    filter_tags: ["links", "active", "online"],
+    photo_style: {
+      ...base.photo_style,
+      attractiveness: "striking",
+      style:
+        "zwarte lingerie of latex set, suggestief gekleed, dim mood lighting",
+      vibe: "zelfverzekerd en sensueel, late-night mirror selfie sfeer",
     },
   };
 }

@@ -28,6 +28,8 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { AppVariant } from "@/lib/app-variant";
+import { V2_PERSONA_BULK_BRIEF } from "@/lib/admin/v2-persona-config";
 import { SparkleIcon, CheckIcon, XIcon, CameraIcon } from "@/components/admin/icons";
 
 type ProfileState = "pending" | "running" | "done" | "error" | "skipped";
@@ -141,6 +143,7 @@ function writeStoredBatchId(id: string | null) {
 
 export function BulkGenerateCard() {
   const router = useRouter();
+  const [poolVariant, setPoolVariant] = useState<AppVariant>("v1");
   const [count, setCount] = useState(3);
   const [brief, setBrief] = useState("");
   const [withPhotos, setWithPhotos] = useState(true);
@@ -172,6 +175,21 @@ export function BulkGenerateCard() {
 
   const ageMinNum = parseAge(ageMinStr, 22);
   const ageMaxNum = parseAge(ageMaxStr, 30);
+
+  function applyPoolVariant(next: AppVariant) {
+    setPoolVariant(next);
+    if (next === "v2") {
+      setBrief(V2_PERSONA_BULK_BRIEF);
+      setAttractiveness("striking");
+      setAgeMinStr("24");
+      setAgeMaxStr("38");
+    } else {
+      setBrief("");
+      setAttractiveness("average");
+      setAgeMinStr("22");
+      setAgeMaxStr("30");
+    }
+  }
 
   const fetchBatch = useCallback(async (id: string): Promise<BatchSnapshot | null> => {
     try {
@@ -342,6 +360,7 @@ export function BulkGenerateCard() {
           body_type: bodyType,
           age_min: Math.min(ageMinNum, ageMaxNum),
           age_max: Math.max(ageMinNum, ageMaxNum),
+          app_variant: poolVariant,
         }),
       });
       const data: {
@@ -401,6 +420,7 @@ export function BulkGenerateCard() {
   if (!batch) {
     return (
       <BulkForm
+        poolVariant={poolVariant}
         count={count}
         brief={brief}
         withPhotos={withPhotos}
@@ -419,6 +439,7 @@ export function BulkGenerateCard() {
         setBodyType={setBodyType}
         setAgeMinStr={setAgeMinStr}
         setAgeMaxStr={setAgeMaxStr}
+        onPoolVariantChange={applyPoolVariant}
         onSubmit={startBatch}
         parseAge={parseAge}
       />
@@ -551,6 +572,7 @@ export function BulkGenerateCard() {
 }
 
 function BulkForm(props: {
+  poolVariant: AppVariant;
   count: number;
   brief: string;
   withPhotos: boolean;
@@ -569,10 +591,12 @@ function BulkForm(props: {
   setBodyType: (b: BodyType) => void;
   setAgeMinStr: (s: string) => void;
   setAgeMaxStr: (s: string) => void;
+  onPoolVariantChange: (v: AppVariant) => void;
   onSubmit: () => void;
   parseAge: (raw: string, fallback: number) => number;
 }) {
   const {
+    poolVariant,
     count,
     brief,
     withPhotos,
@@ -591,6 +615,7 @@ function BulkForm(props: {
     setBodyType,
     setAgeMinStr,
     setAgeMaxStr,
+    onPoolVariantChange,
     onSubmit,
     parseAge,
   } = props;
@@ -612,6 +637,36 @@ function BulkForm(props: {
       </div>
 
       <div className="space-y-4 px-5 py-5">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => onPoolVariantChange("v1")}
+            className={
+              poolVariant === "v1"
+                ? "rounded-full bg-gray-900 px-4 py-2 text-xs font-bold text-white"
+                : "rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700"
+            }
+          >
+            Pool v1 (dating)
+          </button>
+          <button
+            type="button"
+            onClick={() => onPoolVariantChange("v2")}
+            className={
+              poolVariant === "v2"
+                ? "rounded-full bg-[#B52B2A] px-4 py-2 text-xs font-bold text-white"
+                : "rounded-full border border-[#B52B2A]/30 bg-white px-4 py-2 text-xs font-semibold text-[#B52B2A]"
+            }
+          >
+            Pool v2 (FetLife / kink)
+          </button>
+        </div>
+        {poolVariant === "v2" && (
+          <p className="rounded-xl bg-[#B52B2A]/10 px-3 py-2 text-[11px] leading-relaxed text-[#8B2020] ring-1 ring-[#B52B2A]/20">
+            v2-batch: suggestieve foto&apos;s (lingerie/latex), striking default, Grok-prompt op
+            kink-toon. Persona&apos;s verschijnen alleen op /v2/discover.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[160px,1fr]">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-700">

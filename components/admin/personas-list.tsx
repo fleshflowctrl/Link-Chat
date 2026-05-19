@@ -33,6 +33,7 @@ export type PersonaListRow = {
   joined_at: string | null;
   last_message_at: string | null;
   vibe_tags: string[] | null;
+  app_variant: "v1" | "v2";
 };
 
 /** Map status-variant id → soft pill colour. */
@@ -75,6 +76,7 @@ type Toast = { kind: ToastKind; text: string };
 export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
   const router = useRouter();
   const [tab, setTab] = useState<"active" | "archived">("active");
+  const [poolFilter, setPoolFilter] = useState<"all" | "v1" | "v2">("all");
   const [query, setQuery] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -91,9 +93,13 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
 
   const filtered = useMemo(() => {
     const inTab = rows.filter((r) => (tab === "active" ? !r.is_archived : r.is_archived));
+    const inPool =
+      poolFilter === "all"
+        ? inTab
+        : inTab.filter((r) => r.app_variant === poolFilter);
     const q = query.trim().toLowerCase();
-    if (!q) return inTab;
-    return inTab.filter((r) => {
+    if (!q) return inPool;
+    return inPool.filter((r) => {
       const hay = [
         r.display_name,
         r.id,
@@ -106,7 +112,10 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [rows, tab, query]);
+  }, [rows, tab, poolFilter, query]);
+
+  const v1Count = rows.filter((r) => r.app_variant !== "v2" && !r.is_archived).length;
+  const v2Count = rows.filter((r) => r.app_variant === "v2" && !r.is_archived).length;
 
   const activeCount = rows.filter((r) => !r.is_archived).length;
   const archivedCount = rows.filter((r) => r.is_archived).length;
@@ -246,6 +255,31 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
             Gearchiveerd <span className="ml-1 text-gray-400">({archivedCount})</span>
           </button>
         </div>
+        <div className="inline-flex rounded-xl bg-gray-100 p-0.5">
+          {(
+            [
+              ["all", "Alle pools", rows.filter((r) => !r.is_archived).length],
+              ["v1", "v1", v1Count],
+              ["v2", "v2", v2Count],
+            ] as const
+          ).map(([id, label, n]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setPoolFilter(id)}
+              className={
+                "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
+                (poolFilter === id
+                  ? id === "v2"
+                    ? "bg-[#B52B2A] text-white shadow-sm"
+                    : "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-800")
+              }
+            >
+              {label} <span className="ml-0.5 opacity-70">({n})</span>
+            </button>
+          ))}
+        </div>
         <div className="relative flex-1 min-w-[200px]">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -277,7 +311,14 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
           className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-pill transition-transform hover:scale-[1.02] hover:bg-primarySoft"
         >
           <PlusIcon className="h-4 w-4" />
-          Nieuwe persona
+          Nieuwe v1
+        </Link>
+        <Link
+          href="/admin/personas/new?variant=v2"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-[#B52B2A] px-4 py-2 text-xs font-semibold text-white shadow-sm transition-transform hover:scale-[1.02]"
+        >
+          <PlusIcon className="h-4 w-4" />
+          Nieuwe v2
         </Link>
       </div>
 
@@ -448,7 +489,14 @@ function PersonaCard({
         {/* name overlay */}
         <div className="absolute inset-x-3 bottom-3 flex items-center gap-2 text-white">
           <p className="truncate font-display text-lg font-semibold tracking-tight">
-            {p.display_name}
+            <span className="flex items-center gap-1.5">
+              {p.display_name}
+              {p.app_variant === "v2" ? (
+                <span className="rounded-full bg-[#B52B2A]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#B52B2A]">
+                  v2
+                </span>
+              ) : null}
+            </span>
             {p.verified ? (
               <span className="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 align-middle text-[10px] font-bold text-white">
                 ✓

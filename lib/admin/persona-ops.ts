@@ -18,7 +18,9 @@
 import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { AppVariant } from "@/lib/app-variant";
 import { generatePersonaFromBrief } from "@/lib/admin/generate-persona";
+import { defaultAttractivenessForVariant } from "@/lib/admin/v2-persona-config";
 import { uploadFallbackAvatar } from "@/lib/admin/fallback-avatar";
 import { parsePersonaPayload } from "@/lib/admin/persona-payload";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
@@ -44,6 +46,7 @@ export type CreatePersonaInput = {
   body_type: BodyType;
   age_min: number;
   age_max: number;
+  app_variant?: AppVariant;
 };
 
 export type CreatePersonaSummary = {
@@ -92,14 +95,19 @@ export async function createPersonaFromBrief(
   const hi = Math.max(18, Math.min(99, Math.round(Math.max(input.age_min, input.age_max))));
   const forcedAge = lo + Math.floor(Math.random() * (hi - lo + 1));
 
+  const appVariant = input.app_variant ?? "v1";
+  const attractiveness =
+    input.attractiveness ?? defaultAttractivenessForVariant(appVariant);
+
   const generated = await generatePersonaFromBrief({
     brief: input.brief,
     index: input.index,
     total: input.total,
     exclude: input.exclude,
-    attractiveness: input.attractiveness,
+    attractiveness,
     body_type: input.body_type,
     forced_age: forcedAge,
+    appVariant,
   });
   if (!generated.ok) {
     return { ok: false, error: `Generatie faalde: ${generated.error}`, status: 502 };
@@ -112,6 +120,17 @@ export async function createPersonaFromBrief(
   // and the diffusion seed drives identity — same seed = same face.
   // Overriding here guarantees batch-wide seed uniqueness.
   generated.persona.photo_style.seed = randomInt(100_000, 999_999_999);
+  if (appVariant === "v2") {
+    generated.persona.photo_style.attractiveness = attractiveness;
+    if (!generated.persona.photo_style.style.trim()) {
+      generated.persona.photo_style.style =
+        "zwarte lingerie of latex set, suggestief maar gekleed, geen volledige naaktheid";
+    }
+    if (!generated.persona.photo_style.vibe.trim()) {
+      generated.persona.photo_style.vibe =
+        "zelfverzekerd en sensueel, dim rood licht, late-night bedroom mirror selfie sfeer";
+    }
+  }
 
   const fallback = await uploadFallbackAvatar(
     service,
@@ -163,6 +182,7 @@ export async function createPersonaFromBrief(
     chat_style: generated.persona.chat_style,
     photo_style: generated.persona.photo_style,
     persona_meta: generated.persona.persona_meta,
+    app_variant: appVariant,
   };
 
   const parsed = parsePersonaPayload(payload, { mode: "create" });

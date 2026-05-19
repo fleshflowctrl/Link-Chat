@@ -65,6 +65,8 @@ async function loadPersonas(): Promise<{
     vibe_tags: Array.isArray(r.vibe_tags)
       ? (r.vibe_tags as unknown[]).filter((s): s is string => typeof s === "string")
       : null,
+    app_variant:
+      typeof r.app_variant === "string" && r.app_variant === "v2" ? "v2" : "v1",
   }));
 
   return { rows, serviceConfigured: true, health };
@@ -85,6 +87,9 @@ export default async function AdminPersonasPage() {
   const { rows, error, health } = await loadPersonas();
   const activeCount = rows.filter((r) => !r.is_archived).length;
   const archivedCount = rows.filter((r) => r.is_archived).length;
+  const v2ActiveCount = rows.filter(
+    (r) => r.app_variant === "v2" && !r.is_archived,
+  ).length;
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -95,7 +100,7 @@ export default async function AdminPersonasPage() {
           <>
             AI-personas die in discovery, home en chats verschijnen.{" "}
             <span className="text-gray-500">
-              {activeCount} actief, {archivedCount} gearchiveerd.
+              {activeCount} actief ({v2ActiveCount} v2), {archivedCount} gearchiveerd.
             </span>
           </>
         }

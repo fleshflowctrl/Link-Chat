@@ -599,6 +599,21 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
           icon={<CompassIcon className="h-5 w-5" />}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="A/B pool" hint="v2 = alleen zichtbaar op /v2/discover en funnel">
+              <Select
+                value={v.app_variant}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                  const next = e.target.value === "v2" ? "v2" : "v1";
+                  set("app_variant", next);
+                  if (next === "v2" && mode === "create" && !v.photo_style.attractiveness) {
+                    setPhoto("attractiveness", "striking");
+                  }
+                }}
+              >
+                <option value="v1">v1 — standaard (dating)</option>
+                <option value="v2">v2 — FetLife / kink</option>
+              </Select>
+            </Field>
             <Field label="Status-variant">
               <Select value={v.status_variant} onChange={(e: ChangeEvent<HTMLSelectElement>) => set("status_variant", e.target.value)}>
                 {STATUS_OPTIONS.map((o) => (

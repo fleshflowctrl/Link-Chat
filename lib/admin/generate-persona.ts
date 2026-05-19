@@ -22,6 +22,8 @@
  *     moves on to the next persona instead of aborting the whole batch.
  */
 
+import type { AppVariant } from "@/lib/app-variant";
+import { V2_PERSONA_SYSTEM_APPEND } from "@/lib/admin/v2-persona-config";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import { FUNNEL_LOOKING_ID_SET, FUNNEL_VIBE_ID_SET } from "@/data/funnel";
 import {
@@ -272,6 +274,8 @@ export type GeneratePersonaArgs = {
    * (hair colour, eye colour, region, etc.). Operators can also feed in
    * a manually constructed one for fully reproducible single-shot calls. */
   diversifier?: PersonaDiversifier;
+  /** v2 = FetLife/kink tone + suggestive photo styling. */
+  appVariant?: AppVariant;
 };
 
 const SLUG_RE = /^[a-z][a-z0-9_-]{2,23}$/;
@@ -503,8 +507,13 @@ export async function generatePersonaFromBrief(
     "Output: één geldig JSON-object exact volgens schema. Geen markdown, geen uitleg eromheen.",
   );
 
+  const systemPrompt =
+    args.appVariant === "v2"
+      ? `${SYSTEM_PROMPT}${V2_PERSONA_SYSTEM_APPEND}`
+      : SYSTEM_PROMPT;
+
   const messages = [
-    { role: "system" as const, content: SYSTEM_PROMPT },
+    { role: "system" as const, content: systemPrompt },
     { role: "user" as const, content: userParts.join("\n\n") },
   ];
 

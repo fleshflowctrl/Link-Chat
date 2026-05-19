@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
+import { parseAppVariant } from "@/lib/app-variant";
+import { defaultAttractivenessForVariant } from "@/lib/admin/v2-persona-config";
 import {
   resolveBaseUrl,
   triggerNextTick,
@@ -36,6 +38,7 @@ type StartBody = {
   body_type?: "slim" | "average" | "plus";
   age_min?: number;
   age_max?: number;
+  app_variant?: string;
 };
 
 export async function POST(req: Request) {
@@ -72,10 +75,13 @@ export async function POST(req: Request) {
     Math.min(MAX_BATCH, Math.round(Number(body.count) || 1)),
   );
   const with_photos = body.with_photos !== false;
+  const app_variant = parseAppVariant(body.app_variant ?? null);
   const attractiveness =
-    body.attractiveness === "striking" || body.attractiveness === "plain"
+    body.attractiveness === "striking" ||
+    body.attractiveness === "plain" ||
+    body.attractiveness === "average"
       ? body.attractiveness
-      : "average";
+      : defaultAttractivenessForVariant(app_variant);
   const body_type =
     body.body_type === "slim" || body.body_type === "plus"
       ? body.body_type
@@ -109,6 +115,7 @@ export async function POST(req: Request) {
       scene_offset: sceneOffset,
       exclude_ids: [],
       exclude_names: [],
+      app_variant,
     })
     .select("id")
     .maybeSingle();

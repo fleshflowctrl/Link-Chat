@@ -39,6 +39,7 @@ type RowFromDb = {
   chat_style: Record<string, unknown> | null;
   photo_style: Record<string, unknown> | null;
   persona_meta: Record<string, unknown> | null;
+  app_variant: string | null;
 };
 
 function rowToFormValues(row: RowFromDb): PersonaFormValues {
@@ -116,6 +117,7 @@ function rowToFormValues(row: RowFromDb): PersonaFormValues {
           ? ps.body_type
           : "",
     },
+    app_variant: row.app_variant === "v2" ? "v2" : "v1",
     persona_meta: {
       languages: asStrArr(pm.languages).length ? asStrArr(pm.languages) : empty.persona_meta.languages,
       personality_traits: asStrArr(pm.personality_traits),

@@ -1,12 +1,20 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { PersonaForm } from "@/components/admin/persona-form";
-import { emptyPersonaFormValues } from "@/components/admin/persona-form/types";
+import {
+  emptyPersonaFormValues,
+  emptyPersonaFormValuesForVariant,
+} from "@/components/admin/persona-form/types";
+import { parseAppVariant } from "@/lib/app-variant";
 import { AdminPageHeader } from "@/components/admin/page-header";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminNewPersonaPage() {
+export default async function AdminNewPersonaPage({
+  searchParams,
+}: {
+  searchParams: { variant?: string };
+}) {
   const auth = await requireAdmin();
   if (!auth.ok) {
     if (auth.status === 401) redirect("/login?next=/admin/personas/new");
@@ -18,6 +26,10 @@ export default async function AdminNewPersonaPage() {
     );
   }
 
+  const variant = parseAppVariant(searchParams.variant ?? null);
+  const initial =
+    variant === "v2" ? emptyPersonaFormValuesForVariant("v2") : emptyPersonaFormValues();
+
   return (
     <div className="mx-auto max-w-7xl">
       <AdminPageHeader
@@ -25,10 +37,14 @@ export default async function AdminNewPersonaPage() {
           { href: "/admin/personas", label: "Personas" },
           { label: "Nieuw" },
         ]}
-        title="Nieuwe persona"
-        description="Vul minimaal naam, leeftijd, stad, bio en avatar in. De rest verfijnt — backstory en persona-diepte voeden direct de AI-systeemprompt en maken haar herkenbaar als een echt persoon."
+        title={variant === "v2" ? "Nieuwe v2 persona" : "Nieuwe persona"}
+        description={
+          variant === "v2"
+            ? "FetLife/kink pool — verschijnt alleen op /v2/discover. Gebruik suggestieve foto-stijl (lingerie/latex), geen vanilla dating-toon."
+            : "Vul minimaal naam, leeftijd, stad, bio en avatar in. De rest verfijnt — backstory en persona-diepte voeden direct de AI-systeemprompt."
+        }
       />
-      <PersonaForm mode="create" initial={emptyPersonaFormValues()} />
+      <PersonaForm mode="create" initial={initial} />
     </div>
   );
 }

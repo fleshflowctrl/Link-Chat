@@ -23,6 +23,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { AppVariant } from "@/lib/app-variant";
 import {
   appendPersonaGalleryPhoto,
   createPersonaFromBrief,
@@ -158,6 +159,7 @@ export type BatchRow = {
   scene_offset: number;
   exclude_ids: string[];
   exclude_names: string[];
+  app_variant: AppVariant;
   last_error: string | null;
   created_at: string;
   updated_at: string;
@@ -634,6 +636,7 @@ export async function runOneStep(
           body_type: batch.body_type,
           age_min: batch.age_min,
           age_max: batch.age_max,
+          app_variant: batch.app_variant ?? "v1",
         }),
         PROFILE_TIMEOUT_MS,
         {
