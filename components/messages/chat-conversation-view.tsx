@@ -25,7 +25,10 @@ import {
 } from "lucide-react";
 import { type ChatMessage } from "@/data/messages";
 import type { ThreadMeta } from "@/lib/chat/server-data";
-import { requestThreadsRefetch } from "@/lib/session-sync";
+import {
+  requestThreadsRefetch,
+  WHISPER_THREADS_REFETCH,
+} from "@/lib/session-sync";
 import {
   getThreadPreviewOverride,
   setThreadPreview,
@@ -581,38 +584,80 @@ export function ChatConversationView({
     }
   }, [chatId, useSupabase]);
 
-  /** Load persisted thread from API — merge so a slow GET cannot wipe new replies. */
-  useEffect(() => {
-    if (!useSupabase) return;
-    let cancelled = false;
-    (async () => {
+  /** Fetch persisted thread from API and merge — never wipe optimistic rows. */
+  const syncMessagesFromServer = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!useSupabase) return;
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
-          { cache: "no-store" },
+          { cache: "no-store", signal },
         );
         const data = (await res.json()) as {
           ok?: boolean;
           messages?: ChatMessage[];
           nextPendingAt?: string | null;
         };
-        if (cancelled || !res.ok || !data.ok || !Array.isArray(data.messages)) {
-          return;
-        }
+        if (!res.ok || !data.ok || !Array.isArray(data.messages)) return;
         const server = data.messages.map(withAmsterdamMessageTimes);
-        setMessages((prev) => mergeChatMessages(prev, server));
-        setSkipEntryAnimateIds(new Set(server.map((m) => m.id)));
+        setMessages((prev) => {
+          const merged = mergeChatMessages(prev, server);
+          const hadNewPeer = merged.some(
+            (m) => m.sender === "peer" && !prev.some((p) => p.id === m.id),
+          );
+          if (hadNewPeer) requestThreadsRefetch();
+          return merged;
+        });
+        setSkipEntryAnimateIds((prev) => {
+          const next = new Set(prev);
+          for (const m of server) next.add(m.id);
+          return next;
+        });
         if (data.nextPendingAt) {
           setNextPendingAt(data.nextPendingAt);
         }
       } catch {
-        /* keep SSR / local state */
+        /* keep current state */
       }
-    })();
-    return () => {
-      cancelled = true;
+    },
+    [chatId, useSupabase],
+  );
+
+  /** Initial server sync on mount / chat change. */
+  useEffect(() => {
+    if (!useSupabase) return;
+    const ctrl = new AbortController();
+    void syncMessagesFromServer(ctrl.signal);
+    return () => ctrl.abort();
+  }, [chatId, useSupabase, syncMessagesFromServer]);
+
+  /**
+   * Live delivery while THIS chat is open. The app-shell heartbeat (every 30s)
+   * processes pending replies server-side and dispatches WHISPER_THREADS_REFETCH;
+   * we piggyback on that signal to pull fresh peer messages for the open thread.
+   * Also poll every 15s as a safety net for tabs without focus events.
+   */
+  useEffect(() => {
+    if (!useSupabase) return;
+    const onRefetch = () => void syncMessagesFromServer();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void syncMessagesFromServer();
     };
-  }, [chatId, useSupabase]);
+    const onFocus = () => void syncMessagesFromServer();
+    window.addEventListener(WHISPER_THREADS_REFETCH, onRefetch);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void syncMessagesFromServer();
+    }, 15_000);
+    return () => {
+      window.removeEventListener(WHISPER_THREADS_REFETCH, onRefetch);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(interval);
+    };
+  }, [useSupabase, syncMessagesFromServer]);
 
   useLayoutEffect(() => {
     const vv = window.visualViewport;
