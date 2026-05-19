@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 
 /**
@@ -94,6 +94,33 @@ function uniqueId(): string {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Kon bestand niet lezen"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function imageFileFromClipboard(
+  data: DataTransfer | null,
+): Promise<File | null> {
+  if (!data) return null;
+  const items = data.items;
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item?.type.startsWith("image/")) {
+      return item.getAsFile();
+    }
+  }
+  const files = data.files;
+  if (files.length > 0 && files[0]?.type.startsWith("image/")) {
+    return files[0];
+  }
+  return null;
+}
+
 function Field({
   label,
   children,
@@ -179,6 +206,10 @@ export function ImageLab() {
     displayName: string;
     editUrl: string;
   } | null>(null);
+  const [pastedImageDataUrl, setPastedImageDataUrl] = useState<string | null>(null);
+  const [reversePromptBusy, setReversePromptBusy] = useState(false);
+  const [reversePromptError, setReversePromptError] = useState<string | null>(null);
+  const pasteInputRef = useRef<HTMLInputElement>(null);
   const [reference, setReference] = useState<ReferenceState | null>(null);
   const [variantBusy, setVariantBusy] = useState(false);
   const [variantError, setVariantError] = useState<string | null>(null);
@@ -447,6 +478,62 @@ export function ImageLab() {
     [compareIds, history],
   );
 
+  const loadPastedFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setReversePromptError("Afbeelding te groot (max 4MB).");
+      return;
+    }
+    setReversePromptError(null);
+    const dataUrl = await fileToDataUrl(file);
+    setPastedImageDataUrl(dataUrl);
+  }, []);
+
+  const onPasteZonePaste = useCallback(
+    async (e: React.ClipboardEvent) => {
+      const file = await imageFileFromClipboard(e.clipboardData);
+      if (!file) return;
+      e.preventDefault();
+      await loadPastedFile(file);
+    },
+    [loadPastedFile],
+  );
+
+  const onPasteZoneDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) await loadPastedFile(file);
+    },
+    [loadPastedFile],
+  );
+
+  const onReversePrompt = useCallback(async () => {
+    if (!pastedImageDataUrl) return;
+    setReversePromptBusy(true);
+    setReversePromptError(null);
+    try {
+      const res = await fetch("/api/admin/image-lab/reverse-prompt", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ imageDataUrl: pastedImageDataUrl }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        prompt?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.prompt) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      update("prompt", data.prompt);
+    } catch (e) {
+      setReversePromptError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReversePromptBusy(false);
+    }
+  }, [pastedImageDataUrl, update]);
+
   return (
     <div className="space-y-6">
       {reference ? (
@@ -558,6 +645,77 @@ export function ImageLab() {
 
       <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr,18rem]">
         <div className="space-y-4">
+          <section className="rounded-2xl border border-violet-200 bg-violet-50/50 p-5 shadow-sm">
+            <h2 className="text-sm font-semibold text-gray-900">
+              Referentie plakken → Grok schrijft prompt (1:1)
+            </h2>
+            <p className="mt-1 text-xs text-gray-600">
+              Plak een screenshot of foto (Ctrl/Cmd+V), of sleep een bestand hierheen.
+              Grok vision zet de afbeelding om in een Z-Image-prompt — daarna render je
+              en vergelijk je het resultaat.
+            </p>
+            <div
+              tabIndex={0}
+              role="button"
+              onPaste={onPasteZonePaste}
+              onDrop={onPasteZoneDrop}
+              onDragOver={(e) => e.preventDefault()}
+              className="mt-3 flex min-h-[7rem] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-violet-300/80 bg-white/80 px-4 py-6 text-center outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              onClick={() => pasteInputRef.current?.click()}
+            >
+              <input
+                ref={pasteInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void loadPastedFile(f);
+                  e.target.value = "";
+                }}
+              />
+              {pastedImageDataUrl ? (
+                <div className="relative h-32 w-24 overflow-hidden rounded-lg border border-black/10 shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={pastedImageDataUrl}
+                    alt="Geplakte referentie"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <p className="text-xs font-medium text-violet-800">
+                  Klik om te uploaden of plak hier (⌘V)
+                </p>
+              )}
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={onReversePrompt}
+                disabled={!pastedImageDataUrl || reversePromptBusy}
+                className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {reversePromptBusy ? "Grok schrijft prompt…" : "Genereer prompt uit foto"}
+              </button>
+              {pastedImageDataUrl ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPastedImageDataUrl(null);
+                    setReversePromptError(null);
+                  }}
+                  className="rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Wis referentie
+                </button>
+              ) : null}
+            </div>
+            {reversePromptError ? (
+              <p className="mt-2 text-xs text-rose-700">{reversePromptError}</p>
+            ) : null}
+          </section>
+
           <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {PROMPT_PRESETS.map((p) => (
