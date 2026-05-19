@@ -55,6 +55,12 @@ export const ADMIN_NAV: NavItem[] = [
     icon: <CameraIcon />,
     matchPrefix: true,
   },
+  {
+    href: "/admin/image-lab",
+    label: "Image lab",
+    icon: <CameraIcon />,
+    matchPrefix: true,
+  },
 ];
 
 function isNavActive(pathname: string, item: NavItem): boolean {

@@ -92,6 +92,18 @@ export type GeneratePhotoOptions = {
   height?: number;
   /** Override num_inference_steps. Defaults to 9 (the Space default). */
   steps?: number;
+  /** Skip the phone-finish (blur + grain) post-processing pass.
+   * Used by the admin image-lab where the operator wants to inspect the
+   * raw model output. Production callers should leave this undefined so
+   * the global PHONE_PHOTO_FINISH env still controls behavior. */
+  skipFinish?: boolean;
+  /** Per-call overrides for the phone-finish pass. Ignored when
+   * `skipFinish` is true or the global env disables the pass entirely. */
+  finishOpts?: {
+    blurSigma?: number;
+    grainOpacity?: number;
+    grainStrength?: number;
+  };
 };
 
 function resolveBackend(): "hf-space" | "fal" | "replicate" | "stub" {
@@ -293,9 +305,11 @@ async function generateViaHfSpace(opts: GeneratePhotoOptions): Promise<GenerateP
 /** Run the phone-snapshot finish pass on any successful backend result. */
 async function withPhoneFinish(
   result: GeneratePhotoResult,
+  opts: { skipFinish?: boolean; finishOpts?: GeneratePhotoOptions["finishOpts"] } = {},
 ): Promise<GeneratePhotoResult> {
   if (!result.ok) return result;
-  const finished = await applyPhonePhotoFinish(result.bytes, result.mime);
+  if (opts.skipFinish) return result;
+  const finished = await applyPhonePhotoFinish(result.bytes, result.mime, opts.finishOpts);
   return { ...result, bytes: finished.bytes, mime: finished.mime };
 }
 
@@ -350,5 +364,8 @@ export async function generatePersonaPhoto(
       result = { ok: false, error: "Unknown backend", backend: "none" };
   }
 
-  return withPhoneFinish(result);
+  return withPhoneFinish(result, {
+    skipFinish: opts.skipFinish,
+    finishOpts: opts.finishOpts,
+  });
 }
