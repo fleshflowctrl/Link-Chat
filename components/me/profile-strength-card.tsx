@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { VariantLink } from "@/components/variant-link";
 import {
   COMPLETENESS_FIELDS,
   TOTAL_PROFILE_REWARD_CREDITS,
@@ -68,7 +69,7 @@ function ProgressRing({ percent }: { percent: number }) {
 
 function StepRow({ field }: { field: CompletenessFieldMeta }) {
   return (
-    <Link
+    <VariantLink
       href={`/me/edit?focus=${field.focus}`}
       className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors active:bg-black/[0.04]"
     >
@@ -87,7 +88,7 @@ function StepRow({ field }: { field: CompletenessFieldMeta }) {
         )}
       </div>
       <span className="text-[13px] font-bold text-primary">Doen ›</span>
-    </Link>
+    </VariantLink>
   );
 }
 
@@ -171,12 +172,12 @@ export function ProfileStrengthCard({
             <StepRow key={f.key} field={f} />
           ))}
           {report.nextSteps.length > visibleSteps.length && (
-            <Link
+            <VariantLink
               href="/me/edit"
               className="self-end px-3 pt-1 text-[12px] font-semibold text-primary"
             >
               Toon alle ›
-            </Link>
+            </VariantLink>
           )}
         </div>
       </div>

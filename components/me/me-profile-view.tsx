@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { VariantLink } from "@/components/variant-link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -179,12 +180,12 @@ export function MeProfileView({
             </div>
           </div>
 
-          <Link
+          <VariantLink
             href="/me/edit"
             className="relative mt-4 flex w-full items-center justify-center rounded-full bg-white px-4 py-2.5 text-[13px] font-bold text-primary shadow-sm transition active:scale-[0.99]"
           >
             Profiel bewerken
-          </Link>
+          </VariantLink>
         </div>
       </div>
 
