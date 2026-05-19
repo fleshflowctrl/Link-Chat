@@ -163,8 +163,8 @@ export function emptyPersonaFormValuesForVariant(
       ...base.photo_style,
       attractiveness: "striking",
       style:
-        "zwarte lingerie of latex set, suggestief gekleed, dim mood lighting",
-      vibe: "zelfverzekerd en sensueel, late-night mirror selfie sfeer",
+        "completely nude amateur self-taken, mirror or bedroom, bare skin",
+      vibe: "rauw en intiem, slecht belicht, amateur nude selfie",
     },
   };
 }

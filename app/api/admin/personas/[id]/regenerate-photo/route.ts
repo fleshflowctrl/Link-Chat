@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
-import { regeneratePersonaAvatar } from "@/lib/admin/persona-ops";
+import {
+  regeneratePersonaAvatar,
+  regeneratePersonaNudeAvatar,
+} from "@/lib/admin/persona-ops";
+import { v2NudeDiversityForVariant } from "@/lib/admin/v2-persona-config";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -47,11 +51,29 @@ export async function POST(req: Request, ctx: RouteCtx) {
     // Empty / malformed body is fine — we have a default template.
   }
 
-  const result = await regeneratePersonaAvatar(service, {
-    personaId: ctx.params.id,
-    variant: body.variant,
-    scene: body.scene,
-  });
+  const { data: profile } = await service
+    .from("chat_profiles")
+    .select("app_variant")
+    .eq("id", ctx.params.id)
+    .maybeSingle();
+
+  const variantIndex =
+    typeof body.variant === "number" && Number.isFinite(body.variant)
+      ? Math.floor(body.variant)
+      : 0;
+
+  const result =
+    profile?.app_variant === "v2"
+      ? await regeneratePersonaNudeAvatar(service, {
+          personaId: ctx.params.id,
+          variant: variantIndex,
+          diversity: v2NudeDiversityForVariant(variantIndex),
+        })
+      : await regeneratePersonaAvatar(service, {
+          personaId: ctx.params.id,
+          variant: body.variant,
+          scene: body.scene,
+        });
 
   if (!result.ok) {
     return NextResponse.json(

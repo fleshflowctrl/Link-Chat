@@ -40,7 +40,7 @@ export default async function AdminNewPersonaPage({
         title={variant === "v2" ? "Nieuwe v2 persona" : "Nieuwe persona"}
         description={
           variant === "v2"
-            ? "FetLife/kink pool — verschijnt alleen op /v2/discover. Gebruik suggestieve foto-stijl (lingerie/latex), geen vanilla dating-toon."
+            ? "FetLife/kink pool — alleen /v2/discover. Avatar en galerij gebruiken de nude template-pool (expliciet naakt)."
             : "Vul minimaal naam, leeftijd, stad, bio en avatar in. De rest verfijnt — backstory en persona-diepte voeden direct de AI-systeemprompt."
         }
       />

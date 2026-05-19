@@ -663,8 +663,8 @@ function BulkForm(props: {
         </div>
         {poolVariant === "v2" && (
           <p className="rounded-xl bg-[#B52B2A]/10 px-3 py-2 text-[11px] leading-relaxed text-[#8B2020] ring-1 ring-[#B52B2A]/20">
-            v2-batch: suggestieve foto&apos;s (lingerie/latex), striking default, Grok-prompt op
-            kink-toon. Persona&apos;s verschijnen alleen op /v2/discover.
+            v2-batch: expliciete naaktfoto&apos;s (nude template-pool) voor avatar én galerij.
+            Zorg dat /admin/nudes templates heeft. Alleen zichtbaar op /v2/discover.
           </p>
         )}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[160px,1fr]">

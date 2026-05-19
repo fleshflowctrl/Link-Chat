@@ -124,11 +124,11 @@ export async function createPersonaFromBrief(
     generated.persona.photo_style.attractiveness = attractiveness;
     if (!generated.persona.photo_style.style.trim()) {
       generated.persona.photo_style.style =
-        "zwarte lingerie of latex set, suggestief maar gekleed, geen volledige naaktheid";
+        "completely nude amateur self-taken, mirror or bedroom, bare skin, full frontal";
     }
     if (!generated.persona.photo_style.vibe.trim()) {
       generated.persona.photo_style.vibe =
-        "zelfverzekerd en sensueel, dim rood licht, late-night bedroom mirror selfie sfeer";
+        "rauw en intiem, slecht belicht, late-night amateur nude selfie, geen studio";
     }
   }
 
@@ -469,39 +469,36 @@ export async function appendPersonaGalleryPhoto(
 }
 
 // ============================================================================
-// NUDE GALLERY PHOTO GENERATION (dedicated explicit template pool)
+// NUDE PHOTO GENERATION (dedicated explicit template pool)
 // ============================================================================
 
-export type AppendNudeGalleryInput = {
+export type NudePhotoDiversity = "mirror" | "low" | "high" | "close" | "side";
+
+export type RenderNudePhotoInput = {
   personaId: string;
   variant?: number;
-  /** Optional diversity hint to force different camera styles when generating
-   * multiple nudes for the same persona in one session.
-   * "mirror" | "low" | "high" | "close" | "side"
-   */
-  diversity?: "mirror" | "low" | "high" | "close" | "side";
-  /** Optional explicit template id. When provided, the picker is bypassed
-   * entirely and this exact template is used (and consumed). The admin UI
-   * uses this to pre-select N visibly-different templates client-side so
-   * the resulting batch is guaranteed diverse — instead of relying on a
-   * keyword-match heuristic that often picks the same "mirror selfie"
-   * template repeatedly. */
+  diversity?: NudePhotoDiversity;
   templateId?: string;
-  /** DB template ids already used in the current batch — excluded from auto-pick. */
   excludeTemplateIds?: string[];
+  /** Storage path prefix segment (avatar vs gallery file name). */
+  filePrefix?: "nude" | "nude-avatar";
 };
 
-export type AppendNudeGalleryResult =
-  | { ok: true; gallery_url: string; gallery_urls: string[]; seed: number; backend: string }
+export type RenderNudePhotoResult =
+  | {
+      ok: true;
+      publicUrl: string;
+      seed: number;
+      backend: string;
+      consumedTemplateId: string | null;
+    }
   | { ok: false; error: string; status?: number };
 
-/** Generate ONE explicit nude gallery photo using the dedicated nude template pool.
- *  This bypasses the normal scene template system and forces full explicit styling.
- */
-export async function appendNudeGalleryPhoto(
+/** Render + upload one explicit nude photo (shared by avatar regen + gallery append). */
+export async function renderOneNudePhoto(
   service: SupabaseClient,
-  input: AppendNudeGalleryInput,
-): Promise<AppendNudeGalleryResult> {
+  input: RenderNudePhotoInput,
+): Promise<RenderNudePhotoResult> {
   const { data: persona, error: loadErr } = await service
     .from("chat_profiles")
     .select("*")
@@ -511,25 +508,15 @@ export async function appendNudeGalleryPhoto(
   if (loadErr) return { ok: false, error: loadErr.message, status: 500 };
   if (!persona) return { ok: false, error: "Persona niet gevonden.", status: 404 };
 
-  // Prefer DB-managed nude templates (Grok-generated, admin-curated).
-  // Fall back to in-code NUDE_TEMPLATES if the DB pool is empty.
-  // When using a DB template we will consume (delete) it after successful render.
   let template: Parameters<typeof buildPersonaPhotoPrompt>[0]["cameraStyle"] & { scene: string };
-  let consumedTemplateId: string | null = null; // for DB consumption
+  let consumedTemplateId: string | null = null;
 
-  // Explicit type to avoid complex (typeof dbNude)[number] inference issues
-  // when dbNude can be null.
   type NudeTemplate = NonNullable<Awaited<ReturnType<typeof loadActiveNudeTemplates>>>[number];
   let pick: NudeTemplate | undefined;
 
   const dbNude = await loadActiveNudeTemplates(service);
-
   const excludeIds = new Set(input.excludeTemplateIds ?? []);
 
-  // 1. If the caller explicitly named a template_id, use that one. This is
-  //    what the admin UI does so a batch of 3 photos uses 3 visibly
-  //    different templates instead of letting the picker accidentally
-  //    grab the same "mirror selfie" repeatedly.
   if (input.templateId && dbNude && dbNude.length > 0) {
     pick = dbNude.find((t) => t.id === input.templateId);
     if (!pick) {
@@ -543,11 +530,7 @@ export async function appendNudeGalleryPhoto(
 
   if (dbNude && dbNude.length > 0) {
     if (!pick && input.diversity) {
-      // Try to find a template whose camera description matches the requested
-      // diversity. We collect ALL matches and then pick one at random — using
-      // .find() (which always returns the first) caused the same template to
-      // be picked across runs and produced near-identical batches.
-      const keywords: Record<string, string[]> = {
+      const keywords: Record<NudePhotoDiversity, string[]> = {
         mirror: ["mirror", "selfie", "reflection"],
         low: ["low", "below", "under", "between legs", "ground"],
         high: ["high", "above", "overhead", "looking down"],
@@ -580,7 +563,7 @@ export async function appendNudeGalleryPhoto(
       return {
         ok: false,
         error:
-          "Geen beschikbare nude templates meer in de pool. Genereer eerst een nieuwe batch met Grok.",
+          "Geen beschikbare nude templates meer in de pool. Genereer eerst een nieuwe batch met Grok op /admin/nudes.",
         status: 409,
       };
     }
@@ -595,13 +578,6 @@ export async function appendNudeGalleryPhoto(
       pose: pick.pose,
     };
     consumedTemplateId = pick.id;
-    console.log("[persona-ops/append-nude] using DB template", {
-      pool: dbNude.length,
-      diversity: input.diversity ?? "random",
-      forcedTemplateId: input.templateId ?? null,
-      pickedTemplateId: pick.id,
-      scene: pick.scene.slice(0, 60),
-    });
   } else {
     const [picked] = pickFreshNudeTemplates(1, input.personaId);
     template = {
@@ -613,12 +589,8 @@ export async function appendNudeGalleryPhoto(
       outfit: picked.outfit,
       pose: picked.pose,
     };
-    console.log("[persona-ops/append-nude] using in-code fallback template");
   }
 
-  // Reinforce explicit nude outfit on top of whatever the template specifies.
-  // The Grok-generated nude templates already include nudity tokens, but
-  // doubling them up guarantees nothing slips through clothed.
   const baseOutfit = (template.outfit ?? "").trim();
   const explicitOutfit = /naakt|nude|bare skin|no clothes|topless|breasts|vagina|pussy/i.test(baseOutfit)
     ? baseOutfit
@@ -637,13 +609,6 @@ export async function appendNudeGalleryPhoto(
     },
   });
 
-  // Nude renders ALWAYS mix in a fresh random component on top of any
-  // caller-supplied variant. Without this, repeated clicks of "generate 3
-  // exclusive photos" with the same variant series (15000, 16337, 17674)
-  // produced identical seeds → identical images even when the template
-  // differed. Identity stays consistent across the persona's photos
-  // because the persona-level appearance/identity tokens dominate; only
-  // composition noise varies with the seed.
   const variantPart =
     typeof input.variant === "number" && Number.isFinite(input.variant)
       ? Math.floor(input.variant) * 7919
@@ -651,21 +616,14 @@ export async function appendNudeGalleryPhoto(
   const noisePart = Math.floor(Math.random() * 1_000_000_000);
   const seed = (anchorSeed + variantPart + noisePart) >>> 0;
 
-  console.log("[persona-ops/append-nude]", {
-    persona: input.personaId,
-    template: template.scene.slice(0, 70),
-    seed,
-    promptChars: prompt.length,
-    negPromptChars: negativePrompt.length,
-  });
-
   const photo = await generatePersonaPhoto({ prompt, seed, negativePrompt });
   if (!photo.ok) {
     return { ok: false, error: `Foto-generatie faalde: ${photo.error}`, status: 502 };
   }
 
   const ext = /png/i.test(photo.mime) ? "png" : /jpe?g/i.test(photo.mime) ? "jpg" : "webp";
-  const path = `admin-personas/${input.personaId}/nude-${Date.now()}.${ext}`;
+  const prefix = input.filePrefix ?? "nude";
+  const path = `admin-personas/${input.personaId}/${prefix}-${Date.now()}.${ext}`;
 
   const { error: upErr } = await service.storage
     .from("chat-images")
@@ -684,11 +642,108 @@ export async function appendNudeGalleryPhoto(
     return { ok: false, error: "Kon public URL niet bepalen voor nude foto.", status: 500 };
   }
 
+  if (consumedTemplateId) {
+    try {
+      await service.from("scene_templates").delete().eq("id", consumedTemplateId);
+    } catch (e) {
+      console.warn("[persona-ops/render-nude] failed to consume template", e);
+    }
+  }
+
+  return {
+    ok: true,
+    publicUrl: pub.publicUrl,
+    seed: photo.seed,
+    backend: photo.backend,
+    consumedTemplateId,
+  };
+}
+
+export type RegenerateNudeAvatarInput = {
+  personaId: string;
+  variant?: number;
+  diversity?: NudePhotoDiversity;
+  templateId?: string;
+};
+
+export type RegenerateNudeAvatarResult =
+  | { ok: true; avatar_url: string; seed: number; backend: string }
+  | { ok: false; error: string; status?: number };
+
+/** v2 discover avatar — explicit nude from the nude template pool. */
+export async function regeneratePersonaNudeAvatar(
+  service: SupabaseClient,
+  input: RegenerateNudeAvatarInput,
+): Promise<RegenerateNudeAvatarResult> {
+  const rendered = await renderOneNudePhoto(service, {
+    personaId: input.personaId,
+    variant: input.variant,
+    diversity: input.diversity,
+    templateId: input.templateId,
+    filePrefix: "nude-avatar",
+  });
+
+  if (!rendered.ok) return rendered;
+
+  const { error: updateErr } = await service
+    .from("chat_profiles")
+    .update({ avatar_url: rendered.publicUrl })
+    .eq("id", input.personaId);
+
+  if (updateErr) {
+    return { ok: false, error: `DB-update faalde: ${updateErr.message}`, status: 500 };
+  }
+
+  return {
+    ok: true,
+    avatar_url: rendered.publicUrl,
+    seed: rendered.seed,
+    backend: rendered.backend,
+  };
+}
+
+export type AppendNudeGalleryInput = {
+  personaId: string;
+  variant?: number;
+  diversity?: NudePhotoDiversity;
+  templateId?: string;
+  excludeTemplateIds?: string[];
+};
+
+export type AppendNudeGalleryResult =
+  | { ok: true; gallery_url: string; gallery_urls: string[]; seed: number; backend: string }
+  | { ok: false; error: string; status?: number };
+
+/** Generate ONE explicit nude gallery photo using the dedicated nude template pool. */
+export async function appendNudeGalleryPhoto(
+  service: SupabaseClient,
+  input: AppendNudeGalleryInput,
+): Promise<AppendNudeGalleryResult> {
+  const { data: persona, error: loadErr } = await service
+    .from("chat_profiles")
+    .select("gallery_urls")
+    .eq("id", input.personaId)
+    .maybeSingle();
+
+  if (loadErr) return { ok: false, error: loadErr.message, status: 500 };
+  if (!persona) return { ok: false, error: "Persona niet gevonden.", status: 404 };
+
+  const rendered = await renderOneNudePhoto(service, {
+    personaId: input.personaId,
+    variant: input.variant,
+    diversity: input.diversity,
+    templateId: input.templateId,
+    excludeTemplateIds: input.excludeTemplateIds,
+    filePrefix: "nude",
+  });
+
+  if (!rendered.ok) return rendered;
+
   const existing = Array.isArray(persona.gallery_urls)
     ? (persona.gallery_urls.filter((u: unknown) => typeof u === "string" && u.length > 0) as string[])
     : [];
 
-  const nextGallery = [...existing, pub.publicUrl];
+  const nextGallery = [...existing, rendered.publicUrl];
 
   const { error: updateErr } = await service
     .from("chat_profiles")
@@ -699,21 +754,12 @@ export async function appendNudeGalleryPhoto(
     return { ok: false, error: `DB-update faalde: ${updateErr.message}`, status: 500 };
   }
 
-  // Consume the DB template so it is never used again (single-use pool).
-  if (consumedTemplateId) {
-    try {
-      await service.from("scene_templates").delete().eq("id", consumedTemplateId);
-    } catch (e) {
-      console.warn("[persona-ops/append-nude] failed to consume template", e);
-    }
-  }
-
   return {
     ok: true,
-    gallery_url: pub.publicUrl,
+    gallery_url: rendered.publicUrl,
     gallery_urls: nextGallery,
-    seed: photo.seed,
-    backend: photo.backend,
+    seed: rendered.seed,
+    backend: rendered.backend,
   };
 }
 

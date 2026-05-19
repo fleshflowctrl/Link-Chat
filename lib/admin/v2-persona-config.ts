@@ -13,9 +13,9 @@ Per persona:
 - funnel_intent_ids: kies uit casual, meaningful, friends, chatting, notsure — map semantiek: casual=play, meaningful=dynamiek, friends=munches/community.
 - vibe_tags: 3–6 uit caring, romantic, playful, witty, chill, coffee, travel, movies, gym — kies wat bij haar persoonlijkheid past.
 - filter_tags: links, active, online (minstens 2).
-- photo_style: ALTIJD fotogeniek en suggestief gekleed — GEEN volledige naaktheid in style/appearance tekst.
-  - style: bv. zwarte lingerie, latex set, leather harness over outfit, clubwear, silk slip, bodystocking onder jasje.
-  - vibe: zelfverzekerd, sensueel, "late night bedroom mirror selfie" of "dim red mood lighting".
+- photo_style: fotogeniek, volwassen, expliciet naakt — amateur self-taken (geen studio/boudoir).
+  - style: bv. "completely nude amateur mirror selfie", "nude in bed dim light", "shower nude wet skin", "nude kneeling on bed".
+  - vibe: intiem, rauw, imperfect belicht; geen glamour-shoot.
   - attractiveness: striking (mooi, sexy, maar nog herkenbaar als echt persoon).
 - Geen clichés ("ik hou van reizen en wijn"), geen minderjarigen, geen expliciete porn-taal in bio.`;
 
@@ -26,8 +26,8 @@ VARIANT v2 (FetLife / kink community — HARDE REGELS):
 - Dit is GEEN standaard dating-app. Persona's moeten passen bij een volwassen fetish/kink publiek.
 - Bio en backstory: openhartig over grenzen, nieuwsgierigheid, rollen (dom/sub/switch/curious), events, play — in het Nederlands, niet kinderachtig.
 - looking_for: expliciet maar niet vulgair (max 60 tekens).
-- photo_style.style MOET suggestieve kleding beschrijven (lingerie, latex, leather, club outfit, silk slip). NOOIT "fully nude" of "topless" in appearance/style — gallery kan later apart.
-- photo_style.vibe: sensueel, zelfverzekerd, intieme sfeer (dim light, bedroom, mirror selfie aesthetic).
+- photo_style.style: beschrijf expliciet naakte amateur-foto's (completely nude, mirror selfie, bedroom, shower). Geen lingerie-only — v2 gebruikt de nude template-pool voor avatar én galerij.
+- photo_style.vibe: rauw, intiem, imperfect belicht; amateur self-taken, geen studio glamour.
 - chat_style: flirterig maar menselijk; voice_style bv. "kort, direct, speels" of "warm maar met bite".
 - funnel_intent_ids + vibe_tags: ALLEEN ids uit de bestaande schema-lijsten — kies de semantisch beste match voor een kinkster.
 - personality_traits: bv. zelfverzekerd, nieuwsgierig, speels, dominant, submissief, open-minded (NL adjectieven).
@@ -46,4 +46,20 @@ export function defaultAttractivenessForVariant(
 
 export function defaultBulkBriefForVariant(variant: AppVariant | undefined): string {
   return isV2PersonaVariant(variant) ? V2_PERSONA_BULK_BRIEF : "";
+}
+
+/** Rotate camera families across v2 batch gallery/avatar shots. */
+export const V2_NUDE_DIVERSITY_CYCLE = [
+  "mirror",
+  "low",
+  "high",
+  "close",
+  "side",
+] as const;
+
+export type V2NudeDiversity = (typeof V2_NUDE_DIVERSITY_CYCLE)[number];
+
+export function v2NudeDiversityForVariant(variant: number): V2NudeDiversity {
+  const idx = Math.abs(Math.floor(variant)) % V2_NUDE_DIVERSITY_CYCLE.length;
+  return V2_NUDE_DIVERSITY_CYCLE[idx]!;
 }

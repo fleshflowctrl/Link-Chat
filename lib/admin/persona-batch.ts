@@ -25,12 +25,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AppVariant } from "@/lib/app-variant";
 import {
+  appendNudeGalleryPhoto,
   appendPersonaGalleryPhoto,
   createPersonaFromBrief,
   regeneratePersonaAvatar,
+  regeneratePersonaNudeAvatar,
   type Attractiveness,
   type BodyType,
 } from "@/lib/admin/persona-ops";
+import { v2NudeDiversityForVariant } from "@/lib/admin/v2-persona-config";
 
 /** Hand a fire-and-forget promise to the runtime so it stays alive
  * long enough for the I/O to complete after our handler has returned
@@ -712,11 +715,19 @@ export async function runOneStep(
       photo_error: null,
     });
     try {
+      const avatarVariant = batch.scene_offset + next.item.idx;
+      const isV2 = batch.app_variant === "v2";
       const result = await withTimeout(
-        regeneratePersonaAvatar(service, {
-          personaId: next.item.persona_id,
-          variant: batch.scene_offset + next.item.idx,
-        }),
+        isV2
+          ? regeneratePersonaNudeAvatar(service, {
+              personaId: next.item.persona_id,
+              variant: avatarVariant,
+              diversity: v2NudeDiversityForVariant(avatarVariant),
+            })
+          : regeneratePersonaAvatar(service, {
+              personaId: next.item.persona_id,
+              variant: avatarVariant,
+            }),
         PHOTO_TIMEOUT_MS,
         {
           ok: false as const,
@@ -777,11 +788,18 @@ export async function runOneStep(
     gallery_error: null,
   });
   try {
+    const isV2 = batch.app_variant === "v2";
     const result = await withTimeout(
-      appendPersonaGalleryPhoto(service, {
-        personaId: next.item.persona_id,
-        variant: next.variant,
-      }),
+      isV2
+        ? appendNudeGalleryPhoto(service, {
+            personaId: next.item.persona_id,
+            variant: next.variant,
+            diversity: v2NudeDiversityForVariant(next.variant),
+          })
+        : appendPersonaGalleryPhoto(service, {
+            personaId: next.item.persona_id,
+            variant: next.variant,
+          }),
       PHOTO_TIMEOUT_MS,
       {
         ok: false as const,
