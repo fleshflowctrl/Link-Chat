@@ -98,32 +98,19 @@ export type PacingResult = {
  * `maxDuration` and well under typical serverless timeouts. */
 export const SYNC_DELAY_THRESHOLD_MS = 25_000;
 
+/** Hard ceiling for ANY reply (operator policy: alle replies binnen 2 min,
+ * onafhankelijk van bedtime / work / engagement-mode). Used by `capDelayMs`. */
+export const MAX_REPLY_DELAY_MS = 120_000;
+
 /** Max delay while awake (not in sleep mode). Operator policy. */
-export const AWAKE_MAX_DELAY_MS = 20 * 60_000;
+export const AWAKE_MAX_DELAY_MS = MAX_REPLY_DELAY_MS;
 
-/** Upper bound on sleep-mode delays. 9h covers a full overnight cycle. */
-const SLEEP_HARD_CAP_MS = 9 * 60 * 60_000;
+/** Upper bound on sleep-mode delays. Same cap so chats keep flowing 24/7. */
+const SLEEP_HARD_CAP_MS = MAX_REPLY_DELAY_MS;
 const HOOK_TURN_LIMIT = 3;
-/** First-ever peer reply in a thread — always async, 1-3 min. */
-const FIRST_REPLY_MIN_MS = 60_000;
-const FIRST_REPLY_MAX_MS = 180_000;
-
-/** Probability she sneaks a phone-glance during work and replies with a
- * 10-30 min delay (instead of waiting for the next break). Operator
- * request: "soms tijdens werk wel appen, gewoon 10-30 min eroverheen".
- * 15% per turn means roughly 1 in 7 work-time messages still gets a
- * reply during the shift — feels realistic without breaking the
- * "phone-away during work" mental model.
- *
- * Override via env XAI_WORK_SNEAKY_PROBABILITY="0.15" if needed. */
-const WORK_SNEAKY_PROBABILITY = (() => {
-  const raw = process.env.XAI_WORK_SNEAKY_PROBABILITY;
-  if (typeof raw === "string") {
-    const n = Number(raw);
-    if (Number.isFinite(n) && n >= 0 && n <= 1) return n;
-  }
-  return 0.15;
-})();
+/** First-ever peer reply in a thread — quick async ack within the 2-min cap. */
+const FIRST_REPLY_MIN_MS = 20_000;
+const FIRST_REPLY_MAX_MS = 90_000;
 
 /** Build the prompt hint shown to Grok when the persona is sneaking a
  * glance during work. Tone: secret, hurried, slightly guilty. */
@@ -176,12 +163,11 @@ function clampMs(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, Math.round(n)));
 }
 
-/** Sleep mode may wait until morning; every other phase is capped at 20 min. */
-function capDelayMs(ms: number, bedtimePhase: BedtimePhase): number {
-  if (bedtimePhase === "asleep") {
-    return clampMs(ms, 3 * 60_000, SLEEP_HARD_CAP_MS);
-  }
-  return clampMs(ms, 5_000, AWAKE_MAX_DELAY_MS);
+/** Operator cap: every reply lands within MAX_REPLY_DELAY_MS, regardless of
+ * bedtime / work phase. Sleeping personas still reply within 2 minutes —
+ * realism is sacrificed on purpose so live chats never stall. */
+function capDelayMs(ms: number, _bedtimePhase: BedtimePhase): number {
+  return clampMs(ms, 5_000, MAX_REPLY_DELAY_MS);
 }
 
 /**
@@ -229,11 +215,12 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
     occupation: opts.occupation ?? null,
   });
 
-  // 2. Asleep: schedule for tomorrow morning's wake-up.
+  // 2. Asleep: operator policy overrides realism — reply within the cap
+  //    (30-120s) so the chat keeps moving 24/7. Bedtime phase stays
+  //    "asleep" so the system prompt can still acknowledge it.
   if (bedtime.phase === "asleep") {
-    const delay = bedtime.wakeAfter.getTime() - now.getTime();
     return {
-      delayMs: capDelayMs(delay, "asleep"),
+      delayMs: capDelayMs(rng(30_000, MAX_REPLY_DELAY_MS), "asleep"),
       bedtimePhase: "asleep",
       minutesUntilBedtime: null,
       workPhase: work.phase,
@@ -255,38 +242,17 @@ export function computeReplyPacing(opts: PacingInput): PacingResult {
   // makes the work-schedule lever feel realistic instead of robotic
   // (she's not literally untouchable for 4h every day).
   if (work.phase === "working") {
-    const sneaky = Math.random() < WORK_SNEAKY_PROBABILITY;
-    if (sneaky) {
-      const sneakyDelayMs = (10 + Math.random() * 10) * 60_000; // 10-20 min
-      // Make sure the sneaky reply lands well before the end of shift
-      // — past that we should just wait for end-of-day naturally.
-      const msToShiftEnd = work.nextAvailableAt.getTime() - now.getTime();
-      const cappedSneaky = Math.min(sneakyDelayMs, Math.max(60_000, msToShiftEnd - 60_000));
-      return {
-        delayMs: capDelayMs(cappedSneaky, bedtime.phase),
-        bedtimePhase: bedtime.phase,
-        minutesUntilBedtime: bedtime.minutesUntilBedtime,
-        workPhase: "working",
-        // Override the prompt hint with a sneaky-glance phrasing so
-        // Grok writes "ik kijk eigenlijk niet op werk maar oké, ff snel"
-        // instead of the normal "ik moet zo aan het werk".
-        workPromptHint: SNEAKY_GLANCE_HINT(work.localTimeLabel),
-      };
-    }
-    const delay = work.nextAvailableAt.getTime() - now.getTime();
-    if (delay > 60_000) {
-      return {
-        // 30s jitter so two pending replies don't all fire at the
-        // exact same break-minute.
-        delayMs: capDelayMs(delay + Math.random() * 30_000, bedtime.phase),
-        bedtimePhase: bedtime.phase,
-        minutesUntilBedtime: bedtime.minutesUntilBedtime,
-        workPhase: work.phase,
-        workPromptHint: work.promptHint,
-      };
-    }
-    // Less than a minute until the next break — fall through to normal
-    // pacing so the reply lands naturally as the break starts.
+    // Operator policy: alle replies binnen 2 min, ook tijdens werk.
+    // We tonen wel het "sneaky-glance" framing zodat het past in het
+    // verhaal ("ff snel even tussendoor"), maar wachten niet tot de
+    // volgende break.
+    return {
+      delayMs: capDelayMs(rng(30_000, MAX_REPLY_DELAY_MS), bedtime.phase),
+      bedtimePhase: bedtime.phase,
+      minutesUntilBedtime: bedtime.minutesUntilBedtime,
+      workPhase: "working",
+      workPromptHint: SNEAKY_GLANCE_HINT(work.localTimeLabel),
+    };
   }
 
   // 1a. Very first peer reply — 1-3 minutes (async). Not instant.
