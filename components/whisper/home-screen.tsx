@@ -36,6 +36,10 @@ type Props = {
   refreshCost: number;
   /** Stable hash of the resulting ordered profile ids — used as the cursor key. */
   feedHash: string;
+  /** v2: fit header + feed in viewport without page scroll. */
+  fitViewport?: boolean;
+  /** One-line trust copy shown under the header (v2 discover). */
+  trustStrip?: string;
 };
 
 type FeedRefreshResponse = {
@@ -70,6 +74,8 @@ export function HomeScreen({
   nextRefreshAt,
   refreshCost,
   feedHash,
+  fitViewport = false,
+  trustStrip,
 }: Props) {
   const [profile, setProfile] = useState<EditProfileState | null>(initialProfile);
 
@@ -182,9 +188,20 @@ export function HomeScreen({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <HomeHeader profile={profile} />
-      <CatalogFallbackBanner show={catalogDegraded} />
+    <div
+      className={
+        fitViewport
+          ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+          : "flex h-full min-h-0 flex-col"
+      }
+    >
+      <HomeHeader profile={profile} compact={fitViewport} />
+      {trustStrip ? (
+        <p className="shrink-0 px-4 pb-1 text-center text-[10px] font-medium leading-tight tracking-wide text-[#B52B2A]">
+          {trustStrip}
+        </p>
+      ) : null}
+      <CatalogFallbackBanner show={catalogDegraded} compact={fitViewport} />
       <FeedStack
         profiles={profilesState}
         feedSlot={slot}
@@ -196,6 +213,7 @@ export function HomeScreen({
         refreshing={refreshing}
         refreshError={refreshError}
         profile={profile}
+        compact={fitViewport}
       />
     </div>
   );

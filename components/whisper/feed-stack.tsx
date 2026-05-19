@@ -169,6 +169,8 @@ type Props = {
   /** Signed-in user profile — used to render the compact "profiel afmaken"
    *  nudge under the end-state. `null` for guests. */
   profile?: EditProfileState | null;
+  /** Tighter spacing so discover fits one mobile viewport (v2). */
+  compact?: boolean;
 };
 
 function formatCountdown(ms: number): string {
@@ -201,6 +203,7 @@ export function FeedStack({
   refreshing,
   refreshError,
   profile,
+  compact = false,
 }: Props) {
   // Per-user key so two accounts in the same browser don't share progress.
   const userKey = useSyncExternalStore(
@@ -293,7 +296,13 @@ export function FeedStack({
   );
 
   return (
-    <section className="flex min-h-0 w-full flex-1 flex-col gap-2 px-4 pb-3 pt-2">
+    <section
+      className={
+        compact
+          ? "flex min-h-0 w-full flex-1 flex-col gap-1 px-3 pb-2 pt-0.5"
+          : "flex min-h-0 w-full flex-1 flex-col gap-2 px-4 pb-3 pt-2"
+      }
+    >
       {/* Progress dots + countdown */}
       <div className="flex items-center gap-2.5">
         <div className="flex flex-1 items-center gap-1">
@@ -334,42 +343,64 @@ export function FeedStack({
       ) : (
         <>
           <div className="flex min-h-0 flex-1">
-            <FeedCard key={current.id} profile={current} />
+            <FeedCard key={current.id} profile={current} compact={compact} />
           </div>
 
-          <div className="grid shrink-0 grid-cols-2 gap-2.5">
+          <div
+            className={
+              compact
+                ? "grid shrink-0 grid-cols-2 gap-2"
+                : "grid shrink-0 grid-cols-2 gap-2.5"
+            }
+          >
             <Link
               href={openHref}
-              className="flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-primary px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
+              className={
+                compact
+                  ? "flex items-center justify-center gap-2 rounded-xl bg-gradient-primary px-2.5 py-2 text-white shadow-md transition active:scale-[0.98]"
+                  : "flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-primary px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
+              }
             >
               <MessageCircle
-                className="h-5 w-5 shrink-0"
+                className={compact ? "h-4 w-4 shrink-0" : "h-5 w-5 shrink-0"}
                 strokeWidth={2.5}
                 aria-hidden
               />
               <span className="flex min-w-0 flex-col text-left leading-tight">
-                <span className="text-[14px] font-bold">Open gesprek</span>
-                <span className="truncate text-[11px] font-medium opacity-90">
-                  Praat met {current.name}
+                <span className={compact ? "text-[13px] font-bold" : "text-[14px] font-bold"}>
+                  Open gesprek
                 </span>
+                {!compact && (
+                  <span className="truncate text-[11px] font-medium opacity-90">
+                    Praat met {current.name}
+                  </span>
+                )}
               </span>
             </Link>
 
             <button
               type="button"
               onClick={handleNext}
-              className="flex items-center justify-center gap-2.5 rounded-2xl bg-gray-900 px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
+              className={
+                compact
+                  ? "flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-2.5 py-2 text-white shadow-md transition active:scale-[0.98]"
+                  : "flex items-center justify-center gap-2.5 rounded-2xl bg-gray-900 px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
+              }
             >
               <ChevronsRight
-                className="h-5 w-5 shrink-0"
+                className={compact ? "h-4 w-4 shrink-0" : "h-5 w-5 shrink-0"}
                 strokeWidth={2.5}
                 aria-hidden
               />
               <span className="flex flex-col text-left leading-tight">
-                <span className="text-[14px] font-bold">Volgende</span>
-                <span className="text-[11px] font-medium opacity-70">
-                  Iemand anders
+                <span className={compact ? "text-[13px] font-bold" : "text-[14px] font-bold"}>
+                  Volgende
                 </span>
+                {!compact && (
+                  <span className="text-[11px] font-medium opacity-70">
+                    Iemand anders
+                  </span>
+                )}
               </span>
             </button>
           </div>

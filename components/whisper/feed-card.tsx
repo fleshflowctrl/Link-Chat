@@ -9,6 +9,7 @@ import type { Profile } from "@/data/profiles";
 
 type Props = {
   profile: Profile;
+  compact?: boolean;
 };
 
 const INTEREST_EMOJI: Record<string, string> = {
@@ -25,7 +26,7 @@ const INTEREST_EMOJI: Record<string, string> = {
  * is overlaid on top of the image. A bottom gradient keeps text legible
  * no matter how light or busy the photo behind it is.
  */
-export function FeedCard({ profile }: Props) {
+export function FeedCard({ profile, compact = false }: Props) {
   const { variant } = useAppVariant();
   const isOnline =
     profile.status.variant === "online" || profile.status.variant === "active";
@@ -38,7 +39,13 @@ export function FeedCard({ profile }: Props) {
       : "";
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[28px] bg-gray-200 shadow-xl ring-1 ring-black/5">
+    <div
+      className={
+        compact
+          ? "relative h-full w-full overflow-hidden rounded-2xl bg-gray-200 shadow-lg ring-1 ring-black/5"
+          : "relative h-full w-full overflow-hidden rounded-[28px] bg-gray-200 shadow-xl ring-1 ring-black/5"
+      }
+    >
       <Image
         src={profile.photo}
         alt={profile.name}
@@ -82,9 +89,21 @@ export function FeedCard({ profile }: Props) {
       )}
 
       {/* Overlay content — bottom */}
-      <div className="absolute inset-x-0 bottom-0 z-[1] p-4 text-white">
+      <div
+        className={
+          compact
+            ? "absolute inset-x-0 bottom-0 z-[1] p-3 text-white"
+            : "absolute inset-x-0 bottom-0 z-[1] p-4 text-white"
+        }
+      >
         <div className="flex min-w-0 items-center gap-1.5">
-          <h2 className="truncate text-[26px] font-extrabold leading-tight tracking-tight drop-shadow-md">
+          <h2
+            className={
+              compact
+                ? "truncate text-[22px] font-extrabold leading-tight tracking-tight drop-shadow-md"
+                : "truncate text-[26px] font-extrabold leading-tight tracking-tight drop-shadow-md"
+            }
+          >
             {profile.name}, {profile.age}
           </h2>
           {profile.isVerified && (
@@ -102,7 +121,7 @@ export function FeedCard({ profile }: Props) {
           </div>
         )}
 
-        {profile.interests.length > 0 && (
+        {profile.interests.length > 0 && !compact && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {profile.interests.slice(0, 4).map((interest) => (
               <span
@@ -120,7 +139,11 @@ export function FeedCard({ profile }: Props) {
 
         <Link
           href={withVariantPath(`/profile/${profile.id}`, variant)}
-          className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white/95 py-2.5 text-[13px] font-bold text-ink shadow-lg ring-1 ring-black/5 backdrop-blur-md transition active:scale-[0.98]"
+          className={
+            compact
+              ? "mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white/95 py-2 text-[12px] font-bold text-ink shadow-lg ring-1 ring-black/5 backdrop-blur-md transition active:scale-[0.98]"
+              : "mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-white/95 py-2.5 text-[13px] font-bold text-ink shadow-lg ring-1 ring-black/5 backdrop-blur-md transition active:scale-[0.98]"
+          }
         >
           <User className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
           Bekijk profiel
