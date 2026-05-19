@@ -169,6 +169,16 @@ export function ImageLab() {
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<LabResult[]>([]);
   const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [avatarId, setAvatarId] = useState<string | null>(null);
+  const [personaBriefAddon, setPersonaBriefAddon] = useState("");
+  const [createPersonaBusy, setCreatePersonaBusy] = useState(false);
+  const [createPersonaError, setCreatePersonaError] = useState<string | null>(null);
+  const [createPersonaSuccess, setCreatePersonaSuccess] = useState<{
+    personaId: string;
+    displayName: string;
+    editUrl: string;
+  } | null>(null);
   const [reference, setReference] = useState<ReferenceState | null>(null);
   const [variantBusy, setVariantBusy] = useState(false);
   const [variantError, setVariantError] = useState<string | null>(null);
@@ -362,6 +372,75 @@ export function ImageLab() {
       return [...prev, id];
     });
   }, []);
+
+  const toggleSelect = useCallback((id: string) => {
+    setCreatePersonaSuccess(null);
+    setCreatePersonaError(null);
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) {
+        const next = prev.filter((x) => x !== id);
+        setAvatarId((a) => (a === id ? (next[0] ?? null) : a));
+        return next;
+      }
+      const next = [...prev, id];
+      setAvatarId((a) => a ?? id);
+      return next;
+    });
+  }, []);
+
+  const setAsAvatar = useCallback((id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setAvatarId(id);
+  }, []);
+
+  const onCreatePersona = useCallback(async () => {
+    const selected = history.filter((r) => selectedIds.includes(r.id));
+    if (selected.length === 0) return;
+
+    const avatarResult =
+      selected.find((r) => r.id === avatarId) ?? selected[0]!;
+
+    setCreatePersonaBusy(true);
+    setCreatePersonaError(null);
+    setCreatePersonaSuccess(null);
+
+    try {
+      const res = await fetch("/api/admin/image-lab/create-persona", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          images: selected.map((r) => ({
+            url: r.url,
+            prompt: r.prompt,
+            seed: r.seed,
+          })),
+          avatarUrl: avatarResult.url,
+          briefAddon: personaBriefAddon.trim() || undefined,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        personaId?: string;
+        displayName?: string;
+        editUrl?: string;
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.personaId) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setCreatePersonaSuccess({
+        personaId: data.personaId,
+        displayName: data.displayName ?? data.personaId,
+        editUrl: data.editUrl ?? `/admin/personas/${data.personaId}/edit`,
+      });
+      setSelectedIds([]);
+      setAvatarId(null);
+    } catch (e) {
+      setCreatePersonaError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCreatePersonaBusy(false);
+    }
+  }, [history, selectedIds, avatarId, personaBriefAddon]);
 
   const comparisons = useMemo(
     () => compareIds.map((id) => history.find((h) => h.id === id)).filter(Boolean) as LabResult[],
@@ -682,7 +761,7 @@ export function ImageLab() {
               Historie (laatste {history.length})
             </h2>
             <p className="text-[11px] text-gray-500">
-              Klik <em>Vergelijk</em> op twee renders om ze naast elkaar te zien.
+              Vink foto&apos;s aan → <em>Maak v2-persona</em>. Klik ★ voor avatar.
             </p>
           </header>
 
@@ -703,12 +782,61 @@ export function ImageLab() {
                 onReroll={() => onReroll(r)}
                 onToggleCompare={() => toggleCompare(r.id)}
                 onUseAsReference={() => onUseAsReference(r)}
+                onToggleSelect={() => toggleSelect(r.id)}
+                onSetAvatar={() => setAsAvatar(r.id)}
                 compareSelected={compareIds.includes(r.id)}
+                selectSelected={selectedIds.includes(r.id)}
+                isAvatar={avatarId === r.id}
                 isCurrentReference={reference?.baseResult.id === r.id}
               />
             ))}
           </div>
         </section>
+      ) : null}
+
+      {selectedIds.length > 0 ? (
+        <div className="sticky bottom-4 z-20 rounded-2xl border border-primary/30 bg-white p-4 shadow-lg ring-1 ring-black/5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-gray-900">
+                {selectedIds.length} foto&apos;s geselecteerd
+                <span className="ml-2 text-xs font-normal text-gray-500">
+                  · klik ★ voor avatar
+                </span>
+              </p>
+              <textarea
+                value={personaBriefAddon}
+                onChange={(e) => setPersonaBriefAddon(e.target.value)}
+                rows={2}
+                placeholder="Extra brief voor Grok (bv. dominant, latex, Rotterdam, 32 jaar, rope-fan…)"
+                className="mt-2 w-full resize-y rounded-xl border border-black/10 bg-gray-50 px-3 py-2 text-xs text-gray-900 outline-none focus:border-primary/60"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={onCreatePersona}
+              disabled={createPersonaBusy}
+              className="shrink-0 rounded-xl bg-gradient-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition active:scale-[0.99] disabled:cursor-wait disabled:opacity-60"
+            >
+              {createPersonaBusy ? "Persona aanmaken…" : "Maak v2-persona"}
+            </button>
+          </div>
+          {createPersonaError ? (
+            <p className="mt-2 text-xs text-rose-700">{createPersonaError}</p>
+          ) : null}
+          {createPersonaSuccess ? (
+            <p className="mt-2 text-xs text-emerald-800">
+              <strong>{createPersonaSuccess.displayName}</strong> aangemaakt (
+              alleen v2).{" "}
+              <a
+                href={createPersonaSuccess.editUrl}
+                className="font-semibold underline"
+              >
+                Profiel bewerken →
+              </a>
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -720,7 +848,11 @@ function ResultCard({
   onReroll,
   onToggleCompare,
   onUseAsReference,
+  onToggleSelect,
+  onSetAvatar,
   compareSelected,
+  selectSelected,
+  isAvatar,
   isCurrentReference,
   compact = false,
 }: {
@@ -729,12 +861,20 @@ function ResultCard({
   onReroll?: () => void;
   onToggleCompare?: () => void;
   onUseAsReference?: () => void;
+  onToggleSelect?: () => void;
+  onSetAvatar?: () => void;
   compareSelected?: boolean;
+  selectSelected?: boolean;
+  isAvatar?: boolean;
   isCurrentReference?: boolean;
   compact?: boolean;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-black/5 bg-gray-50">
+    <div
+      className={`overflow-hidden rounded-xl border bg-gray-50 ${
+        selectSelected ? "border-primary ring-2 ring-primary/30" : "border-black/5"
+      }`}
+    >
       <div className="relative aspect-[3/4] bg-black/5">
         <Image
           src={result.url}
@@ -744,6 +884,41 @@ function ResultCard({
           className="object-cover"
           unoptimized
         />
+        {onToggleSelect ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect();
+            }}
+            className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold shadow ${
+              selectSelected
+                ? "border-primary bg-primary text-white"
+                : "border-white/90 bg-black/40 text-white hover:bg-black/60"
+            }`}
+            aria-label={selectSelected ? "Deselecteren" : "Selecteren"}
+          >
+            {selectSelected ? "✓" : ""}
+          </button>
+        ) : null}
+        {onSetAvatar && selectSelected ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSetAvatar();
+            }}
+            className={`absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full text-sm shadow ${
+              isAvatar
+                ? "bg-amber-400 text-amber-950 ring-2 ring-white"
+                : "bg-black/50 text-white hover:bg-black/70"
+            }`}
+            aria-label="Instellen als avatar"
+            title="Avatar"
+          >
+            ★
+          </button>
+        ) : null}
         {result.skipFinish ? (
           <span className="absolute left-2 top-2 rounded-full bg-emerald-500/95 px-2 py-0.5 text-[10px] font-semibold text-white shadow">
             RAUW
@@ -753,6 +928,11 @@ function ResultCard({
             FINISH
           </span>
         )}
+        {isAvatar ? (
+          <span className="absolute bottom-2 left-2 rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-amber-950 shadow">
+            AVATAR
+          </span>
+        ) : null}
       </div>
       <div className="space-y-2 p-3 text-[11px] text-gray-700">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono tabular-nums text-gray-600">
