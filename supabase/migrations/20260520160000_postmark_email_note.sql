@@ -1,0 +1,13 @@
+-- Postmark: transactional email via app (POSTMARK_SERVER_TOKEN) + optional Supabase SMTP.
+--
+-- App (Vercel / .env.local):
+--   POSTMARK_SERVER_TOKEN=<server api token>
+--   POSTMARK_FROM_EMAIL=noreply@stiekemsamen.nl  (verified sender in Postmark)
+--   SUPABASE_SERVICE_ROLE_KEY=...  (for confirmation links)
+--
+-- Optional — let Supabase Auth send via Postmark SMTP instead of built-in mail:
+--   Dashboard → Project Settings → Authentication → SMTP
+--   Host: smtp.postmarkapp.com  Port: 587
+--   User + Password: same Server API token
+--   Sender: your verified POSTMARK_FROM_EMAIL
+-- If both SMTP and /api/auth/email are active, users may get duplicate mails — use one path.

@@ -14,6 +14,7 @@ import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import type { AppVariant } from "@/lib/app-variant";
 import { DEFAULT_APP_VARIANT, withVariantPath } from "@/lib/app-variant";
 import { convertAnonymousToPermanentAccount } from "@/lib/auth/guest-session";
+import { requestSignupConfirmationEmail } from "@/lib/email/request-auth-email";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import type {
   FunnelAgeRange,
@@ -122,6 +123,10 @@ export async function saveFunnelAccount(
   // We still return ok so the funnel can finish; profile data is also kept in
   // localStorage and will be synced on first authenticated visit.
   if (!hasSession || needsEmailConfirmFromAuth) {
+    void requestSignupConfirmationEmail({
+      email,
+      nextPath: discoverPath,
+    });
     return { ok: true, needsEmailConfirm: true, userId };
   }
 

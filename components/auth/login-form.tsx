@@ -11,6 +11,7 @@ import {
   isPermanentAuthUser,
 } from "@/lib/auth/guest-session";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
+import { requestSignupConfirmationEmail } from "@/lib/email/request-auth-email";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import type { AppVariant } from "@/lib/app-variant";
 import { V2_GRADIENT_PRIMARY } from "@/lib/v2-theme";
@@ -225,6 +226,10 @@ export function LoginForm({
     setMessage(
       "Controleer je e-mail om je account te bevestigen en log daarna hier in.",
     );
+    void requestSignupConfirmationEmail({
+      email: trimmed,
+      nextPath,
+    });
   }
 
   if (!supabaseConfigured) {
