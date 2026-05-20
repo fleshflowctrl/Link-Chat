@@ -4,13 +4,10 @@ import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
-/** Signed-in user with a real account (not anonymous / funnel guest). */
-export function isPermanentAuthUser(user: User | null | undefined): boolean {
-  if (!user) return false;
-  if (user.is_anonymous === true) return false;
-  if (user.user_metadata?.is_funnel_guest === true) return false;
-  return true;
-}
+export {
+  isGuestAuthUser,
+  isPermanentAuthUser,
+} from "@/lib/auth/user-account";
 
 function isFunnelGuestUser(user: User | null | undefined): boolean {
   if (!user) return false;

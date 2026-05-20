@@ -17,7 +17,13 @@ import {
   AI_CHAT_PROMPT_VERSION,
   buildGrokSystemPrompt,
 } from "@/lib/ai/build-grok-system-prompt";
+import {
+  decideGuestAccountNudge,
+  pickGuestAccountNudgePhrase,
+  weaveGuestAccountNudge,
+} from "@/lib/ai/guest-account-nudge";
 import { v2ChatUsesBlankSlate } from "@/lib/ai/v2-chat-config";
+import { isGuestAuthUser } from "@/lib/auth/user-account";
 import {
   RECENT_MESSAGE_COUNT,
   refreshThreadSummaryIfNeeded,
@@ -521,6 +527,29 @@ export async function generatePeerReply(
   const emotional = isEmotionalUserMessage(lastUserBody);
   const v2BlankSlate = v2ChatUsesBlankSlate(args.profile);
 
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+  const isGuestUser = isGuestAuthUser(authUser);
+
+  const { count: priorPeerMessageCount } = await supabase
+    .from("chat_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_user_id", args.ownerUserId)
+    .eq("sender", "peer");
+
+  let guestNudge = decideGuestAccountNudge({
+    isGuestUser,
+    ownerUserId: args.ownerUserId,
+    peerId: args.peerId,
+    turnIndex: priorAssistantTurns,
+    isFirstPeerReplyEver: (priorPeerMessageCount ?? 0) === 0,
+  });
+  // Spontaneous / winback: only mandatory first-contact nudges, no random extras.
+  if (args.options?.forceSingleMessage && guestNudge && !guestNudge.required) {
+    guestNudge = null;
+  }
+
   const allowMultiMessage = v2BlankSlate
     ? false
     : !args.options?.forceSingleMessage &&
@@ -558,11 +587,16 @@ export async function generatePeerReply(
   const system = buildGrokSystemPrompt(
     args.profile,
     v2BlankSlate
-      ? { nowLocal: new Date(), turnIndex: priorAssistantTurns }
+      ? {
+          nowLocal: new Date(),
+          turnIndex: priorAssistantTurns,
+          guestAccountNudge: guestNudge,
+        }
       : {
           threadSummary: threadSummaryForPrompt,
           nowLocal: new Date(),
           turnIndex: priorAssistantTurns,
+          guestAccountNudge: guestNudge,
           userSilenceMs: userSilenceMs ?? undefined,
           bedtimePhase: bedtime.phase,
           minutesUntilBedtime: bedtime.minutesUntilBedtime,
@@ -704,7 +738,7 @@ export async function generatePeerReply(
     peerProfileId: args.peerId,
     messageIndex: priorAssistantTurns,
   };
-  const cleanedChunks = v2BlankSlate
+  let cleanedChunks = v2BlankSlate
     ? cleanedChunksRaw
     : (() => {
         const resolvedStyle = resolveVoiceFingerprint(
@@ -719,6 +753,14 @@ export async function generatePeerReply(
         );
         return applyTypoPass(afterSig, fpCtx);
       })();
+
+  if (guestNudge?.required && cleanedChunks.length > 0) {
+    const phrase = pickGuestAccountNudgePhrase(guestNudge.phraseSeed);
+    cleanedChunks = [
+      weaveGuestAccountNudge(cleanedChunks[0], phrase),
+      ...cleanedChunks.slice(1),
+    ];
+  }
 
   if (cleanedChunks.length === 0) {
     const latencyMs = Date.now() - t0;

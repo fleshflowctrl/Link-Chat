@@ -25,7 +25,7 @@ export default function AppV2ShellLayout({
         >
           <VisitorTracker variant="v2" />
           <SessionSyncProvider />
-          <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
             {children}
           </main>
           <BottomNav

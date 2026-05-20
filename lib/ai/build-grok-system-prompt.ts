@@ -6,6 +6,10 @@ import {
   V2_FLIRT_BLOCK,
   V2_SEXUAL_MOMENT_RULE,
 } from "@/lib/ai/v2-chat-config";
+import {
+  guestAccountNudgePromptLines,
+  type GuestAccountNudgeDecision,
+} from "@/lib/ai/guest-account-nudge";
 import { resolveVoiceFingerprint, voiceFingerprintPromptLines } from "@/lib/ai/voice-fingerprint";
 
 export const AI_CHAT_PROMPT_VERSION = "v11";
@@ -386,6 +390,8 @@ export type BuildPromptOptions = {
   /** Realism v2 — running record of what the persona has CLAIMED about
    * herself in this thread. Used to prevent self-contradiction. */
   personaSelfFacts?: { self_claims?: string[] } | null;
+  /** Guest user without permanent account — optional/required account mention. */
+  guestAccountNudge?: GuestAccountNudgeDecision | null;
 };
 
 /**
@@ -965,6 +971,10 @@ export function buildGrokSystemPrompt(
     "Voor je verstuurt: lees je antwoord nog één keer alsof jij de ontvanger bent. Klinkt het als een echt iemand op haar telefoon, of als een AI? Bij twijfel: maak het korter, vager, persoonlijker, en haal de laatste vraag weg als die geforceerd voelt.",
   );
 
+  if (opts.guestAccountNudge?.prompt) {
+    bits.push(...guestAccountNudgePromptLines(opts.guestAccountNudge));
+  }
+
   return bits.join("\n");
 }
 
@@ -991,5 +1001,8 @@ function buildV2BlankSlateSystemPrompt(
     "",
     `Tijd bij jou (alleen noemen als relevant): ${weekdayLabel} ${clockText}, ${tod}.`,
     "Vraagt zij hoe laat het is of welke dag: gebruik exact deze tijd.",
+    ...(opts.guestAccountNudge?.prompt
+      ? guestAccountNudgePromptLines(opts.guestAccountNudge)
+      : []),
   ].join("\n");
 }

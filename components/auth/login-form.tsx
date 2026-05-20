@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
@@ -11,32 +12,119 @@ import {
 } from "@/lib/auth/guest-session";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
+import type { AppVariant } from "@/lib/app-variant";
+import { V2_GRADIENT_PRIMARY } from "@/lib/v2-theme";
 import { createClient } from "@/utils/supabase/client";
 
 type LoginFormMode = "login" | "signup";
 
 const PASSWORD_MIN = 6;
 
-export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
+function PasswordField({
+  id,
+  label,
+  labelClass,
+  inputClass,
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+  visible,
+  onToggleVisible,
+  required = true,
+  minLength,
+  hint,
+}: {
+  id: string;
+  label: string;
+  labelClass: string;
+  inputClass: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  autoComplete: string;
+  visible: boolean;
+  onToggleVisible: () => void;
+  required?: boolean;
+  minLength?: number;
+  hint?: string;
+}) {
+  return (
+    <label className="block" htmlFor={id}>
+      <span className={labelClass}>{label}</span>
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          autoComplete={autoComplete}
+          required={required}
+          minLength={minLength}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className={`${inputClass} pr-11`}
+        />
+        <button
+          type="button"
+          onClick={onToggleVisible}
+          className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-inkMuted transition hover:text-ink active:opacity-70"
+          aria-label={visible ? "Wachtwoord verbergen" : "Wachtwoord tonen"}
+        >
+          {visible ? (
+            <EyeOff className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          ) : (
+            <Eye className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          )}
+        </button>
+      </div>
+      {hint ? <p className="mt-1 text-[11px] text-inkMuted">{hint}</p> : null}
+    </label>
+  );
+}
+
+export function LoginForm({
+  mode = "login",
+  nextPathOverride,
+  embedded = false,
+  seamless = false,
+  appVariant = "v1",
+}: {
+  mode?: LoginFormMode;
+  /** When set (e.g. profile gate), used instead of `?next=` from the URL. */
+  nextPathOverride?: string;
+  /** Compact layout for in-tab profile gate (no duplicate header / footer). */
+  embedded?: boolean;
+  /** No card wrapper — parent supplies the surface (profile gate). */
+  seamless?: boolean;
+  appVariant?: AppVariant;
+}) {
+  const isV2 = appVariant === "v2";
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
+    const override = nextPathOverride?.trim();
+    if (override && override.startsWith("/") && !override.startsWith("//")) {
+      return override;
+    }
     const n = searchParams.get("next");
     if (!n || !n.startsWith("/") || n.startsWith("//")) return "/discover";
     return n;
-  }, [searchParams]);
+  }, [searchParams, nextPathOverride]);
   const errorParam = searchParams.get("error");
 
   const authToggleQuery = useMemo(() => {
+    if (nextPathOverride) return "";
     const q = new URLSearchParams();
     if (nextPath && nextPath !== "/discover") q.set("next", nextPath);
     const s = q.toString();
     return s ? `?${s}` : "";
-  }, [nextPath]);
+  }, [nextPath, nextPathOverride]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "loading" | "needs_confirm" | "error"
   >("idle");
@@ -185,8 +273,15 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       ? "Maak je account met e-mail en wachtwoord."
       : "Log in met je e-mail en wachtwoord.";
 
-  const submitLabel =
-    mode === "signup"
+  const submitLabel = embedded
+    ? mode === "signup"
+      ? status === "loading"
+        ? "Bezig…"
+        : "Account aanmaken"
+      : status === "loading"
+        ? "Bezig…"
+        : "Doorgaan"
+    : mode === "signup"
       ? status === "loading"
         ? "Account aanmaken…"
         : "Account aanmaken"
@@ -194,18 +289,62 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
         ? "Bezig met inloggen…"
         : "Inloggen";
 
+  const cardClass =
+    seamless && embedded
+      ? ""
+      : embedded
+        ? isV2
+          ? "rounded-2xl bg-[#2A2A2B] p-3.5 shadow-card ring-1 ring-white/10"
+          : "rounded-2xl bg-canvas p-3.5 shadow-card ring-1 ring-black/[0.06]"
+        : "rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]";
+
+  const labelClass = embedded
+    ? "text-[11px] font-semibold text-inkMuted"
+    : "text-xs font-bold uppercase tracking-wide text-inkMuted";
+
+  const embeddedInputH =
+    embedded && mode === "signup" ? "h-10" : embedded ? "h-11" : "h-12";
+
+  const inputClass = embedded
+    ? isV2
+      ? `mt-1.5 ${embeddedInputH} w-full rounded-xl border-0 bg-[#1D1D1E] px-3.5 text-[15px] text-ink ring-1 ring-white/[0.08] outline-none placeholder:text-inkMuted/80 focus:ring-2 focus:ring-[#B52B2A]/40`
+      : `mt-1.5 ${embeddedInputH} w-full rounded-xl border-0 bg-[#F8F6F1] px-3.5 text-[15px] text-ink ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35`
+    : "mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35";
+
+  const submitClass = embedded
+    ? `mt-0.5 ${mode === "signup" ? "h-10" : "h-11"} rounded-full text-[14px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60`
+    : "h-12 rounded-full bg-gradient-primary text-[15px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60";
+
+  const submitStyle =
+    embedded && isV2 ? { background: V2_GRADIENT_PRIMARY } : undefined;
+
+  const submitClassFinal =
+    embedded && !isV2
+      ? `${submitClass} bg-gradient-primary`
+      : embedded && isV2
+        ? submitClass
+        : `${submitClass} bg-gradient-primary`;
+
+  const showConfirmPassword = mode === "signup";
+
   return (
-    <div className="rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]">
-      <p className="text-center font-serif text-sm font-medium uppercase tracking-[0.2em] text-primary">
-        {SITE_DISPLAY}
-      </p>
-      <h1 className="mt-2 text-center font-serif text-2xl font-semibold text-ink">
-        {title}
-      </h1>
-      <p className="mt-2 text-center text-sm text-inkMuted">{subtitle}</p>
+    <div className={seamless && embedded ? "" : cardClass}>
+      {!embedded && (
+        <>
+          <p className="text-center font-serif text-sm font-medium uppercase tracking-[0.2em] text-primary">
+            {SITE_DISPLAY}
+          </p>
+          <h1 className="mt-2 text-center font-serif text-2xl font-semibold text-ink">
+            {title}
+          </h1>
+          <p className="mt-2 text-center text-sm text-inkMuted">{subtitle}</p>
+        </>
+      )}
 
       {errorParam && (
-        <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">
+        <p
+          className={`${embedded ? "mt-0" : "mt-4"} rounded-xl bg-red-50 px-3 py-2 text-[12px] text-red-700 ring-1 ring-red-100`}
+        >
           {errorParam === "config"
             ? "Serverconfiguratiefout."
             : decodeURIComponent(errorParam)}
@@ -213,15 +352,22 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       )}
 
       {status === "needs_confirm" ? (
-        <p className="mt-6 rounded-2xl bg-lavender px-4 py-4 text-center text-sm font-medium text-ink ring-1 ring-primary/15">
+        <p
+          className={`${embedded ? "mt-0" : "mt-6"} rounded-xl px-3 py-3 text-center text-[12px] font-medium ring-1 ${
+            isV2
+              ? "bg-[#353536] text-ink ring-white/10"
+              : "bg-lavender text-ink ring-primary/15"
+          }`}
+        >
           {message}
         </p>
       ) : (
-        <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
+        <form
+          onSubmit={onSubmit}
+          className={`flex flex-col ${embedded ? (mode === "signup" ? "gap-2" : "gap-2.5") : "mt-6 gap-4"}`}
+        >
           <label className="block">
-            <span className="text-xs font-bold uppercase tracking-wide text-inkMuted">
-              E-mail
-            </span>
+            <span className={labelClass}>E-mailadres</span>
             <input
               type="email"
               autoComplete="email"
@@ -229,83 +375,86 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="jij@voorbeeld.nl"
-              className="mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
+              className={inputClass}
             />
           </label>
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-wide text-inkMuted">
-              Wachtwoord
-            </span>
-            <input
-              type="password"
-              autoComplete={
-                mode === "signup" ? "new-password" : "current-password"
-              }
-              required
-              minLength={mode === "signup" ? PASSWORD_MIN : undefined}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+          <PasswordField
+            id="login-password"
+            label="Wachtwoord"
+            labelClass={labelClass}
+            inputClass={inputClass}
+            value={password}
+            onChange={setPassword}
+            placeholder={
+              mode === "signup" && embedded
+                ? `min. ${PASSWORD_MIN} tekens`
+                : "••••••••"
+            }
+            autoComplete={
+              mode === "signup" ? "new-password" : "current-password"
+            }
+            minLength={mode === "signup" ? PASSWORD_MIN : undefined}
+            visible={passwordVisible}
+            onToggleVisible={() => setPasswordVisible((v) => !v)}
+            hint={
+              mode === "signup" && !embedded
+                ? `Minimaal ${PASSWORD_MIN} tekens`
+                : undefined
+            }
+          />
+          {showConfirmPassword && (
+            <PasswordField
+              id="login-password-confirm"
+              label="Herhaal wachtwoord"
+              labelClass={labelClass}
+              inputClass={inputClass}
+              value={confirmPassword}
+              onChange={setConfirmPassword}
               placeholder="••••••••"
-              className="mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
+              autoComplete="new-password"
+              visible={confirmVisible}
+              onToggleVisible={() => setConfirmVisible((v) => !v)}
             />
-            {mode === "signup" && (
-              <p className="mt-1 text-[11px] text-inkMuted">
-                Minimaal {PASSWORD_MIN} tekens
-              </p>
-            )}
-          </label>
-          {mode === "signup" && (
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wide text-inkMuted">
-                Wachtwoord bevestigen
-              </span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
-              />
-            </label>
           )}
           {message && status === "error" && (
-            <p className="text-sm text-red-600">{message}</p>
+            <p className="text-[12px] text-red-600">{message}</p>
           )}
           <button
             type="submit"
             disabled={status === "loading"}
-            className="h-12 rounded-full bg-gradient-primary text-[15px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60"
+            className={submitClassFinal}
+            style={submitStyle}
           >
             {submitLabel}
           </button>
         </form>
       )}
 
-      <p className="mt-6 text-center text-sm text-inkMuted">
-        {mode === "signup" ? (
-          <>
-            Heb je al een account?{" "}
-            <Link
-              href={`/login${authToggleQuery}`}
-              className="font-semibold text-primary underline-offset-2 hover:underline"
-            >
-              Inloggen
-            </Link>
-          </>
-        ) : (
-          <>
-            Nieuw hier?{" "}
-            <Link
-              href="/"
-              className="font-semibold text-primary underline-offset-2 hover:underline"
-            >
-              Registreren
-            </Link>
-          </>
-        )}
-      </p>
+      {!embedded && (
+        <p className="mt-6 text-center text-sm text-inkMuted">
+          {mode === "signup" ? (
+            <>
+              Heb je al een account?{" "}
+              <Link
+                href={`/login${authToggleQuery}`}
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Inloggen
+              </Link>
+            </>
+          ) : (
+            <>
+              Nieuw hier?{" "}
+              <Link
+                href="/"
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Registreren
+              </Link>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }
