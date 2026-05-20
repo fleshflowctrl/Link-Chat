@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
   GUEST_UID_COOKIE,
@@ -15,7 +16,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const existing = request.cookies.get(GUEST_UID_COOKIE)?.value ?? null;
+    const cookieStore = cookies();
+    const existing = cookieStore.get(GUEST_UID_COOKIE)?.value ?? null;
     const tokens = await mintGuestSessionTokens(existing);
 
     const res = NextResponse.json({
