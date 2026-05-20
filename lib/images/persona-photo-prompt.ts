@@ -504,11 +504,14 @@ export function buildPersonaPhotoPrompt(args: {
   const ageHint = ageHairAndSkinHint(personaAge);
 
   const promptParts: string[] = [];
-  // Age anchor frontloads ABOVE the realism/appearance anchors for
-  // anything past mid-20s — diffusion is order-sensitive and we need
-  // the model to commit to the right age bracket before it sees the
-  // appearance descriptors. We do NOT also end-load: doubling the age
-  // signal causes overshoot (55 starts looking like 80).
+  // Identity FIRST — diffusion commits early to hair/eyes/skin/face.
+  // Putting appearance before identity let Grok's generic "blonde Dutch
+  // woman" median win over per-persona tokens.
+  const identitySegment = deriveIdentityPromptSegment(profile);
+  if (identitySegment) {
+    promptParts.push(identitySegment);
+  }
+
   if (ageAnchors.positive) {
     promptParts.push(ageAnchors.positive);
   }
@@ -517,23 +520,6 @@ export function buildPersonaPhotoPrompt(args: {
   }
   promptParts.push(appearance);
   if (ageHint) promptParts.push(ageHint);
-
-  // High-weight identity anchor derived deterministically from the
-  // persona's id. Without this every persona in the same age/body/
-  // attractiveness bracket collapses onto the diffusion model's
-  // statistical median (one shared face for all "50s Dutch average"
-  // women) — the seed alone is too soft a signal to fix that.
-  //
-  // We inject right after `appearance` so the model has already
-  // committed to the age/realism anchors but hasn't yet seen the
-  // scene/outfit. Hair colour, eye colour, face shape, mouth and
-  // skin detail all get explicit tokens so the diffusion model has
-  // to vary the face per persona. Same id → same tokens forever
-  // (consistency across all of one persona's photos).
-  const identitySegment = deriveIdentityPromptSegment(profile);
-  if (identitySegment) {
-    promptParts.push(identitySegment);
-  }
 
   // Hard-coded hair length anchor — operator rule: ALL personas must
   // have medium-length or long hair, never very short / pixie / buzz cut.
@@ -845,6 +831,8 @@ export function buildPersonaPhotoPrompt(args: {
     "perfect composition, rule of thirds, perfectly framed, " +
     "studio portrait, magazine portrait, fashion editorial, photoshoot, " +
     "professional model pose, posed for camera, glamorous, " +
+    "identical twin, same face as another woman, clone face, duplicate person, generic face, " +
+    "same hair color as everyone, same skin tone as everyone, " +
     // operator rule: medium or long hair only, never short
     "short hair, very short hair, pixie cut, buzz cut, shaved head, " +
     "boy cut, undercut, crew cut, bowl cut, cropped hair, ear-length hair, " +

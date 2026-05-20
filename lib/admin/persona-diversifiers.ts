@@ -436,10 +436,10 @@ export function pickPersonaDiversifier(opts: {
   /** Persona age — filters the occupation pool. */
   age?: number;
 }): PersonaDiversifier {
+  // Deterministic per batch index so Grok + image pipeline + re-picks in
+  // persona-ops all land on the same diversifier for persona #N.
   const seed =
-    ((opts.index | 0) * 0x9e3779b1) ^
-    (Date.now() | 0) ^
-    ((opts.extraSeed ?? 0) | 0);
+    ((opts.index | 0) * 0x9e3779b1) ^ ((opts.extraSeed ?? 0) | 0);
   const rand = mulberry32(seed);
   return {
     hair_color: pickFromArray(HAIR_COLORS, rand),

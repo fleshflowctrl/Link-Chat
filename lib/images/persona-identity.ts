@@ -139,12 +139,30 @@ const FACE_SHAPES = [
   "soft jowls and full lower face",
 ];
 
+/** Base skin tone — primary differentiator when batches otherwise look
+ * like the same "Dutch blonde" diffusion median. */
+const SKIN_TONES = [
+  "very fair pale northern European skin with pink undertones",
+  "fair light skin with neutral undertones",
+  "light peachy skin with warm undertones",
+  "light olive Mediterranean skin tone",
+  "medium warm beige skin",
+  "light golden tan skin",
+  "medium brown skin tone",
+  "warm brown skin",
+  "deep brown skin",
+  "dark brown skin with warm undertones",
+  "light East Asian skin tone",
+  "light South Asian brown skin",
+  "ruddy fair skin that flushes red easily",
+  "sallow fair skin with yellow undertones",
+];
+
 const SKIN_DETAILS = [
   "light freckles across the nose and cheeks",
   "rosy complexion that flushes easily",
   "pale skin with faint blue veins at the temples",
   "light summer tan",
-  "olive-toned skin",
   "fair skin with a few visible moles",
   "faint acne scars on the chin",
   "pale skin with under-eye shadows",
@@ -152,6 +170,8 @@ const SKIN_DETAILS = [
   "smooth matte skin with a soft sheen",
   "ruddy weathered skin from outdoor time",
   "fair skin with a small mole near the lip",
+  "visible pores and uneven texture on cheeks",
+  "slight redness around the nose and chin",
 ];
 
 const HEIGHT_HINTS = [
@@ -200,6 +220,7 @@ export type PersonaPhotoIdentity = {
   hairStyle: string;
   eyeColor: string;
   faceShape: string;
+  skinTone: string;
   skinDetail: string;
   mouthDetail: string;
   heightHint: string;
@@ -232,6 +253,7 @@ export function derivePersonaIdentity(
     hairStyle: pick(HAIR_STYLES, seed, 2),
     eyeColor: pick(EYE_COLORS, seed, 3),
     faceShape: pick(FACE_SHAPES, seed, 4),
+    skinTone: pick(SKIN_TONES, seed, 9),
     skinDetail: pick(SKIN_DETAILS, seed, 5),
     mouthDetail: pick(MOUTH_DETAILS, seed, 6),
     heightHint: pick(HEIGHT_HINTS, seed, 7),
@@ -246,10 +268,11 @@ export function derivePersonaIdentity(
  * the start of the appearance block. */
 export function renderIdentityAnchor(identity: PersonaPhotoIdentity): string {
   const parts: string[] = [
-    `EXACT identity lock for this persona, keep these features in every photo of her`,
+    `EXACT identity lock for THIS specific woman only, unique face unlike any other profile, keep these features in every photo of her`,
     `hair: ${identity.hairColor}, ${identity.hairStyle}`,
     `${identity.eyeColor}`,
     `${identity.faceShape}`,
+    `${identity.skinTone}`,
     `${identity.skinDetail}`,
     `${identity.mouthDetail}`,
     `${identity.heightHint}`,
@@ -258,6 +281,29 @@ export function renderIdentityAnchor(identity: PersonaPhotoIdentity): string {
     parts.push(identity.distinguishingFeature);
   }
   return parts.join(", ");
+}
+
+/** Server-authoritative appearance for photo_style + diffusion. Grok's
+ * free-form appearance converges on the same blonde Dutch median; this
+ * overwrites it with deterministic tokens from persona id + diversifier. */
+export function buildCanonicalPhotoAppearance(
+  personaId: string,
+  age: number,
+  diversifier: {
+    hair_color: string;
+    hair_style: string;
+    eye_color: string;
+    skin: string;
+    face_shape: string;
+  },
+): string {
+  const identity = derivePersonaIdentity(personaId, age);
+  return [
+    `adult woman age ${age}, this is a unique individual not anyone else`,
+    renderIdentityAnchor(identity),
+    `also required from profile: ${diversifier.hair_color}, ${diversifier.hair_style}, ${diversifier.eye_color}, ${diversifier.skin}, ${diversifier.face_shape}`,
+    "distinct face shape and skin tone from other women, not a generic model face",
+  ].join(", ");
 }
 
 /** Convenience: derive + render for callers that don't need to inspect

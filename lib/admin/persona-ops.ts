@@ -21,6 +21,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AppVariant } from "@/lib/app-variant";
 import { generatePersonaFromBrief } from "@/lib/admin/generate-persona";
 import {
+  applyAgeOverride,
+  pickPersonaDiversifier,
+} from "@/lib/admin/persona-diversifiers";
+import { buildCanonicalPhotoAppearance } from "@/lib/images/persona-identity";
+import {
   defaultAttractivenessForVariant,
   v2SexyClothedOutfitForVariant,
   type V2PhotoMode,
@@ -128,6 +133,24 @@ export async function createPersonaFromBrief(
   }
 
   const uniqueId = await resolveUniqueId(service, generated.persona.id);
+
+  // Overwrite Grok appearance with server-built identity — Grok converges
+  // on the same hair/eyes/skin tokens per batch; diffusion must read
+  // deterministic anchors keyed on the final persona id.
+  let diversifier = pickPersonaDiversifier({
+    index: input.index,
+    extraSeed: input.brief.length,
+    bodyType: body_type,
+    age: generated.persona.age,
+  });
+  if (generated.persona.age >= 50) {
+    diversifier = applyAgeOverride(diversifier, generated.persona.age);
+  }
+  generated.persona.photo_style.appearance = buildCanonicalPhotoAppearance(
+    uniqueId,
+    generated.persona.age,
+    diversifier,
+  );
 
   // Force a crypto-random photo seed. Grok occasionally writes the same
   // seed value across personas (it likes round numbers like 12345/54321),
