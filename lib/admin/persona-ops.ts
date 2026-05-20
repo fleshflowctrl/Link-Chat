@@ -20,7 +20,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AppVariant } from "@/lib/app-variant";
 import { generatePersonaFromBrief } from "@/lib/admin/generate-persona";
-import { defaultAttractivenessForVariant } from "@/lib/admin/v2-persona-config";
+import {
+  defaultAttractivenessForVariant,
+  v2SexyClothedOutfitForVariant,
+  type V2PhotoMode,
+} from "@/lib/admin/v2-persona-config";
 import { uploadFallbackAvatar } from "@/lib/admin/fallback-avatar";
 import { parsePersonaPayload } from "@/lib/admin/persona-payload";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
@@ -47,6 +51,8 @@ export type CreatePersonaInput = {
   age_min: number;
   age_max: number;
   app_variant?: AppVariant;
+  /** v2 bulk batch photo pipeline (ignored for v1). */
+  v2_photo_mode?: V2PhotoMode;
 };
 
 export type CreatePersonaSummary = {
@@ -99,6 +105,8 @@ export async function createPersonaFromBrief(
   const attractiveness =
     input.attractiveness ?? defaultAttractivenessForVariant(appVariant);
 
+  const v2PhotoMode = input.v2_photo_mode ?? "nude";
+
   const generated = await generatePersonaFromBrief({
     brief: input.brief,
     index: input.index,
@@ -108,6 +116,7 @@ export async function createPersonaFromBrief(
     body_type: input.body_type,
     forced_age: forcedAge,
     appVariant,
+    v2PhotoMode: appVariant === "v2" ? v2PhotoMode : undefined,
   });
   if (!generated.ok) {
     return { ok: false, error: `Generatie faalde: ${generated.error}`, status: 502 };
@@ -124,11 +133,15 @@ export async function createPersonaFromBrief(
     generated.persona.photo_style.attractiveness = attractiveness;
     if (!generated.persona.photo_style.style.trim()) {
       generated.persona.photo_style.style =
-        "completely nude amateur self-taken, mirror or bedroom, bare skin, full frontal";
+        v2PhotoMode === "sexy-clothed"
+          ? "black lace lingerie mirror selfie, breasts covered, amateur self-taken"
+          : "completely nude amateur self-taken, mirror or bedroom, bare skin, full frontal";
     }
     if (!generated.persona.photo_style.vibe.trim()) {
       generated.persona.photo_style.vibe =
-        "rauw en intiem, slecht belicht, late-night amateur nude selfie, geen studio";
+        v2PhotoMode === "sexy-clothed"
+          ? "intiem en rauw, bijna naakt maar met kleding, slecht belicht, geen studio glamour"
+          : "rauw en intiem, slecht belicht, late-night amateur nude selfie, geen studio";
     }
   }
 
@@ -482,7 +495,35 @@ export type RenderNudePhotoInput = {
   excludeTemplateIds?: string[];
   /** Storage path prefix segment (avatar vs gallery file name). */
   filePrefix?: "nude" | "nude-avatar";
+  /** v2: full nude vs sexy lingerie/bikini (almost nude). Default nude. */
+  photoMode?: V2PhotoMode;
 };
+
+const NUDE_OUTFIT_FALLBACK =
+  "completely nude, no clothes at all, bare skin, full frontal nudity, breasts and vagina clearly visible, amateur self-taken";
+
+function resolveV2PhotoOutfit(
+  photoMode: V2PhotoMode,
+  templateOutfit: string,
+  variant: number,
+): string {
+  if (photoMode === "sexy-clothed") {
+    const base = (templateOutfit ?? "").trim();
+    const looksClothed =
+      base.length > 0 &&
+      !/naakt|nude|bare skin|no clothes|topless|breasts and vagina|full frontal nudity|no underwear/i.test(
+        base,
+      );
+    if (looksClothed) return base;
+    return v2SexyClothedOutfitForVariant(variant);
+  }
+  const baseOutfit = (templateOutfit ?? "").trim();
+  return /naakt|nude|bare skin|no clothes|topless|breasts|vagina|pussy/i.test(
+    baseOutfit,
+  )
+    ? baseOutfit
+    : NUDE_OUTFIT_FALLBACK;
+}
 
 export type RenderNudePhotoResult =
   | {
@@ -591,10 +632,16 @@ export async function renderOneNudePhoto(
     };
   }
 
-  const baseOutfit = (template.outfit ?? "").trim();
-  const explicitOutfit = /naakt|nude|bare skin|no clothes|topless|breasts|vagina|pussy/i.test(baseOutfit)
-    ? baseOutfit
-    : "completely nude, no clothes at all, bare skin, full frontal nudity, breasts and vagina clearly visible, amateur self-taken";
+  const photoMode: V2PhotoMode = input.photoMode ?? "nude";
+  const variantNum =
+    typeof input.variant === "number" && Number.isFinite(input.variant)
+      ? Math.floor(input.variant)
+      : 0;
+  const explicitOutfit = resolveV2PhotoOutfit(
+    photoMode,
+    template.outfit ?? "",
+    variantNum,
+  );
 
   const { prompt, seed: anchorSeed, negativePrompt } = buildPersonaPhotoPrompt({
     profile: persona as Parameters<typeof buildPersonaPhotoPrompt>[0]["profile"],
@@ -664,6 +711,7 @@ export type RegenerateNudeAvatarInput = {
   variant?: number;
   diversity?: NudePhotoDiversity;
   templateId?: string;
+  photoMode?: V2PhotoMode;
 };
 
 export type RegenerateNudeAvatarResult =
@@ -681,6 +729,7 @@ export async function regeneratePersonaNudeAvatar(
     diversity: input.diversity,
     templateId: input.templateId,
     filePrefix: "nude-avatar",
+    photoMode: input.photoMode ?? "nude",
   });
 
   if (!rendered.ok) return rendered;
@@ -708,6 +757,7 @@ export type AppendNudeGalleryInput = {
   diversity?: NudePhotoDiversity;
   templateId?: string;
   excludeTemplateIds?: string[];
+  photoMode?: V2PhotoMode;
 };
 
 export type AppendNudeGalleryResult =
@@ -735,6 +785,7 @@ export async function appendNudeGalleryPhoto(
     templateId: input.templateId,
     excludeTemplateIds: input.excludeTemplateIds,
     filePrefix: "nude",
+    photoMode: input.photoMode ?? "nude",
   });
 
   if (!rendered.ok) return rendered;

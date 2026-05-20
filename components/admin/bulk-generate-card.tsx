@@ -29,7 +29,10 @@ import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { AppVariant } from "@/lib/app-variant";
-import { V2_PERSONA_BULK_BRIEF } from "@/lib/admin/v2-persona-config";
+import {
+  defaultBulkBriefForVariant,
+  type V2PhotoMode,
+} from "@/lib/admin/v2-persona-config";
 import { SparkleIcon, CheckIcon, XIcon, CameraIcon } from "@/components/admin/icons";
 
 type ProfileState = "pending" | "running" | "done" | "error" | "skipped";
@@ -144,6 +147,7 @@ function writeStoredBatchId(id: string | null) {
 export function BulkGenerateCard() {
   const router = useRouter();
   const [poolVariant, setPoolVariant] = useState<AppVariant>("v1");
+  const [v2PhotoMode, setV2PhotoMode] = useState<V2PhotoMode>("nude");
   const [count, setCount] = useState(3);
   const [brief, setBrief] = useState("");
   const [withPhotos, setWithPhotos] = useState(true);
@@ -179,15 +183,24 @@ export function BulkGenerateCard() {
   function applyPoolVariant(next: AppVariant) {
     setPoolVariant(next);
     if (next === "v2") {
-      setBrief(V2_PERSONA_BULK_BRIEF);
+      setV2PhotoMode("nude");
+      setBrief(defaultBulkBriefForVariant("v2", "nude"));
       setAttractiveness("striking");
       setAgeMinStr("24");
       setAgeMaxStr("38");
     } else {
+      setV2PhotoMode("nude");
       setBrief("");
       setAttractiveness("average");
       setAgeMinStr("22");
       setAgeMaxStr("30");
+    }
+  }
+
+  function applyV2PhotoMode(next: V2PhotoMode) {
+    setV2PhotoMode(next);
+    if (poolVariant === "v2") {
+      setBrief(defaultBulkBriefForVariant("v2", next));
     }
   }
 
@@ -361,6 +374,7 @@ export function BulkGenerateCard() {
           age_min: Math.min(ageMinNum, ageMaxNum),
           age_max: Math.max(ageMinNum, ageMaxNum),
           app_variant: poolVariant,
+          v2_photo_mode: poolVariant === "v2" ? v2PhotoMode : undefined,
         }),
       });
       const data: {
@@ -421,6 +435,7 @@ export function BulkGenerateCard() {
     return (
       <BulkForm
         poolVariant={poolVariant}
+        v2PhotoMode={v2PhotoMode}
         count={count}
         brief={brief}
         withPhotos={withPhotos}
@@ -440,6 +455,7 @@ export function BulkGenerateCard() {
         setAgeMinStr={setAgeMinStr}
         setAgeMaxStr={setAgeMaxStr}
         onPoolVariantChange={applyPoolVariant}
+        onV2PhotoModeChange={applyV2PhotoMode}
         onSubmit={startBatch}
         parseAge={parseAge}
       />
@@ -573,6 +589,7 @@ export function BulkGenerateCard() {
 
 function BulkForm(props: {
   poolVariant: AppVariant;
+  v2PhotoMode: V2PhotoMode;
   count: number;
   brief: string;
   withPhotos: boolean;
@@ -592,11 +609,13 @@ function BulkForm(props: {
   setAgeMinStr: (s: string) => void;
   setAgeMaxStr: (s: string) => void;
   onPoolVariantChange: (v: AppVariant) => void;
+  onV2PhotoModeChange: (m: V2PhotoMode) => void;
   onSubmit: () => void;
   parseAge: (raw: string, fallback: number) => number;
 }) {
   const {
     poolVariant,
+    v2PhotoMode,
     count,
     brief,
     withPhotos,
@@ -616,6 +635,7 @@ function BulkForm(props: {
     setAgeMinStr,
     setAgeMaxStr,
     onPoolVariantChange,
+    onV2PhotoModeChange,
     onSubmit,
     parseAge,
   } = props;
@@ -662,10 +682,42 @@ function BulkForm(props: {
           </button>
         </div>
         {poolVariant === "v2" && (
-          <p className="rounded-xl bg-[#B52B2A]/10 px-3 py-2 text-[11px] leading-relaxed text-[#8B2020] ring-1 ring-[#B52B2A]/20">
-            v2-batch: expliciete naaktfoto&apos;s (nude template-pool) voor avatar én galerij.
-            Zorg dat /admin/nudes templates heeft. Alleen zichtbaar op /v2/discover.
-          </p>
+          <div className="space-y-3">
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                v2 foto-stijl
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onV2PhotoModeChange("nude")}
+                  className={
+                    v2PhotoMode === "nude"
+                      ? "rounded-full bg-[#B52B2A] px-4 py-2 text-xs font-bold text-white"
+                      : "rounded-full border border-[#B52B2A]/30 bg-white px-4 py-2 text-xs font-semibold text-[#B52B2A]"
+                  }
+                >
+                  Volledig naakt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onV2PhotoModeChange("sexy-clothed")}
+                  className={
+                    v2PhotoMode === "sexy-clothed"
+                      ? "rounded-full bg-[#B52B2A] px-4 py-2 text-xs font-bold text-white"
+                      : "rounded-full border border-[#B52B2A]/30 bg-white px-4 py-2 text-xs font-semibold text-[#B52B2A]"
+                  }
+                >
+                  Sexy met kleding (bijna naakt)
+                </button>
+              </div>
+            </div>
+            <p className="rounded-xl bg-[#B52B2A]/10 px-3 py-2 text-[11px] leading-relaxed text-[#8B2020] ring-1 ring-[#B52B2A]/20">
+              {v2PhotoMode === "nude"
+                ? "Avatar + galerij via nude template-pool (/admin/nudes). Alleen zichtbaar op /v2/discover."
+                : "Lingerie, bikini, sheer, mesh — zelfde poses/licht als nude-pool maar outfit blijft sexy-clothed. Alleen /v2."}
+            </p>
+          </div>
         )}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[160px,1fr]">
           <div>

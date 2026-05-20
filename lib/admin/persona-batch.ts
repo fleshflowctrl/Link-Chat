@@ -33,7 +33,11 @@ import {
   type Attractiveness,
   type BodyType,
 } from "@/lib/admin/persona-ops";
-import { v2NudeDiversityForVariant } from "@/lib/admin/v2-persona-config";
+import {
+  parseV2PhotoMode,
+  v2NudeDiversityForVariant,
+  type V2PhotoMode,
+} from "@/lib/admin/v2-persona-config";
 
 /** Hand a fire-and-forget promise to the runtime so it stays alive
  * long enough for the I/O to complete after our handler has returned
@@ -163,6 +167,7 @@ export type BatchRow = {
   exclude_ids: string[];
   exclude_names: string[];
   app_variant: AppVariant;
+  v2_photo_mode: V2PhotoMode;
   last_error: string | null;
   created_at: string;
   updated_at: string;
@@ -640,6 +645,10 @@ export async function runOneStep(
           age_min: batch.age_min,
           age_max: batch.age_max,
           app_variant: batch.app_variant ?? "v1",
+          v2_photo_mode:
+            batch.app_variant === "v2"
+              ? parseV2PhotoMode(batch.v2_photo_mode)
+              : undefined,
         }),
         PROFILE_TIMEOUT_MS,
         {
@@ -717,12 +726,14 @@ export async function runOneStep(
     try {
       const avatarVariant = batch.scene_offset + next.item.idx;
       const isV2 = batch.app_variant === "v2";
+      const v2PhotoMode = parseV2PhotoMode(batch.v2_photo_mode);
       const result = await withTimeout(
         isV2
           ? regeneratePersonaNudeAvatar(service, {
               personaId: next.item.persona_id,
               variant: avatarVariant,
               diversity: v2NudeDiversityForVariant(avatarVariant),
+              photoMode: v2PhotoMode,
             })
           : regeneratePersonaAvatar(service, {
               personaId: next.item.persona_id,
@@ -789,12 +800,14 @@ export async function runOneStep(
   });
   try {
     const isV2 = batch.app_variant === "v2";
+    const v2PhotoMode = parseV2PhotoMode(batch.v2_photo_mode);
     const result = await withTimeout(
       isV2
         ? appendNudeGalleryPhoto(service, {
             personaId: next.item.persona_id,
             variant: next.variant,
             diversity: v2NudeDiversityForVariant(next.variant),
+            photoMode: v2PhotoMode,
           })
         : appendPersonaGalleryPhoto(service, {
             personaId: next.item.persona_id,

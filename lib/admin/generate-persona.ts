@@ -23,7 +23,10 @@
  */
 
 import type { AppVariant } from "@/lib/app-variant";
-import { V2_PERSONA_SYSTEM_APPEND } from "@/lib/admin/v2-persona-config";
+import {
+  v2SystemAppendForPhotoMode,
+  type V2PhotoMode,
+} from "@/lib/admin/v2-persona-config";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 import { FUNNEL_LOOKING_ID_SET, FUNNEL_VIBE_ID_SET } from "@/data/funnel";
 import {
@@ -276,6 +279,8 @@ export type GeneratePersonaArgs = {
   diversifier?: PersonaDiversifier;
   /** v2 = FetLife/kink tone + suggestive photo styling. */
   appVariant?: AppVariant;
+  /** v2 only: nude vs sexy-clothed system append + photo_style hints. */
+  v2PhotoMode?: V2PhotoMode;
 };
 
 const SLUG_RE = /^[a-z][a-z0-9_-]{2,23}$/;
@@ -509,7 +514,7 @@ export async function generatePersonaFromBrief(
 
   const systemPrompt =
     args.appVariant === "v2"
-      ? `${SYSTEM_PROMPT}${V2_PERSONA_SYSTEM_APPEND}`
+      ? `${SYSTEM_PROMPT}${v2SystemAppendForPhotoMode(args.v2PhotoMode ?? "nude")}`
       : SYSTEM_PROMPT;
 
   const messages = [

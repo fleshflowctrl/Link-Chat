@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { parseAppVariant } from "@/lib/app-variant";
-import { defaultAttractivenessForVariant } from "@/lib/admin/v2-persona-config";
+import {
+  defaultAttractivenessForVariant,
+  parseV2PhotoMode,
+} from "@/lib/admin/v2-persona-config";
 import {
   resolveBaseUrl,
   triggerNextTick,
@@ -39,6 +42,7 @@ type StartBody = {
   age_min?: number;
   age_max?: number;
   app_variant?: string;
+  v2_photo_mode?: string;
 };
 
 export async function POST(req: Request) {
@@ -76,6 +80,8 @@ export async function POST(req: Request) {
   );
   const with_photos = body.with_photos !== false;
   const app_variant = parseAppVariant(body.app_variant ?? null);
+  const v2_photo_mode =
+    app_variant === "v2" ? parseV2PhotoMode(body.v2_photo_mode) : "nude";
   const attractiveness =
     body.attractiveness === "striking" ||
     body.attractiveness === "plain" ||
@@ -116,6 +122,7 @@ export async function POST(req: Request) {
       exclude_ids: [],
       exclude_names: [],
       app_variant,
+      v2_photo_mode,
     })
     .select("id")
     .maybeSingle();
