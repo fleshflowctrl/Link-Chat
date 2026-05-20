@@ -36,14 +36,11 @@ import {
   FUNNEL_WOMEN_AGE_PRESETS,
   ONBOARDED_KEY,
   funnelLookingForLabel,
-  getPersonalizedFirstMessageStarters,
-  personalizeStarterLine,
   type FunnelAgeRange,
   type FunnelBasics,
   type FunnelFirstContact,
   type FunnelLookingFor,
 } from "@/data/funnel";
-import { getThreadMeta } from "@/data/messages";
 import { funnelSets, type FunnelWelcomeCard } from "@/data/funnelProfiles";
 import { likesPreviewAvatarUrls, profiles as staticCatalogProfiles, type Profile } from "@/data/profiles";
 import {
@@ -51,7 +48,6 @@ import {
   sharedVibeEmojis,
   type FunnelMatchPick,
 } from "@/lib/funnel-match-picks";
-import { setThreadPreview } from "@/lib/thread-preview-store";
 import { clearLegacyFunnelLocalStorage } from "@/lib/client-user-session";
 import { trackFunnelStep } from "@/lib/analytics/visitor-id";
 import type { AppVariant } from "@/lib/app-variant";
@@ -71,15 +67,13 @@ import {
   funnelStepTitleClass,
 } from "@/lib/funnel/tile-styles";
 import { ensureGuestSession, isPermanentAuthUser } from "@/lib/auth/guest-session";
-import { queueFunnelAutoSend } from "@/lib/funnel/auto-send";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
-import { withVariantPath } from "@/lib/app-variant";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { SITE_DISPLAY } from "@/lib/brand";
 
-const STEP_TOTAL = 7;
-const MSG_MAX = 240;
+const STEP_TOTAL = 6;
+const FUNNEL_PICKED_PEER_KEY = "whisper_funnel_picked_peer";
 const WELCOME_MIN_PROFILE_AGE = 40;
 const WELCOME_ONLINE_COUNT_TARGET = 847;
 
@@ -109,11 +103,8 @@ function normalizeLookingFor(raw: unknown): FunnelLookingFor | null {
 }
 
 function migrateFunnelStep(raw: number): number {
-  if (raw <= 2) return raw;
-  if (raw === 3 || raw === 4) return raw;
-  if (raw === 5) return 6;
-  if (raw === 6) return 7;
-  return Math.min(STEP_TOTAL, Math.max(1, raw));
+  if (raw <= 6) return raw;
+  return STEP_TOTAL;
 }
 
 function normalizeVibes(raw: unknown): string[] {
@@ -347,8 +338,6 @@ function OnboardingFunnelInner({
   const [firstContact, setFirstContact] = useState<FunnelFirstContact>({
     profileId: null,
   });
-  const [firstMessage, setFirstMessage] = useState("");
-  const [startingChat, setStartingChat] = useState(false);
   const [funnelError, setFunnelError] = useState<string | null>(null);
 
   const matchAgeMin = ageRange.anyAge ? 40 : ageRange.min;
@@ -428,7 +417,6 @@ function OnboardingFunnelInner({
         setSelectedVibes(saved.vibes);
         setBasics(saved.basics);
         setFirstContact(saved.firstContact);
-        setFirstMessage(saved.firstMessage);
       }
       if (!cancelled) setHydrated(true);
     })();
@@ -448,7 +436,7 @@ function OnboardingFunnelInner({
       vibes: selectedVibes,
       basics,
       firstContact,
-      firstMessage,
+      firstMessage: "",
     };
     persistRef.current = p;
     saveSession(p);
@@ -461,7 +449,6 @@ function OnboardingFunnelInner({
     selectedVibes,
     basics,
     firstContact,
-    firstMessage,
   ]);
 
   useEffect(() => {
@@ -510,10 +497,17 @@ function OnboardingFunnelInner({
     }
   }, [ageRange, lookingFor]);
 
-  const finishFunnelToDiscover = useCallback(async () => {
+  const [finishingPick, setFinishingPick] = useState(false);
+
+  const finishFunnelWithPick = useCallback(async () => {
+    const pid = firstContact.profileId;
+    if (!pid || !pickedMatch) return;
+
     setFunnelError(null);
+    setFinishingPick(true);
     try {
       await persistFunnelDemographics();
+      sessionStorage.setItem(FUNNEL_PICKED_PEER_KEY, pid);
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
       clearLegacyFunnelLocalStorage();
       if (typeof window !== "undefined") {
@@ -521,63 +515,18 @@ function OnboardingFunnelInner({
       }
       sessionStorage.setItem(
         "whisper_discover_toast",
-        `Welkom bij ${SITE_DISPLAY} ✨`,
+        `${pickedMatch.name} is jouw type — ontdek meer op ${SITE_DISPLAY} ✨`,
       );
       router.push(cfg.discoverPath);
     } catch (e) {
       setFunnelError(
         e instanceof Error ? e.message : "Kon niet doorgaan — probeer opnieuw",
       );
-    }
-  }, [cfg.discoverPath, persistFunnelDemographics, router]);
-
-  const skipFirstLink = useCallback(() => {
-    setFirstContact({ profileId: null });
-    setFirstMessage("");
-    void finishFunnelToDiscover();
-  }, [finishFunnelToDiscover]);
-
-  const startFunnelChat = useCallback(async () => {
-    const pid = firstContact.profileId;
-    const msgTrim = firstMessage.trim();
-    if (!pid || !pickedMatch || !msgTrim) return;
-
-    setFunnelError(null);
-    setStartingChat(true);
-    try {
-      await persistFunnelDemographics();
-      queueFunnelAutoSend(pid, msgTrim);
-
-      const meta = getThreadMeta(pid);
-      const sentAt = new Date().toISOString();
-      setThreadPreview(pid, {
-        lastMessage: msgTrim,
-        timestampLabel: "nu",
-        lastActivityAt: sentAt,
-        name: meta.name,
-        avatarUrl: meta.avatarUrl,
-        verified: meta.verified,
-        showOnlineDot: meta.onlineNow,
-        unreadCount: 0,
-      });
-
-      sessionStorage.removeItem(FUNNEL_SESSION_KEY);
-      clearLegacyFunnelLocalStorage();
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(ONBOARDED_KEY, "true");
-      }
-
-      router.push(withVariantPath(`/messages/${pid}`, cfg.variant));
-    } catch (e) {
-      setFunnelError(
-        e instanceof Error ? e.message : "Chat starten mislukt — probeer opnieuw",
-      );
-      setStartingChat(false);
+      setFinishingPick(false);
     }
   }, [
-    cfg.variant,
+    cfg.discoverPath,
     firstContact.profileId,
-    firstMessage,
     persistFunnelDemographics,
     pickedMatch,
     router,
@@ -712,19 +661,8 @@ function OnboardingFunnelInner({
                   userVibes={selectedVibes}
                   selectedId={firstContact.profileId}
                   onSelect={(id) => setFirstContact({ profileId: id })}
-                  onContinue={goNext}
-                  onSkip={skipFirstLink}
-                />
-              )}
-              {step === 7 && (
-                <StepFirstMessage
-                  peer={pickedMatch}
-                  lookingFor={lookingFor}
-                  vibeIds={selectedVibes}
-                  value={firstMessage}
-                  onChange={setFirstMessage}
-                  onContinue={() => void startFunnelChat()}
-                  continuing={startingChat}
+                  onFinish={() => void finishFunnelWithPick()}
+                  finishing={finishingPick}
                 />
               )}
             </motion.div>
@@ -906,7 +844,8 @@ function StepWelcome({
             }`}
           >
             <div
-              className="h-full w-[14.3%] rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)]"
+              className="h-full rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)]"
+              style={{ width: `${(1 / STEP_TOTAL) * 100}%` }}
               aria-hidden
             />
           </div>
@@ -916,7 +855,7 @@ function StepWelcome({
             isV2 ? "text-inkMuted" : "text-gray-500"
           }`}
         >
-          1 / 7
+          1 / {STEP_TOTAL}
         </span>
       </div>
 
@@ -1527,16 +1466,16 @@ function StepPickMatch({
   userVibes,
   selectedId,
   onSelect,
-  onContinue,
-  onSkip,
+  onFinish,
+  finishing = false,
 }: {
   matches: FunnelMatchPick[];
   lookingFor: FunnelLookingFor | null;
   userVibes: string[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onContinue: () => void;
-  onSkip: () => void;
+  onFinish: () => void;
+  finishing?: boolean;
 }) {
   const { variant } = useFunnelConfig();
   const isV2 = variant === "v2";
@@ -1553,7 +1492,7 @@ function StepPickMatch({
               isV2 ? "text-ink" : "text-gray-900"
             }`}
           >
-            Dit past bij wat jij koos.
+            Kies je type vrouw.
           </h2>
           <p
             className={`mt-0.5 text-[clamp(11px,2.9vmin,13px)] ${
@@ -1562,8 +1501,8 @@ function StepPickMatch({
           >
             <span className="font-bold text-[var(--funnel-accent)]">{n} vrouwen</span>{" "}
             <span>
-              online bij jou in de buurt
-              {intentLabel ? ` · ${intentLabel}` : ""}. Kies er één.
+              passen bij jouw keuzes
+              {intentLabel ? ` · ${intentLabel}` : ""}. Tik degene die je het meest aanspreekt.
             </span>
           </p>
         </div>
@@ -1654,154 +1593,17 @@ function StepPickMatch({
       <div className="shrink-0 border-t border-black/[0.04] bg-canvas px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <button
           type="button"
-          disabled={!ok}
-          onClick={onContinue}
+          disabled={!ok || finishing}
+          onClick={onFinish}
           className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
-            ok
+            ok && !finishing
               ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-lg"
               : "cursor-not-allowed bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white opacity-50 shadow-none"
           }`}
         >
-          Eerste bericht sturen →
-        </button>
-        <button
-          type="button"
-          onClick={onSkip}
-          className="mt-2 w-full py-2 text-center text-[13px] font-semibold text-[var(--funnel-accent)] transition active:scale-[0.98] active:opacity-80"
-        >
-          Overslaan — ik stuur later een bericht
+          {finishing ? "Even geduld…" : "Dit is mijn type →"}
         </button>
       </div>
     </div>
   );
 }
-
-function StepFirstMessage({
-  peer,
-  lookingFor,
-  vibeIds,
-  value,
-  onChange,
-  onContinue,
-  continuing = false,
-}: {
-  peer: FunnelMatchPick | null;
-  lookingFor: FunnelLookingFor | null;
-  vibeIds: string[];
-  value: string;
-  onChange: (s: string) => void;
-  onContinue: () => void;
-  continuing?: boolean;
-}) {
-  const { variant } = useFunnelConfig();
-  const isV2 = variant === "v2";
-  const ok = value.trim().length > 0;
-  const len = value.length;
-
-  const name = peer?.name ?? "";
-  const starterChips = useMemo(() => {
-    const lines = getPersonalizedFirstMessageStarters(lookingFor, vibeIds);
-    return lines.map((line) => personalizeStarterLine(line, name));
-  }, [lookingFor, vibeIds, name]);
-
-  return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
-      <div className="flex shrink-0 items-center gap-2.5 px-5 pt-3">
-        {peer && (
-          <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white shadow-sm sm:h-11 sm:w-11">
-            <Image src={peer.photo} alt="" width={88} height={88} className="h-full w-full object-cover" />
-          </span>
-        )}
-        <div className="min-w-0">
-          <h2 className="text-[clamp(1.15rem,4.5vmin,1.75rem)] font-extrabold leading-tight text-gray-900">
-            Zeg hallo tegen {peer?.name ?? "…"}
-          </h2>
-        </div>
-      </div>
-      <p
-        className={`shrink-0 px-5 pt-1 text-[clamp(12px,3.2vmin,14px)] ${
-          isV2 ? "text-inkMuted" : "text-gray-600"
-        }`}
-      >
-        Kort, respectvol, met een vraag.{" "}
-        <span className={isV2 ? "font-semibold text-ink" : "font-semibold text-gray-800"}>
-          Discreet
-        </span>{" "}
-        — je gaat daarna meteen naar de chat.
-      </p>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-2 pt-2 [-webkit-overflow-scrolling:touch]">
-        <div className="flex flex-col gap-2">
-          {starterChips.map((chip) => (
-            <button
-              key={chip}
-              type="button"
-              onClick={() => onChange(chip)}
-              className="w-full rounded-2xl bg-white px-3 py-2.5 text-left text-[clamp(11px,2.9vmin,13px)] font-semibold leading-snug text-gray-800 shadow-sm ring-1 ring-black/[0.06] transition active:scale-[0.98]"
-            >
-              {chip}
-            </button>
-          ))}
-        </div>
-        <div className="mt-3 flex flex-col">
-          <textarea
-            autoFocus
-            value={value}
-            onChange={(e) => onChange(e.target.value.slice(0, MSG_MAX))}
-            rows={4}
-            className="w-full resize-none rounded-2xl border-0 bg-white p-3 text-[clamp(13px,3.4vmin,15px)] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[var(--funnel-accent)]/40 sm:p-4"
-            placeholder="Schrijf iets persoonlijks…"
-          />
-          <p className="mt-1 text-right text-[11px] font-medium text-gray-500">
-            {len} / {MSG_MAX}
-          </p>
-        </div>
-      </div>
-
-      <div className="shrink-0 border-t border-black/[0.04] bg-canvas px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
-        <button
-          type="button"
-          disabled={!ok || continuing}
-          onClick={onContinue}
-          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-bold transition active:scale-95 ${
-            ok && !continuing
-              ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-pill"
-              : "cursor-not-allowed bg-gray-200 text-gray-500"
-          }`}
-        >
-          {continuing ? "Chat openen…" : "Start chat →"}
-        </button>
-        <p
-          className={`mt-2 text-center text-[11px] ${
-            isV2 ? "text-inkMuted" : "text-gray-500"
-          }`}
-        >
-          Discreet. Je kunt later altijd stoppen.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function GoogleMark() {
-  return (
-    <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden>
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-      />
-    </svg>
-  );
-}
-
