@@ -300,29 +300,108 @@ export type FunnelAgeRange = {
   anyAge: boolean;
 };
 
-/** Funnel — user's own age (stored in basics.age). */
-export type FunnelMyAgeBucket = "50-54" | "55-59" | "60-64" | "65+";
+/** Funnel — user's own age bucket id (e.g. `50-54`, `85+`). */
+export type FunnelMyAgeBucket = string;
 
-export const FUNNEL_MY_AGE_BUCKETS: {
+export type FunnelMyAgeBucketOption = {
   id: FunnelMyAgeBucket;
   label: string;
+  /** Representative age stored in `basics.age`. */
   age: number;
-}[] = [
-  { id: "50-54", label: "50 – 54", age: 52 },
-  { id: "55-59", label: "55 – 59", age: 57 },
-  { id: "60-64", label: "60 – 64", age: 62 },
-  { id: "65+", label: "65+", age: 67 },
+};
+
+/** Five-year buckets from 35 through 85+. */
+export const FUNNEL_MY_AGE_BUCKETS: FunnelMyAgeBucketOption[] = (() => {
+  const out: FunnelMyAgeBucketOption[] = [];
+  for (let start = 35; start <= 80; start += 5) {
+    const end = start + 4;
+    out.push({
+      id: `${start}-${end}`,
+      label: `${start} – ${end}`,
+      age: Math.round((start + end) / 2),
+    });
+  }
+  out.push({ id: "85+", label: "85+", age: 87 });
+  return out;
+})();
+
+export type FunnelWomanTypeId =
+  | "younger_playful"
+  | "mature_warm"
+  | "experienced_confident"
+  | "open_any";
+
+export type FunnelWomanTypeOption = {
+  id: FunnelWomanTypeId;
+  emoji: string;
+  label: string;
+  description: string;
+  ageRange: FunnelAgeRange;
+  cardBg: string;
+  cardBorder: string;
+  tileBg: string;
+};
+
+/** Step 4 — archetype pick; maps to `ageRange` for matching (no raw ages in UI). */
+export const FUNNEL_WOMAN_TYPE_OPTIONS: FunnelWomanTypeOption[] = [
+  {
+    id: "younger_playful",
+    emoji: "✨",
+    label: "Jonger & speels",
+    description: "Energiek, uitdagend, fris",
+    ageRange: { min: 35, max: 50, anyAge: false },
+    cardBg: "bg-pink-50",
+    cardBorder: "border-pink-100",
+    tileBg: "bg-pink-200/70",
+  },
+  {
+    id: "mature_warm",
+    emoji: "💗",
+    label: "Volwassen & warm",
+    description: "Rustig, attent — het populairste type",
+    ageRange: { min: 45, max: 60, anyAge: false },
+    cardBg: "bg-rose-50",
+    cardBorder: "border-rose-100",
+    tileBg: "bg-rose-200/70",
+  },
+  {
+    id: "experienced_confident",
+    emoji: "🔥",
+    label: "Ervaren & zelfverzekerd",
+    description: "Rijp, direct, weet wat ze wil",
+    ageRange: { min: 50, max: 65, anyAge: false },
+    cardBg: "bg-amber-50",
+    cardBorder: "border-amber-100",
+    tileBg: "bg-amber-200/70",
+  },
+  {
+    id: "open_any",
+    emoji: "👀",
+    label: "Alles mag",
+    description: "Brede mix — verrass me",
+    ageRange: { min: 40, max: 70, anyAge: true },
+    cardBg: "bg-purple-50",
+    cardBorder: "border-purple-100",
+    tileBg: "bg-purple-200/70",
+  },
 ];
 
-export const FUNNEL_WOMEN_AGE_PRESETS: {
-  label: string;
-  min: number;
-  max: number;
-}[] = [
-  { label: "40 – 55", min: 40, max: 55 },
-  { label: "45 – 60", min: 45, max: 60 },
-  { label: "50 – 65", min: 50, max: 65 },
-];
+export function funnelWomanTypeAgeRange(id: FunnelWomanTypeId): FunnelAgeRange {
+  const opt = FUNNEL_WOMAN_TYPE_OPTIONS.find((o) => o.id === id);
+  return opt?.ageRange ?? FUNNEL_DEFAULT_AGE_RANGE;
+}
+
+export function ageRangeMatchesWomanType(
+  range: FunnelAgeRange,
+  id: FunnelWomanTypeId,
+): boolean {
+  const target = funnelWomanTypeAgeRange(id);
+  return (
+    range.anyAge === target.anyAge &&
+    range.min === target.min &&
+    range.max === target.max
+  );
+}
 
 /** Funnel — profile basics (conversational form + optional local photo preview). */
 export type FunnelBasics = {

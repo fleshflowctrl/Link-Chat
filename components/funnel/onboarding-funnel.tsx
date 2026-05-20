@@ -33,7 +33,10 @@ import {
   FUNNEL_MAX_VIBE_PICKS,
   FUNNEL_MY_AGE_BUCKETS,
   FUNNEL_SESSION_KEY,
-  FUNNEL_WOMEN_AGE_PRESETS,
+  FUNNEL_WOMAN_TYPE_OPTIONS,
+  ageRangeMatchesWomanType,
+  funnelWomanTypeAgeRange,
+  type FunnelWomanTypeId,
   ONBOARDED_KEY,
   funnelLookingForLabel,
   type FunnelAgeRange,
@@ -129,22 +132,22 @@ function normalizeAgeRange(
     return {
       min:
         typeof ar.min === "number"
-          ? Math.min(80, Math.max(18, Math.round(ar.min)))
+          ? Math.min(90, Math.max(18, Math.round(ar.min)))
           : FUNNEL_DEFAULT_AGE_RANGE.min,
       max:
         typeof ar.max === "number"
-          ? Math.min(80, Math.max(18, Math.round(ar.max)))
+          ? Math.min(90, Math.max(18, Math.round(ar.max)))
           : FUNNEL_DEFAULT_AGE_RANGE.max,
       anyAge: Boolean(ar.anyAge),
     };
   }
   const min =
     typeof p.ageMin === "number"
-      ? Math.min(80, Math.max(18, Math.round(p.ageMin)))
+      ? Math.min(90, Math.max(18, Math.round(p.ageMin)))
       : FUNNEL_DEFAULT_AGE_RANGE.min;
   const max =
     typeof p.ageMax === "number"
-      ? Math.min(80, Math.max(18, Math.round(p.ageMax)))
+      ? Math.min(90, Math.max(18, Math.round(p.ageMax)))
       : FUNNEL_DEFAULT_AGE_RANGE.max;
   return {
     min: Math.min(min, max - 2),
@@ -660,10 +663,12 @@ function OnboardingFunnelInner({
                 />
               )}
               {step === 4 && (
-                <StepWomenAge
+                <StepWomanType
                   ageRange={ageRange}
-                  onChange={setAgeRange}
-                  onContinue={goNext}
+                  onSelect={(id) => {
+                    setAgeRange(funnelWomanTypeAgeRange(id));
+                    setTimeout(() => goNext(), 300);
+                  }}
                 />
               )}
               {step === 5 && (
@@ -1162,7 +1167,7 @@ function StepMyAge({
         </p>
       </div>
 
-      <ul className="mt-4 grid grid-cols-2 gap-3">
+      <ul className="mt-3 min-h-0 flex-1 grid grid-cols-2 gap-2 overflow-y-auto overscroll-contain pb-2 content-start">
         {FUNNEL_MY_AGE_BUCKETS.map((bucket) => {
           const isSel = selectedAge === bucket.age;
           return (
@@ -1170,10 +1175,12 @@ function StepMyAge({
               <button
                 type="button"
                 onClick={() => onSelect(bucket.age)}
-                className={funnelChoiceRowClass(variant, isSel, "bg-blue-50")}
+                className={`${funnelChoiceRowClass(variant, isSel, "bg-blue-50")} py-3`}
               >
                 <span className="min-w-0 flex-1 text-center">
-                  <span className={funnelOptionTitleClass(variant)}>{bucket.label}</span>
+                  <span className={funnelOptionTitleClass(variant, "md")}>
+                    {bucket.label}
+                  </span>
                 </span>
               </button>
             </li>
@@ -1184,89 +1191,77 @@ function StepMyAge({
   );
 }
 
-function StepWomenAge({
+function StepWomanType({
   ageRange,
-  onChange,
-  onContinue,
+  onSelect,
 }: {
   ageRange: FunnelAgeRange;
-  onChange: (r: FunnelAgeRange) => void;
-  onContinue: () => void;
+  onSelect: (id: FunnelWomanTypeId) => void;
 }) {
   const { variant } = useFunnelConfig();
-  const canContinue =
-    ageRange.anyAge ||
-    (ageRange.min >= 18 && ageRange.max >= ageRange.min);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
         <h2 className={funnelStepTitleClass(variant)}>
-          <span className="block">Welke vrouwen</span>
-          <span className="block">wil je zien?</span>
+          <span className="block">Welk type vrouw</span>
+          <span className="block">zoek je?</span>
         </h2>
         <p className={funnelStepSubtitleClass(variant)}>
-          De meeste mannen hier kiezen 45–60.
+          Kies wat je het meest aanspreekt — wij matchen de rest.
         </p>
       </div>
 
-      <ul className="mt-4 flex flex-col gap-2.5">
-        {FUNNEL_WOMEN_AGE_PRESETS.map((preset) => {
-          const isSel =
-            !ageRange.anyAge &&
-            ageRange.min === preset.min &&
-            ageRange.max === preset.max;
+      <ul className="mt-4 flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain pb-2">
+        {FUNNEL_WOMAN_TYPE_OPTIONS.map((opt) => {
+          const isSel = ageRangeMatchesWomanType(ageRange, opt.id);
           return (
-            <li key={preset.label}>
+            <li key={opt.id} className="shrink-0">
               <button
                 type="button"
-                onClick={() =>
-                  onChange({ min: preset.min, max: preset.max, anyAge: false })
-                }
-                className={funnelChoiceRowClass(variant, isSel, "bg-pink-50")}
+                onClick={() => onSelect(opt.id)}
+                className={funnelLookingForRowClass(
+                  variant,
+                  isSel,
+                  opt.cardBg,
+                  opt.cardBorder,
+                )}
               >
+                <span
+                  className={funnelEmojiTileClass(variant, opt.tileBg)}
+                  aria-hidden
+                >
+                  {opt.emoji}
+                </span>
                 <span className="min-w-0 flex-1">
-                  <span className={funnelOptionTitleClass(variant)}>
-                    {preset.label} jaar
+                  <span className={funnelOptionTitleClass(variant, "md")}>
+                    {opt.label}
                   </span>
-                  <span className={funnelOptionSubClassSm(variant)}>
-                    Volwassen en zelfverzekerd
+                  <span className={funnelOptionSubClass(variant)}>
+                    {opt.description}
                   </span>
+                </span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
+                  <AnimatePresence mode="wait">
+                    {isSel && (
+                      <motion.span
+                        key="check"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[11px] font-bold text-white"
+                      >
+                        ✓
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </span>
               </button>
             </li>
           );
         })}
-        <li>
-          <button
-            type="button"
-            onClick={() =>
-              onChange({ min: 40, max: 65, anyAge: true })
-            }
-            className={funnelChoiceRowClass(variant, ageRange.anyAge, "bg-purple-50")}
-          >
-            <span className="min-w-0 flex-1">
-              <span className={funnelOptionTitleClass(variant)}>
-                Leeftijd maakt niet uit
-              </span>
-              <span className={funnelOptionSubClassSm(variant)}>
-                Je ziet een brede mix
-              </span>
-            </span>
-          </button>
-        </li>
       </ul>
-
-      <div className="mt-auto shrink-0 pt-4">
-        <button
-          type="button"
-          disabled={!canContinue}
-          onClick={onContinue}
-          className={funnelPrimaryButtonClass(canContinue)}
-        >
-          Doorgaan →
-        </button>
-      </div>
     </div>
   );
 }
