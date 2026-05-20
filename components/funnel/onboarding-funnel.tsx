@@ -72,6 +72,81 @@ import { SITE_DISPLAY } from "@/lib/brand";
 const STEP_TOTAL = 6;
 const MSG_MAX = 240;
 
+/** Makes clear: chat works without signup; creating an account is optional. */
+function FunnelOptionalSignup({
+  signupPath,
+  loginPath,
+  layout = "full",
+}: {
+  signupPath: string;
+  loginPath: string;
+  layout?: "full" | "compact";
+}) {
+  const { variant } = useFunnelConfig();
+  const isV2 = variant === "v2";
+
+  const calloutClass = isV2
+    ? "rounded-xl border border-white/10 bg-[#353536] px-3 py-2.5 text-center text-[12px] leading-snug text-inkMuted"
+    : "rounded-xl border border-black/[0.06] bg-white px-3 py-2.5 text-center text-[12px] leading-snug text-gray-600";
+
+  const highlightClass = isV2
+    ? "font-semibold text-ink"
+    : "font-semibold text-gray-800";
+
+  if (layout === "compact") {
+    return (
+      <p
+        className={`text-center text-[11px] leading-snug ${
+          isV2 ? "text-inkMuted" : "text-gray-500"
+        }`}
+      >
+        <span className={highlightClass}>Geen account nodig</span> om te chatten ·{" "}
+        <Link
+          href={signupPath}
+          className="font-semibold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
+        >
+          Account aanmaken (optioneel)
+        </Link>
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className={calloutClass}>
+        <p>
+          <span className={highlightClass}>Geen account nodig</span> — je kunt meteen
+          chatten. Wil je je profiel en gesprekken bewaren? Maak dan optioneel een
+          account aan.
+        </p>
+      </div>
+      <Link
+        href={signupPath}
+        className={`flex w-full items-center justify-center rounded-full py-3 text-[14px] font-bold transition active:scale-95 ${
+          isV2
+            ? "border border-white/15 bg-[#353536] text-ink ring-1 ring-white/10"
+            : "border border-gray-200 bg-white text-gray-800 shadow-sm ring-1 ring-black/[0.06]"
+        }`}
+      >
+        Account aanmaken (optioneel)
+      </Link>
+      <p
+        className={`text-center text-[11px] ${
+          isV2 ? "text-inkMuted" : "text-gray-500"
+        }`}
+      >
+        Al een account?{" "}
+        <Link
+          href={loginPath}
+          className="font-semibold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
+        >
+          Inloggen
+        </Link>
+      </p>
+    </div>
+  );
+}
+
 type FunnelGender = "man" | "woman";
 type FunnelSeekingGender = "men" | "women" | "both";
 
@@ -667,6 +742,8 @@ function OnboardingFunnelInner({
                   onSelect={(id) => setFirstContact({ profileId: id })}
                   onContinue={goNext}
                   onSkip={skipFirstLink}
+                  signupPath={cfg.signupPath}
+                  loginPath={cfg.loginPath}
                 />
               )}
               {step === 6 && (
@@ -677,6 +754,7 @@ function OnboardingFunnelInner({
                   onContinue={() => void startFunnelChat()}
                   continuing={startingChat}
                   signupPath={cfg.signupPath}
+                  loginPath={cfg.loginPath}
                 />
               )}
             </motion.div>
@@ -978,7 +1056,15 @@ function StepWelcome({
         </button>
 
         <p className="mt-1.5 text-center text-[11px] text-gray-500">
-          Heb je al een account?{" "}
+          <span className="font-semibold text-gray-700">Geen account nodig</span> om te
+          starten.{" "}
+          <Link
+            href={cfg.signupPath}
+            className="font-bold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
+          >
+            Account aanmaken
+          </Link>{" "}
+          is optioneel ·{" "}
           <Link
             href={cfg.loginPath}
             className="font-bold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
@@ -1339,12 +1425,16 @@ function StepPickMatch({
   onSelect,
   onContinue,
   onSkip,
+  signupPath,
+  loginPath,
 }: {
   matches: FunnelMatchPick[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onContinue: () => void;
   onSkip: () => void;
+  signupPath: string;
+  loginPath: string;
 }) {
   const userVibes: string[] = [];
   const ok = Boolean(selectedId);
@@ -1466,6 +1556,13 @@ function StepPickMatch({
         >
           Overslaan — ik stuur later een bericht
         </button>
+        <div className="mt-2">
+          <FunnelOptionalSignup
+            signupPath={signupPath}
+            loginPath={loginPath}
+            layout="compact"
+          />
+        </div>
       </div>
     </div>
   );
@@ -1478,6 +1575,7 @@ function StepFirstMessage({
   onContinue,
   continuing = false,
   signupPath,
+  loginPath,
 }: {
   peer: FunnelMatchPick | null;
   value: string;
@@ -1485,7 +1583,10 @@ function StepFirstMessage({
   onContinue: () => void;
   continuing?: boolean;
   signupPath: string;
+  loginPath: string;
 }) {
+  const { variant } = useFunnelConfig();
+  const isV2 = variant === "v2";
   const ok = value.trim().length > 0;
   const len = value.length;
 
@@ -1510,8 +1611,16 @@ function StepFirstMessage({
           </h2>
         </div>
       </div>
-      <p className="shrink-0 px-5 pt-1 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
-        Een goed eerste bericht stelt een vraag.
+      <p
+        className={`shrink-0 px-5 pt-1 text-[clamp(12px,3.2vmin,14px)] ${
+          isV2 ? "text-inkMuted" : "text-gray-600"
+        }`}
+      >
+        Een goed eerste bericht stelt een vraag.{" "}
+        <span className={isV2 ? "font-semibold text-ink" : "font-semibold text-gray-800"}>
+          Geen account verplicht
+        </span>{" "}
+        — je gaat daarna meteen naar de chat.
       </p>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-5 pb-2 pt-2 [-webkit-overflow-scrolling:touch]">
         <div className="flex flex-col gap-2">
@@ -1552,14 +1661,15 @@ function StepFirstMessage({
               : "cursor-not-allowed bg-gray-200 text-gray-500"
           }`}
         >
-          {continuing ? "Chat openen…" : "Start chat →"}
+          {continuing ? "Chat openen…" : "Start chat (zonder account) →"}
         </button>
-        <p className="mt-2 text-center text-[11px] text-gray-500">
-          Geen account nodig om te chatten.{" "}
-          <Link href={signupPath} className="font-semibold text-[var(--funnel-accent)] underline-offset-2 hover:underline">
-            Account later
-          </Link>
-        </p>
+        <div className="mt-3">
+          <FunnelOptionalSignup
+            signupPath={signupPath}
+            loginPath={loginPath}
+            layout="full"
+          />
+        </div>
       </div>
     </div>
   );
