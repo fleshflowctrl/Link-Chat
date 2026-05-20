@@ -863,12 +863,12 @@ function buildWelcomeSetsFromCatalog(
 
 const WELCOME_COPY = {
   v1: {
-    headline: ["Vind iemand die", "je opwindt."],
+    headline: ["Vind iemand die", "je écht prikkelt."],
     subMuted: "Flirterige gesprekken. ",
     subAccent: "Discreet · op jouw tempo.",
   },
   v2: {
-    headline: ["Ontdek wie je", "stiekem opwindt."],
+    headline: ["Vind mensen die", "je écht aanzetten."],
     subMuted: "Flirterig en discreet. ",
     subAccent: "Jij bepaalt het tempo.",
   },
@@ -1065,7 +1065,9 @@ function StepWelcome({
               {likesPreviewAvatarUrls.map((url, i) => (
                 <span
                   key={url}
-                  className="relative h-6 w-6 overflow-hidden rounded-full ring-2 ring-[#F5F3EE]"
+                  className={`relative h-6 w-6 overflow-hidden rounded-full ring-2 ${
+                    isV2 ? "ring-[#252526]" : "ring-[#F5F3EE]"
+                  }`}
                   style={{ zIndex: 3 - i }}
                 >
                   <Image
