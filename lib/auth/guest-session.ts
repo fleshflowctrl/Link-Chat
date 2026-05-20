@@ -1,6 +1,5 @@
 "use client";
 
-import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -8,12 +7,6 @@ export {
   isGuestAuthUser,
   isPermanentAuthUser,
 } from "@/lib/auth/user-account";
-
-function isFunnelGuestUser(user: User | null | undefined): boolean {
-  if (!user) return false;
-  if (user.is_anonymous === true) return true;
-  return user.user_metadata?.is_funnel_guest === true;
-}
 
 async function startServerGuestSession(): Promise<{ userId: string | null }> {
   const res = await fetch("/api/auth/guest-session", {
@@ -77,7 +70,8 @@ export async function ensureGuestSession(): Promise<{ userId: string | null }> {
 
 /**
  * Turn the current guest session into a permanent email/password account.
- * Keeps the same auth user id (and all chat rows).
+ * Keeps the same auth user id (and all chat rows). Uses server Admin API so
+ * guest.whisper.invalid emails do not break client updateUser.
  */
 export async function convertAnonymousToPermanentAccount(input: {
   email: string;
@@ -90,30 +84,51 @@ export async function convertAnonymousToPermanentAccount(input: {
     return { ok: true, needsEmailConfirm: false, userId: null };
   }
 
-  const supabase = createClient();
-  const email = input.email.trim();
-  const password = input.password;
-
-  const {
-    data: { user: current },
-  } = await supabase.auth.getUser();
-
-  if (!isFunnelGuestUser(current)) {
-    return { ok: false, error: "Geen gast-sessie om te koppelen." };
-  }
-
-  const { data, error } = await supabase.auth.updateUser({
-    email,
-    password,
-    data: { is_funnel_guest: false },
+  const res = await fetch("/api/auth/convert-guest", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      email: input.email.trim(),
+      password: input.password,
+    }),
   });
 
-  if (error) {
-    return { ok: false, error: error.message };
+  const data = (await res.json()) as {
+    ok?: boolean;
+    skipped?: boolean;
+    userId?: string;
+    needsEmailConfirm?: boolean;
+    access_token?: string;
+    refresh_token?: string;
+    error?: string;
+  };
+
+  if (data.skipped) {
+    return { ok: true, needsEmailConfirm: false, userId: null };
   }
 
-  const userId = data.user?.id ?? current?.id ?? null;
-  const needsEmailConfirm = !data.user?.email_confirmed_at;
+  if (!res.ok || !data.ok) {
+    return {
+      ok: false,
+      error: data.error ?? `Account koppelen mislukt (${res.status})`,
+    };
+  }
 
-  return { ok: true, needsEmailConfirm, userId };
+  if (data.access_token && data.refresh_token) {
+    const supabase = createClient();
+    const { error: sessionErr } = await supabase.auth.setSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+    });
+    if (sessionErr) {
+      return { ok: false, error: sessionErr.message };
+    }
+  }
+
+  return {
+    ok: true,
+    needsEmailConfirm: Boolean(data.needsEmailConfirm),
+    userId: data.userId ?? null,
+  };
 }
