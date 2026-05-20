@@ -1,7 +1,7 @@
 /**
  * When the chatter has no permanent account (guest / anonymous), some bot
- * replies lightly mention creating an account. Not every persona does this;
- * the user's very first bot reply ever always does.
+ * replies express a personal boundary: she prefers chatting with someone who
+ * has a real profile (trust, name, photo) — not an app tip about saving chats.
  */
 
 export type GuestAccountNudgeDecision = {
@@ -12,8 +12,8 @@ export type GuestAccountNudgeDecision = {
   phraseSeed: string;
 };
 
-const ACCOUNT_ALREADY_RE =
-  /\b(account|registr|aanmeld|inlog|profiel\b.*bewaar|bewaar\b.*gesprek)/i;
+const TRUST_BOUNDARY_ALREADY_RE =
+  /\b(account|registr|aanmeld|profiel|gast\b|zonder\s+account|weet\s+niet\s+(wie|hoe\s+je\s+heet)|hoe\s+je\s+heet|eruit\s*ziet|vertrouw|voorzichtig|liever\s+niet\s+chat)/i;
 
 /** ~40% of personas ever mention guest accounts (not every bot). */
 export function personaMayMentionGuestAccount(peerId: string): boolean {
@@ -42,22 +42,27 @@ function laterTurnWantsNudge(
 }
 
 const NUDGE_PHRASES = [
-  "oh trouwens — je hebt nog geen account hè? handig om dat zo te doen als je je chats wilt bewaren",
-  "je chat nu zonder account — straks even registreren dan blijft dit gesprek bewaard 😊",
-  "ik zie dat je nog niet bent aangemeld — geen stress, maar met een account raak je dit niet kwijt",
-  "nog geen account? prima om zo te chatten, maar even aanmelden is handig voor je profiel en berichten",
-  "kleine tip van mij: maak later ff een account aan, dan kun je hier gewoon verder waar je stopte",
-  "je bent nu gast zonder account — registreren kan altijd nog als je alles wilt opslaan",
-  "als je dit gesprek wilt houden: even een account aanmaken, nu hoef je niet maar straks wel fijn",
-  "haha anyway — nog niet aangemeld? account aanmaken = je chats en profiel blijven staan",
+  "ik chat eigenlijk liever niet zo zonder profiel — ik weet niet eens hoe je heet of hoe je eruitziet, snap je?",
+  "hoi hoor, ik ben een beetje voorzichtig met gasten zonder account… ik zie je profiel niet en dat voelt raar voor mij",
+  "sorry als dit direct klinkt maar ik praat liever met iemand met een profiel, anders weet ik niet met wie ik bezig ben",
+  "ik ben best open maar zonder account/profiel voel ik me niet lekker — geen foto, geen naam, dat is voor mij lastig vertrouwen",
+  "niks tegen jou hoor, maar ik chat liever niet te ver zonder profiel… ik kan je nu niet eens zien of je naam checken",
+  "ik vertrouw het pas als ik iemand een beetje ken — zonder account weet ik niet wie je bent en dat houdt me tegen",
+  "echt waar, ik ben niet zo van chatten met iemand zonder profiel, ik zie niet hoe je eruitziet en weet je naam niet",
+  "ik wil wel reageren maar ik voel me ongemakkelijk zonder profiel — voor mij is dat een vertrouwensding, niet persoonlijk bedoeld",
 ] as const;
 
 export function pickGuestAccountNudgePhrase(seed: string): string {
   return NUDGE_PHRASES[seededIndex(seed, NUDGE_PHRASES.length)];
 }
 
+export function replyAlreadyMentionsGuestBoundary(text: string): boolean {
+  return TRUST_BOUNDARY_ALREADY_RE.test(text.trim());
+}
+
+/** @deprecated Use replyAlreadyMentionsGuestBoundary */
 export function replyAlreadyMentionsAccount(text: string): boolean {
-  return ACCOUNT_ALREADY_RE.test(text.trim());
+  return replyAlreadyMentionsGuestBoundary(text);
 }
 
 export function weaveGuestAccountNudge(
@@ -66,7 +71,7 @@ export function weaveGuestAccountNudge(
 ): string {
   const t = replyText.trim();
   if (!t) return phrase;
-  if (replyAlreadyMentionsAccount(t)) return t;
+  if (replyAlreadyMentionsGuestBoundary(t)) return t;
   const sep = /[.!?…]$/.test(t) ? " " : ". ";
   return `${t}${sep}${phrase}`;
 }
@@ -93,11 +98,11 @@ export function decideGuestAccountNudge(args: {
     return { required: true, prompt: true, phraseSeed: seed };
   }
 
-  if (args.turnIndex > 0 && eligible && laterTurnWantsNudge(
-    args.ownerUserId,
-    args.peerId,
-    args.turnIndex,
-  )) {
+  if (
+    args.turnIndex > 0 &&
+    eligible &&
+    laterTurnWantsNudge(args.ownerUserId, args.peerId, args.turnIndex)
+  ) {
     return { required: false, prompt: true, phraseSeed: seed };
   }
 
@@ -107,19 +112,26 @@ export function decideGuestAccountNudge(args: {
 export function guestAccountNudgePromptLines(
   decision: GuestAccountNudgeDecision,
 ): string[] {
+  const trustBlock = [
+    "Zij heeft nog geen echt profiel/account (alleen gast) — jij ziet geen foto, geen naam, geen profiel.",
+    "Geen app-uitleg of tip over 'chats bewaren' of 'registreren'.",
+    "Wel: jouw persoonlijke voorkeur/grens — je voelt je niet lekker verder chatten zonder profiel",
+    "omdat je niet weet wie ze is, niet ziet hoe ze eruitziet, en haar naam niet kent (vertrouwen).",
+    "Vriendelijk en menselijk, niet salesy of streng. Je mag nog wel op haar bericht reageren.",
+  ];
+
   if (decision.required) {
     return [
       "",
-      "VERPLICHT (natuurlijk in je antwoord verwerken, max één korte zin):",
-      "De gebruiker heeft nog geen vast account (alleen gast). Noem dat luchtig —",
-      "ze mag chatten, maar met een account blijven profiel en gesprekken bewaard.",
-      "Geen reclame-toon; klink als een menselijke aside. Varieer je woorden.",
+      "VERPLICHT (natuurlijk in je antwoord verwerken, max één tot twee korte zinnen):",
+      ...trustBlock,
+      "Varieer je formulering; klink als iets wat jij echt voelt, niet als systeemtekst.",
     ];
   }
   return [
     "",
     "OPTIONEEL (alleen als het echt past, max één korte zin):",
-    "Als het natuurlijk voelt: ze heeft nog geen account — registreren helpt om",
-    "chats te bewaren. Laat het weg als het de flow breekt.",
+    ...trustBlock,
+    "Laat het weg als het de flow breekt.",
   ];
 }
