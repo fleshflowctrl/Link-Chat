@@ -81,7 +81,7 @@ export async function POST(req: Request) {
   // Z-Image-Turbo allows 512–2048. Cap to safe values that don't OOM the Space.
   const width = clamp(toFiniteNumber(body.width) ?? 768, 512, 1536);
   const height = clamp(toFiniteNumber(body.height) ?? 1024, 512, 1536);
-  const steps = clamp(toFiniteNumber(body.steps) ?? 9, 4, 32);
+  const steps = clamp(toFiniteNumber(body.steps) ?? 17, 4, 32);
 
   const skipFinish = body.skipFinish === true;
   const finishOpts =

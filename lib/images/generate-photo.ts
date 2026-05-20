@@ -33,7 +33,7 @@ const HF_SPACE = "mrfakename/Z-Image-Turbo";
 const DEFAULTS = {
   width: 768,
   height: 1024, // portrait — selfies/casual personal photos
-  steps: 9,     // 9 == 8 DiT forwards (recommended in Space)
+  steps: 17,
 };
 
 /** Words/phrases that must never end up in the prompt.
@@ -90,7 +90,7 @@ export type GeneratePhotoOptions = {
   seed?: number;
   width?: number;
   height?: number;
-  /** Override num_inference_steps. Defaults to 9 (the Space default). */
+  /** Override num_inference_steps. Defaults to 17. */
   steps?: number;
   /** Skip the phone-finish (blur + grain) post-processing pass.
    * Used by the admin image-lab where the operator wants to inspect the

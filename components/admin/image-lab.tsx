@@ -83,7 +83,7 @@ const DEFAULTS: FormState = {
   seed: "",
   width: 768,
   height: 1024,
-  steps: 12,
+  steps: 17,
   skipFinish: true,
   blurSigma: 0.45,
   grainOpacity: 0.14,
