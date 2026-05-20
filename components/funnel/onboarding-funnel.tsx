@@ -861,6 +861,19 @@ function buildWelcomeSetsFromCatalog(
   return sets.length > 0 ? sets : funnelSets;
 }
 
+const WELCOME_COPY = {
+  v1: {
+    headline: ["Vind iemand die", "je opwindt."],
+    subMuted: "Flirterige gesprekken. ",
+    subAccent: "Discreet · op jouw tempo.",
+  },
+  v2: {
+    headline: ["Ontdek wie je", "stiekem opwindt."],
+    subMuted: "Flirterig en discreet. ",
+    subAccent: "Jij bepaalt het tempo.",
+  },
+} as const;
+
 function StepWelcome({
   onStart,
   catalog,
@@ -869,6 +882,8 @@ function StepWelcome({
   catalog: Profile[];
 }) {
   const cfg = useFunnelConfig();
+  const isV2 = cfg.variant === "v2";
+  const copy = WELCOME_COPY[cfg.variant];
   const countMv = useMotionValue(0);
   const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
@@ -919,14 +934,24 @@ function StepWelcome({
 
       <div className="pointer-events-none z-40 flex shrink-0 items-center gap-3 px-5 pt-[max(8px,env(safe-area-inset-top))] pb-1">
         <div className="min-w-0 flex-1">
-          <div className="h-1.5 overflow-hidden rounded-full bg-gray-200">
+          <div
+            className={`h-1.5 overflow-hidden rounded-full ${
+              isV2 ? "bg-white/10" : "bg-gray-200"
+            }`}
+          >
             <div
               className="h-full w-[14.3%] rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)]"
               aria-hidden
             />
           </div>
         </div>
-        <span className="shrink-0 text-[10px] font-medium text-gray-500">1 / 7</span>
+        <span
+          className={`shrink-0 text-[10px] font-medium ${
+            isV2 ? "text-inkMuted" : "text-gray-500"
+          }`}
+        >
+          1 / 7
+        </span>
       </div>
 
       <div
@@ -1016,14 +1041,22 @@ function StepWelcome({
           {SITE_DISPLAY}
         </h1>
 
-        <h2 className="mt-2 max-w-[20ch] text-balance text-[clamp(1.35rem,5.2vmin,1.875rem)] font-extrabold leading-tight tracking-tight text-gray-900">
-          <span className="block">Vind jouw</span>
-          <span className="block">soort mensen.</span>
+        <h2
+          className={`mt-2 max-w-[20ch] text-balance text-[clamp(1.35rem,5.2vmin,1.875rem)] font-extrabold leading-tight tracking-tight ${
+            isV2 ? "text-ink" : "text-gray-900"
+          }`}
+        >
+          <span className="block">{copy.headline[0]}</span>
+          <span className="block">{copy.headline[1]}</span>
         </h2>
 
         <p className="mt-2 text-[clamp(12px,3.2vmin,14px)] leading-snug">
-          <span className="text-gray-600">Echte gesprekken. </span>
-          <span className="font-bold text-[var(--funnel-accent)]">Op jouw tempo.</span>
+          <span className={isV2 ? "text-inkMuted" : "text-gray-600"}>
+            {copy.subMuted}
+          </span>
+          <span className="font-bold text-[var(--funnel-accent)]">
+            {copy.subAccent}
+          </span>
         </p>
 
         <div className="mt-2 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
@@ -1045,11 +1078,28 @@ function StepWelcome({
                 </span>
               ))}
             </div>
-            <p className="min-w-0 text-[11px] leading-snug text-gray-700">
-              <span className="font-bold tabular-nums text-gray-900">{countLabel}</span> mensen online nu
+            <p
+              className={`min-w-0 text-[11px] leading-snug ${
+                isV2 ? "text-inkMuted" : "text-gray-700"
+              }`}
+            >
+              <span
+                className={`font-bold tabular-nums ${
+                  isV2 ? "text-ink" : "text-gray-900"
+                }`}
+              >
+                {countLabel}
+              </span>{" "}
+              mensen online nu
             </p>
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-white/90 px-2 py-0.5 shadow-sm ring-1 ring-black/[0.06]">
+          <div
+            className={`ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 shadow-sm ring-1 ${
+              isV2
+                ? "bg-[#353536]/90 ring-white/10"
+                : "bg-white/90 ring-black/[0.06]"
+            }`}
+          >
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
@@ -1066,16 +1116,11 @@ function StepWelcome({
           Aan de slag →
         </button>
 
-        <p className="mt-1.5 text-center text-[11px] text-gray-500">
-          <span className="font-semibold text-gray-700">Geen account nodig</span> om te
-          starten.{" "}
-          <Link
-            href={cfg.signupPath}
-            className="font-bold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
-          >
-            Account aanmaken
-          </Link>{" "}
-          is optioneel ·{" "}
+        <p
+          className={`mt-1.5 text-center text-[11px] ${
+            isV2 ? "text-inkMuted" : "text-gray-500"
+          }`}
+        >
           <Link
             href={cfg.loginPath}
             className="font-bold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
