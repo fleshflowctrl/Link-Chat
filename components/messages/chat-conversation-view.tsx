@@ -1736,7 +1736,7 @@ export function ChatConversationView({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "tween", duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-              className={`fixed inset-x-0 bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-[85] mx-auto max-w-[430px] rounded-t-3xl px-5 pb-[max(2.25rem,calc(env(safe-area-inset-bottom)+1rem))] pt-5 shadow-2xl sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:pb-8 ${
+              className={`fixed inset-x-0 bottom-0 z-[85] mx-auto max-w-[430px] rounded-t-3xl px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl ${
                 creditsGateMode === "signup_required" && variant === "v2"
                   ? "bg-[#252526] ring-1 ring-white/10"
                   : "bg-white"
@@ -1807,36 +1807,34 @@ export function ChatConversationView({
                 )}
               </div>
 
-              <div className="mt-6 w-full pb-1">
-                {creditsGateMode === "signup_required" ? (
-                  <Link
-                    href={withVariantPath("/me", variant)}
-                    onClick={() => setCreditsGateOpen(false)}
-                    className="flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#B52B2A] to-[#D63B3A] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
-                  >
-                    Account aanmaken
-                  </Link>
-                ) : (
-                  <Link
-                    href={withVariantPath("/credits", variant)}
-                    onClick={() => setCreditsGateOpen(false)}
-                    className="flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
-                  >
-                    Credits kopen
-                  </Link>
-                )}
-                <button
-                  type="button"
+              {creditsGateMode === "signup_required" ? (
+                <Link
+                  href={withVariantPath("/me", variant)}
                   onClick={() => setCreditsGateOpen(false)}
-                  className={`mt-3 w-full py-2.5 text-[13px] font-semibold ${
-                    variant === "v2" ? "text-inkMuted" : "text-gray-500"
-                  }`}
+                  className="mt-5 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#B52B2A] to-[#D63B3A] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
                 >
-                  {creditsGateMode === "signup_required"
-                    ? "Later"
-                    : "Niet nu"}
-                </button>
-              </div>
+                  Account aanmaken
+                </Link>
+              ) : (
+                <Link
+                  href={withVariantPath("/credits", variant)}
+                  onClick={() => setCreditsGateOpen(false)}
+                  className="mt-5 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                >
+                  Credits kopen
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setCreditsGateOpen(false)}
+                className={`mt-2 w-full py-2.5 text-[13px] font-semibold ${
+                  variant === "v2" ? "text-inkMuted" : "text-gray-500"
+                }`}
+              >
+                {creditsGateMode === "signup_required"
+                  ? "Later"
+                  : "Niet nu"}
+              </button>
             </motion.div>
           </>
         )}
