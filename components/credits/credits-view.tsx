@@ -11,15 +11,7 @@ import {
   initCreditsStore,
   subscribeCredits,
 } from "@/lib/credits-store";
-
-function formatMoney(n: number): string {
-  return n.toLocaleString("nl-NL", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+import { CreditPrice } from "@/components/credits/credit-price";
 
 function PackageCard({ pkg }: { pkg: CreditPackage }) {
   const hasRibbon = pkg.badge === "trending" || pkg.badge === "best-value";
@@ -67,9 +59,7 @@ function PackageCard({ pkg }: { pkg: CreditPackage }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2 pr-0.5">
-          <p className="text-[16px] font-bold leading-none text-ink tabular-nums">
-            {formatMoney(pkg.price)}
-          </p>
+          <CreditPrice amount={pkg.price} />
           <ChevronRight
             className="h-4 w-4 shrink-0 text-gray-400"
             strokeWidth={2.5}

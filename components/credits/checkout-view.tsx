@@ -13,14 +13,7 @@ import {
   initCreditsStore,
   subscribeCredits,
 } from "@/lib/credits-store";
-function formatMoney(n: number): string {
-  return n.toLocaleString("nl-NL", {
-    style: "currency",
-    currency: "EUR",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+import { CreditPrice, splitCreditPrice } from "@/components/credits/credit-price";
 
 type CheckoutQuery = {
   success?: string;
@@ -220,9 +213,11 @@ export function CheckoutView({
 
           <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-2 text-ink">
             <span className="text-[14px] font-bold">Te betalen</span>
-            <span className="text-[20px] font-extrabold tabular-nums">
-              {formatMoney(pkg.price)}
-            </span>
+            <CreditPrice
+              amount={pkg.price}
+              mainClassName="text-[20px] font-extrabold leading-none"
+              centsClassName="text-[12px] font-extrabold leading-none opacity-85"
+            />
           </div>
         </div>
 
@@ -255,12 +250,22 @@ export function CheckoutView({
             disabled={busy || success !== null}
             className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-black px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-60"
           >
-            <span>
-              {busy
-                ? "Bezig…"
-                : success
-                  ? "Voltooid"
-                  : `Betaal · ${formatMoney(pkg.price)}`}
+            <span className="inline-flex items-center gap-1">
+              {busy ? (
+                "Bezig…"
+              ) : success ? (
+                "Voltooid"
+              ) : (
+                <>
+                  Betaal ·
+                  <CreditPrice
+                    amount={pkg.price}
+                    className="text-white"
+                    mainClassName="text-[15px] font-bold leading-none text-white"
+                    centsClassName="text-[11px] font-bold leading-none text-white/90"
+                  />
+                </>
+              )}
             </span>
           </button>
         </div>
