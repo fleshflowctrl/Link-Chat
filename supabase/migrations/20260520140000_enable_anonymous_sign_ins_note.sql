@@ -1,0 +1,3 @@
+-- Guest funnel chat uses server-minted accounts when anonymous sign-ins are off.
+-- Optional (recommended): Supabase Dashboard → Authentication → Providers →
+-- enable "Anonymous sign-ins" to use native anonymous users instead.

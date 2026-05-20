@@ -79,7 +79,11 @@ export async function saveFunnelAccount(
   let hasSession = false;
   let needsEmailConfirmFromAuth = false;
 
-  if (existingUser?.is_anonymous) {
+  const isGuest =
+    existingUser?.is_anonymous === true ||
+    existingUser?.user_metadata?.is_funnel_guest === true;
+
+  if (isGuest) {
     const converted = await convertAnonymousToPermanentAccount({ email, password });
     if (!converted.ok) {
       return { ok: false, error: mapSupabaseAuthError(converted.error) };

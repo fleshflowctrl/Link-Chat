@@ -5,7 +5,10 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
 import { SITE_DISPLAY } from "@/lib/brand";
-import { convertAnonymousToPermanentAccount } from "@/lib/auth/guest-session";
+import {
+  convertAnonymousToPermanentAccount,
+  isPermanentAuthUser,
+} from "@/lib/auth/guest-session";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import { createClient } from "@/utils/supabase/client";
@@ -87,7 +90,7 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
       data: { user: current },
     } = await supabase.auth.getUser();
 
-    if (current?.is_anonymous) {
+    if (current && !isPermanentAuthUser(current)) {
       const converted = await convertAnonymousToPermanentAccount({
         email: trimmed,
         password,
