@@ -24,7 +24,7 @@ Per persona:
 - photo_style: fotogeniek, volwassen, expliciet naakt — amateur self-taken (geen studio/boudoir).
   - style: bv. "completely nude amateur mirror selfie", "nude in bed dim light", "shower nude wet skin", "nude kneeling on bed".
   - vibe: intiem, rauw, imperfect belicht; geen glamour-shoot.
-  - attractiveness: striking (mooi, sexy, maar nog herkenbaar als echt persoon).
+  - attractiveness: meestal average of plain; soms striking — nooit elk profiel hetzelfde.
 - Geen clichés ("ik hou van reizen en wijn"), geen minderjarigen, geen expliciete porn-taal in bio.`;
 
 /** v2 bulk brief when photos stay clothed but very sexy (lingerie / sheer / micro-bikini). */
@@ -43,7 +43,7 @@ Per persona:
 - photo_style: fotogeniek, volwassen, **sexy met kleding** — bijna naakt maar net iets aan; amateur self-taken (geen studio/boudoir).
   - style: bv. "black lace lingerie mirror selfie", "sheer mesh top and thong bedroom", "micro bikini kitchen", "latex harness over sports bra", "wet white t-shirt no bra visible underneath but covered".
   - vibe: intiem, rauw, imperfect belicht; geen glamour-shoot; geen volledige naaktheid in photo_style.style.
-  - attractiveness: striking.
+  - attractiveness: meestal average of plain; soms striking — varieer per persona.
 - Geen clichés, geen minderjarigen, geen expliciete porn-taal in bio.`;
 
 /** Extra system instructions appended to Grok when generating v2 personas. */
@@ -78,7 +78,43 @@ export function isV2PersonaVariant(variant: AppVariant | undefined): boolean {
 export function defaultAttractivenessForVariant(
   variant: AppVariant | undefined,
 ): "striking" | "average" | "plain" {
-  return isV2PersonaVariant(variant) ? "striking" : "average";
+  return isV2PersonaVariant(variant) ? "average" : "average";
+}
+
+/** Per-batch-index attractiveness spread for v2 (Z-Image ignores negatives). */
+export const V2_ATTRACTIVENESS_CYCLE = [
+  "average",
+  "average",
+  "striking",
+  "plain",
+  "average",
+  "striking",
+  "plain",
+  "average",
+] as const;
+
+/** Per-batch-index body-type spread for v2 galleries. */
+export const V2_BODY_TYPE_CYCLE = [
+  "slim",
+  "average",
+  "average",
+  "plus",
+  "average",
+  "slim",
+  "plus",
+  "average",
+] as const;
+
+export function v2AttractivenessForVariant(
+  variant: number,
+): "striking" | "average" | "plain" {
+  const idx = Math.abs(Math.floor(variant)) % V2_ATTRACTIVENESS_CYCLE.length;
+  return V2_ATTRACTIVENESS_CYCLE[idx]!;
+}
+
+export function v2BodyTypeForVariant(variant: number): "slim" | "average" | "plus" {
+  const idx = Math.abs(Math.floor(variant)) % V2_BODY_TYPE_CYCLE.length;
+  return V2_BODY_TYPE_CYCLE[idx]!;
 }
 
 export function defaultBulkBriefForVariant(

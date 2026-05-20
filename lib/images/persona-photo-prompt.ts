@@ -753,6 +753,22 @@ export function buildPersonaPhotoPrompt(args: {
         "very revealing almost-nude look but still clothed, amateur mirror selfie or bedroom phone photo, " +
         "intimate flirty energy, looks like a private snap sent to a dating app",
     );
+    // Same anti-AI / anti-glamour push as nude realism — Z-Image has no
+    // negative prompt on HF Space, so these must be positive tokens.
+    promptParts.push(
+      "ordinary everyday iPhone snapshot from her own camera roll, totally unedited, " +
+        "real amateur self-taken photo, slightly imperfect framing and angle, bad lighting, uneven exposure, " +
+        "no filter, no beauty filter, no smoothing, no airbrush, no glamour, no soft professional lighting, " +
+        "everything in focus, no portrait mode, no bokeh, no blurred background, " +
+        "flat phone camera dynamic range, slight ISO noise and grain in shadows, " +
+        "ordinary face not photogenic, naturally asymmetric features, real human eyes with under-eye shadows, " +
+        "expression caught mid-moment not posed, mouth slightly relaxed not seductive model smile, " +
+        "real skin texture with visible pores small moles freckles and uneven skin tone on face arms and stomach, " +
+        "real woman body with normal everyday proportions under the outfit, soft natural belly if visible, " +
+        "soft thighs with possible cellulite, normal hip width, no six pack, no sculpted abs, no thigh gap, " +
+        "slight tan lines from bikini or bra possible, natural body not fitness-model not porn-star body, " +
+        "candid not posing for camera, looks like a quick casual self-taken snap not a photoshoot",
+    );
   } else {
     // STRONG everyday-iPhone realism block. Loaded with concrete phone-
     // camera artifacts that diffusion bases otherwise smooth out:

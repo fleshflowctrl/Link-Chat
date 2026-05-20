@@ -24,6 +24,8 @@ import {
   defaultAttractivenessForVariant,
   v2SexyClothedOutfitForVariant,
   type V2PhotoMode,
+  v2AttractivenessForVariant,
+  v2BodyTypeForVariant,
 } from "@/lib/admin/v2-persona-config";
 import { uploadFallbackAvatar } from "@/lib/admin/fallback-avatar";
 import { parsePersonaPayload } from "@/lib/admin/persona-payload";
@@ -102,8 +104,11 @@ export async function createPersonaFromBrief(
   const forcedAge = lo + Math.floor(Math.random() * (hi - lo + 1));
 
   const appVariant = input.app_variant ?? "v1";
-  const attractiveness =
-    input.attractiveness ?? defaultAttractivenessForVariant(appVariant);
+  const isV2 = appVariant === "v2";
+  const attractiveness = isV2
+    ? v2AttractivenessForVariant(input.index)
+    : (input.attractiveness ?? defaultAttractivenessForVariant(appVariant));
+  const body_type = isV2 ? v2BodyTypeForVariant(input.index) : input.body_type;
 
   const v2PhotoMode = input.v2_photo_mode ?? "nude";
 
@@ -113,7 +118,7 @@ export async function createPersonaFromBrief(
     total: input.total,
     exclude: input.exclude,
     attractiveness,
-    body_type: input.body_type,
+    body_type,
     forced_age: forcedAge,
     appVariant,
     v2PhotoMode: appVariant === "v2" ? v2PhotoMode : undefined,
@@ -131,6 +136,7 @@ export async function createPersonaFromBrief(
   generated.persona.photo_style.seed = randomInt(100_000, 999_999_999);
   if (appVariant === "v2") {
     generated.persona.photo_style.attractiveness = attractiveness;
+    generated.persona.photo_style.body_type = body_type;
     if (!generated.persona.photo_style.style.trim()) {
       generated.persona.photo_style.style =
         v2PhotoMode === "sexy-clothed"
