@@ -17,6 +17,8 @@ import {
   Smile,
 } from "lucide-react";
 import type { Profile, ProfileInterestIcon } from "@/data/profiles";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 
 function InterestGlyph({
   icon,
@@ -63,6 +65,7 @@ function interestIconColor(icon: ProfileInterestIcon): string {
 
 export function ProfileDetailView({ profile }: { profile: Profile }) {
   const router = useRouter();
+  const { variant } = useAppVariant();
   const gallery = profile.gallery.length > 0 ? profile.gallery : [profile.photo];
   const [heroIndex, setHeroIndex] = useState(0);
 
@@ -215,7 +218,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
 
       <div className="sticky bottom-0 z-20 border-t border-black/[0.06] bg-canvas/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
         <Link
-          href={`/messages/${profile.id}`}
+          href={withVariantPath(`/messages/${profile.id}`, variant)}
           className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-ink px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99]"
         >
           <MessageCircle className="h-5 w-5" strokeWidth={2.25} />

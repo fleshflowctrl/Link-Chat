@@ -27,6 +27,7 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 import { FeedCard } from "./feed-card";
 import { ProfileStrengthBanner } from "./profile-strength-banner";
 
@@ -205,6 +206,8 @@ export function FeedStack({
   profile,
   compact = false,
 }: Props) {
+  const { variant } = useAppVariant();
+
   // Per-user key so two accounts in the same browser don't share progress.
   const userKey = useSyncExternalStore(
     subscribeCredits,
@@ -291,8 +294,8 @@ export function FeedStack({
   // Stable href for "Open gesprek" so React doesn't churn the link on every
   // tap. (Not strictly needed but keeps the render hot-path tiny.)
   const openHref = useMemo(
-    () => (current ? `/messages/${current.id}` : "#"),
-    [current],
+    () => (current ? withVariantPath(`/messages/${current.id}`, variant) : "#"),
+    [current, variant],
   );
 
   return (

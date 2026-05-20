@@ -13,7 +13,9 @@ import {
   initCreditsStore,
   subscribeCredits,
 } from "@/lib/credits-store";
-import { CreditPrice, splitCreditPrice } from "@/components/credits/credit-price";
+import { CreditPrice } from "@/components/credits/credit-price";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 
 type CheckoutQuery = {
   success?: string;
@@ -29,6 +31,8 @@ export function CheckoutView({
   query?: CheckoutQuery;
 }) {
   const router = useRouter();
+  const { variant } = useAppVariant();
+  const creditsPath = withVariantPath("/credits", variant);
   const verifiedSession = useRef<string | null>(null);
 
   useEffect(() => {
@@ -57,9 +61,9 @@ export function CheckoutView({
       setSuccess(
         `+${json.grantedCredits ?? pkg.credits + pkg.bonus} credits toegevoegd`,
       );
-      setTimeout(() => router.push("/credits"), 900);
+      setTimeout(() => router.push(creditsPath), 900);
     },
-    [pkg.bonus, pkg.credits, router],
+    [pkg.bonus, pkg.credits, router, creditsPath],
   );
 
   /** Stripe return URL: verify session and grant credits if webhook lagged. */
@@ -174,7 +178,7 @@ export function CheckoutView({
       <header className="shrink-0 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
         <div className="flex items-center justify-between gap-3">
           <Link
-            href="/credits"
+            href={creditsPath}
             aria-label="Terug naar credits"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 transition active:scale-95"
           >

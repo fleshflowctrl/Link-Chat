@@ -4,6 +4,7 @@ import Image from "next/image";
 import { VariantLink as Link } from "@/components/variant-link";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
+import { withVariantPath } from "@/lib/app-variant";
 import {
   useCallback,
   useEffect,
@@ -93,7 +94,7 @@ function PinnedSection({ threads }: { threads: MessageThread[] }) {
         {threads.map((t) => (
           <Link
             key={t.id}
-            href={`/messages/${t.id}`}
+            href={withVariantPath(`/messages/${t.id}`, variant)}
             className={
               isV2
                 ? "flex min-h-[72px] items-start gap-3 rounded-2xl border border-white/10 bg-[#2A2A2B] p-3 shadow-sm transition active:scale-[0.99]"
@@ -167,6 +168,7 @@ function ConversationRow({
   revealedLocked: Set<string>;
   onUnlock: (id: string) => void;
 }) {
+  const { variant } = useAppVariant();
   const mt = effectivePreviewType(t, revealedLocked);
   const locked = t.messageType === "locked" && !revealedLocked.has(t.id);
   const showOnline =
@@ -321,7 +323,7 @@ function ConversationRow({
 
   return (
     <Link
-      href={`/messages/${t.id}`}
+      href={withVariantPath(`/messages/${t.id}`, variant)}
       className="flex min-h-[72px] items-start gap-3 px-4 py-3.5 transition-colors active:bg-black/[0.02]"
     >
       {avatar}

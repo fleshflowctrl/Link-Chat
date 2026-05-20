@@ -41,6 +41,8 @@ import {
 } from "@/lib/messages-tab-badge";
 import { getChatHeaderPresence } from "@/lib/chat/online-status";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 import {
   applyServerCreditsUpdate,
   getCreditsSnapshot,
@@ -211,6 +213,7 @@ export function ChatConversationView({
   useSupabase: boolean;
 }) {
   const router = useRouter();
+  const { variant } = useAppVariant();
   const meta = threadMeta;
   /** Re-render so "Nu online" drops off ~90s after her last bubble. */
   const [onlineTick, setOnlineTick] = useState(0);
@@ -1153,7 +1156,7 @@ export function ChatConversationView({
                   className="absolute right-0 top-12 z-[70] min-w-[180px] overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl ring-1 ring-black/[0.08]"
                 >
                   <Link
-                    href={`/profile/${chatId}`}
+                    href={withVariantPath(`/profile/${chatId}`, variant)}
                     className="block px-4 py-3 text-[14px] font-semibold text-ink transition hover:bg-black/[0.04]"
                     onClick={() => setHeaderMenuOpen(false)}
                   >
@@ -1669,7 +1672,7 @@ export function ChatConversationView({
               </div>
 
               <Link
-                href="/credits"
+                href={withVariantPath("/credits", variant)}
                 onClick={() => setCreditsGateOpen(false)}
                 className="mt-5 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
               >

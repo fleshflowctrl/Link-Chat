@@ -12,8 +12,11 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 import { CreditPrice } from "@/components/credits/credit-price";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { withVariantPath } from "@/lib/app-variant";
 
 function PackageCard({ pkg }: { pkg: CreditPackage }) {
+  const { variant } = useAppVariant();
   const hasRibbon = pkg.badge === "trending" || pkg.badge === "best-value";
 
   const cardRingClass =
@@ -37,7 +40,7 @@ function PackageCard({ pkg }: { pkg: CreditPackage }) {
       )}
 
       <Link
-        href={`/credits/checkout/${pkg.id}`}
+        href={withVariantPath(`/credits/checkout/${pkg.id}`, variant)}
         className={`relative flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm transition active:scale-[0.99] ${cardRingClass} ${
           hasRibbon ? "mt-2" : ""
         }`}
