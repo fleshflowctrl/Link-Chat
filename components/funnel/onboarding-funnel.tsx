@@ -74,6 +74,8 @@ import { SITE_DISPLAY } from "@/lib/brand";
 
 const STEP_TOTAL = 6;
 const FUNNEL_PICKED_PEER_KEY = "whisper_funnel_picked_peer";
+/** Min time on “searching for your type” screen so the animation reads. */
+const FUNNEL_COMPLETE_MIN_MS = 2800;
 const WELCOME_MIN_PROFILE_AGE = 40;
 const WELCOME_ONLINE_COUNT_TARGET = 847;
 
@@ -497,16 +499,21 @@ function OnboardingFunnelInner({
     }
   }, [ageRange, lookingFor]);
 
-  const [finishingPick, setFinishingPick] = useState(false);
+  const [completingFunnel, setCompletingFunnel] = useState(false);
 
   const finishFunnelWithPick = useCallback(async () => {
     const pid = firstContact.profileId;
     if (!pid || !pickedMatch) return;
 
     setFunnelError(null);
-    setFinishingPick(true);
+    setCompletingFunnel(true);
+    const startedAt = Date.now();
     try {
       await persistFunnelDemographics();
+      const waitMs = Math.max(0, FUNNEL_COMPLETE_MIN_MS - (Date.now() - startedAt));
+      if (waitMs > 0) {
+        await new Promise((r) => window.setTimeout(r, waitMs));
+      }
       sessionStorage.setItem(FUNNEL_PICKED_PEER_KEY, pid);
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
       clearLegacyFunnelLocalStorage();
@@ -522,7 +529,7 @@ function OnboardingFunnelInner({
       setFunnelError(
         e instanceof Error ? e.message : "Kon niet doorgaan — probeer opnieuw",
       );
-      setFinishingPick(false);
+      setCompletingFunnel(false);
     }
   }, [
     cfg.discoverPath,
@@ -550,6 +557,18 @@ function OnboardingFunnelInner({
         style={accentStyle}
       >
         <span className="text-sm text-gray-500">Laden…</span>
+      </div>
+    );
+  }
+
+  if (completingFunnel && pickedMatch) {
+    return (
+      <div className={`fixed inset-0 z-10 ${cfg.outerBg}`} style={accentStyle}>
+        <FunnelFindingTypeScreen
+          peer={pickedMatch}
+          cardBg={cfg.cardBg}
+          variant={cfg.variant}
+        />
       </div>
     );
   }
@@ -662,7 +681,6 @@ function OnboardingFunnelInner({
                   selectedId={firstContact.profileId}
                   onSelect={(id) => setFirstContact({ profileId: id })}
                   onFinish={() => void finishFunnelWithPick()}
-                  finishing={finishingPick}
                 />
               )}
             </motion.div>
@@ -1460,6 +1478,157 @@ function cardFooterEmojis(
   return profile.topEmojis;
 }
 
+function FunnelFindingTypeScreen({
+  peer,
+  cardBg,
+  variant,
+}: {
+  peer: FunnelMatchPick;
+  cardBg: string;
+  variant: AppVariant;
+}) {
+  const isV2 = variant === "v2";
+  const [statusIdx, setStatusIdx] = useState(0);
+  const statuses = useMemo(
+    () => [
+      "Op zoek naar jouw type vrouwen…",
+      "Vergelijken met jouw voorkeuren…",
+      "Bijna klaar — feed wordt klaargezet…",
+    ],
+    [],
+  );
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setStatusIdx((i) => (i + 1) % statuses.length);
+    }, 900);
+    return () => window.clearInterval(id);
+  }, [statuses.length]);
+
+  return (
+    <div className="flex h-full min-h-0 w-full justify-center overflow-hidden overscroll-none touch-manipulation">
+      <div
+        className={`relative flex h-full min-h-0 w-full max-w-[430px] flex-col items-center justify-center overflow-hidden px-6 ${cardBg}`}
+      >
+        <div
+          className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[var(--funnel-accent-soft)]/25 blur-3xl"
+          aria-hidden
+        />
+
+        <div className="relative mb-8">
+          <motion.div
+            className="absolute inset-0 rounded-full border-2 border-[var(--funnel-accent)]/30"
+            animate={{ scale: [1, 1.35, 1], opacity: [0.55, 0, 0.55] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
+            style={{ margin: -12 }}
+            aria-hidden
+          />
+          <motion.div
+            className="absolute inset-0 rounded-full border border-[var(--funnel-accent)]/20"
+            animate={{ scale: [1, 1.55, 1], opacity: [0.4, 0, 0.4] }}
+            transition={{
+              duration: 1.8,
+              repeat: Infinity,
+              ease: "easeOut",
+              delay: 0.35,
+            }}
+            style={{ margin: -20 }}
+            aria-hidden
+          />
+          <div
+            className={`relative h-28 w-28 overflow-hidden rounded-full ring-4 shadow-xl ${
+              isV2 ? "ring-[var(--funnel-accent)]/40" : "ring-white"
+            }`}
+          >
+            <Image
+              src={peer.photo}
+              alt=""
+              fill
+              className="object-cover object-[center_22%]"
+              sizes="112px"
+              priority
+            />
+          </div>
+          {[0, 1, 2].map((i) => (
+            <motion.span
+              key={i}
+              className="absolute h-2.5 w-2.5 rounded-full bg-[var(--funnel-accent)] shadow-sm"
+              style={{
+                top: "50%",
+                left: "50%",
+                marginTop: -5,
+                marginLeft: -5,
+              }}
+              animate={{
+                x: [0, Math.cos((i * 2 * Math.PI) / 3) * 52, 0],
+                y: [0, Math.sin((i * 2 * Math.PI) / 3) * 52, 0],
+                opacity: [0.3, 1, 0.3],
+              }}
+              transition={{
+                duration: 1.4,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: i * 0.2,
+              }}
+              aria-hidden
+            />
+          ))}
+        </div>
+
+        <h2
+          className={`text-center text-[clamp(1.25rem,4.5vmin,1.5rem)] font-extrabold leading-tight ${
+            isV2 ? "text-ink" : "text-gray-900"
+          }`}
+        >
+          Op zoek naar jouw type vrouwen
+        </h2>
+
+        <div className="mt-4 h-8 w-full max-w-[280px]">
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={statusIdx}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25 }}
+              className={`text-center text-[13px] font-semibold ${
+                isV2 ? "text-inkMuted" : "text-gray-600"
+              }`}
+            >
+              {statuses[statusIdx]}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+
+        <div className="mt-8 flex w-full max-w-[200px] flex-col gap-2">
+          <div
+            className={`h-1.5 overflow-hidden rounded-full ${
+              isV2 ? "bg-white/10" : "bg-gray-200"
+            }`}
+          >
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)]"
+              initial={{ width: "8%" }}
+              animate={{ width: "100%" }}
+              transition={{
+                duration: FUNNEL_COMPLETE_MIN_MS / 1000,
+                ease: [0.25, 0.1, 0.25, 1],
+              }}
+            />
+          </div>
+          <p
+            className={`text-center text-[11px] ${
+              isV2 ? "text-inkMuted" : "text-gray-500"
+            }`}
+          >
+            Even geduld — je feed wordt klaargezet
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StepPickMatch({
   matches,
   lookingFor,
@@ -1467,7 +1636,6 @@ function StepPickMatch({
   selectedId,
   onSelect,
   onFinish,
-  finishing = false,
 }: {
   matches: FunnelMatchPick[];
   lookingFor: FunnelLookingFor | null;
@@ -1475,7 +1643,6 @@ function StepPickMatch({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onFinish: () => void;
-  finishing?: boolean;
 }) {
   const { variant } = useFunnelConfig();
   const isV2 = variant === "v2";
@@ -1593,15 +1760,11 @@ function StepPickMatch({
       <div className="shrink-0 border-t border-black/[0.04] bg-canvas px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <button
           type="button"
-          disabled={!ok || finishing}
+          disabled={!ok}
           onClick={onFinish}
-          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
-            ok && !finishing
-              ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-lg"
-              : "cursor-not-allowed bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white opacity-50 shadow-none"
-          }`}
+          className={funnelPrimaryButtonClass(ok)}
         >
-          {finishing ? "Even geduld…" : "Dit is mijn type →"}
+          Dit is mijn type →
         </button>
       </div>
     </div>
