@@ -73,7 +73,7 @@ import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { SITE_DISPLAY } from "@/lib/brand";
 
 const STEP_TOTAL = 6;
-const FUNNEL_PICKED_PEER_KEY = "whisper_funnel_picked_peer";
+import { setFunnelPickedPeerClient } from "@/lib/catalog/funnel-picked-peer";
 /** Min time on “searching for your type” screen so the animation reads. */
 const FUNNEL_COMPLETE_MIN_MS = 2800;
 const WELCOME_MIN_PROFILE_AGE = 40;
@@ -514,7 +514,7 @@ function OnboardingFunnelInner({
       if (waitMs > 0) {
         await new Promise((r) => window.setTimeout(r, waitMs));
       }
-      sessionStorage.setItem(FUNNEL_PICKED_PEER_KEY, pid);
+      setFunnelPickedPeerClient(pid);
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
       clearLegacyFunnelLocalStorage();
       if (typeof window !== "undefined") {

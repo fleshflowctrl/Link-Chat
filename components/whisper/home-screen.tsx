@@ -13,6 +13,11 @@ import {
 // ActivityStrip is temporarily disabled — re-enable in the JSX below to bring
 // back the "Nieuw op whisper" rail.
 // import { ActivityStrip } from "./activity-strip";
+import {
+  consumeFunnelPickedPeerClient,
+  pinProfileFirstInFeed,
+} from "@/lib/catalog/funnel-picked-peer";
+import { hashFeedComposition } from "@/lib/catalog/hourly-feed";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
 import { FeedStack } from "./feed-stack";
 import { HomeHeader } from "./home-header";
@@ -84,9 +89,27 @@ export function HomeScreen({
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [hash, setHash] = useState<string>(feedHash);
+  const [funnelStartProfileId, setFunnelStartProfileId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     initCreditsStore();
+  }, []);
+
+  // After onboarding "Dit is mijn type", show that profile first (SSR may
+  // already have reordered; this covers guests and any race with the cookie).
+  useEffect(() => {
+    const pickedId = consumeFunnelPickedPeerClient();
+    if (!pickedId) return;
+    setFunnelStartProfileId(pickedId);
+    setProfilesState((prev) => {
+      const next = pinProfileFirstInFeed(prev, prev, pickedId);
+      if (next[0]?.id === pickedId) {
+        setHash(hashFeedComposition(next.map((p) => p.id)));
+      }
+      return next;
+    });
   }, []);
 
   const creditsSnapshot = useSyncExternalStore(
@@ -198,6 +221,7 @@ export function HomeScreen({
         profiles={profilesState}
         feedSlot={slot}
         feedHash={hash}
+        startAtProfileId={funnelStartProfileId}
         nextRefreshAt={nextAt}
         refreshCost={refreshCost}
         balance={balanceForButton}

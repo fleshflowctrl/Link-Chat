@@ -172,6 +172,8 @@ type Props = {
   profile?: EditProfileState | null;
   /** Tighter spacing so discover fits one mobile viewport (v2). */
   compact?: boolean;
+  /** One-shot: open on this profile (e.g. funnel pick) instead of saved cursor. */
+  startAtProfileId?: string | null;
 };
 
 function formatCountdown(ms: number): string {
@@ -205,6 +207,7 @@ export function FeedStack({
   refreshError,
   profile,
   compact = false,
+  startAtProfileId = null,
 }: Props) {
   const { variant } = useAppVariant();
 
@@ -225,6 +228,12 @@ export function FeedStack({
   // current pack size. A new slot uses a fresh storage key so this is a
   // natural reset when the timer rotates.
   useEffect(() => {
+    if (startAtProfileId) {
+      const found = profiles.findIndex((p) => p.id === startAtProfileId);
+      setIndex(found >= 0 ? found : 0);
+      setHydrated(true);
+      return;
+    }
     const saved = readSavedCursor(userKey, feedSlot);
     let resumeIndex = Math.min(Math.max(0, saved.index), profiles.length);
     if (saved.profileId) {
@@ -237,7 +246,7 @@ export function FeedStack({
     // shouldn't reset (the server keeps order stable), so `profiles` and
     // `feedHash` are not deps here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userKey, feedSlot]);
+  }, [userKey, feedSlot, startAtProfileId]);
 
   // Persist progress (skip the very first render before hydration to avoid
   // overwriting a saved value with the initial 0).

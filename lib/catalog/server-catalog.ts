@@ -24,6 +24,7 @@ import {
   chatProfileMatchesVariant,
   staticCatalogProfiles,
 } from "@/lib/catalog/profile-variant";
+import { pinProfileFirstInFeed } from "@/lib/catalog/funnel-picked-peer";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -197,13 +198,21 @@ export async function fetchHomePageCatalogServer(
 ): Promise<HomePageCatalogBundle> {
   const variant = options.variant ?? DEFAULT_APP_VARIANT;
   const now = Date.now();
+  const { consumeFunnelPickedPeerServer } = await import(
+    "@/lib/catalog/funnel-picked-peer"
+  );
+  const funnelPickedId = await consumeFunnelPickedPeerServer();
 
   const staticPool = staticCatalogProfiles(variant);
 
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const meta = bundleMeta(0, now);
-    const gridProfiles = pickDiscoverFeed(staticPool, "guest", meta.feedSlot);
+    const gridProfiles = pinProfileFirstInFeed(
+      pickDiscoverFeed(staticPool, "guest", meta.feedSlot),
+      staticPool,
+      funnelPickedId,
+    );
     return {
       gridProfiles,
       activityUsers: getNewWhisperUsers(),
@@ -219,7 +228,11 @@ export async function fetchHomePageCatalogServer(
   } catch {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const meta = bundleMeta(0, now);
-    const gridProfiles = pickDiscoverFeed(staticPool, "guest", meta.feedSlot);
+    const gridProfiles = pinProfileFirstInFeed(
+      pickDiscoverFeed(staticPool, "guest", meta.feedSlot),
+      staticPool,
+      funnelPickedId,
+    );
     return {
       gridProfiles,
       activityUsers: getNewWhisperUsers(),
@@ -239,7 +252,11 @@ export async function fetchHomePageCatalogServer(
 
   if (!user) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
-    const gridProfiles = pickDiscoverFeed(staticPool, userKey, meta.feedSlot);
+    const gridProfiles = pinProfileFirstInFeed(
+      pickDiscoverFeed(staticPool, userKey, meta.feedSlot),
+      staticPool,
+      funnelPickedId,
+    );
     return {
       gridProfiles,
       activityUsers: getNewWhisperUsers(),
@@ -270,13 +287,30 @@ export async function fetchHomePageCatalogServer(
   }
 
   const history = await loadProfileViewHistory(supabase, user.id);
-  const gridProfiles = await getOrBuildCachedPack(
+  let gridProfiles = await getOrBuildCachedPack(
     supabase,
     user.id,
     pool,
     meta.feedSlot,
     history,
   );
+
+  if (funnelPickedId) {
+    gridProfiles = pinProfileFirstInFeed(gridProfiles, pool, funnelPickedId);
+    try {
+      await supabase.from("home_feed_state").upsert(
+        {
+          user_id: user.id,
+          cached_pack_slot: meta.feedSlot,
+          cached_pack_ids: gridProfiles.map((p) => p.id),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+    } catch {
+      /* cache update is best-effort */
+    }
+  }
 
   let actQuery = supabase
     .from("chat_profiles")
