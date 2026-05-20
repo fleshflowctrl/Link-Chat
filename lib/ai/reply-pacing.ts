@@ -42,6 +42,12 @@
  * Override / kill-switch: set `XAI_DISABLE_PACING=1` to reply instantly.
  */
 
+import type { AppVariant } from "@/lib/app-variant";
+import {
+  V2_MAX_REPLY_DELAY_MS,
+  V2_MIN_REPLY_DELAY_MS,
+} from "@/lib/ai/v2-chat-config";
+
 export type PacingInput = {
   /** Persona id (chat_profiles.id). Required to derive a deterministic
    * per-persona bedtime so two pacing calls for the same user message
@@ -65,6 +71,8 @@ export type PacingInput = {
    * breaks and end-of-shift instead of dropping at random times.
    * Pass null/empty to skip work-schedule logic (legacy callers). */
   occupation?: string | null;
+  /** v2 pool: replies always within ~1 minute. */
+  appVariant?: AppVariant;
 };
 
 import {
@@ -97,6 +105,11 @@ export type PacingResult = {
  * async pending-reply queue. 25s is comfortably under the route's 120s
  * `maxDuration` and well under typical serverless timeouts. */
 export const SYNC_DELAY_THRESHOLD_MS = 25_000;
+
+/** Sync vs async cutoff — v2 allows holding the request open up to 1 minute. */
+export function syncDelayThresholdMs(appVariant?: AppVariant): number {
+  return appVariant === "v2" ? V2_MAX_REPLY_DELAY_MS : SYNC_DELAY_THRESHOLD_MS;
+}
 
 /** Hard ceiling for ANY reply (operator policy: alle replies binnen 2 min,
  * onafhankelijk van bedtime / work / engagement-mode). Used by `capDelayMs`. */
@@ -181,12 +194,77 @@ function capDelayMs(ms: number, _bedtimePhase: BedtimePhase): number {
  *     matches her current state (goodnight when approaching, morning when
  *     just-woken-up, normal otherwise).
  */
+function computeV2ReplyPacing(opts: PacingInput): PacingResult {
+  const turnIndex = Math.max(0, Math.floor(opts.turnIndex));
+  const userChars = Math.max(0, opts.userMessageChars);
+  const replyChars = Math.max(0, opts.replyChars);
+  const now = opts.nowLocal ?? new Date();
+  const tz = opts.timeZone ?? defaultTimeZone();
+
+  const bedtime = getBedtimeContext({
+    now,
+    timeZone: tz,
+    personaId: opts.personaId,
+    peerLastReplyAt: opts.peerLastReplyAt ?? null,
+  });
+  const work = getWorkContext({
+    now,
+    timeZone: tz,
+    personaId: opts.personaId,
+    occupation: opts.occupation ?? null,
+  });
+
+  const peerInactiveMs =
+    opts.peerLastReplyAt instanceof Date
+      ? Math.max(0, now.getTime() - opts.peerLastReplyAt.getTime())
+      : Number.POSITIVE_INFINITY;
+  const mode = engagementMode(peerInactiveMs);
+
+  let base: number;
+  if (turnIndex === 0) {
+    base = rng(12_000, 42_000);
+  } else if (turnIndex < 3) {
+    base = rng(10_000, 35_000);
+  } else if (mode === "hot") {
+    base = rng(8_000, 28_000);
+  } else if (mode === "warm") {
+    base = rng(12_000, 40_000);
+  } else {
+    base = rng(18_000, 55_000);
+  }
+
+  const typingBonus = Math.min(replyChars * 40, 4000);
+  const readingBonus = Math.min(userChars * 20, 1500);
+  let total = (base + typingBonus + readingBonus) * (0.92 + Math.random() * 0.16);
+
+  return {
+    delayMs: clampMs(total, V2_MIN_REPLY_DELAY_MS, V2_MAX_REPLY_DELAY_MS),
+    bedtimePhase: bedtime.phase,
+    minutesUntilBedtime: bedtime.minutesUntilBedtime,
+    workPhase: work.phase,
+    workPromptHint: work.promptHint,
+  };
+}
+
 export function computeReplyPacing(opts: PacingInput): PacingResult {
   const turnIndex = Math.max(0, Math.floor(opts.turnIndex));
   const userChars = Math.max(0, opts.userMessageChars);
   const replyChars = Math.max(0, opts.replyChars);
   const now = opts.nowLocal ?? new Date();
   const tz = opts.timeZone ?? defaultTimeZone();
+
+  if (opts.appVariant === "v2") {
+    if (isPacingDisabled()) {
+      return {
+        delayMs: 0,
+        bedtimePhase: "awake",
+        minutesUntilBedtime: null,
+        workPhase: "off",
+        workPromptHint: "",
+      };
+    }
+    return computeV2ReplyPacing(opts);
+  }
 
   if (isPacingDisabled()) {
     return {

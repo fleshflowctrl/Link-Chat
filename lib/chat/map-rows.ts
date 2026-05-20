@@ -88,6 +88,8 @@ export type ChatProfileRow = {
   persona_meta?: PersonaMeta | null;
   /** Admin soft-hide. */
   is_archived?: boolean | null;
+  /** A/B pool: v1 default dating vs v2 FetLife-style. */
+  app_variant?: "v1" | "v2" | string | null;
 };
 
 /** Long-tail persona attributes the chat-prompt builder reads. Everything

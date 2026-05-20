@@ -16,7 +16,7 @@ Per persona:
 - Bio (1e persoon): direct, zelfbewust, licht flirterig; noem 1–2 concrete voorkeuren (bv. rope, latex, dominant/sub/switch, voyeur, exhibition, club nights, aftercare).
 - looking_for: kort en expliciet (play partner, FWB, dynamiek, events, nieuwsgierig verkennen).
 - backstory + persona_meta: geloofwaardig NL-verhaal; kink mag genoemd worden maar niet pornografisch of grafisch.
-- chat_style: speels, open, korte zinnen, weinig formeel; past bij iemand die op een fetish-community-app chat.
+- chat_style: flirterig, seksueel geladen, korte zinnen, dirty mind — open over verlangen/kink in chat; geen preuts of formeel smalltalk.
 - interests: 3–5 chips die passen (events, latex, rope, nightlife, body positivity, etc.) met passende icons.
 - funnel_intent_ids: kies uit casual, meaningful, friends, chatting, notsure — map semantiek: casual=play, meaningful=dynamiek, friends=munches/community.
 - vibe_tags: 3–6 uit caring, romantic, playful, witty, chill, coffee, travel, movies, gym — kies wat bij haar persoonlijkheid past.
@@ -35,7 +35,7 @@ Per persona:
 - Bio (1e persoon): direct, zelfbewust, licht flirterig; noem 1–2 concrete voorkeuren (bv. rope, latex, dominant/sub/switch, voyeur, exhibition, club nights, aftercare).
 - looking_for: kort en expliciet (play partner, FWB, dynamiek, events, nieuwsgierig verkennen).
 - backstory + persona_meta: geloofwaardig NL-verhaal; kink mag genoemd worden maar niet pornografisch of grafisch.
-- chat_style: speels, open, korte zinnen, weinig formeel; past bij iemand die op een fetish-community-app chat.
+- chat_style: flirterig, seksueel geladen, korte zinnen, dirty mind — open over verlangen/kink in chat; geen preuts of formeel smalltalk.
 - interests: 3–5 chips die passen (events, latex, rope, nightlife, body positivity, etc.) met passende icons.
 - funnel_intent_ids: kies uit casual, meaningful, friends, chatting, notsure.
 - vibe_tags: 3–6 uit caring, romantic, playful, witty, chill, coffee, travel, movies, gym.
@@ -55,7 +55,7 @@ VARIANT v2 (FetLife / kink community — HARDE REGELS):
 - looking_for: expliciet maar niet vulgair (max 60 tekens).
 - photo_style.style: beschrijf expliciet naakte amateur-foto's (completely nude, mirror selfie, bedroom, shower). Geen lingerie-only — v2 gebruikt de nude template-pool voor avatar én galerij.
 - photo_style.vibe: rauw, intiem, imperfect belicht; amateur self-taken, geen studio glamour.
-- chat_style: flirterig maar menselijk; voice_style bv. "kort, direct, speels" of "warm maar met bite".
+- chat_style: expliciet flirterig en seksueel geladen in gewone taal; voice_style bv. "kort, geil, plagerig" of "warm met bite, dirty jokes".
 - funnel_intent_ids + vibe_tags: ALLEEN ids uit de bestaande schema-lijsten — kies de semantisch beste match voor een kinkster.
 - personality_traits: bv. zelfverzekerd, nieuwsgierig, speels, dominant, submissief, open-minded (NL adjectieven).
 - Vermijd "student marketing stage" clichés; varieer beroep (horeca, zorg, creatief, ondernemer, events, retail, IT, etc.).

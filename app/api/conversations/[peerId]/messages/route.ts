@@ -15,8 +15,9 @@ import {
 import {
   computeReplyPacing,
   sleep,
-  SYNC_DELAY_THRESHOLD_MS,
+  syncDelayThresholdMs,
 } from "@/lib/ai/reply-pacing";
+import { parseAppVariant } from "@/lib/app-variant";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
 import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
@@ -181,6 +182,8 @@ export async function POST(
   }
 
   const p = profile as ChatProfileRow;
+  const peerAppVariant = parseAppVariant(p.app_variant ?? null);
+  const syncThresholdMs = syncDelayThresholdMs(peerAppVariant);
 
   const deduct = await deductUserCredits(
     supabase,
@@ -304,13 +307,14 @@ export async function POST(
     nowLocal: new Date(),
     peerLastReplyAt: lastPeerReplyAt(history),
     occupation: personaOccupation,
+    appVariant: peerAppVariant,
   });
   const initialDelayMs = initialPacing.delayMs;
 
   let peerMessage: ChatMessage | null = null;
   let nextPendingAt: string | null = null;
 
-  if (initialDelayMs <= SYNC_DELAY_THRESHOLD_MS) {
+  if (initialDelayMs <= syncThresholdMs) {
     // Sync flow: generate now, hold the response open with sleep so the
     // client's typing indicator runs for the right amount of time.
     const t0 = Date.now();
@@ -336,10 +340,11 @@ export async function POST(
         nowLocal: new Date(),
         peerLastReplyAt: lastPeerReplyAt(history),
         occupation: personaOccupation,
+        appVariant: peerAppVariant,
       });
       const elapsed = Date.now() - t0;
       const remaining = Math.max(0, finalPacing.delayMs - elapsed);
-      if (remaining > 0 && remaining <= SYNC_DELAY_THRESHOLD_MS) {
+      if (remaining > 0 && remaining <= syncThresholdMs) {
         await sleep(remaining);
       }
       peerMessage = messageRowToUi(result.assistantRow);

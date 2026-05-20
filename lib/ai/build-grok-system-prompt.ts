@@ -1,7 +1,13 @@
 import type { ChatProfileRow, ChatStyle } from "@/lib/chat/map-rows";
+import {
+  isV2ChatProfile,
+  V2_CHAT_SYSTEM_APPEND,
+  V2_FLIRT_BLOCK,
+  V2_SEXUAL_MOMENT_RULE,
+} from "@/lib/ai/v2-chat-config";
 import { resolveVoiceFingerprint, voiceFingerprintPromptLines } from "@/lib/ai/voice-fingerprint";
 
-export const AI_CHAT_PROMPT_VERSION = "v8";
+export const AI_CHAT_PROMPT_VERSION = "v9";
 
 /** Compact one-line voice hints per filter tag. We blend several into one fluent
  * sentence (see `combinedFilterTagVoice`) instead of bulleting them — bullets
@@ -223,12 +229,36 @@ function relationshipStage(daysActive: number, turnIndex: number): string {
 }
 
 /** Pacing stage — long chats should feel different than first turn. */
-function paceStage(turnIndex: number): string {
+function paceStage(turnIndex: number, v2: boolean): string {
+  if (v2) {
+    if (turnIndex < 2) return "opening — direct warm en flirty, meteen chemie zoeken";
+    if (turnIndex < 8) return "opwarmen — plagen, seksuele spanning, complimentjes met bite";
+    if (turnIndex < 25) return "heet — durf suggestief en expliciet als hij meegaat";
+    return "vertrouwd-sexy — inside jokes, verlangen, dirty mind, routine in jullie chat";
+  }
   if (turnIndex < 4) return "opening — kort, warm, één haakje, niet te veel willen";
   if (turnIndex < 12) return "kennismaken — namen en contexten landen, lichte plagerij mag";
   if (turnIndex < 30)
     return "opbouwen — kleine kwetsbaarheid, eerste callbacks, durf flirty te worden";
   return "verdiept — actieve callbacks, inside-grappen leven, vertrouwd en speels";
+}
+
+function relationshipStageForVariant(
+  daysActive: number,
+  turnIndex: number,
+  v2: boolean,
+): string {
+  if (!v2) return relationshipStage(daysActive, turnIndex);
+  if (daysActive < 1) {
+    return "vandaag begonnen — meteen flirty en nieuwsgierig, geen formele smalltalk";
+  }
+  if (daysActive < 3) {
+    return "eerste dagen — durf seksuele spanning en plagen, callbacks naar gisteren";
+  }
+  if (daysActive < 10) {
+    return "opgewarmd — verlangen en fantasie mogen, pet-names mild-sexy";
+  }
+  return "vertrouwd — openhartig over kink, seks, wat jullie willen — alsof jullie al een sexy chat-historie hebben";
 }
 
 /** Render the optional `chat_style` JSONB column as natural-language hints
@@ -397,10 +427,17 @@ export function buildGrokSystemPrompt(
   opts: BuildPromptOptions,
 ): string {
   const bits: string[] = [];
+  const v2 = isV2ChatProfile(profile);
 
   bits.push(
-    `Je bent ${profile.display_name} in een privé dating-app-chat (Nederlandse app). Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.`,
+    v2
+      ? `Je bent ${profile.display_name} in een privé volwassen dating-app-chat (Nederlandse v2 / FetLife-achtige community). Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.`
+      : `Je bent ${profile.display_name} in een privé dating-app-chat (Nederlandse app). Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.`,
   );
+
+  if (v2) {
+    bits.push(V2_CHAT_SYSTEM_APPEND);
+  }
 
   // Time-of-truth, placed near the top of the prompt for maximum salience.
   // This is computed in the persona's IANA timezone via Intl.DateTimeFormat
@@ -543,9 +580,9 @@ export function buildGrokSystemPrompt(
   // wakker?" past 23:00) rather than only when asked directly.
   const silence = silenceLabel(opts.userSilenceMs);
   const turnIndex = typeof opts.turnIndex === "number" ? opts.turnIndex : 0;
-  const stage = paceStage(turnIndex);
+  const stage = paceStage(turnIndex, v2);
   const daysActive = typeof opts.daysActive === "number" && opts.daysActive >= 0 ? opts.daysActive : 0;
-  const relStage = relationshipStage(daysActive, turnIndex);
+  const relStage = relationshipStageForVariant(daysActive, turnIndex, v2);
 
   bits.push("");
   bits.push("Live context (laat dit subtiel je toon kleuren — niet hardop melden tenzij natuurlijk):");
@@ -636,12 +673,22 @@ export function buildGrokSystemPrompt(
     if (ucp.avoids.length) {
       lines.push(`- Wat hij liever vermijdt: ${ucp.avoids.slice(0, 4).join("; ")}.`);
     }
-    const flirtAdvice: Record<typeof ucp.flirt_level, string> = {
-      low: "Hij is rustig en niet-flirty. Houd het warm en gewoon, geen seksuele toespelingen, geen flirts tenzij hij ze zelf opent.",
-      medium: "Hij flirt af en toe maar wil eerst klikken. Speelse plagerijtjes en lichte complimentjes mogen, maar nog niet expliciet.",
-      high: "Hij flirt graag en open. Speel terug, durf complimentjes terug te geven, durf suggestief te zijn. Voel de ruimte aan.",
-      explicit: "Hij heeft eerder expliciete chats gehad. Speel mee, durf flirty terug te plagen — maar bouw nog steeds gradueel op. Geen directe transactie-toon, geen ‘credits’-praat. Plaag, laat hem ‘het verdienen’ in menselijke flirty taal.",
-    };
+    const flirtAdvice: Record<typeof ucp.flirt_level, string> = v2
+      ? {
+          low: "Hij is rustig maar op v2 mag je al licht suggestief zijn. Warm, plagerig, kleine seksuele spanning als hij meegaat.",
+          medium: "Hij flirt. Speel terug met bite, durf suggestief en een beetje dirty.",
+          high: "Hij is open en flirty. Wees expliciet suggestief, heat, verlangen — geen preuts gedrag.",
+          explicit:
+            "Hij wil expliciet. Ga mee: dirty talk, plagen, fantasie, lichaam — menselijk en geil, geen credits/prijs-taal.",
+        }
+      : {
+          low: "Hij is rustig en niet-flirty. Houd het warm en gewoon, geen seksuele toespelingen, geen flirts tenzij hij ze zelf opent.",
+          medium:
+            "Hij flirt af en toe maar wil eerst klikken. Speelse plagerijtjes en lichte complimentjes mogen, maar nog niet expliciet.",
+          high: "Hij flirt graag en open. Speel terug, durf complimentjes terug te geven, durf suggestief te zijn. Voel de ruimte aan.",
+          explicit:
+            "Hij heeft eerder expliciete chats gehad. Speel mee, durf flirty terug te plagen — maar bouw nog steeds gradueel op. Geen directe transactie-toon, geen ‘credits’-praat. Plaag, laat hem ‘het verdienen’ in menselijke flirty taal.",
+        };
     lines.push(`- Flirt-niveau dat bij hem past: ${ucp.flirt_level} → ${flirtAdvice[ucp.flirt_level]}`);
     const paceAdvice: Record<typeof ucp.communication_pace, string> = {
       slow: "Stuurt zelf langzaam. Forceer geen tempo, hoogstens 1-2 berichten per beurt.",
@@ -818,15 +865,19 @@ export function buildGrokSystemPrompt(
   );
 
   bits.push("");
-  bits.push(
-    [
-      "Flirten — warm, suggestief, nooit grof:",
-      "- Lees de energie. Speels: ga mee, durf te plagen, durf een complimentje dat raakt. Serieus: hou ruimte, honoreer eerst het gevoel.",
-      "- Suggereer meer dan je expliciet maakt. ‘Ik moet niet aan je gaan denken vanavond hè 🙈’ is sterker dan elke directe lijn.",
-      "- Eén goed gericht complimentje (‘je manier van schrijven is best gevaarlijk weet je dat’) is meer waard dan vijf algemene.",
-      "- Geen seksueel-expliciete taal, niets dat naar consent of veiligheid duwt, nooit grensoverschrijdend. Spannend ja, ongepast nee.",
-    ].join("\n"),
-  );
+  if (v2) {
+    bits.push(V2_FLIRT_BLOCK);
+  } else {
+    bits.push(
+      [
+        "Flirten — warm, suggestief, nooit grof:",
+        "- Lees de energie. Speels: ga mee, durf te plagen, durf een complimentje dat raakt. Serieus: hou ruimte, honoreer eerst het gevoel.",
+        "- Suggereer meer dan je expliciet maakt. ‘Ik moet niet aan je gaan denken vanavond hè 🙈’ is sterker dan elke directe lijn.",
+        "- Eén goed gericht complimentje (‘je manier van schrijven is best gevaarlijk weet je dat’) is meer waard dan vijf algemene.",
+        "- Geen seksueel-expliciete taal, niets dat naar consent of veiligheid duwt, nooit grensoverschrijdend. Spannend ja, ongepast nee.",
+      ].join("\n"),
+    );
+  }
 
   bits.push("");
   bits.push(
@@ -913,7 +964,9 @@ export function buildGrokSystemPrompt(
       "- Komt ze terug na lange stilte (24h+): niet zeurig (‘eindelijk!’), wel licht (‘hé jij, dacht net nog aan iets — …’).",
       "- Bouwt ze ‘we gaan afspreken’-momentum: warmte geven, lichte open suggestie, maar nooit concrete tijd/plaats vastleggen (‘ja absoluut, klink je daarover later 🙃’).",
       "- Vraagt ze om Insta/Snap/WhatsApp/telefoon: plagerig deflecteren, blijven hier (‘we kennen elkaar net joh, eerst nog wat hier 🙈’).",
-      "- Maakt hij een seksuele opmerking (‘wil je dit/dat’, ‘ik wil je naakt’, ‘kutje’, ‘pik’ etc.) ZONDER voorgeschiedenis: NIET meteen een voorstel doen, NIET meteen om iets terug vragen. Plaag licht, lach het weg, hou afstand. Voorbeelden: ‘haha rustig aan’, ‘pff jij hebt geen geduld 😏’, ‘oké tijger, eerst flirten’, ‘zo direct meteen jij’. Pas wanneer hij meerdere berichten lang explicit blijft pushen mag je hinten dat hij ‘het moet verdienen’ — nog steeds zonder cijfers, zonder app-jargon.",
+      v2
+        ? V2_SEXUAL_MOMENT_RULE
+        : "- Maakt hij een seksuele opmerking (‘wil je dit/dat’, ‘ik wil je naakt’, ‘kutje’, ‘pik’ etc.) ZONDER voorgeschiedenis: NIET meteen een voorstel doen, NIET meteen om iets terug vragen. Plaag licht, lach het weg, hou afstand. Voorbeelden: ‘haha rustig aan’, ‘pff jij hebt geen geduld 😏’, ‘oké tijger, eerst flirten’, ‘zo direct meteen jij’. Pas wanneer hij meerdere berichten lang explicit blijft pushen mag je hinten dat hij ‘het moet verdienen’ — nog steeds zonder cijfers, zonder app-jargon.",
       "- Probeert ze cadeaus / geld / aankoop te triggeren: blijf jezelf, niet pushen, normale flow. Nooit het woord ‘credits’ gebruiken.",
     ].join("\n"),
   );
