@@ -96,15 +96,88 @@ function messageSortKey(m: ChatMessage): number {
   return m.minuteOfDay * 60_000;
 }
 
+function isOptimisticTempId(id: string): boolean {
+  return id.startsWith("tmp-");
+}
+
+function optimisticMatchesServerRow(
+  opt: ChatMessage,
+  serverRow: ChatMessage,
+): boolean {
+  if (opt.sender !== "me" || serverRow.sender !== "me") return false;
+  if (opt.kind !== serverRow.kind) return false;
+  if (opt.kind === "text") {
+    return (opt.body ?? "").trim() === (serverRow.body ?? "").trim();
+  }
+  if (opt.kind === "image") {
+    return !!opt.imageUrl && opt.imageUrl === serverRow.imageUrl;
+  }
+  if (opt.kind === "gift") {
+    return opt.giftCredits === serverRow.giftCredits;
+  }
+  return false;
+}
+
+function dedupeChatMessagesById(messages: ChatMessage[]): ChatMessage[] {
+  const seen = new Set<string>();
+  const out: ChatMessage[] = [];
+  for (const m of messages) {
+    if (seen.has(m.id)) continue;
+    seen.add(m.id);
+    out.push(m);
+  }
+  return out;
+}
+
+function finalizeMessagesAfterSend(
+  prev: ChatMessage[],
+  tempId: string,
+  userMessage: ChatMessage,
+  extra?: {
+    newPeerMessages?: ChatMessage[];
+    peerMessage?: ChatMessage | null;
+  },
+): ChatMessage[] {
+  const user = withAmsterdamMessageTimes(userMessage);
+  const replaced = prev.map((m) => (m.id === tempId ? user : m));
+  const seen = new Set(replaced.map((m) => m.id));
+  const additions: ChatMessage[] = [];
+  for (const m of extra?.newPeerMessages ?? []) {
+    if (!seen.has(m.id)) {
+      additions.push(withAmsterdamMessageTimes(m));
+      seen.add(m.id);
+    }
+  }
+  if (extra?.peerMessage && !seen.has(extra.peerMessage.id)) {
+    additions.push(withAmsterdamMessageTimes(extra.peerMessage));
+  }
+  return dedupeChatMessagesById(
+    additions.length === 0 ? replaced : [...replaced, ...additions],
+  );
+}
+
 /** Merge server transcript with optimistic rows; never drop in-flight temps. */
 function mergeChatMessages(
   prev: ChatMessage[],
   server: ChatMessage[],
 ): ChatMessage[] {
   const serverIds = new Set(server.map((m) => m.id));
-  const optimistic = prev.filter((m) => !serverIds.has(m.id));
-  return [...server, ...optimistic].sort(
-    (a, b) => messageSortKey(a) - messageSortKey(b),
+  const serverMe = server.filter((m) => m.sender === "me");
+  const optimistic = prev.filter((m) => {
+    if (serverIds.has(m.id)) return false;
+    // Sync can return the persisted row before we swap tmp-* → real id.
+    if (
+      isOptimisticTempId(m.id) &&
+      serverMe.some((s) => optimisticMatchesServerRow(m, s))
+    ) {
+      return false;
+    }
+    return true;
+  });
+  return dedupeChatMessagesById(
+    [...server, ...optimistic].sort(
+      (a, b) => messageSortKey(a) - messageSortKey(b),
+    ),
   );
 }
 
@@ -253,6 +326,7 @@ export function ChatConversationView({
   const [nextPendingAt, setNextPendingAt] = useState<string | null>(null);
   /** Guard against overlapping pollPending invocations. */
   const pollingRef = useRef(false);
+  const sendTextInFlightRef = useRef(false);
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
 
@@ -727,6 +801,9 @@ export function ChatConversationView({
         return;
       }
 
+      if (sendTextInFlightRef.current) return;
+      sendTextInFlightRef.current = true;
+
       const sentAt = new Date().toISOString();
       const { timeLabel, minuteOfDay } = nowAmsterdamClock();
       const tempId = `tmp-${gid()}`;
@@ -818,28 +895,12 @@ export function ChatConversationView({
           setAssistantError(null);
         }
 
-        setMessages((prev) => {
-          const replaced = prev.map((m) =>
-            m.id === tempId
-              ? withAmsterdamMessageTimes(data.userMessage!)
-              : m,
-          );
-          // Append in order: any catch-up replies that the server delivered
-          // for older queued messages, then the synchronous reply for *this*
-          // message (if any).
-          const seen = new Set(replaced.map((m) => m.id));
-          const additions: ChatMessage[] = [];
-          for (const m of data.newPeerMessages ?? []) {
-            if (!seen.has(m.id)) {
-              additions.push(withAmsterdamMessageTimes(m));
-              seen.add(m.id);
-            }
-          }
-          if (data.peerMessage && !seen.has(data.peerMessage.id)) {
-            additions.push(withAmsterdamMessageTimes(data.peerMessage));
-          }
-          return additions.length === 0 ? replaced : [...replaced, ...additions];
-        });
+        setMessages((prev) =>
+          finalizeMessagesAfterSend(prev, tempId, data.userMessage!, {
+            newPeerMessages: data.newPeerMessages,
+            peerMessage: data.peerMessage,
+          }),
+        );
         // Arm the next async delivery if the server scheduled one.
         setNextPendingAt(data.nextPendingAt ?? null);
 
@@ -878,6 +939,8 @@ export function ChatConversationView({
           return rest;
         });
         setInput(trimmed);
+      } finally {
+        sendTextInFlightRef.current = false;
       }
     },
     [chatId, openCreditsGate, useSupabase, meta, variant],
@@ -967,25 +1030,12 @@ export function ChatConversationView({
         if (typeof data.newBalance === "number") {
           applyServerCreditsUpdate(data.newBalance);
         }
-        setMessages((prev) => {
-          const replaced = prev.map((m) =>
-            m.id === tempId
-              ? withAmsterdamMessageTimes(data.userMessage!)
-              : m,
-          );
-          const seen = new Set(replaced.map((m) => m.id));
-          const additions: ChatMessage[] = [];
-          for (const m of data.newPeerMessages ?? []) {
-            if (!seen.has(m.id)) {
-              additions.push(withAmsterdamMessageTimes(m));
-              seen.add(m.id);
-            }
-          }
-          if (data.peerMessage && !seen.has(data.peerMessage.id)) {
-            additions.push(withAmsterdamMessageTimes(data.peerMessage));
-          }
-          return additions.length === 0 ? replaced : [...replaced, ...additions];
-        });
+        setMessages((prev) =>
+          finalizeMessagesAfterSend(prev, tempId, data.userMessage!, {
+            newPeerMessages: data.newPeerMessages,
+            peerMessage: data.peerMessage,
+          }),
+        );
         setNextPendingAt(data.nextPendingAt ?? null);
         requestThreadsRefetch();
       } catch (e) {
@@ -1051,16 +1101,11 @@ export function ChatConversationView({
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
           return { ok: false as const, error: data.error ?? "Versturen mislukt" };
         }
-        setMessages((prev) => {
-          const replaced = prev.map((m) =>
-            m.id === tempId
-              ? withAmsterdamMessageTimes(data.userMessage!)
-              : m,
-          );
-          return data.peerMessage
-            ? [...replaced, withAmsterdamMessageTimes(data.peerMessage)]
-            : replaced;
-        });
+        setMessages((prev) =>
+          finalizeMessagesAfterSend(prev, tempId, data.userMessage!, {
+            peerMessage: data.peerMessage,
+          }),
+        );
         requestThreadsRefetch();
         return { ok: true as const, newBalance: data.newBalance };
       } catch (e) {
