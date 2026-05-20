@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -292,6 +292,8 @@ function OnboardingFunnelInner({
 }) {
   const cfg = useFunnelConfig();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const testFunnel = searchParams.get("testFunnel") === "1";
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(1);
   const [navDir, setNavDir] = useState(1);
@@ -343,6 +345,20 @@ function OnboardingFunnelInner({
     let cancelled = false;
 
     void (async () => {
+      if (testFunnel) {
+        try {
+          localStorage.removeItem(ONBOARDED_KEY);
+          sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+        } catch {
+          /* ignore */
+        }
+        if (!cancelled) {
+          setStep(1);
+          setHydrated(true);
+        }
+        return;
+      }
+
       if (isSupabaseConfigured()) {
         try {
           const supabase = createClient();
@@ -382,7 +398,7 @@ function OnboardingFunnelInner({
     return () => {
       cancelled = true;
     };
-  }, [router, cfg.discoverPath]);
+  }, [router, cfg.discoverPath, testFunnel]);
 
   const persistNow = useCallback(() => {
     const p: FunnelPersist = {

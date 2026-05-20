@@ -28,7 +28,8 @@ import {
   type MeSettingsIconKey,
   type MeStatKey,
 } from "@/data/me";
-import { FUNNEL_SESSION_KEY } from "@/data/funnel";
+import { FUNNEL_SESSION_KEY, ONBOARDED_KEY } from "@/data/funnel";
+import { useAppVariant } from "@/components/app-variant-provider";
 import { clearClientCachesOnLogout } from "@/lib/client-user-session";
 import type { EditProfileState } from "@/data/me-edit";
 import type { MeProfileStats } from "@/lib/me/server-profile";
@@ -79,6 +80,7 @@ export function MeProfileView({
   isAdmin = false,
 }: MeProfileViewProps) {
   const router = useRouter();
+  const variant = useAppVariant();
   const [toast, setToast] = useState<string | null>(null);
 
   const credits = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
@@ -271,10 +273,13 @@ export function MeProfileView({
               clearClientCachesOnLogout();
               try {
                 sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+                localStorage.removeItem(ONBOARDED_KEY);
               } catch {
                 /* ignore */
               }
-              router.push("/?testFunnel=1");
+              const funnelEntry =
+                variant === "v2" ? "/v2?testFunnel=1" : "/?testFunnel=1";
+              router.push(funnelEntry);
             }}
             className="flex w-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/90 py-3 text-[13px] font-semibold text-gray-600 shadow-sm transition active:scale-95"
           >
