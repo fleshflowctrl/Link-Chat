@@ -10,6 +10,7 @@ import {
   type CompletenessFieldMeta,
 } from "@/lib/me/profile-completeness";
 import type { EditProfileState } from "@/data/me-edit";
+import { TestOnboardingFunnelButton } from "@/components/me/test-onboarding-funnel-button";
 
 const RING_SIZE = 56;
 const RING_STROKE = 5;
@@ -95,6 +96,8 @@ function StepRow({ field }: { field: CompletenessFieldMeta }) {
 export function ProfileStrengthCard({
   state,
   unclaimedReward,
+  showTestFunnel,
+  onTestFunnel,
 }: {
   state: Pick<
     EditProfileState,
@@ -108,6 +111,9 @@ export function ProfileStrengthCard({
   >;
   /** Total credits the user can still earn by completing remaining fields. */
   unclaimedReward?: number;
+  /** Admin: test funnel entry — shown at every completeness level (0–100%). */
+  showTestFunnel?: boolean;
+  onTestFunnel?: () => void;
 }) {
   const report = getProfileCompleteness(state);
   const isDone = report.percent >= 100;
@@ -133,6 +139,9 @@ export function ProfileStrengthCard({
               </p>
             </div>
           </div>
+          {showTestFunnel && onTestFunnel ? (
+            <TestOnboardingFunnelButton onClick={onTestFunnel} />
+          ) : null}
         </div>
       </section>
     );
@@ -180,6 +189,12 @@ export function ProfileStrengthCard({
             </VariantLink>
           )}
         </div>
+
+        {showTestFunnel && onTestFunnel ? (
+          <div className="border-t border-black/[0.06] px-2 pb-2 pt-1">
+            <TestOnboardingFunnelButton onClick={onTestFunnel} />
+          </div>
+        ) : null}
       </div>
     </section>
   );

@@ -90,6 +90,17 @@ export function MeProfileView({
     window.setTimeout(() => setToast(null), 2800);
   }, []);
 
+  const openTestFunnel = useCallback(() => {
+    clearClientCachesOnLogout();
+    try {
+      sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+      localStorage.removeItem(ONBOARDED_KEY);
+    } catch {
+      /* ignore */
+    }
+    router.push(variant === "v2" ? "/v2?testFunnel=1" : "/?testFunnel=1");
+  }, [router, variant]);
+
   useEffect(() => {
     setMeProfileSnapshot(initialProfile);
   }, [syncToken, initialProfile]);
@@ -191,7 +202,11 @@ export function MeProfileView({
         </div>
       </div>
 
-      <ProfileStrengthCard state={live} />
+      <ProfileStrengthCard
+        state={live}
+        showTestFunnel={isAdmin}
+        onTestFunnel={isAdmin ? openTestFunnel : undefined}
+      />
 
       <div className="grid grid-cols-2 gap-2.5 px-5 pb-6">
         {meStatGridOrder.map((key) => {
@@ -264,29 +279,6 @@ export function MeProfileView({
           </section>
         ))}
       </div>
-
-      {isAdmin && (
-        <div className="px-5 pb-3">
-          <button
-            type="button"
-            onClick={() => {
-              clearClientCachesOnLogout();
-              try {
-                sessionStorage.removeItem(FUNNEL_SESSION_KEY);
-                localStorage.removeItem(ONBOARDED_KEY);
-              } catch {
-                /* ignore */
-              }
-              const funnelEntry =
-                variant === "v2" ? "/v2?testFunnel=1" : "/?testFunnel=1";
-              router.push(funnelEntry);
-            }}
-            className="flex w-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/90 py-3 text-[13px] font-semibold text-gray-600 shadow-sm transition active:scale-95"
-          >
-            Test onboarding funnel
-          </button>
-        </div>
-      )}
 
       <div className="flex flex-col items-center gap-2.5 px-5 pb-8">
         {isAdmin && (
