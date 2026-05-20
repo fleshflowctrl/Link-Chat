@@ -7,9 +7,11 @@ import {
 import type { EditProfileState } from "@/data/me-edit";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
+import { readServerAppVariant } from "@/lib/app-variant";
 import {
   COMPLETENESS_FIELDS,
   isFieldComplete,
+  profileCompletionRewardsEnabled,
   type CompletenessField,
 } from "@/lib/me/profile-completeness";
 
@@ -147,13 +149,21 @@ export async function PATCH(request: Request) {
 
   const profile = userProfileRowToEditState(row as UserProfileRow);
 
-  // ── Auto-claim profile-completion rewards ─────────────────────────────
-  // Pay credits for each milestone that is now satisfied AND not already
-  // recorded in `user_profile_rewards`. Idempotent thanks to PK constraint.
+  // ── Auto-claim profile-completion rewards (v1 only) ───────────────────
   let creditsBalance = creditsKeep;
   const awardedMilestones: { key: CompletenessField; credits: number }[] = [];
+  const variant = await readServerAppVariant();
 
   try {
+    if (!profileCompletionRewardsEnabled(variant)) {
+      return NextResponse.json({
+        profile,
+        updatedAt: (row as UserProfileRow).updated_at,
+        awarded: awardedMilestones,
+        creditsBalance,
+      });
+    }
+
     const eligible = COMPLETENESS_FIELDS.filter(
       (f) => f.reward > 0 && isFieldComplete(profile, f.key),
     );

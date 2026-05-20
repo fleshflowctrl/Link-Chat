@@ -5,6 +5,7 @@ import { useAppVariant } from "@/components/app-variant-provider";
 import {
   COMPLETENESS_FIELDS,
   getProfileCompleteness,
+  profileCompletionRewardsEnabled,
 } from "@/lib/me/profile-completeness";
 import type { EditProfileState } from "@/data/me-edit";
 
@@ -33,7 +34,8 @@ export function ProfileStrengthBanner({
   const top = report.nextSteps[0];
   if (!top) return null;
 
-  const nextReward = top.reward;
+  const showRewards = profileCompletionRewardsEnabled(variant);
+  const nextReward = showRewards ? top.reward : 0;
   const gradient = isV2
     ? "bg-gradient-to-br from-[#B52B2A] via-[#C93535] to-[#D63B3A]"
     : "bg-gradient-to-br from-[#7C5CFF] via-[#8E6BFF] to-[#B68BFF]";

@@ -33,9 +33,11 @@ import { setMeProfileSnapshot } from "@/lib/me-profile-store";
 import { applyServerCreditsUpdate } from "@/lib/credits-store";
 import {
   COMPLETENESS_FIELDS,
+  profileCompletionRewardsEnabled,
   type CompletenessField,
 } from "@/lib/me/profile-completeness";
 import { useAppVariant } from "@/components/app-variant-provider";
+import { appVariantFetchHeaders } from "@/lib/app-variant";
 import { getEditProfileUi } from "@/lib/me/edit-profile-styles";
 
 const BIO_MAX = 280;
@@ -169,7 +171,10 @@ export function EditProfileView({
     try {
       const res = await fetch("/api/me/profile", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...appVariantFetchHeaders(variant),
+        },
         body: serialized,
         credentials: "same-origin",
       });
@@ -190,7 +195,11 @@ export function EditProfileView({
         if (typeof data.creditsBalance === "number") {
           applyServerCreditsUpdate(data.creditsBalance);
         }
-        if (data.awarded && data.awarded.length > 0) {
+        if (
+          profileCompletionRewardsEnabled(variant) &&
+          data.awarded &&
+          data.awarded.length > 0
+        ) {
           const total = data.awarded.reduce((s, a) => s + a.credits, 0);
           const labels = data.awarded
             .map(
@@ -216,7 +225,7 @@ export function EditProfileView({
       savingRef.current = false;
       setSaving(false);
     }
-  }, [showToast]);
+  }, [showToast, variant]);
 
   /** Wait for any in-flight save, then persist — used by the back button. */
   const flushPersist = useCallback(async () => {

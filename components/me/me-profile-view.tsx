@@ -191,7 +191,7 @@ export function MeProfileView({
         </div>
       </div>
 
-      <ProfileStrengthCard state={live} />
+      {variant !== "v2" && <ProfileStrengthCard state={live} />}
 
       <div className="grid grid-cols-2 gap-2.5 px-5 pb-6">
         {meStatGridOrder.map((key) => {

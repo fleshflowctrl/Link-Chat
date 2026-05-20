@@ -1,3 +1,4 @@
+import type { AppVariant } from "@/lib/app-variant";
 import type { EditProfileState } from "@/data/me-edit";
 
 export type CompletenessField =
@@ -85,6 +86,11 @@ export const TOTAL_PROFILE_REWARD_CREDITS = COMPLETENESS_FIELDS.reduce(
   (sum, f) => sum + f.reward,
   0,
 );
+
+/** v2: profile completion nudges stay, but no credit bonuses. */
+export function profileCompletionRewardsEnabled(variant: AppVariant): boolean {
+  return variant !== "v2";
+}
 
 // Just "filled in something" counts — the reward is meant to nudge users
 // to write *anything*, so don't gate it behind an arbitrary length.
