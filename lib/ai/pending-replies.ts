@@ -9,6 +9,8 @@
  *                     while (~30-90 min). Triggers a fresh Grok call.
  *   - 'winback'     — AI re-engages after 1-3 days of inactivity. Same as
  *                     spontaneous but with a longer-time-gap framing.
+ *   - 'v2_open_followup' — v2 only: user opened chat on bot's last message,
+ *                     no reply within 5 minutes.
  *   - 'pre_ack'     — reserved (not yet emitted)
  *
  * Workflow:
@@ -39,7 +41,14 @@ type PendingRow = {
   parent_user_message_id: string | null;
   scheduled_at: string;
   status: string;
-  kind: "reply" | "chunk" | "spontaneous" | "winback" | "pre_ack" | "photo";
+  kind:
+    | "reply"
+    | "chunk"
+    | "spontaneous"
+    | "winback"
+    | "v2_open_followup"
+    | "pre_ack"
+    | "photo";
   payload_text: string | null;
   attempts?: number;
 };
@@ -183,7 +192,12 @@ export async function processDuePendingReplies(
   const chunkRows = due.filter((r) => r.kind === "chunk");
   const photoRows = due.filter((r) => r.kind === "photo");
   const replyRows = due.filter((r) => r.kind === "reply");
-  const spontaneousRows = due.filter((r) => r.kind === "spontaneous" || r.kind === "winback");
+  const spontaneousRows = due.filter(
+    (r) =>
+      r.kind === "spontaneous" ||
+      r.kind === "winback" ||
+      r.kind === "v2_open_followup",
+  );
 
   // ----- 1. Chunk rows: lock each, insert payload_text as peer message -----
   if (chunkRows.length > 0) {

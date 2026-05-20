@@ -12,6 +12,7 @@ import {
   maybeScheduleSpontaneous,
   maybeScheduleWinback,
 } from "@/lib/ai/spontaneous";
+import { supersedeV2OpenFollowups } from "@/lib/ai/v2-open-followup";
 import {
   computeReplyPacing,
   sleep,
@@ -245,6 +246,12 @@ export async function POST(
 
   const userMessage = messageRowToUi(insertedUser as ChatMessageRow);
   const newBalance = deduct.newBalance;
+
+  try {
+    await supersedeV2OpenFollowups(supabase, user.id, peerId);
+  } catch {
+    /* best effort */
+  }
 
   // Non-AI peer: nothing more to do.
   if (!p.is_ai) {

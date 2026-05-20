@@ -338,6 +338,7 @@ export function ChatConversationView({
   const pollingRef = useRef(false);
   const lastSendTapRef = useRef(0);
   const funnelAutoSendDoneRef = useRef(false);
+  const v2OpenFollowupArmedRef = useRef(false);
   const [sendBusy, setSendBusy] = useState(false);
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
@@ -501,6 +502,41 @@ export function ChatConversationView({
     void pollPending({ showTyping: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
+
+  /** v2: bot follow-up 5 min after opening chat on her last message without a reply. */
+  useEffect(() => {
+    if (!useSupabase || variant !== "v2" || v2OpenFollowupArmedRef.current) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.sender !== "peer") return;
+    v2OpenFollowupArmedRef.current = true;
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(chatId)}/schedule-v2-open-followup`,
+          {
+            method: "POST",
+            cache: "no-store",
+            credentials: "same-origin",
+            headers: appVariantFetchHeaders(variant),
+          },
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          nextPendingAt?: string | null;
+        };
+        const at = data.nextPendingAt ?? null;
+        if (!at) return;
+        setNextPendingAt((prev) => {
+          if (!prev) return at;
+          return new Date(at).getTime() < new Date(prev).getTime() ? at : prev;
+        });
+      } catch {
+        /* poll on tab focus will catch up */
+      }
+    })();
+  }, [chatId, messages, useSupabase, variant]);
 
   /**
    * Arm delivery timers: show typing slightly early, poll only when due.
