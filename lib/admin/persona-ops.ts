@@ -31,7 +31,7 @@ import {
   type V2PhotoMode,
   v2AttractivenessForVariant,
   v2BodyTypeForVariant,
-  v2CompositionForVariant,
+  v2SexyClothedCompositionForVariant,
 } from "@/lib/admin/v2-persona-config";
 import { uploadFallbackAvatar } from "@/lib/admin/fallback-avatar";
 import { parsePersonaPayload } from "@/lib/admin/persona-payload";
@@ -668,16 +668,20 @@ export async function renderOneNudePhoto(
       ? Math.floor(input.variant)
       : 0;
 
-  // v2: mandatory composition rotation — template pool alone was producing
-  // the same forward-facing chest-up portrait for every persona/shot.
-  const v2Comp = v2CompositionForVariant(variantNum);
-  template = {
-    ...template,
-    scene: v2Comp.scene,
-    pose: v2Comp.pose,
-    camera: v2Comp.camera,
-    capture: v2Comp.capture || template.capture,
-  };
+  // sexy-clothed: lived-in iPhone compositions (outfit + scene + lighting).
+  if (photoMode === "sexy-clothed") {
+    const comp = v2SexyClothedCompositionForVariant(variantNum);
+    template = {
+      ...template,
+      scene: comp.scene,
+      pose: comp.pose,
+      camera: comp.camera,
+      capture: comp.capture,
+      backdrop: comp.backdrop,
+      lighting: comp.lighting,
+      outfit: comp.outfit,
+    };
+  }
 
   const explicitOutfit = resolveV2PhotoOutfit(
     photoMode,

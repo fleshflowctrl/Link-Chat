@@ -40,10 +40,10 @@ Per persona:
 - funnel_intent_ids: kies uit casual, meaningful, friends, chatting, notsure.
 - vibe_tags: 3–6 uit caring, romantic, playful, witty, chill, coffee, travel, movies, gym.
 - filter_tags: links, active, online (minstens 2).
-- photo_style: fotogeniek, volwassen, **sexy met kleding** — bijna naakt maar net iets aan; amateur self-taken (geen studio/boudoir).
-  - style: bv. "black lace lingerie mirror selfie", "sheer mesh top and thong bedroom", "micro bikini kitchen", "latex harness over sports bra", "wet white t-shirt no bra visible underneath but covered".
-  - vibe: intiem, rauw, imperfect belicht; geen glamour-shoot; geen volledige naaktheid in photo_style.style.
-  - attractiveness: meestal average of plain; soms striking — varieer per persona.
+- photo_style: sexy met kleding — moet lijken op een **echte iPhone snap** (Instagram story / casual mirror selfie), NIET op een shoot.
+  - style: beschrijf outfit + setting (bv. lingerie in messy bedroom, micro bikini vacation hotel, sports bra gym locker room). Borsten en schaamstreek bedekt door stof.
+  - vibe: rauw, candid, imperfect belicht, lived-in omgeving, geen studio glamour, geen "perfect/flawless/goddess" taal.
+  - attractiveness: meestal average of plain; soms striking — varieer per persona. Gebruik: attractive, natural, authentic, casual — NOOIT perfect/flawless/hyperrealistic.
 - Geen clichés, geen minderjarigen, geen expliciete porn-taal in bio.`;
 
 /** Extra system instructions appended to Grok when generating v2 personas. */
@@ -63,13 +63,26 @@ VARIANT v2 (FetLife / kink community — HARDE REGELS):
 
 export const V2_PERSONA_SYSTEM_APPEND_SEXY_CLOTHED = `
 
-VARIANT v2 — SEXY MET KLEDING (bijna naakt, HARDE REGELS):
-- Zelfde FetLife/kink publiek als v2 nude, maar foto's: lingerie, bikini, sheer, mesh, latex top, harness — **niet volledig naakt**.
-- photo_style.style: beschrijf expliciet sexy outfit (lingerie set, micro bikini, fishnet bodysuit, sheer robe, sports bra + thong). Borsten en schaamstreek bedekt door stof — geen "completely nude", geen "bare breasts", geen "vagina visible".
-- photo_style.vibe: rauw, intiem, amateur self-taken mirror/bedroom/bathroom; geen studio glamour.
+VARIANT v2 — SEXY MET KLEDING (iPhone-realism, HARDE REGELS):
+- Zelfde FetLife/kink publiek als v2 nude, maar foto's: lingerie, bikini, sheer, mesh — **niet volledig naakt**.
+- Foto's moeten voelen als: RAW iPhone foto, candid mirror selfie, random vacation snap, amateur Instagram story — NOOIT professionele shoot, CGI, plastic, over-edited, te symmetrisch.
+- Omgeving: messy bedroom, dirty bathroom mirror, hotel room, elevator, beach parking, restaurant bathroom — lived-in, niet luxe studio.
+- photo_style.style: outfit + authentieke setting. Borsten/schaamstreek bedekt. Geen "completely nude", geen "bare breasts".
+- photo_style.vibe: onbewerkt social-media gevoel, imperfect framing, flyaway hair, visible pores — geen glamour.
+- Beschrijf haar NOOIT als: perfect, flawless, goddess, unreal body. Wel: attractive, natural, authentic, casual, confident.
 - Bio/backstory/chat_style: zelfde open kink-toon als andere v2-persona's.
 - funnel_intent_ids + vibe_tags: ALLEEN ids uit de bestaande schema-lijsten.
 `;
+
+/** End-loaded positive anchor for Z-Image sexy-clothed renders (no negative support on HF). */
+export const V2_SEXY_CLOTHED_REALISM_ANCHOR =
+  "RAW candid iphone 15 pro photo, casual instagram story aesthetic, amateur photography, unedited social media look, " +
+  "accidentally real not artistically perfect, attractive natural authentic feminine woman not a model, " +
+  "visible skin texture pores subtle cellulite flyaway hairs slight under-eye shadows asymmetrical face, " +
+  "messy lived-in background wrinkled clothing awkward unposed posture uneven lighting realistic shadows, " +
+  "slight motion blur from movement, imperfect framing off-center, mild compression artifacts, " +
+  "realism over beauty authenticity over perfection casualness over cinematic quality, " +
+  "NOT professional photoshoot NOT over-edited NOT CGI NOT plastic NOT overly symmetrical NOT too perfect NOT fantasy NOT AI generated look";
 
 export function isV2PersonaVariant(variant: AppVariant | undefined): boolean {
   return variant === "v2";
@@ -133,19 +146,104 @@ export function v2SystemAppendForPhotoMode(mode: V2PhotoMode): string {
     : V2_PERSONA_SYSTEM_APPEND;
 }
 
-/** Rotate sexy outfit descriptors across batch gallery/avatar shots. */
-export const V2_SEXY_CLOTHED_OUTFIT_CYCLE = [
-  "wearing black lace lingerie bra and panties, very revealing but clothed, breasts and crotch covered by fabric",
-  "micro bikini top and thong, nipples and genitals not visible",
-  "sheer mesh bodysuit, see-through but still wearing clothes, dim bedroom light",
-  "sports bra and tiny thong, athletic sexy look, stomach and legs visible, breasts covered",
-  "red satin lingerie set, straps and lace, not topless, not bottomless",
+export type V2ShotComposition = {
+  scene: string;
+  pose: string;
+  camera: string;
+  capture: string;
+};
+
+/** Lived-in iPhone compositions + matching outfits for sexy-clothed v2. */
+export type V2SexyClothedShot = V2ShotComposition & {
+  outfit: string;
+  backdrop: string;
+  lighting: string;
+};
+
+export const V2_SEXY_CLOTHED_COMPOSITION_CYCLE: readonly V2SexyClothedShot[] = [
+  {
+    scene: "messy apartment bedroom with wrinkled bedsheets and clothes on the floor",
+    pose: "candid mirror selfie, slightly awkward posture, phone in hand, not perfectly centered",
+    camera: "RAW iphone 15 pro candid mirror selfie, imperfect framing, amateur photography",
+    capture: "unedited instagram story aesthetic, slight compression artifacts",
+    outfit:
+      "wearing tight black lace lingerie bra and panties, very revealing but clothed, breasts and crotch covered by fabric",
+    backdrop: "slightly dirty bedroom mirror, lived-in messy room",
+    lighting: "warm bedside lamp, uneven shadows on body",
+  },
+  {
+    scene: "vacation hotel room with unmade bed and open suitcase",
+    pose: "standing by window, casual vacation snap, wind in hair, looking slightly past camera",
+    camera: "iphone vacation photo, candid not posed, shallow depth of field on background",
+    capture: "random travel photo vibe, unedited phone camera",
+    outfit: "micro bikini top and thong, nipples and genitals not visible, beach-trip energy",
+    backdrop: "generic hotel room curtains and clutter",
+    lighting: "harsh window daylight, uneven tan lines possible",
+  },
+  {
+    scene: "small bathroom with toiletries on the counter and towel on hook",
+    pose: "mirror selfie, leaning on sink, messy hair, tired candid expression",
+    camera: "iphone bathroom mirror selfie, top-down phone angle, imperfect reflection",
+    capture: "casual instagram story, fluorescent bathroom look",
+    outfit: "sheer mesh bodysuit over skin, see-through but still wearing clothes",
+    backdrop: "tiled wall, slightly foggy or smudged mirror",
+    lighting: "cool bathroom fluorescent, flat phone flash",
+  },
+  {
+    scene: "beach parking lot near cars, sand on flip-flops",
+    pose: "walking toward camera, slight motion blur, wind-blown hair, casual vacation moment",
+    camera: "amateur iphone photo, off-center framing, harsh outdoor light",
+    capture: "vacation candid, compression from phone upload",
+    outfit: "colorful micro bikini, breasts covered by bikini top, natural beach look",
+    backdrop: "parked cars and pavement, blurred tourists far behind",
+    lighting: "harsh midday sunlight, squinting possible",
+  },
+  {
+    scene: "elevator with beige walls and scratched metal doors",
+    pose: "quick elevator selfie, arm extended, slightly tilted frame, unglamorous angle",
+    camera: "iphone elevator mirror or front camera, awkward close framing",
+    capture: "random night-out story aesthetic",
+    outfit: "tight mini dress with visible bra straps underneath, sexy but clothed",
+    backdrop: "elevator interior, scuffed walls",
+    lighting: "harsh overhead elevator bulb, unflattering shadows",
+  },
+  {
+    scene: "gym changing room with open lockers and gym bag on bench",
+    pose: "sitting on bench tying shoe, athletic candid, not modeling for camera",
+    camera: "phone snapshot from locker room mirror, medium distance",
+    capture: "post-workout amateur photo, grain in low light",
+    outfit: "sports bra and tiny thong, stomach and legs visible, breasts covered",
+    backdrop: "lockers, towels, fluorescent gym interior",
+    lighting: "flat gym fluorescents, mixed shadows",
+  },
+  {
+    scene: "restaurant bathroom with paper towel dispenser and dim tiles",
+    pose: "mirror selfie mid-night out, lipstick slightly smudged, playful tired look",
+    camera: "iphone mirror selfie, yellow indoor light, imperfect crop",
+    capture: "night-out instagram story, unedited",
+    outfit: "red satin lingerie-style top and skirt set, not topless, straps visible",
+    backdrop: "small cramped bathroom, lived-in details",
+    lighting: "warm yellow tungsten, uneven skin tone",
+  },
+  {
+    scene: "casual apartment kitchen with fridge magnets and dishes in sink",
+    pose: "leaning on counter, morning coffee vibe, relaxed unposed stance",
+    camera: "iphone morning light snapshot, candid instagram aesthetic",
+    capture: "everyday at-home photo, not a photoshoot",
+    outfit: "oversized t-shirt and tiny shorts, underwear implied, casual sexy homewear",
+    backdrop: "kitchen clutter, morning sun through window",
+    lighting: "soft morning window light with shadows",
+  },
 ] as const;
 
-export function v2SexyClothedOutfitForVariant(variant: number): string {
+export function v2SexyClothedCompositionForVariant(variant: number): V2SexyClothedShot {
   const idx =
-    Math.abs(Math.floor(variant)) % V2_SEXY_CLOTHED_OUTFIT_CYCLE.length;
-  return V2_SEXY_CLOTHED_OUTFIT_CYCLE[idx]!;
+    Math.abs(Math.floor(variant)) % V2_SEXY_CLOTHED_COMPOSITION_CYCLE.length;
+  return V2_SEXY_CLOTHED_COMPOSITION_CYCLE[idx]!;
+}
+
+export function v2SexyClothedOutfitForVariant(variant: number): string {
+  return v2SexyClothedCompositionForVariant(variant).outfit;
 }
 
 /** Rotate camera families across v2 batch gallery/avatar shots. */
@@ -162,69 +260,4 @@ export type V2NudeDiversity = (typeof V2_NUDE_DIVERSITY_CYCLE)[number];
 export function v2NudeDiversityForVariant(variant: number): V2NudeDiversity {
   const idx = Math.abs(Math.floor(variant)) % V2_NUDE_DIVERSITY_CYCLE.length;
   return V2_NUDE_DIVERSITY_CYCLE[idx]!;
-}
-
-/** Mandatory shot composition per variant — stops every render collapsing
- * into the same forward-facing chest-up passport portrait. */
-export type V2ShotComposition = {
-  scene: string;
-  pose: string;
-  camera: string;
-  capture: string;
-};
-
-export const V2_COMPOSITION_CYCLE: readonly V2ShotComposition[] = [
-  {
-    scene: "lying on her side on a bed with rumpled sheets",
-    pose: "propped on one elbow, torso turned three-quarter away, head turned back toward camera, not straight-on",
-    camera: "phone at waist height, medium shot, off-center framing, not a passport portrait",
-    capture: "quick amateur phone snap, tilted frame",
-  },
-  {
-    scene: "sitting on the edge of a bathtub in a small bathroom",
-    pose: "one knee up on the tub edge, leaning forward, looking down at phone in her hands",
-    camera: "high angle from above looking down at lap and torso, face not centered",
-    capture: "harsh bathroom light, uneven exposure",
-  },
-  {
-    scene: "kneeling on a couch facing the backrest",
-    pose: "over-the-shoulder glance back, back and profile visible, not facing camera squarely",
-    camera: "from behind and slightly to the side, rear three-quarter angle",
-    capture: "candid phone photo, not posed for studio",
-  },
-  {
-    scene: "standing in a bedroom doorway",
-    pose: "weight on one hip, one arm above head, casual unposed moment, body angled",
-    camera: "three-quarter or full-length from several steps away, not a tight face crop",
-    capture: "slightly distant phone snapshot",
-  },
-  {
-    scene: "sitting cross-legged on the floor against a wall",
-    pose: "slouched relaxed posture, looking slightly past the camera, asymmetrical shoulders",
-    camera: "low angle phone on the floor pointing upward",
-    capture: "grainy indoor phone photo",
-  },
-  {
-    scene: "torso and outfit detail in a dim bedroom",
-    pose: "chin cropped out or only lower face visible, unconventional crop, not a standard portrait",
-    camera: "tight crop on chest waist and hips, unusual framing",
-    capture: "close phone photo, not a headshot",
-  },
-  {
-    scene: "bent over on the bed adjusting clothing",
-    pose: "back or side to camera, face not the main focal point, natural bend at waist",
-    camera: "rear three-quarter medium shot, not front-facing",
-    capture: "amateur candid angle",
-  },
-  {
-    scene: "bedroom with a mirror visible off to the side",
-    pose: "standing sideways to the mirror, not classic straight-on mirror selfie, phone at her side",
-    camera: "environmental shot, mirror off-center, subject at an angle",
-    capture: "mirror not filling the whole frame, not arm-extended selfie pose",
-  },
-] as const;
-
-export function v2CompositionForVariant(variant: number): V2ShotComposition {
-  const idx = Math.abs(Math.floor(variant)) % V2_COMPOSITION_CYCLE.length;
-  return V2_COMPOSITION_CYCLE[idx]!;
 }
