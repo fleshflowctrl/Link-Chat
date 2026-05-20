@@ -646,6 +646,7 @@ export async function renderOneNudePhoto(
   const { prompt, seed: anchorSeed, negativePrompt } = buildPersonaPhotoPrompt({
     profile: persona as Parameters<typeof buildPersonaPhotoPrompt>[0]["profile"],
     scene: template.scene,
+    forceClothed: photoMode === "sexy-clothed",
     cameraStyle: {
       camera: template.camera,
       backdrop: template.backdrop,

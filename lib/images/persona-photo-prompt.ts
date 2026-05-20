@@ -372,6 +372,43 @@ export type CameraStyle = {
   pose?: string;
 };
 
+/** Strip nude-scene tokens so a nude template's `scene` field cannot
+ * trigger the explicit-nude prompt block when we intend lingerie/bikini. */
+function sceneForClothedMode(scene: string): string {
+  let s = scene
+    .replace(
+      /\b(completely |fully )?(nude|naked|naakt|naakte|topless|bottomless)\b/gi,
+      "intimate",
+    )
+    .replace(/\bbare skin\b/gi, "skin")
+    .replace(/\bno clothes\b/gi, "wearing outfit")
+    .replace(/\b(breasts?|nipples?|vagina|genitals?) (visible|exposed|showing)\b/gi, "")
+    .replace(/\bfull frontal nudity\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (
+    /nude|naakt|topless|bare breast|nipple visible|exposed vagina|no clothes|bloot\b/i.test(
+      s,
+    )
+  ) {
+    return "casual intimate bedroom mirror selfie, adult woman in sexy outfit";
+  }
+  return s || "casual intimate mirror selfie in bedroom";
+}
+
+function poseForClothedMode(pose: string): string {
+  if (!pose.trim()) return pose;
+  let p = sceneForClothedMode(pose)
+    .replace(/\bspread(ing)?\s+(legs|thighs)\b/gi, "standing with legs apart")
+    .replace(/\bshowing\s+(vagina|pussy|genitals)\b/gi, "")
+    .replace(/\bexposing\s+(breasts|nipples)\b/gi, "")
+    .trim();
+  if (/nude|naakt|topless|bare breast|nipple|vagina visible|no clothes/i.test(p)) {
+    return "standing mirror selfie, flirty smile, hands at sides or holding phone";
+  }
+  return p;
+}
+
 export function buildPersonaPhotoPrompt(args: {
   profile: ChatProfileRow;
   /** Scene description — what she's showing/doing. Comes from Grok or
@@ -381,6 +418,9 @@ export function buildPersonaPhotoPrompt(args: {
    * the legacy "phone selfie at home" tail for backwards-compatibility
    * with older callers; new callers should always supply this. */
   cameraStyle?: CameraStyle;
+  /** When true, never enter the explicit-nude prompt path — used for v2
+   * "sexy-clothed" batch mode even though scene templates mention nudity. */
+  forceClothed?: boolean;
 }): { prompt: string; seed: number; negativePrompt: string } {
   const profile = args.profile;
   const customStyle = (profile as ChatProfileRow & { photo_style?: PersonaPhotoStyle }).photo_style ?? {};
@@ -422,8 +462,16 @@ export function buildPersonaPhotoPrompt(args: {
   // prompt and overpower the anti-blur negatives.
   const cam0 = args.cameraStyle ?? {};
   const shotOutfit = stripBlurPhrases(cam0.outfit);
-  const style = shotOutfit || (customStyle.style ?? defaults.style).trim();
-  const shotPose = stripBlurPhrases(cam0.pose);
+  let style = shotOutfit || (customStyle.style ?? defaults.style).trim();
+  if (
+    args.forceClothed &&
+    /naakt|nude|bare skin|no clothes|topless|full frontal|completely nude/i.test(style)
+  ) {
+    style =
+      "wearing black lace lingerie bra and panties, very revealing but fully clothed, breasts and crotch covered by fabric";
+  }
+  const shotPoseRaw = stripBlurPhrases(cam0.pose);
+  const shotPose = args.forceClothed ? poseForClothedMode(shotPoseRaw) : shotPoseRaw;
   const vibe = (customStyle.vibe ?? defaults.vibe).trim();
 
   const seed = typeof customStyle.seed === "number" ? customStyle.seed : hashSeed(profile.id);
@@ -432,13 +480,14 @@ export function buildPersonaPhotoPrompt(args: {
   // sentence. Then run the result through the blur-phrase scrubber so
   // a Grok-emitted scene like "stadspark op een mistige ochtend, alles
   // licht out of focus" can't import blur tokens via the scene field.
-  const cleanScene = stripBlurPhrases(
+  const rawScene = stripBlurPhrases(
     args.scene
       .replace(/^[\[\(]?send[_ ]?photo:?\s*/i, "")
       .replace(/[\]\)]\s*$/, "")
       .trim()
       .slice(0, 280),
   );
+  const cleanScene = args.forceClothed ? sceneForClothedMode(rawScene) : rawScene;
 
   // Compose the full prompt. Order matters for diffusion models — the
   // most important visual anchors go first so the model commits early
@@ -497,11 +546,20 @@ export function buildPersonaPhotoPrompt(args: {
   if (build) promptParts.push(build);
   promptParts.push(bodyAnchors.positive);
 
+  if (args.forceClothed && style) {
+    promptParts.push(
+      `she is wearing sexy clothes: ${style}. NOT nude, NOT topless, NOT bottomless. ` +
+        "breasts and nipples covered by bra or bikini top, genitals covered by panties or fabric",
+    );
+  }
+
   // If the scene description contains explicit nude keywords, override
   // the persona's normal "wearing X" style and force full visible nudity.
+  // v2 "sexy-clothed" uses the same template pool but must NOT trigger this.
   const isExplicitNude =
+    !args.forceClothed &&
     /naakt|naakte|naaktfoto|topless|bloot|kutje|kut|kutje zichtbaar|borsten zichtbaar|gespreid|naakt.*bed|naakt.*spiegel|naakt.*liggend|naakt.*knie/i.test(
-      cleanScene,
+      rawScene,
     );
 
   const cam = args.cameraStyle ?? {};
@@ -688,6 +746,13 @@ export function buildPersonaPhotoPrompt(args: {
         "mouth slightly relaxed not seductive smile, ordinary face not glamorous, " +
         "natural body language not exaggerated, no arched-back fitness-model pose unless template specifies it",
     );
+  } else if (args.forceClothed) {
+    promptParts.push(
+      "MUST be wearing visible clothes, sexy lingerie or bikini or sheer outfit, NOT nude, NOT topless, " +
+        "breasts covered by bra or bikini top, nipples not visible, genitals covered by panties or fabric, " +
+        "very revealing almost-nude look but still clothed, amateur mirror selfie or bedroom phone photo, " +
+        "intimate flirty energy, looks like a private snap sent to a dating app",
+    );
   } else {
     // STRONG everyday-iPhone realism block. Loaded with concrete phone-
     // camera artifacts that diffusion bases otherwise smooth out:
@@ -842,8 +907,14 @@ export function buildPersonaPhotoPrompt(args: {
     "perfect composition of nude body centered, perfectly framed nude, posed nude model, model posing for camera, " +
     "professional nude art, fine art nude photography, artistic nude, tasteful nude photography";
 
+  const sexyClothedNegative =
+    "completely nude, full nudity, naked, topless, bottomless, no clothes, bare breasts, exposed nipples, " +
+    "visible nipples, bare vagina, exposed genitals, see-through showing nipples, pussy visible, " +
+    "artistic nude, fine art nude, professional nude photography, explicit nudity";
+
   const negParts = [baseNegative];
   if (isExplicitNude) negParts.push(explicitNegative);
+  if (args.forceClothed) negParts.push(sexyClothedNegative);
   if (anchors.negative) negParts.push(anchors.negative);
   if (bodyAnchors.negative) negParts.push(bodyAnchors.negative);
   if (ageAnchors.negative) negParts.push(ageAnchors.negative);
