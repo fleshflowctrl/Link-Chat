@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
 import { SITE_DISPLAY } from "@/lib/brand";
+import { convertAnonymousToPermanentAccount } from "@/lib/auth/guest-session";
+import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import { createClient } from "@/utils/supabase/client";
 
@@ -75,6 +77,34 @@ export function LoginForm({ mode = "login" }: { mode?: LoginFormMode }) {
         setMessage(mapSupabaseAuthError(error.message));
         return;
       }
+      await hydrateClientSessionFromServer();
+      router.replace(nextPath);
+      router.refresh();
+      return;
+    }
+
+    const {
+      data: { user: current },
+    } = await supabase.auth.getUser();
+
+    if (current?.is_anonymous) {
+      const converted = await convertAnonymousToPermanentAccount({
+        email: trimmed,
+        password,
+      });
+      if (!converted.ok) {
+        setStatus("error");
+        setMessage(mapSupabaseAuthError(converted.error));
+        return;
+      }
+      if (converted.needsEmailConfirm) {
+        setStatus("needs_confirm");
+        setMessage(
+          "Controleer je e-mail om je account te bevestigen. Je chats blijven bewaard.",
+        );
+        return;
+      }
+      void trackSignupLink(converted.userId);
       await hydrateClientSessionFromServer();
       router.replace(nextPath);
       router.refresh();

@@ -78,15 +78,14 @@ export type AdminMetrics = {
 /** How recent a heartbeat counts as "online" (3× the 30s ping cadence). */
 const PRESENCE_WINDOW_MS = 90_000;
 
-/** Labels for the 7-step onboarding funnel. Update if steps change. */
+/** Labels for the 6-step onboarding funnel. Update if steps change. */
 export const FUNNEL_STEP_LABELS: Record<number, string> = {
   1: "Welkom",
   2: "Op zoek naar",
   3: "Geslacht",
   4: "Voorkeurs-geslacht",
   5: "Eerste match kiezen",
-  6: "Eerste bericht",
-  7: "Account aanmaken",
+  6: "Eerste bericht → chat",
 };
 
 export type LoadMetricsOptions = {

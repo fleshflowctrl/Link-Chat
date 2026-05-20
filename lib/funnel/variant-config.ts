@@ -5,6 +5,7 @@ import { V2_THEME } from "@/lib/v2-theme";
 export type FunnelVariantConfig = {
   variant: AppVariant;
   discoverPath: string;
+  signupPath: string;
   loginPath: string;
   helpPath: string;
   privacyPath: string;
@@ -23,6 +24,7 @@ export function getFunnelVariantConfig(variant: AppVariant): FunnelVariantConfig
     return {
       variant,
       discoverPath,
+      signupPath: `/signup?next=${loginNext}`,
       loginPath: `/login?next=${loginNext}`,
       helpPath: withVariantPath("/me/help", variant),
       privacyPath: withVariantPath("/me/privacy", variant),
@@ -37,6 +39,7 @@ export function getFunnelVariantConfig(variant: AppVariant): FunnelVariantConfig
   return {
     variant,
     discoverPath,
+    signupPath: `/signup?next=${loginNext}`,
     loginPath: `/login?next=${loginNext}`,
     helpPath: withVariantPath("/me/help", variant),
     privacyPath: withVariantPath("/me/privacy", variant),

@@ -43,6 +43,7 @@ import { getChatHeaderPresence } from "@/lib/chat/online-status";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { appVariantFetchHeaders, withVariantPath } from "@/lib/app-variant";
+import { consumeFunnelAutoSend } from "@/lib/funnel/auto-send";
 import {
   applyServerCreditsUpdate,
   getCreditsSnapshot,
@@ -327,6 +328,7 @@ export function ChatConversationView({
   /** Guard against overlapping pollPending invocations. */
   const pollingRef = useRef(false);
   const sendTextInFlightRef = useRef(false);
+  const funnelAutoSendDoneRef = useRef(false);
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
 
@@ -945,6 +947,15 @@ export function ChatConversationView({
     },
     [chatId, openCreditsGate, useSupabase, meta, variant],
   );
+
+  /** Funnel: send the composed first message once after opening chat (guest session). */
+  useEffect(() => {
+    if (!useSupabase || funnelAutoSendDoneRef.current) return;
+    const pending = consumeFunnelAutoSend(chatId);
+    if (!pending) return;
+    funnelAutoSendDoneRef.current = true;
+    void sendText(pending.text);
+  }, [chatId, useSupabase, sendText]);
 
   const sendImage = useCallback(
     async (publicUrl: string) => {

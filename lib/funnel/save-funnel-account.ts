@@ -13,6 +13,7 @@ import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import type { AppVariant } from "@/lib/app-variant";
 import { DEFAULT_APP_VARIANT, withVariantPath } from "@/lib/app-variant";
+import { convertAnonymousToPermanentAccount } from "@/lib/auth/guest-session";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import type {
   FunnelAgeRange,
@@ -70,24 +71,43 @@ export async function saveFunnelAccount(
   const email = input.email.trim();
   const password = input.password;
 
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "";
-  const emailRedirectTo = origin
-    ? `${origin}/auth/callback?next=${encodeURIComponent(discoverPath)}`
-    : undefined;
+  const {
+    data: { user: existingUser },
+  } = await supabase.auth.getUser();
 
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: emailRedirectTo ? { emailRedirectTo } : undefined,
-  });
+  let userId: string | null = null;
+  let hasSession = false;
+  let needsEmailConfirmFromAuth = false;
 
-  if (signUpError) {
-    return { ok: false, error: mapSupabaseAuthError(signUpError.message) };
+  if (existingUser?.is_anonymous) {
+    const converted = await convertAnonymousToPermanentAccount({ email, password });
+    if (!converted.ok) {
+      return { ok: false, error: mapSupabaseAuthError(converted.error) };
+    }
+    userId = converted.userId;
+    hasSession = !converted.needsEmailConfirm;
+    needsEmailConfirmFromAuth = converted.needsEmailConfirm;
+  } else {
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const emailRedirectTo = origin
+      ? `${origin}/auth/callback?next=${encodeURIComponent(discoverPath)}`
+      : undefined;
+
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: emailRedirectTo ? { emailRedirectTo } : undefined,
+    });
+
+    if (signUpError) {
+      return { ok: false, error: mapSupabaseAuthError(signUpError.message) };
+    }
+
+    userId = signUpData.user?.id ?? null;
+    hasSession = Boolean(signUpData.session);
+    needsEmailConfirmFromAuth = !hasSession;
   }
-
-  const userId = signUpData.user?.id ?? null;
-  const hasSession = Boolean(signUpData.session);
 
   // Link the anonymous visitor (localStorage UUID) to this brand-new auth
   // user so the admin metrics page can compute visitor → signup funnel.
@@ -97,7 +117,7 @@ export async function saveFunnelAccount(
   // Without a session (email confirmation flow) we can't upsert under RLS.
   // We still return ok so the funnel can finish; profile data is also kept in
   // localStorage and will be synced on first authenticated visit.
-  if (!hasSession) {
+  if (!hasSession || needsEmailConfirmFromAuth) {
     return { ok: true, needsEmailConfirm: true, userId };
   }
 

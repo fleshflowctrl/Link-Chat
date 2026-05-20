@@ -43,11 +43,7 @@ import {
   type FunnelMatchPick,
 } from "@/lib/funnel-match-picks";
 import { setThreadPreview } from "@/lib/thread-preview-store";
-import {
-  clearLegacyFunnelLocalStorage,
-  prepareNewAccountClientSession,
-} from "@/lib/client-user-session";
-import { fireAffiliateSignupConversion } from "@/lib/affiliate/911-for-me";
+import { clearLegacyFunnelLocalStorage } from "@/lib/client-user-session";
 import { trackFunnelStep } from "@/lib/analytics/visitor-id";
 import type { AppVariant } from "@/lib/app-variant";
 import { DEFAULT_APP_VARIANT } from "@/lib/app-variant";
@@ -65,14 +61,15 @@ import {
   funnelStepSubtitleClass,
   funnelStepTitleClass,
 } from "@/lib/funnel/tile-styles";
-import { stashFunnelPendingProfile } from "@/lib/funnel/pending-profile";
+import { ensureGuestSession, isPermanentAuthUser } from "@/lib/auth/guest-session";
+import { queueFunnelAutoSend } from "@/lib/funnel/auto-send";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
-import { saveFunnelAccount } from "@/lib/funnel/save-funnel-account";
+import { withVariantPath } from "@/lib/app-variant";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { SITE_DISPLAY } from "@/lib/brand";
 
-const STEP_TOTAL = 7;
+const STEP_TOTAL = 6;
 const MSG_MAX = 240;
 
 type FunnelGender = "man" | "woman";
@@ -312,6 +309,8 @@ function OnboardingFunnelInner({
     profileId: null,
   });
   const [firstMessage, setFirstMessage] = useState("");
+  const [startingChat, setStartingChat] = useState(false);
+  const [funnelError, setFunnelError] = useState<string | null>(null);
 
   const matchAgeMin = ageRange.anyAge ? 18 : ageRange.min;
   const matchAgeMax = ageRange.anyAge ? 70 : ageRange.max;
@@ -351,7 +350,7 @@ function OnboardingFunnelInner({
             data: { user },
           } = await supabase.auth.getUser();
           if (cancelled) return;
-          if (user) {
+          if (isPermanentAuthUser(user)) {
             router.replace(cfg.discoverPath);
             return;
           }
@@ -429,116 +428,104 @@ function OnboardingFunnelInner({
 
   const goBack = useCallback(() => {
     setNavDir(-1);
-    setStep((s) => {
-      if (s === 7 && !firstContact.profileId) {
-        return 5;
-      }
-      return Math.max(1, s - 1);
-    });
-  }, [firstContact.profileId]);
+    setStep((s) => Math.max(1, s - 1));
+  }, []);
 
   const progress = (step / STEP_TOTAL) * 100;
 
+  const persistFunnelDemographics = useCallback(async () => {
+    if (!isSupabaseConfigured()) return;
+    await ensureGuestSession();
+    const res = await fetch("/api/me/funnel-bootstrap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        lookingFor,
+        gender,
+        seekingGender,
+        ageRange,
+        startingCredits: STARTING_USER_CREDITS,
+      }),
+    });
+    const data = (await res.json()) as { ok?: boolean; error?: string };
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error ?? `Opslaan mislukt (${res.status})`);
+    }
+  }, [ageRange, gender, lookingFor, seekingGender]);
+
+  const finishFunnelToDiscover = useCallback(async () => {
+    setFunnelError(null);
+    try {
+      await persistFunnelDemographics();
+      sessionStorage.removeItem(FUNNEL_SESSION_KEY);
+      clearLegacyFunnelLocalStorage();
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(ONBOARDED_KEY, "true");
+      }
+      sessionStorage.setItem(
+        "whisper_discover_toast",
+        `Welkom bij ${SITE_DISPLAY} ✨`,
+      );
+      router.push(cfg.discoverPath);
+    } catch (e) {
+      setFunnelError(
+        e instanceof Error ? e.message : "Kon niet doorgaan — probeer opnieuw",
+      );
+    }
+  }, [cfg.discoverPath, persistFunnelDemographics, router]);
+
   const skipFirstLink = useCallback(() => {
-    setNavDir(1);
     setFirstContact({ profileId: null });
     setFirstMessage("");
-    setStep(7);
-  }, []);
+    void finishFunnelToDiscover();
+  }, [finishFunnelToDiscover]);
 
-  const completeFunnel = useCallback(
-    async ({
-      email,
-      password,
-    }: {
-      email: string;
-      password: string;
-    }): Promise<{ ok: true } | { ok: false; error: string }> => {
+  const startFunnelChat = useCallback(async () => {
+    const pid = firstContact.profileId;
+    const msgTrim = firstMessage.trim();
+    if (!pid || !pickedMatch || !msgTrim) return;
 
-      const pid = firstContact.profileId;
-      const msgTrim = firstMessage.trim();
-      const didFirstMessage = Boolean(
-        pid && pickedMatch && msgTrim.length > 0,
-      );
+    setFunnelError(null);
+    setStartingChat(true);
+    try {
+      await persistFunnelDemographics();
+      queueFunnelAutoSend(pid, msgTrim);
 
-      const signupResult = await saveFunnelAccount(
-        {
-          email,
-          password,
-          lookingFor,
-          gender,
-          seekingGender,
-          ageRange,
-          startingCredits: STARTING_USER_CREDITS,
-          pickedMatchId: firstContact.profileId,
-          firstMessage: didFirstMessage ? msgTrim : null,
-        },
-        { variant: cfg.variant },
-      );
-
-      if (!signupResult.ok) {
-        return { ok: false, error: signupResult.error };
-      }
-
-      fireAffiliateSignupConversion({ txid: signupResult.userId });
-
-      const credits = STARTING_USER_CREDITS;
+      const meta = getThreadMeta(pid);
+      const sentAt = new Date().toISOString();
+      setThreadPreview(pid, {
+        lastMessage: msgTrim,
+        timestampLabel: "nu",
+        lastActivityAt: sentAt,
+        name: meta.name,
+        avatarUrl: meta.avatarUrl,
+        verified: meta.verified,
+        showOnlineDot: meta.onlineNow,
+        unreadCount: 0,
+      });
 
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);
       clearLegacyFunnelLocalStorage();
-
-      if (signupResult.needsEmailConfirm) {
-        stashFunnelPendingProfile({
-          lookingFor,
-          gender,
-          seekingGender,
-          ageRange,
-          startingCredits: credits,
-          pickedMatchId: didFirstMessage ? pid : null,
-          firstMessage: didFirstMessage ? msgTrim : null,
-        });
-      } else if (signupResult.userId) {
-        prepareNewAccountClientSession(signupResult.userId, credits);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(ONBOARDED_KEY, "true");
       }
 
-      if (didFirstMessage && pid && pickedMatch) {
-        const meta = getThreadMeta(pid);
-        const sentAt = new Date().toISOString();
-        setThreadPreview(pid, {
-          lastMessage: msgTrim,
-          timestampLabel: "nu",
-          lastActivityAt: sentAt,
-          name: meta.name,
-          avatarUrl: meta.avatarUrl,
-          verified: meta.verified,
-          showOnlineDot: meta.onlineNow,
-          unreadCount: 0,
-        });
-      }
-
-      const toast = signupResult.needsEmailConfirm
-        ? "Account aangemaakt — check je e-mail om te bevestigen ✨"
-        : didFirstMessage
-          ? `Bericht verstuurd naar ${pickedMatch!.name} ✨`
-          : `Je bent binnen — welkom bij ${SITE_DISPLAY} ✨`;
-      sessionStorage.setItem("whisper_discover_toast", toast);
-
-      router.push(cfg.discoverPath);
-      return { ok: true };
-    },
-    [
-      ageRange,
-      cfg.discoverPath,
-      cfg.variant,
-      firstContact.profileId,
-      firstMessage,
-      gender,
-      lookingFor,
-      pickedMatch,
-      router,
-      seekingGender,
-    ],
-  );
+      router.push(withVariantPath(`/messages/${pid}`, cfg.variant));
+    } catch (e) {
+      setFunnelError(
+        e instanceof Error ? e.message : "Chat starten mislukt — probeer opnieuw",
+      );
+      setStartingChat(false);
+    }
+  }, [
+    cfg.variant,
+    firstContact.profileId,
+    firstMessage,
+    persistFunnelDemographics,
+    pickedMatch,
+    router,
+  ]);
 
   const slideVariants = {
     initial: (dir: number) => ({ x: dir > 0 ? 28 : -28, opacity: 0 }),
@@ -608,6 +595,12 @@ function OnboardingFunnelInner({
           </header>
         )}
 
+        {funnelError ? (
+          <p className="shrink-0 px-4 py-2 text-center text-[12px] font-medium text-red-600">
+            {funnelError}
+          </p>
+        ) : null}
+
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <AnimatePresence initial={false} custom={navDir} mode="wait">
             <motion.div
@@ -665,14 +658,9 @@ function OnboardingFunnelInner({
                   peer={pickedMatch}
                   value={firstMessage}
                   onChange={setFirstMessage}
-                  onContinue={goNext}
-                />
-              )}
-              {step === 7 && (
-                <StepCreateAccount
-                  peer={pickedMatch}
-                  firstMessage={firstMessage}
-                  onComplete={completeFunnel}
+                  onContinue={() => void startFunnelChat()}
+                  continuing={startingChat}
+                  signupPath={cfg.signupPath}
                 />
               )}
             </motion.div>
@@ -1472,11 +1460,15 @@ function StepFirstMessage({
   value,
   onChange,
   onContinue,
+  continuing = false,
+  signupPath,
 }: {
   peer: FunnelMatchPick | null;
   value: string;
   onChange: (s: string) => void;
   onContinue: () => void;
+  continuing?: boolean;
+  signupPath: string;
 }) {
   const ok = value.trim().length > 0;
   const len = value.length;
@@ -1536,16 +1528,22 @@ function StepFirstMessage({
       <div className="shrink-0 border-t border-black/[0.04] bg-canvas px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
         <button
           type="button"
-          disabled={!ok}
+          disabled={!ok || continuing}
           onClick={onContinue}
           className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-bold transition active:scale-95 ${
-            ok
+            ok && !continuing
               ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-pill"
               : "cursor-not-allowed bg-gray-200 text-gray-500"
           }`}
         >
-          Bericht versturen →
+          {continuing ? "Chat openen…" : "Start chat →"}
         </button>
+        <p className="mt-2 text-center text-[11px] text-gray-500">
+          Geen account nodig om te chatten.{" "}
+          <Link href={signupPath} className="font-semibold text-[var(--funnel-accent)] underline-offset-2 hover:underline">
+            Account later
+          </Link>
+        </p>
       </div>
     </div>
   );
@@ -1574,271 +1572,3 @@ function GoogleMark() {
   );
 }
 
-function isValidEmail(s: string): boolean {
-  const t = s.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t);
-}
-
-function StepCreateAccount({
-  peer,
-  firstMessage,
-  onComplete,
-}: {
-  peer: FunnelMatchPick | null;
-  firstMessage: string;
-  onComplete: (input: {
-    email: string;
-    password: string;
-  }) => Promise<{ ok: true } | { ok: false; error: string }>;
-}) {
-  const cfg = useFunnelConfig();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const emailOk = isValidEmail(email);
-  const passOk = password.length >= 8;
-  const confirmOk = confirmPassword.length > 0 && confirmPassword === password;
-  const showMismatch =
-    confirmPassword.length > 0 && confirmPassword !== password;
-  const formOk = emailOk && passOk && confirmOk && !submitting;
-
-  const handleSubmit = async () => {
-    if (!formOk) return;
-    setErrorMsg(null);
-    setSubmitting(true);
-    const res = await onComplete({ email: email.trim(), password });
-    if (!res.ok) {
-      setErrorMsg(res.error);
-      setSubmitting(false);
-    }
-    // On success the parent navigates away; no need to reset state.
-  };
-
-  const preview = firstMessage.trim();
-  const hasOutreach = Boolean(peer && preview.length > 0);
-  const quoted =
-    preview.length > 0
-      ? preview.length > 120
-        ? `\u201c${preview.slice(0, 117)}\u2026\u201d`
-        : `\u201c${preview}\u201d`
-      : "\u201c\u2026\u201d";
-
-  return (
-    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 pt-1">
-        <h2 className="shrink-0 text-[clamp(1.35rem,5vmin,1.875rem)] font-extrabold leading-tight text-gray-900">
-          Bijna klaar <span className="text-amber-400">✨</span>
-        </h2>
-        <p className="mt-0.5 shrink-0 text-[clamp(12px,3.2vmin,14px)] text-gray-600">
-          {hasOutreach
-            ? "Sla je profiel op en verstuur je eerste bericht."
-            : "Sla je profiel op — je kunt iedereen berichten sturen via Ontdekken."}
-        </p>
-
-        <div className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-y-3 overflow-hidden">
-          <div className="relative shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#EDE7FF] via-[#FDE4F0] to-[#EDE7FF] p-3 shadow-sm sm:p-4">
-            <div
-              className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-white/40 blur-2xl"
-              aria-hidden
-            />
-
-            <div className="relative flex items-center gap-2.5 sm:gap-3">
-              <div className="relative h-10 w-10 shrink-0 sm:h-12 sm:w-12">
-                <span className="block h-full w-full overflow-hidden rounded-full bg-white ring-2 ring-white">
-                  {peer ? (
-                    <Image
-                      src={peer.photo}
-                      alt=""
-                      width={96}
-                      height={96}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--funnel-accent)]/20 to-[var(--funnel-accent-soft)]/30 text-lg" aria-hidden>
-                      ✨
-                    </span>
-                  )}
-                </span>
-                {peer ? (
-                  <span
-                    className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500 sm:h-3 sm:w-3"
-                    aria-hidden
-                  />
-                ) : null}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--funnel-accent)] sm:text-[10px]">
-                  {hasOutreach ? "KLAAR OM TE VERSTUREN" : "JOUW PROFIEL"}
-                </p>
-                <p className="mt-0.5 truncate text-[clamp(11px,3vmin,13px)] font-semibold text-gray-900">
-                  {hasOutreach ? quoted : "Blader door profielen en start een chat wanneer je wilt."}
-                </p>
-                <p className="mt-0.5 text-[9px] text-gray-500 sm:text-[10px]">
-                  {hasOutreach && peer
-                    ? `→ naar ${peer.name}`
-                    : "Geen eerste bericht in de wachtrij — helemaal oké."}
-                </p>
-              </div>
-            </div>
-
-            <div className="relative my-2 border-t border-white/60 sm:my-3" />
-
-            <div className="relative space-y-1 sm:space-y-1.5">
-              {hasOutreach ? (
-                <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
-                    ✓
-                  </span>
-                  <span>Verstuur meteen je eerste bericht</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
-                    ✓
-                  </span>
-                  <span>Ontdek mensen die bij jouw vibe passen</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-[clamp(10px,2.8vmin,12px)] text-gray-800">
-                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[9px] text-white sm:h-5 sm:w-5 sm:text-[10px]">
-                  ✓
-                </span>
-                <span>
-                  <b className="text-amber-700">250 gratis credits</b> van ons 💰
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="shrink-0 space-y-2.5">
-            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition focus-within:border-[var(--funnel-accent)] focus-within:ring-2 focus-within:ring-[var(--funnel-accent)]/20">
-              <svg
-                className="h-4 w-4 shrink-0 text-gray-400"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <path d="m3 7 9 6 9-6" />
-              </svg>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="E-mailadres"
-                className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
-                autoComplete="email"
-              />
-            </div>
-            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 shadow-sm transition focus-within:border-[var(--funnel-accent)] focus-within:ring-2 focus-within:ring-[var(--funnel-accent)]/20">
-              <svg
-                className="h-4 w-4 shrink-0 text-gray-400"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <rect x="4" y="11" width="16" height="10" rx="2" />
-                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-              </svg>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Wachtwoord"
-                className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
-                autoComplete="new-password"
-              />
-            </div>
-            <div
-              className={`flex items-center gap-3 rounded-2xl border bg-white px-4 shadow-sm transition focus-within:ring-2 ${
-                showMismatch
-                  ? "border-red-400 focus-within:border-red-500 focus-within:ring-red-500/20"
-                  : "border-gray-200 focus-within:border-[var(--funnel-accent)] focus-within:ring-[var(--funnel-accent)]/20"
-              }`}
-            >
-              <svg
-                className={`h-4 w-4 shrink-0 ${showMismatch ? "text-red-400" : "text-gray-400"}`}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <rect x="4" y="11" width="16" height="10" rx="2" />
-                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-              </svg>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Herhaal wachtwoord"
-                className="h-12 w-full border-0 bg-transparent text-[15px] font-medium text-gray-900 outline-none placeholder:font-normal placeholder:text-gray-400"
-                autoComplete="new-password"
-              />
-              {confirmOk ? (
-                <span
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[11px] font-bold text-white"
-                  aria-label="Wachtwoorden kloppen"
-                >
-                  ✓
-                </span>
-              ) : null}
-            </div>
-            {showMismatch ? (
-              <p className="px-1 text-[12px] font-medium text-red-500">
-                Wachtwoorden komen niet overeen
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className="z-20 shrink-0 border-t border-black/[0.04] bg-canvas px-5 py-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:py-3">
-        {errorMsg ? (
-          <p className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-center text-[12px] font-medium text-red-600 ring-1 ring-red-100">
-            {errorMsg}
-          </p>
-        ) : null}
-        <button
-          type="button"
-          disabled={!formOk}
-          onClick={handleSubmit}
-          className={`flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
-            formOk
-              ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-lg"
-              : "cursor-not-allowed bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white opacity-50 shadow-none"
-          }`}
-        >
-          {submitting
-            ? "Account aanmaken…"
-            : hasOutreach
-              ? "Account aanmaken en versturen →"
-              : "Account aanmaken →"}
-        </button>
-        <p className="mt-2 text-center text-[11px] leading-snug text-gray-500">
-          Door verder te gaan ga je akkoord met onze{" "}
-          <Link href={cfg.helpPath} className="font-bold text-[var(--funnel-accent)] hover:underline">
-            Voorwaarden
-          </Link>{" "}
-          ·{" "}
-          <Link href={cfg.privacyPath} className="font-bold text-[var(--funnel-accent)] hover:underline">
-            Privacy
-          </Link>
-        </p>
-      </div>
-    </div>
-  );
-}
