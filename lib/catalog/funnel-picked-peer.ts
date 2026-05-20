@@ -41,15 +41,22 @@ export function consumeFunnelPickedPeerClient(): string | null {
   return id?.trim() || null;
 }
 
-/** Server: read and clear one-time pick from the funnel completion cookie. */
+/**
+ * Server: read one-time funnel pick from cookie (read-only).
+ * Do not call `cookies().delete()` here — Next.js only allows cookie writes in
+ * Server Actions / Route Handlers; deleting during RSC (discover SSR) throws.
+ * The client clears the cookie in `consumeFunnelPickedPeerClient`.
+ */
 export async function consumeFunnelPickedPeerServer(): Promise<string | null> {
   const { cookies } = await import("next/headers");
   const store = await cookies();
   const raw = store.get(FUNNEL_PICKED_PEER_COOKIE)?.value;
   if (!raw?.trim()) return null;
-  const id = decodeURIComponent(raw.trim());
-  store.delete(FUNNEL_PICKED_PEER_COOKIE);
-  return id;
+  try {
+    return decodeURIComponent(raw.trim());
+  } catch {
+    return raw.trim();
+  }
 }
 
 /**
