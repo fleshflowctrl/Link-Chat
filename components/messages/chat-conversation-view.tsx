@@ -62,6 +62,9 @@ import {
 } from "@/lib/datetime/amsterdam";
 
 const GROUP_GAP_MIN = 5;
+/** Prevent double-tap duplicate sends only — do not block while AI reply is in flight. */
+const SEND_DEBOUNCE_MS = 400;
+const SEND_FETCH_TIMEOUT_MS = 90_000;
 
 function minuteFromClock(m: ChatMessage): number {
   return m.minuteOfDay;
@@ -333,8 +336,9 @@ export function ChatConversationView({
   const [nextPendingAt, setNextPendingAt] = useState<string | null>(null);
   /** Guard against overlapping pollPending invocations. */
   const pollingRef = useRef(false);
-  const sendTextInFlightRef = useRef(false);
+  const lastSendTapRef = useRef(0);
   const funnelAutoSendDoneRef = useRef(false);
+  const [sendBusy, setSendBusy] = useState(false);
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
 
@@ -366,6 +370,27 @@ export function ChatConversationView({
     setCreditsGateMode(resolved);
     setCreditsGateOpen(true);
   }, []);
+
+  useEffect(() => {
+    void refreshCreditsFromServer();
+  }, []);
+
+  const ensureCreditsForSend = useCallback(async (): Promise<boolean> => {
+    if (!useSupabase) return true;
+    let bal = getCreditsSnapshot().balance;
+    if (bal < CHAT_MESSAGE_COST_CREDITS) {
+      await refreshCreditsFromServer();
+      bal = getCreditsSnapshot().balance;
+    }
+    if (bal < CHAT_MESSAGE_COST_CREDITS) {
+      setAssistantError(
+        `Niet genoeg credits (${CHAT_MESSAGE_COST_CREDITS} per bericht).`,
+      );
+      openCreditsGate();
+      return false;
+    }
+    return true;
+  }, [useSupabase, openCreditsGate]);
 
   const annotated = useMemo(() => annotateMessages(messages), [messages]);
 
@@ -777,13 +802,12 @@ export function ChatConversationView({
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
-      if (useSupabase) {
-        const bal = getCreditsSnapshot().balance;
-        if (bal < CHAT_MESSAGE_COST_CREDITS) {
-          openCreditsGate();
-          return;
-        }
-      }
+
+      const now = Date.now();
+      if (now - lastSendTapRef.current < SEND_DEBOUNCE_MS) return;
+      lastSendTapRef.current = now;
+
+      if (useSupabase && !(await ensureCreditsForSend())) return;
 
       if (!useSupabase) {
         const { timeLabel, minuteOfDay } = nowAmsterdamClock();
@@ -818,9 +842,6 @@ export function ChatConversationView({
         return;
       }
 
-      if (sendTextInFlightRef.current) return;
-      sendTextInFlightRef.current = true;
-
       const sentAt = new Date().toISOString();
       const { timeLabel, minuteOfDay } = nowAmsterdamClock();
       const tempId = `tmp-${gid()}`;
@@ -849,18 +870,27 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
+      setSendBusy(true);
       try {
+        const ac = new AbortController();
+        const timeoutId = window.setTimeout(
+          () => ac.abort(),
+          SEND_FETCH_TIMEOUT_MS,
+        );
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
           {
             method: "POST",
+            credentials: "same-origin",
             headers: {
               "Content-Type": "application/json",
               ...appVariantFetchHeaders(variant),
             },
             body: JSON.stringify({ text: trimmed }),
+            signal: ac.signal,
           },
         );
+        window.clearTimeout(timeoutId);
         const data = (await res.json()) as {
           ok?: boolean;
           userMessage?: ChatMessage;
@@ -947,10 +977,13 @@ export function ChatConversationView({
         requestThreadsRefetch();
       } catch (e) {
         console.error("[chat] send failed", e);
+        const aborted = e instanceof Error && e.name === "AbortError";
         setAssistantError(
-          e instanceof Error
-            ? e.message
-            : "Netwerkfout — bericht niet verstuurd",
+          aborted
+            ? "Versturen duurde te lang — probeer opnieuw."
+            : e instanceof Error
+              ? e.message
+              : "Netwerkfout — bericht niet verstuurd",
         );
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setReadPhase((p) => {
@@ -960,10 +993,10 @@ export function ChatConversationView({
         });
         setInput(trimmed);
       } finally {
-        sendTextInFlightRef.current = false;
+        setSendBusy(false);
       }
     },
-    [chatId, openCreditsGate, useSupabase, meta, variant],
+    [chatId, ensureCreditsForSend, openCreditsGate, useSupabase, meta, variant],
   );
 
   /** Funnel: send the composed first message once after opening chat (guest session). */
@@ -978,13 +1011,10 @@ export function ChatConversationView({
   const sendImage = useCallback(
     async (publicUrl: string) => {
       if (!publicUrl) return;
-      if (useSupabase) {
-        const bal = getCreditsSnapshot().balance;
-        if (bal < CHAT_MESSAGE_COST_CREDITS) {
-          openCreditsGate();
-          return;
-        }
-      }
+      const now = Date.now();
+      if (now - lastSendTapRef.current < SEND_DEBOUNCE_MS) return;
+      lastSendTapRef.current = now;
+      if (useSupabase && !(await ensureCreditsForSend())) return;
       if (!useSupabase) {
         const { timeLabel, minuteOfDay } = nowAmsterdamClock();
         setMessages((prev) => [
@@ -1025,18 +1055,27 @@ export function ChatConversationView({
         unreadCount: 0,
       });
 
+      setSendBusy(true);
       try {
+        const ac = new AbortController();
+        const timeoutId = window.setTimeout(
+          () => ac.abort(),
+          SEND_FETCH_TIMEOUT_MS,
+        );
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
           {
             method: "POST",
+            credentials: "same-origin",
             headers: {
               "Content-Type": "application/json",
               ...appVariantFetchHeaders(variant),
             },
             body: JSON.stringify({ imageUrl: publicUrl }),
+            signal: ac.signal,
           },
         );
+        window.clearTimeout(timeoutId);
         const data = (await res.json()) as {
           ok?: boolean;
           userMessage?: ChatMessage;
@@ -1072,13 +1111,20 @@ export function ChatConversationView({
         requestThreadsRefetch();
       } catch (e) {
         console.error("[chat] send image failed", e);
+        const aborted = e instanceof Error && e.name === "AbortError";
         setAssistantError(
-          e instanceof Error ? e.message : "Foto versturen mislukt",
+          aborted
+            ? "Versturen duurde te lang — probeer opnieuw."
+            : e instanceof Error
+              ? e.message
+              : "Foto versturen mislukt",
         );
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      } finally {
+        setSendBusy(false);
       }
     },
-    [chatId, openCreditsGate, useSupabase, meta, variant],
+    [chatId, ensureCreditsForSend, openCreditsGate, useSupabase, meta, variant],
   );
 
   const sendGift = useCallback(
@@ -1689,8 +1735,9 @@ export function ChatConversationView({
               key="send"
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
-              aria-label="Versturen"
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95 ${sendBusy ? "opacity-80" : ""}`}
+              aria-label={sendBusy ? "Versturen…" : "Versturen"}
+              aria-busy={sendBusy}
               onClick={() => void sendText(input)}
             >
               <Send className="h-5 w-5" strokeWidth={2.25} />
