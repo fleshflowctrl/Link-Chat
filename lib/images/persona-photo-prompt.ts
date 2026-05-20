@@ -391,20 +391,20 @@ function sceneForClothedMode(scene: string): string {
       s,
     )
   ) {
-    return "casual intimate bedroom mirror selfie, adult woman in sexy outfit";
+    return "intimate bedroom moment, unconventional camera angle, adult woman in sexy outfit";
   }
-  return s || "casual intimate mirror selfie in bedroom";
+  return s || "intimate bedroom candid moment, not a passport headshot";
 }
 
 function poseForClothedMode(pose: string): string {
   if (!pose.trim()) return pose;
   let p = sceneForClothedMode(pose)
-    .replace(/\bspread(ing)?\s+(legs|thighs)\b/gi, "standing with legs apart")
+    .replace(/\bspread(ing)?\s+(legs|thighs)\b/gi, "legs apart but clothed")
     .replace(/\bshowing\s+(vagina|pussy|genitals)\b/gi, "")
     .replace(/\bexposing\s+(breasts|nipples)\b/gi, "")
     .trim();
   if (/nude|naakt|topless|bare breast|nipple|vagina visible|no clothes/i.test(p)) {
-    return "standing mirror selfie, flirty smile, hands at sides or holding phone";
+    return "";
   }
   return p;
 }
@@ -553,11 +553,11 @@ export function buildPersonaPhotoPrompt(args: {
   const templateBackdrop = stripBlurPhrases(cam.backdrop);
   const templateLighting = stripBlurPhrases(cam.lighting);
   const templateCapture = stripBlurPhrases(cam.capture);
-  // Front-load template composition for nudes so diffusion commits to the
-  // shot (POV, close-up, doggy, mirror, etc.) BEFORE generic nude-body
-  // tokens that otherwise collapse every render into the same mirror selfie.
-  const nudeCompositionFrontLoaded =
-    isExplicitNude &&
+  // Front-load template composition BEFORE body/outfit tokens — critical
+  // for sexy-clothed (isExplicitNude=false) or every shot becomes the same
+  // forward-facing chest-up portrait.
+  const compositionFrontLoaded =
+    (isExplicitNude || args.forceClothed) &&
     Boolean(
       templateCamera ||
         shotPose ||
@@ -566,7 +566,7 @@ export function buildPersonaPhotoPrompt(args: {
         templateLighting ||
         templateCapture,
     );
-  if (nudeCompositionFrontLoaded) {
+  if (compositionFrontLoaded) {
     promptParts.push(`scene: ${cleanScene}`);
     if (shotPose) promptParts.push(`pose: ${shotPose}`);
     if (templateCamera) promptParts.push(templateCamera);
@@ -629,7 +629,7 @@ export function buildPersonaPhotoPrompt(args: {
     promptParts.push(`wearing ${style}`);
   }
 
-  if (!nudeCompositionFrontLoaded) {
+  if (!compositionFrontLoaded) {
     if (shotPose) promptParts.push(`pose: ${shotPose}`);
     promptParts.push(`scene: ${cleanScene}`);
   }
@@ -668,7 +668,7 @@ export function buildPersonaPhotoPrompt(args: {
     templateCapture ||
     (isExplicitNude ? "" : "shot on iPhone, slight grain, intimate everyday moment");
 
-  if (!nudeCompositionFrontLoaded) {
+  if (!compositionFrontLoaded) {
     if (camera) promptParts.push(camera);
     if (backdrop) promptParts.push(`background: ${backdrop}`);
     if (lighting) promptParts.push(lighting);
@@ -736,8 +736,13 @@ export function buildPersonaPhotoPrompt(args: {
     promptParts.push(
       "MUST be wearing visible clothes, sexy lingerie or bikini or sheer outfit, NOT nude, NOT topless, " +
         "breasts covered by bra or bikini top, nipples not visible, genitals covered by panties or fabric, " +
-        "very revealing almost-nude look but still clothed, amateur mirror selfie or bedroom phone photo, " +
+        "very revealing almost-nude look but still clothed, " +
         "intimate flirty energy, looks like a private snap sent to a dating app",
+    );
+    promptParts.push(
+      "NOT a passport photo, NOT a corporate headshot, NOT straight-on centered portrait, " +
+        "NOT shoulders squared facing camera, NOT identical pose to other photos, " +
+        "unusual framing and angle as described in pose and camera above",
     );
     // Same anti-AI / anti-glamour push as nude realism — Z-Image has no
     // negative prompt on HF Space, so these must be positive tokens.
@@ -753,7 +758,7 @@ export function buildPersonaPhotoPrompt(args: {
         "real woman body with normal everyday proportions under the outfit, soft natural belly if visible, " +
         "soft thighs with possible cellulite, normal hip width, no six pack, no sculpted abs, no thigh gap, " +
         "slight tan lines from bikini or bra possible, natural body not fitness-model not porn-star body, " +
-        "candid not posing for camera, looks like a quick casual self-taken snap not a photoshoot",
+        "candid not posing for camera, looks like a quick casual snap not a photoshoot",
     );
   } else {
     // STRONG everyday-iPhone realism block. Loaded with concrete phone-
@@ -833,6 +838,8 @@ export function buildPersonaPhotoPrompt(args: {
     "professional model pose, posed for camera, glamorous, " +
     "identical twin, same face as another woman, clone face, duplicate person, generic face, " +
     "same hair color as everyone, same skin tone as everyone, " +
+    "passport photo, corporate headshot, straight-on portrait, centered symmetrical pose, " +
+    "shoulders squared to camera, identical pose, same framing as another photo, " +
     // operator rule: medium or long hair only, never short
     "short hair, very short hair, pixie cut, buzz cut, shaved head, " +
     "boy cut, undercut, crew cut, bowl cut, cropped hair, ear-length hair, " +

@@ -135,11 +135,11 @@ export function v2SystemAppendForPhotoMode(mode: V2PhotoMode): string {
 
 /** Rotate sexy outfit descriptors across batch gallery/avatar shots. */
 export const V2_SEXY_CLOTHED_OUTFIT_CYCLE = [
-  "wearing black lace lingerie bra and panties, very revealing but clothed, breasts and crotch covered by fabric, amateur mirror selfie",
-  "micro bikini top and thong, almost nude, nipples and genitals not visible, casual bedroom phone photo",
-  "sheer mesh bodysuit over skin, see-through but still wearing clothes, dim bedroom light, amateur self-taken",
-  "sports bra and tiny thong, athletic sexy look, stomach and legs visible, breasts covered, mirror selfie",
-  "red satin lingerie set, straps and lace, not topless, not bottomless, intimate amateur snapshot",
+  "wearing black lace lingerie bra and panties, very revealing but clothed, breasts and crotch covered by fabric",
+  "micro bikini top and thong, nipples and genitals not visible",
+  "sheer mesh bodysuit, see-through but still wearing clothes, dim bedroom light",
+  "sports bra and tiny thong, athletic sexy look, stomach and legs visible, breasts covered",
+  "red satin lingerie set, straps and lace, not topless, not bottomless",
 ] as const;
 
 export function v2SexyClothedOutfitForVariant(variant: number): string {
@@ -162,4 +162,69 @@ export type V2NudeDiversity = (typeof V2_NUDE_DIVERSITY_CYCLE)[number];
 export function v2NudeDiversityForVariant(variant: number): V2NudeDiversity {
   const idx = Math.abs(Math.floor(variant)) % V2_NUDE_DIVERSITY_CYCLE.length;
   return V2_NUDE_DIVERSITY_CYCLE[idx]!;
+}
+
+/** Mandatory shot composition per variant — stops every render collapsing
+ * into the same forward-facing chest-up passport portrait. */
+export type V2ShotComposition = {
+  scene: string;
+  pose: string;
+  camera: string;
+  capture: string;
+};
+
+export const V2_COMPOSITION_CYCLE: readonly V2ShotComposition[] = [
+  {
+    scene: "lying on her side on a bed with rumpled sheets",
+    pose: "propped on one elbow, torso turned three-quarter away, head turned back toward camera, not straight-on",
+    camera: "phone at waist height, medium shot, off-center framing, not a passport portrait",
+    capture: "quick amateur phone snap, tilted frame",
+  },
+  {
+    scene: "sitting on the edge of a bathtub in a small bathroom",
+    pose: "one knee up on the tub edge, leaning forward, looking down at phone in her hands",
+    camera: "high angle from above looking down at lap and torso, face not centered",
+    capture: "harsh bathroom light, uneven exposure",
+  },
+  {
+    scene: "kneeling on a couch facing the backrest",
+    pose: "over-the-shoulder glance back, back and profile visible, not facing camera squarely",
+    camera: "from behind and slightly to the side, rear three-quarter angle",
+    capture: "candid phone photo, not posed for studio",
+  },
+  {
+    scene: "standing in a bedroom doorway",
+    pose: "weight on one hip, one arm above head, casual unposed moment, body angled",
+    camera: "three-quarter or full-length from several steps away, not a tight face crop",
+    capture: "slightly distant phone snapshot",
+  },
+  {
+    scene: "sitting cross-legged on the floor against a wall",
+    pose: "slouched relaxed posture, looking slightly past the camera, asymmetrical shoulders",
+    camera: "low angle phone on the floor pointing upward",
+    capture: "grainy indoor phone photo",
+  },
+  {
+    scene: "torso and outfit detail in a dim bedroom",
+    pose: "chin cropped out or only lower face visible, unconventional crop, not a standard portrait",
+    camera: "tight crop on chest waist and hips, unusual framing",
+    capture: "close phone photo, not a headshot",
+  },
+  {
+    scene: "bent over on the bed adjusting clothing",
+    pose: "back or side to camera, face not the main focal point, natural bend at waist",
+    camera: "rear three-quarter medium shot, not front-facing",
+    capture: "amateur candid angle",
+  },
+  {
+    scene: "bedroom with a mirror visible off to the side",
+    pose: "standing sideways to the mirror, not classic straight-on mirror selfie, phone at her side",
+    camera: "environmental shot, mirror off-center, subject at an angle",
+    capture: "mirror not filling the whole frame, not arm-extended selfie pose",
+  },
+] as const;
+
+export function v2CompositionForVariant(variant: number): V2ShotComposition {
+  const idx = Math.abs(Math.floor(variant)) % V2_COMPOSITION_CYCLE.length;
+  return V2_COMPOSITION_CYCLE[idx]!;
 }
