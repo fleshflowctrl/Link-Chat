@@ -42,7 +42,7 @@ import {
 import { getChatHeaderPresence } from "@/lib/chat/online-status";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
 import { useAppVariant } from "@/components/app-variant-provider";
-import { withVariantPath } from "@/lib/app-variant";
+import { appVariantFetchHeaders, withVariantPath } from "@/lib/app-variant";
 import {
   applyServerCreditsUpdate,
   getCreditsSnapshot,
@@ -332,6 +332,7 @@ export function ChatConversationView({
             method: "POST",
             cache: "no-store",
             credentials: "same-origin",
+            headers: appVariantFetchHeaders(variant),
           },
         );
         if (!res.ok) return;
@@ -370,7 +371,7 @@ export function ChatConversationView({
         stopPeerTyping();
       }
     },
-    [chatId, useSupabase, stopPeerTyping, nextPendingAt],
+    [chatId, useSupabase, stopPeerTyping, nextPendingAt, variant],
   );
 
   /**
@@ -594,7 +595,11 @@ export function ChatConversationView({
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
-          { cache: "no-store", signal },
+          {
+            cache: "no-store",
+            signal,
+            headers: appVariantFetchHeaders(variant),
+          },
         );
         const data = (await res.json()) as {
           ok?: boolean;
@@ -623,7 +628,7 @@ export function ChatConversationView({
         /* keep current state */
       }
     },
-    [chatId, useSupabase],
+    [chatId, useSupabase, variant],
   );
 
   /** Initial server sync on mount / chat change. */
@@ -755,7 +760,10 @@ export function ChatConversationView({
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...appVariantFetchHeaders(variant),
+            },
             body: JSON.stringify({ text: trimmed }),
           },
         );
@@ -872,7 +880,7 @@ export function ChatConversationView({
         setInput(trimmed);
       }
     },
-    [chatId, openCreditsGate, useSupabase, meta],
+    [chatId, openCreditsGate, useSupabase, meta, variant],
   );
 
   const sendImage = useCallback(
@@ -930,7 +938,10 @@ export function ChatConversationView({
           `/api/conversations/${encodeURIComponent(chatId)}/messages`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...appVariantFetchHeaders(variant),
+            },
             body: JSON.stringify({ imageUrl: publicUrl }),
           },
         );
@@ -985,7 +996,7 @@ export function ChatConversationView({
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
       }
     },
-    [chatId, openCreditsGate, useSupabase, meta],
+    [chatId, openCreditsGate, useSupabase, meta, variant],
   );
 
   const sendGift = useCallback(
@@ -1021,7 +1032,10 @@ export function ChatConversationView({
           `/api/conversations/${encodeURIComponent(chatId)}/gifts`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...appVariantFetchHeaders(variant),
+            },
             body: JSON.stringify({ amount }),
           },
         );
@@ -1058,7 +1072,7 @@ export function ChatConversationView({
         return { ok: false as const, error: "Netwerkfout" };
       }
     },
-    [chatId, meta],
+    [chatId, meta, variant],
   );
 
   function attachReactionTo(messageId: string, emoji: string) {

@@ -32,14 +32,26 @@ export function variantFromPathname(pathname: string | null | undefined): AppVar
   return pathname === "/v2" || pathname.startsWith("/v2/") ? "v2" : "v1";
 }
 
+/** Optional client hint on API fetches (`X-Whisper-App-Variant`). */
+export const APP_VARIANT_REQUEST_HEADER = "x-whisper-app-variant";
+
 /** Server: variant for the current request (pathname via middleware header, else cookie). */
 export async function readServerAppVariant(): Promise<AppVariant> {
   const { cookies, headers } = await import("next/headers");
   const h = await headers();
-  const fromPath = h.get("x-app-variant");
-  if (isAppVariant(fromPath)) return fromPath;
+  const fromClient = h.get(APP_VARIANT_REQUEST_HEADER);
+  if (isAppVariant(fromClient)) return fromClient;
+  const fromMiddleware = h.get("x-app-variant");
+  if (isAppVariant(fromMiddleware)) return fromMiddleware;
   const c = await cookies();
   return parseAppVariant(c.get(APP_VARIANT_COOKIE)?.value ?? null);
+}
+
+/** Attach to client `fetch` calls so API routes resolve the correct pool. */
+export function appVariantFetchHeaders(
+  variant: AppVariant,
+): Record<string, string> {
+  return { [APP_VARIANT_REQUEST_HEADER]: variant };
 }
 
 /** Client: read persisted variant (cookie set by middleware). */

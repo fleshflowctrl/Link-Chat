@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { APP_VARIANT_COOKIE, variantFromPathname } from "@/lib/app-variant";
+import {
+  APP_VARIANT_COOKIE,
+  isAppVariant,
+  variantFromPathname,
+} from "@/lib/app-variant";
 import {
   DEV_BYPASS_COOKIE,
   DEV_BYPASS_VALUE,
@@ -50,15 +54,30 @@ function redirectPreservingSessionCookies(
   return redirect;
 }
 
-/** Pathname is authoritative; cookie is set for client fetches to APIs. */
+/** Pages: pathname wins. API routes: cookie/referer (path is always `/api/...`). */
 function variantForRequest(request: NextRequest): "v1" | "v2" {
-  return variantFromPathname(request.nextUrl.pathname);
+  const pathname = request.nextUrl.pathname;
+  if (!pathname.startsWith("/api")) {
+    return variantFromPathname(pathname);
+  }
+  const cookie = request.cookies.get(APP_VARIANT_COOKIE)?.value;
+  if (isAppVariant(cookie)) return cookie;
+  const referer = request.headers.get("referer");
+  if (referer) {
+    try {
+      return variantFromPathname(new URL(referer).pathname);
+    } catch {
+      /* ignore malformed referer */
+    }
+  }
+  return variantFromPathname(pathname);
 }
 
 function withVariantRequestHeaders(
   request: NextRequest,
   response: NextResponse,
 ): NextResponse {
+  const pathname = request.nextUrl.pathname;
   const variant = variantForRequest(request);
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-app-variant", variant);
@@ -80,6 +99,12 @@ function withVariantRequestHeaders(
   });
   if (variant === "v2") {
     next.cookies.set(APP_VARIANT_COOKIE, "v2", {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  } else if (!pathname.startsWith("/api")) {
+    next.cookies.set(APP_VARIANT_COOKIE, "v1", {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
