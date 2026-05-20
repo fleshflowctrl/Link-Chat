@@ -5,7 +5,6 @@ import { ChevronRight, Sparkles } from "lucide-react";
 import {
   PRO_SUBSCRIPTION_COMPARE_PRICE_EUR,
   PRO_SUBSCRIPTION_CREDITS_PER_MONTH,
-  PRO_SUBSCRIPTION_MIN_MONTHS,
   PRO_SUBSCRIPTION_PRICE_EUR,
 } from "@/lib/credits/pro-subscription";
 import { CreditPrice } from "@/components/credits/credit-price";
@@ -14,21 +13,11 @@ import { withVariantPath } from "@/lib/app-variant";
 
 type Props = {
   active?: boolean;
-  minimumEndAt?: string | null;
 };
 
-export function ProOfferCard({ active = false, minimumEndAt = null }: Props) {
+export function ProOfferCard({ active = false }: Props) {
   const { variant } = useAppVariant();
   const href = withVariantPath("/credits/checkout/pro", variant);
-
-  const minEndLabel =
-    minimumEndAt && active
-      ? new Date(minimumEndAt).toLocaleDateString("nl-NL", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : null;
 
   return (
     <section className="mt-4 pt-2">
@@ -44,9 +33,6 @@ export function ProOfferCard({ active = false, minimumEndAt = null }: Props) {
           </div>
           <p className="mt-2 text-[12px] leading-snug text-gray-600">
             Je ontvangt elke maand {PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits.
-            {minEndLabel
-              ? ` Minimale looptijd tot ${minEndLabel}.`
-              : ` Minimaal ${PRO_SUBSCRIPTION_MIN_MONTHS} maanden.`}
           </p>
         </div>
       ) : (
@@ -64,8 +50,7 @@ export function ProOfferCard({ active = false, minimumEndAt = null }: Props) {
                 {PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits / maand
               </p>
               <p className="mt-1 text-[12px] leading-snug text-white/75">
-                Abonnement · minimaal {PRO_SUBSCRIPTION_MIN_MONTHS} maanden ·
-                daarna maandelijks opzegbaar
+                Maandelijks abonnement
               </p>
             </div>
             <ChevronRight

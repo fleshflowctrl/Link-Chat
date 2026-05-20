@@ -8,7 +8,6 @@ import { CreditsPill } from "@/components/ui/credits-pill";
 import {
   PRO_SUBSCRIPTION_COMPARE_PRICE_EUR,
   PRO_SUBSCRIPTION_CREDITS_PER_MONTH,
-  PRO_SUBSCRIPTION_MIN_MONTHS,
   PRO_SUBSCRIPTION_PRICE_EUR,
 } from "@/lib/credits/pro-subscription";
 import {
@@ -189,11 +188,6 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
               {PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits direct bij elke betaling
             </li>
             <li className="flex gap-2">
-              <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-              Minimaal {PRO_SUBSCRIPTION_MIN_MONTHS} maanden — daarna maandelijks
-              opzegbaar
-            </li>
-            <li className="flex gap-2">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
               Veilig betalen via Stripe
             </li>
@@ -232,10 +226,6 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
             ? "Even geduld…"
             : `Start Pro · ${PRO_SUBSCRIPTION_PRICE_EUR.toFixed(2).replace(".", ",")} / maand`}
         </button>
-        <p className="mt-2 text-center text-[10px] text-gray-500">
-          Door te betalen ga je akkoord met een minimale looptijd van{" "}
-          {PRO_SUBSCRIPTION_MIN_MONTHS} maanden.
-        </p>
       </div>
     </div>
   );

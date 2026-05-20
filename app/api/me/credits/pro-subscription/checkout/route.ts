@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { SITE_NAME } from "@/lib/brand";
 import {
   PRO_SUBSCRIPTION_CREDITS_PER_MONTH,
-  PRO_SUBSCRIPTION_MIN_MONTHS,
   PRO_SUBSCRIPTION_PLAN_ID,
   PRO_SUBSCRIPTION_PRICE_EUR,
   proSubscriptionAmountCents,
@@ -121,7 +120,7 @@ export async function POST(req: Request) {
             recurring: { interval: "month" },
             product_data: {
               name: `${SITE_NAME} Pro`,
-              description: `${PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits per maand · min. ${PRO_SUBSCRIPTION_MIN_MONTHS} maanden`,
+              description: `${PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits per maand`,
             },
           },
         },

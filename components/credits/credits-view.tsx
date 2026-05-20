@@ -77,7 +77,6 @@ function PackageCard({ pkg }: { pkg: CreditPackage }) {
 
 export function CreditsView() {
   const [proActive, setProActive] = useState(false);
-  const [proMinimumEndAt, setProMinimumEndAt] = useState<string | null>(null);
 
   useEffect(() => {
     initCreditsStore();
@@ -91,13 +90,9 @@ export function CreditsView() {
           cache: "no-store",
         });
         if (!res.ok || cancelled) return;
-        const json = (await res.json()) as {
-          active?: boolean;
-          minimumEndAt?: string | null;
-        };
+        const json = (await res.json()) as { active?: boolean };
         if (cancelled) return;
         setProActive(Boolean(json.active));
-        setProMinimumEndAt(json.minimumEndAt ?? null);
       } catch {
         /* ignore */
       }
@@ -129,7 +124,7 @@ export function CreditsView() {
         {packages.map((pkg) => (
           <PackageCard key={pkg.id} pkg={pkg} />
         ))}
-        <ProOfferCard active={proActive} minimumEndAt={proMinimumEndAt} />
+        <ProOfferCard active={proActive} />
       </div>
     </div>
   );
