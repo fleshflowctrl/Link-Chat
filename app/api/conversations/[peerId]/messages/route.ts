@@ -17,7 +17,11 @@ import {
   sleep,
   syncDelayThresholdMs,
 } from "@/lib/ai/reply-pacing";
-import { parseAppVariant } from "@/lib/app-variant";
+import { parseAppVariant, readServerAppVariant } from "@/lib/app-variant";
+import {
+  applyChatProfilesVariantFilter,
+  chatProfileMatchesVariant,
+} from "@/lib/catalog/profile-variant";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
 import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
@@ -58,14 +62,21 @@ export async function GET(
 
   // Lazy catch-up: if a pending reply is due (e.g. user closed the app and is
   // now reopening), deliver it before returning so it shows up in this load.
-  const { data: profileForGet } = await supabase
-    .from("chat_profiles")
-    .select("*")
-    .eq("id", peerId)
-    .maybeSingle();
+  const requestVariant = await readServerAppVariant();
+
+  let getProfileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
+  getProfileQuery = applyChatProfilesVariantFilter(getProfileQuery, requestVariant);
+  const { data: profileForGet } = await getProfileQuery.maybeSingle();
+
+  if (!profileForGet) {
+    return NextResponse.json(
+      { ok: false, error: "Onbekende persoon" },
+      { status: 404 },
+    );
+  }
 
   let nextPendingAt: string | null = null;
-  if (profileForGet && (profileForGet as ChatProfileRow).is_ai) {
+  if ((profileForGet as ChatProfileRow).is_ai) {
     try {
       const r = await processDuePendingReplies(supabase, {
         ownerUserId: user.id,
@@ -170,14 +181,13 @@ export async function POST(
   }
 
   const peerId = params.peerId;
+  const requestVariant = await readServerAppVariant();
 
-  const { data: profile, error: pe } = await supabase
-    .from("chat_profiles")
-    .select("*")
-    .eq("id", peerId)
-    .maybeSingle();
+  let postProfileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
+  postProfileQuery = applyChatProfilesVariantFilter(postProfileQuery, requestVariant);
+  const { data: profile, error: pe } = await postProfileQuery.maybeSingle();
 
-  if (pe || !profile) {
+  if (pe || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, requestVariant)) {
     return NextResponse.json({ ok: false, error: "Onbekende persoon" }, { status: 404 });
   }
 

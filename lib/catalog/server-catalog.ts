@@ -1,9 +1,5 @@
 import { redirect } from "next/navigation";
-import {
-  getProfileById,
-  profiles,
-  type Profile,
-} from "@/data/profiles";
+import { getProfileById, type Profile } from "@/data/profiles";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
@@ -22,7 +18,12 @@ import {
   type ProfileViewHistory,
 } from "@/lib/me/profile-views";
 import type { AppVariant } from "@/lib/app-variant";
-import { DEFAULT_APP_VARIANT } from "@/lib/app-variant";
+import { DEFAULT_APP_VARIANT, readServerAppVariant } from "@/lib/app-variant";
+import {
+  applyChatProfilesVariantFilter,
+  chatProfileMatchesVariant,
+  staticCatalogProfiles,
+} from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -191,25 +192,18 @@ export async function buildDiscoverPackForRefresh(
   });
 }
 
-function applyChatProfilesVariantFilter<T>(
-  query: T,
-  variant: AppVariant,
-): T {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const q = query as any;
-  return q.eq("app_variant", variant) as T;
-}
-
 export async function fetchHomePageCatalogServer(
   options: CatalogVariantOptions = {},
 ): Promise<HomePageCatalogBundle> {
   const variant = options.variant ?? DEFAULT_APP_VARIANT;
   const now = Date.now();
 
+  const staticPool = staticCatalogProfiles(variant);
+
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const meta = bundleMeta(0, now);
-    const gridProfiles = pickDiscoverFeed(profiles, "guest", meta.feedSlot);
+    const gridProfiles = pickDiscoverFeed(staticPool, "guest", meta.feedSlot);
     return {
       gridProfiles,
       activityUsers: getNewWhisperUsers(),
@@ -225,7 +219,7 @@ export async function fetchHomePageCatalogServer(
   } catch {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const meta = bundleMeta(0, now);
-    const gridProfiles = pickDiscoverFeed(profiles, "guest", meta.feedSlot);
+    const gridProfiles = pickDiscoverFeed(staticPool, "guest", meta.feedSlot);
     return {
       gridProfiles,
       activityUsers: getNewWhisperUsers(),
@@ -245,7 +239,7 @@ export async function fetchHomePageCatalogServer(
 
   if (!user) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
-    const gridProfiles = pickDiscoverFeed(profiles, userKey, meta.feedSlot);
+    const gridProfiles = pickDiscoverFeed(staticPool, userKey, meta.feedSlot);
     return {
       gridProfiles,
       activityUsers: getNewWhisperUsers(),
@@ -269,7 +263,7 @@ export async function fetchHomePageCatalogServer(
   let gridDegraded = false;
   if (gridError || !rows?.length) {
     console.error("[fetchHomePageCatalogServer] grid", gridError);
-    pool = profiles;
+    pool = staticPool;
     gridDegraded = true;
   } else {
     pool = (rows as ChatProfileRow[]).map(chatProfileRowToProfile);
@@ -329,15 +323,16 @@ export async function fetchFunnelCatalogProfilesServer(
   catalogDegraded: boolean;
 }> {
   const variant = options.variant ?? DEFAULT_APP_VARIANT;
+  const staticPool = staticCatalogProfiles(variant);
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
-    return { profiles, catalogDegraded: false };
+    return { profiles: staticPool, catalogDegraded: false };
   }
 
   let supabase: ReturnType<typeof createClient>;
   try {
     supabase = createClient();
   } catch {
-    return { profiles, catalogDegraded: true };
+    return { profiles: staticPool, catalogDegraded: true };
   }
 
   let funnelQuery = supabase
@@ -352,7 +347,7 @@ export async function fetchFunnelCatalogProfilesServer(
 
   if (error || !rows?.length) {
     if (error) console.error("[fetchFunnelCatalogProfilesServer]", error.message);
-    return { profiles, catalogDegraded: true };
+    return { profiles: staticPool, catalogDegraded: true };
   }
 
   return {
@@ -361,15 +356,22 @@ export async function fetchFunnelCatalogProfilesServer(
   };
 }
 
-export async function fetchHomeGridProfilesServer(): Promise<Profile[]> {
-  const { gridProfiles } = await fetchHomePageCatalogServer();
+export async function fetchHomeGridProfilesServer(
+  options: CatalogVariantOptions = {},
+): Promise<Profile[]> {
+  const { gridProfiles } = await fetchHomePageCatalogServer(options);
   return gridProfiles;
 }
 
 export async function fetchCatalogProfileByIdServer(
   id: string,
+  options: CatalogVariantOptions = {},
 ): Promise<Profile | null> {
+  const variant = options.variant ?? (await readServerAppVariant());
+  const staticPool = staticCatalogProfiles(variant);
+
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
+    if (variant === "v2") return null;
     return getProfileById(id) ?? null;
   }
 
@@ -377,6 +379,7 @@ export async function fetchCatalogProfileByIdServer(
   try {
     supabase = createClient();
   } catch {
+    if (variant === "v2") return null;
     return getProfileById(id) ?? null;
   }
 
@@ -385,20 +388,25 @@ export async function fetchCatalogProfileByIdServer(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: row, error } = await supabase
-    .from("chat_profiles")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  let profileQuery = supabase.from("chat_profiles").select("*").eq("id", id);
+  profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
+  const { data: row, error } = await profileQuery.maybeSingle();
 
   if (error || !row) {
+    if (variant === "v2") return null;
     return getProfileById(id) ?? null;
+  }
+
+  if (!chatProfileMatchesVariant(row as ChatProfileRow, variant)) {
+    return null;
   }
 
   return chatProfileRowToProfile(row as ChatProfileRow);
 }
 
-export async function fetchActivityStripUsersServer(): Promise<NewWhisperUser[]> {
-  const { activityUsers } = await fetchHomePageCatalogServer();
+export async function fetchActivityStripUsersServer(
+  options: CatalogVariantOptions = {},
+): Promise<NewWhisperUser[]> {
+  const { activityUsers } = await fetchHomePageCatalogServer(options);
   return activityUsers;
 }

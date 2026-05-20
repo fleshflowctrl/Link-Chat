@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { messageRowToUi, type ChatProfileRow } from "@/lib/chat/map-rows";
 import { processDuePendingReplies } from "@/lib/ai/pending-replies";
+import { readServerAppVariant } from "@/lib/app-variant";
+import {
+  applyChatProfilesVariantFilter,
+  chatProfileMatchesVariant,
+} from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -34,13 +39,12 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Niet geautoriseerd" }, { status: 401 });
   }
 
-  const { data: profile, error: pe } = await supabase
-    .from("chat_profiles")
-    .select("*")
-    .eq("id", peerId)
-    .maybeSingle();
+  const variant = await readServerAppVariant();
+  let profileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
+  profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
+  const { data: profile, error: pe } = await profileQuery.maybeSingle();
 
-  if (pe || !profile) {
+  if (pe || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, variant)) {
     return NextResponse.json({ ok: false, error: "Onbekende persoon" }, { status: 404 });
   }
 

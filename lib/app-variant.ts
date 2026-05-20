@@ -32,6 +32,16 @@ export function variantFromPathname(pathname: string | null | undefined): AppVar
   return pathname === "/v2" || pathname.startsWith("/v2/") ? "v2" : "v1";
 }
 
+/** Server: variant for the current request (pathname via middleware header, else cookie). */
+export async function readServerAppVariant(): Promise<AppVariant> {
+  const { cookies, headers } = await import("next/headers");
+  const h = await headers();
+  const fromPath = h.get("x-app-variant");
+  if (isAppVariant(fromPath)) return fromPath;
+  const c = await cookies();
+  return parseAppVariant(c.get(APP_VARIANT_COOKIE)?.value ?? null);
+}
+
 /** Client: read persisted variant (cookie set by middleware). */
 export function readClientAppVariant(): AppVariant {
   if (typeof document === "undefined") return DEFAULT_APP_VARIANT;

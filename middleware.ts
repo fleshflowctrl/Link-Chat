@@ -50,19 +50,42 @@ function redirectPreservingSessionCookies(
   return redirect;
 }
 
-function applyVariantCookie(
+/** Pathname is authoritative; cookie is set for client fetches to APIs. */
+function variantForRequest(request: NextRequest): "v1" | "v2" {
+  return variantFromPathname(request.nextUrl.pathname);
+}
+
+function withVariantRequestHeaders(
   request: NextRequest,
   response: NextResponse,
 ): NextResponse {
-  const variant = variantFromPathname(request.nextUrl.pathname);
+  const variant = variantForRequest(request);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-app-variant", variant);
+  const next = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.cookies.getAll().forEach((c) => {
+    next.cookies.set(c.name, c.value, {
+      domain: c.domain,
+      expires: c.expires,
+      httpOnly: c.httpOnly,
+      maxAge: c.maxAge,
+      path: c.path,
+      partitioned: c.partitioned,
+      priority: c.priority,
+      sameSite: c.sameSite,
+      secure: c.secure,
+    });
+  });
   if (variant === "v2") {
-    response.cookies.set(APP_VARIANT_COOKIE, "v2", {
+    next.cookies.set(APP_VARIANT_COOKIE, "v2", {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
     });
   }
-  return response;
+  return next;
 }
 
 function postLoginPath(request: NextRequest): string {
@@ -84,7 +107,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const { response, user, supabaseConfigured } = await updateSession(request);
-    let out = applyVariantCookie(request, response);
+    let out = withVariantRequestHeaders(request, response);
 
     if (pathname.startsWith("/api")) {
       return out;

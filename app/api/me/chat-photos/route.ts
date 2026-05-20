@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { readServerAppVariant } from "@/lib/app-variant";
+import { chatProfileMatchesVariant } from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 
 /**
@@ -31,6 +33,8 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Niet geautoriseerd" }, { status: 401 });
   }
 
+  const variant = await readServerAppVariant();
+
   const { data, error } = await supabase
     .from("chat_photo_unlocks")
     .select(
@@ -40,7 +44,7 @@ export async function GET() {
         id,
         image_url,
         created_at,
-        peer:chat_profiles(id, display_name, avatar_url)
+        peer:chat_profiles(id, display_name, avatar_url, app_variant)
       )
     `,
     )
@@ -62,6 +66,7 @@ export async function GET() {
         id: string;
         display_name: string;
         avatar_url: string;
+        app_variant?: string | null;
       } | null;
     } | null;
   };
@@ -79,6 +84,7 @@ export async function GET() {
   for (const row of (data ?? []) as unknown as Row[]) {
     const msg = row.message;
     if (!msg || !msg.image_url || !msg.peer) continue;
+    if (!chatProfileMatchesVariant(msg.peer, variant)) continue;
 
     const peer = msg.peer;
     if (!groupsMap.has(peer.id)) {

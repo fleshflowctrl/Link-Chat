@@ -5,9 +5,11 @@ import {
   hashFeedComposition,
   nextHourBoundary,
 } from "@/lib/catalog/hourly-feed";
-import { profiles, type Profile } from "@/data/profiles";
+import type { Profile } from "@/data/profiles";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
+import { readServerAppVariant } from "@/lib/app-variant";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
+import { applyChatProfilesVariantFilter, staticCatalogProfiles } from "@/lib/catalog/profile-variant";
 import { buildDiscoverPackForRefresh } from "@/lib/catalog/server-catalog";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
@@ -128,15 +130,18 @@ export async function POST() {
   // Build a fresh slice using the new offset so the client can swap in place.
   const now = Date.now();
   const slot = activeFeedSlot(now, nextOffset);
+  const variant = await readServerAppVariant();
 
-  let pool: Profile[] = profiles;
+  let pool: Profile[] = staticCatalogProfiles(variant);
   try {
-    const { data: rows } = await supabase
+    let refreshQuery = supabase
       .from("chat_profiles")
       .select("*")
       .order("home_sort", { ascending: true })
       .order("display_name", { ascending: true })
       .limit(120);
+    refreshQuery = applyChatProfilesVariantFilter(refreshQuery, variant);
+    const { data: rows } = await refreshQuery;
     if (rows && rows.length > 0) {
       pool = (rows as ChatProfileRow[]).map(chatProfileRowToProfile);
     }

@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import { readServerAppVariant } from "@/lib/app-variant";
+import {
+  applyChatProfilesVariantFilter,
+  chatProfileMatchesVariant,
+} from "@/lib/catalog/profile-variant";
+import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { messageRowToUi, type ChatMessageRow } from "@/lib/chat/map-rows";
 import { createClient } from "@/utils/supabase/server";
 
@@ -64,13 +70,15 @@ export async function POST(
 
   const peerId = params.peerId;
 
-  const { data: profile, error: pe } = await supabase
+  const variant = await readServerAppVariant();
+  let profileQuery = supabase
     .from("chat_profiles")
-    .select("id, display_name")
-    .eq("id", peerId)
-    .maybeSingle();
+    .select("id, display_name, app_variant")
+    .eq("id", peerId);
+  profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
+  const { data: profile, error: pe } = await profileQuery.maybeSingle();
 
-  if (pe || !profile) {
+  if (pe || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, variant)) {
     return NextResponse.json(
       { ok: false, error: "Onbekende persoon" },
       { status: 404 },

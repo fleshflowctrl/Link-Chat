@@ -12,6 +12,11 @@ import {
   type ChatMessageRow,
   type ChatProfileRow,
 } from "@/lib/chat/map-rows";
+import { readServerAppVariant, type AppVariant } from "@/lib/app-variant";
+import {
+  applyChatProfilesVariantFilter,
+  chatProfileMatchesVariant,
+} from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { computePeerOnlineNow } from "@/lib/chat/online-status";
@@ -44,7 +49,14 @@ export type ConversationPageData = {
  * “Online now” on Messages — catalog personas with `online_now`, same as home’s
  * mock rail when Supabase is off or query has no matches (strip stays visible).
  */
-export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
+export type ChatServerVariantOptions = {
+  variant?: AppVariant;
+};
+
+export async function fetchMessagesOnlineRailServer(
+  options: ChatServerVariantOptions = {},
+): Promise<OnlineUser[]> {
+  const variant = options.variant ?? (await readServerAppVariant());
   const mockRail = () => getOnlineUsers();
 
   if (!isSupabaseConfigured()) {
@@ -63,12 +75,14 @@ export async function fetchMessagesOnlineRailServer(): Promise<OnlineUser[]> {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: rows, error } = await supabase
+  let railQuery = supabase
     .from("chat_profiles")
     .select("id, display_name, avatar_url, online_now")
     .eq("online_now", true)
     .order("display_name", { ascending: true })
     .limit(24);
+  railQuery = applyChatProfilesVariantFilter(railQuery, variant);
+  const { data: rows, error } = await railQuery;
 
   if (error || !rows?.length) {
     return mockRail();
@@ -154,7 +168,10 @@ export async function fetchUnreadInboxCountServer(): Promise<number> {
  * Threads for the signed-in user: one row per peer they have actually messaged.
  * Never injects demo threads — new users see an empty list until they send a message.
  */
-export async function fetchThreadListServer(): Promise<MessageThread[]> {
+export async function fetchThreadListServer(
+  options: ChatServerVariantOptions = {},
+): Promise<MessageThread[]> {
+  const variant = options.variant ?? (await readServerAppVariant());
   if (!isSupabaseConfigured()) {
     return [];
   }
@@ -223,10 +240,12 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
       return [];
     }
 
-    const { data: profiles, error: pe } = await supabase
+    let profilesQuery = supabase
       .from("chat_profiles")
       .select("*")
       .in("id", peerOrder);
+    profilesQuery = applyChatProfilesVariantFilter(profilesQuery, variant);
+    const { data: profiles, error: pe } = await profilesQuery;
 
     if (pe || !profiles?.length) {
       console.error("[fetchThreadListServer] profiles", pe);
@@ -292,7 +311,9 @@ export async function fetchThreadListServer(): Promise<MessageThread[]> {
 
 export async function fetchConversationServer(
   peerId: string,
+  options: ChatServerVariantOptions = {},
 ): Promise<ConversationPageData> {
+  const variant = options.variant ?? (await readServerAppVariant());
   if (!isSupabaseConfigured()) {
     return {
       messages: messagesById[peerId] ?? [],
@@ -319,13 +340,11 @@ export async function fetchConversationServer(
 
   const fallbackMeta = getThreadMeta(peerId);
 
-  const { data: profile, error: profileError } = await supabase
-    .from("chat_profiles")
-    .select("*")
-    .eq("id", peerId)
-    .maybeSingle();
+  let profileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
+  profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
+  const { data: profile, error: profileError } = await profileQuery.maybeSingle();
 
-  if (profileError || !profile) {
+  if (profileError || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, variant)) {
     return {
       messages: [],
       meta: fallbackMeta,

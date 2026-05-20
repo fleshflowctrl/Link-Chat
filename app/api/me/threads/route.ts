@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { processPendingForOwner } from "@/lib/ai/process-pending-for-owner";
+import { readServerAppVariant } from "@/lib/app-variant";
+import { applyChatProfilesVariantFilter } from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import {
@@ -29,6 +31,8 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ ok: true, threads: [], anonymous: true });
   }
+
+  const variant = await readServerAppVariant();
 
   /** Don't block the inbox response — heartbeat / chat view process pending. */
   void processPendingForOwner(supabase, {
@@ -94,10 +98,9 @@ export async function GET() {
     return NextResponse.json({ ok: true, threads: [], anonymous: false });
   }
 
-  const { data: profiles, error: pe } = await supabase
-    .from("chat_profiles")
-    .select("*")
-    .in("id", peerIds);
+  let profilesQuery = supabase.from("chat_profiles").select("*").in("id", peerIds);
+  profilesQuery = applyChatProfilesVariantFilter(profilesQuery, variant);
+  const { data: profiles, error: pe } = await profilesQuery;
 
   if (pe) {
     return NextResponse.json(

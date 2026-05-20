@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readServerAppVariant } from "@/lib/app-variant";
 import { fetchHomePageCatalogServer } from "@/lib/catalog/server-catalog";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,8 @@ export const dynamic = "force-dynamic";
  * after a paid refresh without a full page reload.
  */
 export async function GET() {
-  const bundle = await fetchHomePageCatalogServer();
+  const variant = await readServerAppVariant();
+  const bundle = await fetchHomePageCatalogServer({ variant });
   return NextResponse.json({
     ok: true,
     profiles: bundle.gridProfiles,
