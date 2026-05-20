@@ -80,7 +80,7 @@ export function MeProfileView({
   isAdmin = false,
 }: MeProfileViewProps) {
   const router = useRouter();
-  const variant = useAppVariant();
+  const { variant } = useAppVariant();
   const [toast, setToast] = useState<string | null>(null);
 
   const credits = useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot).balance;
