@@ -4,7 +4,6 @@ import Image from "next/image";
 import { VariantLink as Link } from "@/components/variant-link";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
-import { withVariantPath } from "@/lib/app-variant";
 import {
   useCallback,
   useEffect,
