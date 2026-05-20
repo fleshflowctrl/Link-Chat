@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, BadgeCheck, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, BadgeCheck, ShieldCheck } from "lucide-react";
 import { CreditsPill } from "@/components/ui/credits-pill";
 import { type CreditPackage } from "@/data/credits";
 import {
@@ -20,13 +13,6 @@ import {
   initCreditsStore,
   subscribeCredits,
 } from "@/lib/credits-store";
-import {
-  applyDiscount,
-  discountForNextPurchase,
-  formatDiscountPercent,
-  purchaseTierLabel,
-} from "@/lib/credits/discount";
-
 function formatMoney(n: number): string {
   return n.toLocaleString("nl-NL", {
     style: "currency",
@@ -56,25 +42,7 @@ export function CheckoutView({
     initCreditsStore();
   }, []);
 
-  const snapshot = useSyncExternalStore(
-    subscribeCredits,
-    getCreditsSnapshot,
-    getCreditsSnapshot,
-  );
-  const purchaseCount = snapshot.purchaseCount;
-  const discount = useMemo(
-    () => discountForNextPurchase(purchaseCount),
-    [purchaseCount],
-  );
-  const tierLabel = useMemo(
-    () => purchaseTierLabel(purchaseCount),
-    [purchaseCount],
-  );
-
-  const userPrice = useMemo(
-    () => applyDiscount(pkg.price, discount),
-    [pkg.price, discount],
-  );
+  useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -250,34 +218,11 @@ export function CheckoutView({
             </div>
           </div>
 
-          {discount > 0 && tierLabel && (
-            <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-emerald-700">
-              <Sparkles className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
-              <p className="text-[12px] font-extrabold uppercase tracking-wide">
-                {tierLabel} · -{formatDiscountPercent(discount)}
-              </p>
-            </div>
-          )}
-
-          <div className="mt-4 space-y-1.5 text-[13px]">
-            <div className="flex items-center justify-between text-gray-600">
-              <span>Subtotaal</span>
-              <span className="tabular-nums">{formatMoney(pkg.price)}</span>
-            </div>
-            {discount > 0 && (
-              <div className="flex items-center justify-between text-emerald-700">
-                <span>Korting ({formatDiscountPercent(discount)})</span>
-                <span className="tabular-nums">
-                  -{formatMoney(pkg.price - userPrice)}
-                </span>
-              </div>
-            )}
-            <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2 text-ink">
-              <span className="text-[14px] font-bold">Te betalen</span>
-              <span className="text-[20px] font-extrabold tabular-nums">
-                {formatMoney(userPrice)}
-              </span>
-            </div>
+          <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-2 text-ink">
+            <span className="text-[14px] font-bold">Te betalen</span>
+            <span className="text-[20px] font-extrabold tabular-nums">
+              {formatMoney(pkg.price)}
+            </span>
           </div>
         </div>
 
@@ -315,7 +260,7 @@ export function CheckoutView({
                 ? "Bezig…"
                 : success
                   ? "Voltooid"
-                  : `Betaal · ${formatMoney(userPrice)}`}
+                  : `Betaal · ${formatMoney(pkg.price)}`}
             </span>
           </button>
         </div>

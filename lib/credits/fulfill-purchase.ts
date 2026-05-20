@@ -1,10 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { packages } from "@/data/credits";
-import {
-  applyDiscount,
-  discountForNextPurchase,
-} from "@/lib/credits/discount";
-
 export type FulfillPurchaseInput = {
   userId: string;
   packageId: string;
@@ -52,18 +47,14 @@ export async function fulfillCreditPurchase(
       }
       const profile = await readProfile(service, input.userId);
       if (!profile.ok) return profile;
-      const discount = discountForNextPurchase(
-        Math.max(0, profile.purchaseCount - 1),
-      );
-      const paid = applyDiscount(pkg.price, discount);
       return {
         ok: true,
         alreadyFulfilled: true,
         balance: profile.credits,
         purchaseCount: profile.purchaseCount,
         grantedCredits: pkg.credits + pkg.bonus,
-        paid,
-        discount,
+        paid: pkg.price,
+        discount: 0,
       };
     }
   }
@@ -78,22 +69,19 @@ export async function fulfillCreditPurchase(
       : profile.purchaseCount;
 
   if (profile.purchaseCount > countBefore) {
-    const discount = discountForNextPurchase(
-      Math.max(0, profile.purchaseCount - 1),
-    );
     return {
       ok: true,
       alreadyFulfilled: true,
       balance: profile.credits,
       purchaseCount: profile.purchaseCount,
       grantedCredits: pkg.credits + pkg.bonus,
-      paid: applyDiscount(pkg.price, discount),
-      discount,
+      paid: pkg.price,
+      discount: 0,
     };
   }
 
-  const discount = discountForNextPurchase(countBefore);
-  const paid = applyDiscount(pkg.price, discount);
+  const discount = 0;
+  const paid = pkg.price;
   const grantedCredits = pkg.credits + pkg.bonus;
   const newBalance = profile.credits + grantedCredits;
   const newCount = countBefore + 1;

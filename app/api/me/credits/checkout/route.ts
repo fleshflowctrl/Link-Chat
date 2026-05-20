@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import { packages } from "@/data/credits";
 import { SITE_NAME } from "@/lib/brand";
 import {
-  applyDiscount,
-  discountForNextPurchase,
-} from "@/lib/credits/discount";
-import {
   getAppOrigin,
   getStripe,
   isStripeConfigured,
@@ -117,8 +113,8 @@ export async function POST(req: Request) {
       ? row.purchase_count
       : 0;
 
-  const discount = discountForNextPurchase(purchaseCountBefore);
-  const paid = applyDiscount(pkg.price, discount);
+  const discount = 0;
+  const paid = pkg.price;
   const grantedCredits = pkg.credits + pkg.bonus;
   const amountCents = Math.round(paid * 100);
 

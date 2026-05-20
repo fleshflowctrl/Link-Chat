@@ -1,10 +1,10 @@
 /**
- * Credit economy — base pack: €9.99 for 1000 credits (€0.00999/credit).
+ * Credit economy — base pack: €19.98 for 1000 credits.
  * Chat message: €0.30 → 30 credits at base rate.
  */
 
 export const BASE_PACK_CREDITS = 1000;
-export const BASE_PACK_PRICE_EUR = 9.99;
+export const BASE_PACK_PRICE_EUR = 19.98;
 
 /** Credits per euro at the standard 1000-credit pack rate. */
 export const CREDITS_PER_EURO = BASE_PACK_CREDITS / BASE_PACK_PRICE_EUR;
