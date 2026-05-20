@@ -1,16 +1,15 @@
 import { BottomNav } from "@/components/BottomNav";
 import { AppVariantProvider } from "@/components/app-variant-provider";
 import { SessionSyncProvider } from "@/components/session-sync-provider";
-import { fetchUnreadInboxCountServer } from "@/lib/chat/server-data";
 
-export const dynamic = "force-dynamic";
-
-export default async function AppShellLayout({
+export default function AppShellLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const initialUnread = await fetchUnreadInboxCountServer();
+  // Layout stays static so tab switches don't re-fetch the inbox unread
+  // count on the server. BottomNav refreshes it from the client right
+  // after mount (and on focus / poll), so the badge stays accurate.
   return (
     <AppVariantProvider variant="v1">
       <div className="flex min-h-[100dvh] justify-center bg-[#E4DFD4]">
@@ -20,7 +19,7 @@ export default async function AppShellLayout({
           <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
             {children}
           </main>
-          <BottomNav initialUnread={initialUnread} />
+          <BottomNav />
         </div>
       </div>
     </AppVariantProvider>

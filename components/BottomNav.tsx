@@ -91,7 +91,13 @@ export function BottomNav({
   }, [initialUnread]);
 
   useEffect(() => {
-    router.prefetch(`${basePath}/messages`);
+    // Prefetch every bottom-nav tab so the first tap on any of them feels
+    // instant — Next.js will load the RSC payload + JS chunks in the
+    // background. Without this only `/messages` was warm and the others
+    // had to fetch on first tap.
+    for (const { suffix } of TAB_SUFFIXES) {
+      router.prefetch(`${basePath}${suffix}`);
+    }
     void warmInboxThreadsCache();
   }, [router, basePath]);
 

@@ -2,17 +2,17 @@ import { BottomNav } from "@/components/BottomNav";
 import { AppVariantProvider } from "@/components/app-variant-provider";
 import { VisitorTracker } from "@/components/analytics/visitor-tracker";
 import { SessionSyncProvider } from "@/components/session-sync-provider";
-import { fetchUnreadInboxCountServer } from "@/lib/chat/server-data";
 import { V2_THEME } from "@/lib/v2-theme";
 
-export const dynamic = "force-dynamic";
-
-export default async function AppV2ShellLayout({
+export default function AppV2ShellLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const initialUnread = await fetchUnreadInboxCountServer({ variant: "v2" });
+  // Intentionally NOT async + NOT force-dynamic. The unread badge starts at
+  // 0 and the BottomNav's mount-time client fetch overrides it in <100ms.
+  // Keeping the layout static means every tab switch only re-renders the
+  // page body, not the entire shell — navigation feels instant.
   return (
     <AppVariantProvider variant="v2">
       <div
@@ -29,7 +29,6 @@ export default async function AppV2ShellLayout({
             {children}
           </main>
           <BottomNav
-            initialUnread={initialUnread}
             basePath="/v2"
             accentColor={V2_THEME.red}
             navSurfaceClass="border-t border-[#B52B2A]/25 bg-[#1D1D1E]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#1D1D1E]/90"

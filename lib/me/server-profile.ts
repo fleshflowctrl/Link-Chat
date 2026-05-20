@@ -287,13 +287,17 @@ export async function fetchUserEditProfileServer(): Promise<{
   if (!user) redirect("/login");
 
   const showVerified = Boolean(user.email_confirmed_at);
-  const chatPeerCount = await countDistinctChatPeersForUser(supabase, user.id);
 
-  const { data: row, error } = await supabase
-    .from("user_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Parallelize the two independent queries — they used to run serially.
+  const [chatPeerCount, profileResult] = await Promise.all([
+    countDistinctChatPeersForUser(supabase, user.id),
+    supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+  ]);
+  const { data: row, error } = profileResult;
 
   if (error) {
     console.error("[fetchUserEditProfileServer]", error);

@@ -362,7 +362,25 @@ export async function fetchConversationServer(
 
   let profileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
   profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
-  const { data: profile, error: profileError } = await profileQuery.maybeSingle();
+
+  // Run the four independent reads in parallel — was previously serial,
+  // which added ~3× supabase RTT to every chat open.
+  const [
+    profileResult,
+    messagesResult,
+    refreshOffset,
+  ] = await Promise.all([
+    profileQuery.maybeSingle(),
+    supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("peer_id", peerId)
+      .eq("owner_user_id", user.id)
+      .order("created_at", { ascending: true }),
+    fetchRefreshOffset(supabase, user.id),
+  ]);
+
+  const { data: profile, error: profileError } = profileResult;
 
   if (profileError || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, variant)) {
     return {
@@ -374,15 +392,7 @@ export async function fetchConversationServer(
   }
 
   const p = profile as ChatProfileRow;
-
-  const { data: msgs, error: msgError } = await supabase
-    .from("chat_messages")
-    .select("*")
-    .eq("peer_id", peerId)
-    .eq("owner_user_id", user.id)
-    .order("created_at", { ascending: true });
-
-  const refreshOffset = await fetchRefreshOffset(supabase, user.id);
+  const { data: msgs, error: msgError } = messagesResult;
   const feedSlot = activeFeedSlot(Date.now(), refreshOffset);
   const discoverPresenceBucket = getDiscoverPresenceBucket(
     peerId,

@@ -97,13 +97,21 @@ function withVariantRequestHeaders(
       secure: c.secure,
     });
   });
-  if (variant === "v2") {
+  // Only write the cookie when it would actually change — every cookie
+  // write forces the browser to round-trip a Set-Cookie header and breaks
+  // some HTTP caching, so skip it when the value is already correct.
+  const currentCookie = request.cookies.get(APP_VARIANT_COOKIE)?.value;
+  if (variant === "v2" && currentCookie !== "v2") {
     next.cookies.set(APP_VARIANT_COOKIE, "v2", {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
     });
-  } else if (!pathname.startsWith("/api")) {
+  } else if (
+    variant === "v1" &&
+    !pathname.startsWith("/api") &&
+    currentCookie !== "v1"
+  ) {
     next.cookies.set(APP_VARIANT_COOKIE, "v1", {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
