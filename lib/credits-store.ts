@@ -8,6 +8,8 @@ type Snapshot = {
   userKey: string;
   /** How many credit packs the user has bought — drives the tiered discount. */
   purchaseCount: number;
+  /** No permanent account (guest / anonymous) — must sign up when credits run out. */
+  isGuestUser: boolean;
 };
 
 /** In-memory only — source of truth is Supabase (`user_profiles.credits`). */
@@ -16,6 +18,7 @@ let snapshot: Snapshot = {
   balance: 0,
   userKey: "guest",
   purchaseCount: 0,
+  isGuestUser: true,
 };
 const listeners = new Set<() => void>();
 
@@ -27,12 +30,14 @@ function setSnapshot(
   balance: number,
   userKey: string,
   purchaseCount: number = snapshot.purchaseCount,
+  isGuestUser: boolean = snapshot.isGuestUser,
 ) {
   snapshot = {
     version: snapshot.version + 1,
     balance,
     userKey,
     purchaseCount,
+    isGuestUser,
   };
   emit();
 }
@@ -41,6 +46,7 @@ async function fetchServerCredits(): Promise<{
   balance: number | null;
   userKey: string;
   purchaseCount: number;
+  isGuestUser: boolean;
 } | null> {
   try {
     const res = await fetch("/api/me/credits", { cache: "no-store" });
@@ -51,10 +57,11 @@ async function fetchServerCredits(): Promise<{
       userId?: string;
       anonymous?: boolean;
       purchaseCount?: number;
+      isGuestUser?: boolean;
     };
     if (!json.ok) return null;
     if (json.anonymous || !json.userId) {
-      return { balance: null, userKey: "guest", purchaseCount: 0 };
+      return { balance: null, userKey: "guest", purchaseCount: 0, isGuestUser: true };
     }
     return {
       balance: typeof json.balance === "number" ? json.balance : null,
@@ -63,6 +70,7 @@ async function fetchServerCredits(): Promise<{
         typeof json.purchaseCount === "number" && json.purchaseCount >= 0
           ? json.purchaseCount
           : 0,
+      isGuestUser: json.isGuestUser === true,
     };
   } catch {
     return null;
@@ -75,11 +83,16 @@ export async function refreshCreditsFromServer(): Promise<void> {
   if (!server) return;
 
   if (server.userKey === "guest" || server.balance === null) {
-    setSnapshot(meProfile.stats.credits.value, "guest", 0);
+    setSnapshot(meProfile.stats.credits.value, "guest", 0, server.isGuestUser);
     return;
   }
 
-  setSnapshot(server.balance, server.userKey, server.purchaseCount);
+  setSnapshot(
+    server.balance,
+    server.userKey,
+    server.purchaseCount,
+    server.isGuestUser,
+  );
 }
 
 export function initCreditsStore() {
@@ -88,7 +101,11 @@ export function initCreditsStore() {
 }
 
 export function resetCreditsToGuest() {
-  setSnapshot(meProfile.stats.credits.value, "guest", 0);
+  setSnapshot(meProfile.stats.credits.value, "guest", 0, true);
+}
+
+export function getCreditsIsGuestUser(): boolean {
+  return snapshot.isGuestUser;
 }
 
 export function getCreditsSnapshot(): Snapshot {

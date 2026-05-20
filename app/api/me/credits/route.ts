@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isGuestAuthUser } from "@/lib/auth/user-account";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -14,7 +15,12 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ ok: true, balance: null, anonymous: true });
+    return NextResponse.json({
+      ok: true,
+      balance: null,
+      anonymous: true,
+      isGuestUser: true,
+    });
   }
 
   const { data, error } = await supabase
@@ -40,6 +46,7 @@ export async function GET() {
         ? row.purchase_count
         : 0,
     userId: user.id,
+    isGuestUser: isGuestAuthUser(user),
   });
 }
 

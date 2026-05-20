@@ -22,6 +22,7 @@ import {
   applyChatProfilesVariantFilter,
   chatProfileMatchesVariant,
 } from "@/lib/catalog/profile-variant";
+import { isGuestAuthUser } from "@/lib/auth/user-account";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
 import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
@@ -201,14 +202,18 @@ export async function POST(
     CHAT_MESSAGE_COST_CREDITS,
   );
   if (!deduct.ok) {
-    const msg =
-      deduct.reason === "insufficient"
+    const guestNeedsSignup =
+      deduct.reason === "insufficient" && isGuestAuthUser(user);
+    const msg = guestNeedsSignup
+      ? "Je credits zijn op. Maak een account aan om verder te chatten."
+      : deduct.reason === "insufficient"
         ? `Niet genoeg credits (heb ${deduct.balance}, nodig ${CHAT_MESSAGE_COST_CREDITS})`
         : deduct.error ?? "Credits aftrekken mislukt";
     return NextResponse.json(
       {
         ok: false,
         error: msg,
+        code: guestNeedsSignup ? "signup_required" : deduct.reason,
         currentBalance: deduct.balance,
         cost: CHAT_MESSAGE_COST_CREDITS,
       },

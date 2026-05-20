@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   Plus,
   Send,
+  User,
 } from "lucide-react";
 import { type ChatMessage } from "@/data/messages";
 import type { ThreadMeta } from "@/lib/chat/server-data";
@@ -49,6 +50,8 @@ import {
   getCreditsSnapshot,
   refreshCreditsFromServer,
 } from "@/lib/credits-store";
+
+type CreditsGateMode = "buy_credits" | "signup_required";
 import {
   formatReadTimeAmsterdam,
   nowAmsterdamClock,
@@ -346,9 +349,18 @@ export function ChatConversationView({
   const [unlockBusy, setUnlockBusy] = useState<Record<string, boolean>>({});
 
   const [creditsGateOpen, setCreditsGateOpen] = useState(false);
+  const [creditsGateMode, setCreditsGateMode] =
+    useState<CreditsGateMode>("buy_credits");
 
-  const openCreditsGate = useCallback(() => {
+  const openCreditsGate = useCallback((mode?: CreditsGateMode) => {
     void refreshCreditsFromServer();
+    const snap = getCreditsSnapshot();
+    const resolved =
+      mode ??
+      (snap.isGuestUser && snap.balance < CHAT_MESSAGE_COST_CREDITS
+        ? "signup_required"
+        : "buy_credits");
+    setCreditsGateMode(resolved);
     setCreditsGateOpen(true);
   }, []);
 
@@ -855,6 +867,7 @@ export function ChatConversationView({
           newBalance?: number;
           warning?: string;
           error?: string;
+          code?: string;
         };
 
         if (!res.ok || !data.userMessage) {
@@ -867,7 +880,9 @@ export function ChatConversationView({
           });
           setInput(trimmed);
           if (res.status === 402) {
-            openCreditsGate();
+            openCreditsGate(
+              data.code === "signup_required" ? "signup_required" : undefined,
+            );
             return;
           }
           setAssistantError(
@@ -1028,11 +1043,14 @@ export function ChatConversationView({
           newBalance?: number;
           warning?: string;
           error?: string;
+          code?: string;
         };
         if (!res.ok || !data.userMessage) {
           setMessages((prev) => prev.filter((m) => m.id !== tempId));
           if (res.status === 402) {
-            openCreditsGate();
+            openCreditsGate(
+              data.code === "signup_required" ? "signup_required" : undefined,
+            );
             return;
           }
           setAssistantError(data.error ?? `Foto versturen mislukt (${res.status})`);
@@ -1725,35 +1743,68 @@ export function ChatConversationView({
               </motion.div>
 
               <div className="flex flex-col items-center text-center">
-                <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-md">
-                  <Coins className="h-7 w-7" strokeWidth={2.25} aria-hidden />
+                <span
+                  className={`mb-3 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-md ${
+                    creditsGateMode === "signup_required"
+                      ? "bg-gradient-to-br from-[#B52B2A] to-[#D63B3A]"
+                      : "bg-gradient-to-br from-amber-400 to-amber-500"
+                  }`}
+                >
+                  {creditsGateMode === "signup_required" ? (
+                    <User className="h-7 w-7" strokeWidth={2.25} aria-hidden />
+                  ) : (
+                    <Coins className="h-7 w-7" strokeWidth={2.25} aria-hidden />
+                  )}
                 </span>
                 <h2
                   id="credits-gate-title"
                   className="text-[18px] font-extrabold text-ink"
                 >
-                  Credits op
+                  {creditsGateMode === "signup_required"
+                    ? "Account nodig"
+                    : "Credits op"}
                 </h2>
-                <p className="mt-1.5 max-w-[28ch] text-[13px] leading-snug text-gray-600">
-                  Je hebt niet genoeg credits om een bericht te sturen (
-                  {CHAT_MESSAGE_COST_CREDITS} per bericht). Koop extra credits om
-                  het gesprek voort te zetten.
+                <p className="mt-1.5 max-w-[32ch] text-[13px] leading-snug text-gray-600">
+                  {creditsGateMode === "signup_required" ? (
+                    <>
+                      Je gratis credits zijn op. Maak een account aan om verder te
+                      chatten — zonder account kun je geen berichten meer sturen.
+                    </>
+                  ) : (
+                    <>
+                      Je hebt niet genoeg credits om een bericht te sturen (
+                      {CHAT_MESSAGE_COST_CREDITS} per bericht). Koop extra credits
+                      om het gesprek voort te zetten.
+                    </>
+                  )}
                 </p>
               </div>
 
-              <Link
-                href={withVariantPath("/credits", variant)}
-                onClick={() => setCreditsGateOpen(false)}
-                className="mt-5 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
-              >
-                Credits kopen
-              </Link>
+              {creditsGateMode === "signup_required" ? (
+                <Link
+                  href={withVariantPath("/me", variant)}
+                  onClick={() => setCreditsGateOpen(false)}
+                  className="mt-5 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#B52B2A] to-[#D63B3A] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                >
+                  Account aanmaken
+                </Link>
+              ) : (
+                <Link
+                  href={withVariantPath("/credits", variant)}
+                  onClick={() => setCreditsGateOpen(false)}
+                  className="mt-5 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                >
+                  Credits kopen
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => setCreditsGateOpen(false)}
                 className="mt-2 w-full py-2.5 text-[13px] font-semibold text-gray-500"
               >
-                Niet nu
+                {creditsGateMode === "signup_required"
+                  ? "Later"
+                  : "Niet nu"}
               </button>
             </motion.div>
           </>
