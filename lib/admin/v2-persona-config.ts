@@ -16,7 +16,7 @@ Per persona:
 - Bio (1e persoon): direct, zelfbewust, licht flirterig; noem 1–2 concrete voorkeuren (bv. rope, latex, dominant/sub/switch, voyeur, exhibition, club nights, aftercare).
 - looking_for: kort en expliciet (play partner, FWB, dynamiek, events, nieuwsgierig verkennen).
 - backstory + persona_meta: geloofwaardig NL-verhaal; kink mag genoemd worden maar niet pornografisch of grafisch.
-- chat_style: flirterig, seksueel geladen, korte zinnen, dirty mind — open over verlangen/kink in chat; geen preuts of formeel smalltalk.
+- chat_style: warm, natuurlijk Nederlands; pas bij bio en persoonlijkheid (geen aparte v2 chat-regels in code — zie lib/ai/v2-chat-config.ts).
 - interests: 3–5 chips die passen (events, latex, rope, nightlife, body positivity, etc.) met passende icons.
 - funnel_intent_ids: kies uit casual, meaningful, friends, chatting, notsure — map semantiek: casual=play, meaningful=dynamiek, friends=munches/community.
 - vibe_tags: 3–6 uit caring, romantic, playful, witty, chill, coffee, travel, movies, gym — kies wat bij haar persoonlijkheid past.
@@ -35,7 +35,7 @@ Per persona:
 - Bio (1e persoon): direct, zelfbewust, licht flirterig; noem 1–2 concrete voorkeuren (bv. rope, latex, dominant/sub/switch, voyeur, exhibition, club nights, aftercare).
 - looking_for: kort en expliciet (play partner, FWB, dynamiek, events, nieuwsgierig verkennen).
 - backstory + persona_meta: geloofwaardig NL-verhaal; kink mag genoemd worden maar niet pornografisch of grafisch.
-- chat_style: flirterig, seksueel geladen, korte zinnen, dirty mind — open over verlangen/kink in chat; geen preuts of formeel smalltalk.
+- chat_style: warm, natuurlijk Nederlands; pas bij bio en persoonlijkheid (geen aparte v2 chat-regels in code — zie lib/ai/v2-chat-config.ts).
 - interests: 3–5 chips die passen (events, latex, rope, nightlife, body positivity, etc.) met passende icons.
 - funnel_intent_ids: kies uit casual, meaningful, friends, chatting, notsure.
 - vibe_tags: 3–6 uit caring, romantic, playful, witty, chill, coffee, travel, movies, gym.
@@ -55,7 +55,7 @@ VARIANT v2 (FetLife / kink community — HARDE REGELS):
 - looking_for: expliciet maar niet vulgair (max 60 tekens).
 - photo_style.style: beschrijf expliciet naakte amateur-foto's (completely nude, mirror selfie, bedroom, shower). Geen lingerie-only — v2 gebruikt de nude template-pool voor avatar én galerij.
 - photo_style.vibe: rauw, intiem, imperfect belicht; amateur self-taken, geen studio glamour.
-- chat_style: expliciet flirterig en seksueel geladen in gewone taal; voice_style bv. "kort, geil, plagerig" of "warm met bite, dirty jokes".
+- chat_style: warm, natuurlijk; voice_style passend bij bio (v2 chat-regelboek nog leeg).
 - funnel_intent_ids + vibe_tags: ALLEEN ids uit de bestaande schema-lijsten — kies de semantisch beste match voor een kinkster.
 - personality_traits: bv. zelfverzekerd, nieuwsgierig, speels, dominant, submissief, open-minded (NL adjectieven).
 - Vermijd "student marketing stage" clichés; varieer beroep (horeca, zorg, creatief, ondernemer, events, retail, IT, etc.).
@@ -70,7 +70,7 @@ VARIANT v2 — SEXY MET KLEDING (iPhone-realism, HARDE REGELS):
 - photo_style.style: outfit + authentieke setting. Borsten/schaamstreek bedekt. Geen "completely nude", geen "bare breasts".
 - photo_style.vibe: onbewerkt social-media gevoel, imperfect framing, flyaway hair, visible pores — geen glamour.
 - Beschrijf haar NOOIT als: perfect, flawless, goddess, unreal body. Wel: attractive, natural, authentic, casual, confident.
-- Bio/backstory/chat_style: zelfde open kink-toon als andere v2-persona's.
+- Bio/backstory/chat_style: geloofwaardig NL; chat_style passend bij bio (geen harde kink-chat-defaults).
 - funnel_intent_ids + vibe_tags: ALLEEN ids uit de bestaande schema-lijsten.
 `;
 
