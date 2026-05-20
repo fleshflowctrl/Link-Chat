@@ -310,20 +310,17 @@ export type FunnelMyAgeBucketOption = {
   age: number;
 };
 
-/** Five-year buckets from 35 through 85+. */
-export const FUNNEL_MY_AGE_BUCKETS: FunnelMyAgeBucketOption[] = (() => {
-  const out: FunnelMyAgeBucketOption[] = [];
-  for (let start = 35; start <= 80; start += 5) {
-    const end = start + 4;
-    out.push({
-      id: `${start}-${end}`,
-      label: `${start} – ${end}`,
-      age: Math.round((start + end) / 2),
-    });
-  }
-  out.push({ id: "85+", label: "85+", age: 87 });
-  return out;
-})();
+/** Max 8 age buckets (35–75+) for funnel step 3. */
+export const FUNNEL_MY_AGE_BUCKETS: FunnelMyAgeBucketOption[] = [
+  { id: "35-44", label: "35 – 44", age: 40 },
+  { id: "45-49", label: "45 – 49", age: 47 },
+  { id: "50-54", label: "50 – 54", age: 52 },
+  { id: "55-59", label: "55 – 59", age: 57 },
+  { id: "60-64", label: "60 – 64", age: 62 },
+  { id: "65-69", label: "65 – 69", age: 67 },
+  { id: "70-74", label: "70 – 74", age: 72 },
+  { id: "75+", label: "75+", age: 78 },
+];
 
 export type FunnelWomanTypeId =
   | "younger_playful"
