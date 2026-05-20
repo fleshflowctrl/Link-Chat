@@ -1,4 +1,4 @@
-/** Onboarding funnel copy + option lists (Nederlandse UI). */
+/** Onboarding funnel copy + option lists (Nederlandse UI, 50+ mannen). */
 
 export type FunnelLookingFor =
   | "chatting"
@@ -19,19 +19,28 @@ export type LookingForOption = {
 
 export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
   {
+    id: "casual",
+    emoji: "🔥",
+    label: "Spannend avontuur",
+    description: "Flirt, chemie, misschien een date",
+    cardBg: "bg-pink-50",
+    cardBorder: "border-pink-100",
+    tileBg: "bg-pink-200/70",
+  },
+  {
     id: "chatting",
-    emoji: "💬",
-    label: "Gewoon chatten",
-    description: "Luchtig geplaat, geen druk",
+    emoji: "🤫",
+    label: "Discreet chatten",
+    description: "Flirten zonder haast · privé",
     cardBg: "bg-blue-50",
     cardBorder: "border-blue-100",
     tileBg: "bg-blue-200/70",
   },
   {
     id: "friends",
-    emoji: "🤝",
-    label: "Nieuwe vrienden",
-    description: "Ontmoet mensen bij jou in de buurt",
+    emoji: "🍷",
+    label: "Gezelschap & spanning",
+    description: "Iemand die je écht ziet",
     cardBg: "bg-yellow-50",
     cardBorder: "border-yellow-100",
     tileBg: "bg-yellow-200/70",
@@ -39,26 +48,17 @@ export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
   {
     id: "meaningful",
     emoji: "💜",
-    label: "Betekenisvolle connectie",
-    description: "Langzame, echte gesprekken",
+    label: "Iets serieus, stiekem",
+    description: "Geen publiek theater",
     cardBg: "bg-purple-50",
     cardBorder: "border-purple-100",
     tileBg: "bg-purple-200/70",
   },
   {
-    id: "casual",
-    emoji: "🌶️",
-    label: "Iets casuals",
-    description: "Leuk en ontspannen houden",
-    cardBg: "bg-pink-50",
-    cardBorder: "border-pink-100",
-    tileBg: "bg-pink-200/70",
-  },
-  {
     id: "notsure",
-    emoji: "🤷",
-    label: "Nog niet zeker",
-    description: "We tonen je een mix",
+    emoji: "👀",
+    label: "Ik kijk even rond",
+    description: "Geen verplichtingen",
     cardBg: "bg-gray-50",
     cardBorder: "border-gray-200",
     tileBg: "bg-gray-200/70",
@@ -69,6 +69,11 @@ export const FUNNEL_LOOKING_IDS: readonly FunnelLookingFor[] = FUNNEL_LOOKING_FO
   (o) => o.id,
 );
 export const FUNNEL_LOOKING_ID_SET = new Set<string>(FUNNEL_LOOKING_IDS);
+
+export function funnelLookingForLabel(id: FunnelLookingFor | null): string {
+  if (!id) return "";
+  return FUNNEL_LOOKING_FOR.find((o) => o.id === id)?.label ?? id;
+}
 
 export type VibeCategory = "vibes" | "hobbies" | "style";
 
@@ -87,7 +92,7 @@ export const FUNNEL_VIBES: VibeOption[] = [
   {
     id: "caring",
     emoji: "💗",
-    label: "Zorgzaam",
+    label: "Warm & attent",
     category: "vibes",
     selectedBg: "bg-pink-100",
     selectedRing: "ring-pink-400",
@@ -95,23 +100,23 @@ export const FUNNEL_VIBES: VibeOption[] = [
   {
     id: "romantic",
     emoji: "💜",
-    label: "Romantisch",
+    label: "Houdt van aandacht",
     category: "vibes",
     selectedBg: "bg-purple-100",
     selectedRing: "ring-purple-400",
   },
   {
     id: "playful",
-    emoji: "🙂",
-    label: "Speels",
+    emoji: "😏",
+    label: "Plagerig & ondeugend",
     category: "vibes",
     selectedBg: "bg-yellow-100",
     selectedRing: "ring-yellow-400",
   },
   {
     id: "witty",
-    emoji: "🌶️",
-    label: "Geestig",
+    emoji: "✨",
+    label: "Scherpe humor",
     category: "vibes",
     selectedBg: "bg-red-100",
     selectedRing: "ring-red-400",
@@ -119,7 +124,7 @@ export const FUNNEL_VIBES: VibeOption[] = [
   {
     id: "chill",
     emoji: "🌿",
-    label: "Chill",
+    label: "Rustig, geen haast",
     category: "vibes",
     selectedBg: "bg-green-100",
     selectedRing: "ring-green-400",
@@ -127,7 +132,7 @@ export const FUNNEL_VIBES: VibeOption[] = [
   {
     id: "coffee",
     emoji: "☕",
-    label: "Koffie",
+    label: "Koffie & gesprek",
     category: "hobbies",
     selectedBg: "bg-amber-100",
     selectedRing: "ring-amber-400",
@@ -143,7 +148,7 @@ export const FUNNEL_VIBES: VibeOption[] = [
   {
     id: "movies",
     emoji: "🎬",
-    label: "Films",
+    label: "Films & series",
     category: "hobbies",
     selectedBg: "bg-blue-100",
     selectedRing: "ring-blue-400",
@@ -151,23 +156,37 @@ export const FUNNEL_VIBES: VibeOption[] = [
   {
     id: "gym",
     emoji: "💪",
-    label: "Sport",
+    label: "Actief",
     category: "hobbies",
     selectedBg: "bg-orange-100",
     selectedRing: "ring-orange-400",
   },
 ];
 
-/** Canonical ids for funnel step 3 + `chat_profiles.vibe_tags` + overlap matching. */
+/** Vibe tiles shown in onboarding (max 3 picks). */
+export const FUNNEL_ATTRACTION_VIBES: VibeOption[] = FUNNEL_VIBES.filter(
+  (v) => v.category === "vibes",
+);
+
+/** Canonical ids for funnel + `chat_profiles.vibe_tags` + overlap matching. */
 export const FUNNEL_VIBE_IDS: readonly string[] = FUNNEL_VIBES.map((v) => v.id);
 export const FUNNEL_VIBE_ID_SET = new Set<string>(FUNNEL_VIBE_IDS);
 
+export const FUNNEL_MAX_VIBE_PICKS = 3;
+
+/** Default age window for women shown to 50+ men. */
+export const FUNNEL_DEFAULT_AGE_RANGE: FunnelAgeRange = {
+  min: 45,
+  max: 60,
+  anyAge: false,
+};
+
 /** Generic fallbacks (each ≥10 chars for first-message step validation). */
 export const FUNNEL_STARTER_MESSAGES: string[] = [
-  "Hé! Je foto deed me glimlachen — wat is het verhaal erachter?",
-  "Hoi :) wat is iets kleins dat deze week goed ging?",
-  "Willekeurige vraag: ben jij meer zonsopgang- of zonsondergang-energie?",
-  "Hé — als we iets drinken, waar zouden we het als eerste over hebben?",
+  "Hé! Je profiel sprong eruit — wat is jouw ideale ontspannen avond?",
+  "Hoi — ik ben nieuw hier. Waar ben jij nu naar op zoek, gezellig of echt spannend?",
+  "Eerlijk: jij lijkt precies mijn type. Zin in een kort gesprek?",
+  "Wat zou voor jou een perfecte eerste ontmoeting zijn, rustig en discreet?",
 ];
 
 const STARTER_LINE_MIN = 10;
@@ -176,52 +195,52 @@ const LOOKING_FOR_STARTERS: Record<
   FunnelLookingFor,
   readonly [string, string]
 > = {
+  casual: [
+    "Hé! Wat trekt je het meest aan in een eerste gesprek — humor of spanning?",
+    "Hoi — waar ben jij nu naar op zoek: flirten, date, of rustig opbouwen?",
+  ],
   chatting: [
-    "Hé! In welke stemming zit je vandaag voor een chat — gek, diep of een mix?",
-    "Hoi :) wat is iets kleins waar je de laatste tijd om moest lachen?",
+    "Hé! Discreet chatten is precies mijn tempo — wat is jouw ideale avond?",
+    "Hoi — wat zou je willen dat iemand als eerste tegen je zegt?",
   ],
   friends: [
-    "Hé! Ik zou je graag leren kennen — wat vulde je avonden de laatste tijd?",
-    "Hoi — waar ben je nu mee bezig dat je met iemand nieuw zou willen delen?",
+    "Hé! Ik zoek gezelschap met een vleugje spanning — wat mis jij soms in je week?",
+    "Hoi — wat doe je het liefst op een vrije avond?",
   ],
   meaningful: [
-    "Hé :) ik hou van echte gesprekken — waar ben je de laatste tijd mee bezig dat je zou willen delen?",
-    "Hoi! Wat speelt er bij jou de laatste tijd, goed of gek?",
-  ],
-  casual: [
-    "Hé! Wat is voor jou een leuke ontspannen date?",
-    "Hoi — belangrijke eerste vraag: beste snack voor een luie avond?",
+    "Hé — ik hou van echte gesprekken, zonder haast. Wat speelt er bij jou?",
+    "Hoi! Wat zou voor jou een goede eerste indruk zijn?",
   ],
   notsure: [
-    "Hé! Wat bracht je hier — nog uitzoeken is helemaal oké trouwens.",
-    "Hoi :) wat zou chatten met iemand nieuw voor jou de moeite waard maken?",
+    "Hé! Ik kijk even rond — wat zou chatten hier voor jou de moeite waard maken?",
+    "Hoi — wat sprak je aan op mijn profiel?",
   ],
 };
 
 const VIBE_STARTERS: Record<string, string> = {
   caring:
-    "Hé — je straalt lieve energie uit. Hoe is je dag tot nu toe, eerlijk?",
+    "Hé — je lijkt warm en attent. Hoe ziet jouw ideale rustige avond eruit?",
   romantic:
-    "Hoi :) welke romantische cliché vind je stiekem leuk?",
+    "Hoi — waar word jij blij van: aandacht, complimenten, of iets onverwachts?",
   playful:
-    "Oké ik moet dit weten: twee waarheden en een leugen — jij begint?",
+    "Oké, eerlijke vraag: ben jij meer plagen of meer verleiden?",
   witty:
-    "Geef me een mini hot take — iets waar je te hard voor pleit?",
+    "Geef me één mening waar je vast in gelooft — ik ben benieuwd.",
   chill:
-    "Hé! Meer wandelen-met-muziek chill of dekentje-en-serie chill?",
+    "Hé! Meer rustig wandelen of dekentje op de bank — wat past bij jou?",
   coffee:
-    "Hé — wat is je koffiebestelling? Ik moet weten waar we staan.",
+    "Hé — koffie, wijn of iets sterks op een eerste ontmoeting?",
   travel:
-    "Hoi! Laatste reis die je leuk vond, of een droomreis als je tussen reizen zit?",
+    "Hoi! Laatste uitje dat je leuk vond — stad, strand of gewoon thuis?",
   movies:
-    "Hé — comfortfilm die je opzet als je even moet resetten?",
+    "Hé — welke serie of film zou je met iemand willen delen?",
   gym:
-    "Hoi! Ochtendgym of na het werk — en hou je ervan of doe je het gewoon?",
+    "Hoi! Blijf je graag actief — of is ontspannen belangrijker?",
 };
 
 /**
  * Four tappable first-message suggestions for funnel step 7, ordered from
- * “what brings you here?” then selected vibes, then generic fallbacks.
+ * intent then selected vibes, then generic fallbacks.
  */
 export function getPersonalizedFirstMessageStarters(
   lookingFor: FunnelLookingFor | null,
@@ -258,18 +277,54 @@ export function getPersonalizedFirstMessageStarters(
   return out.slice(0, 4);
 }
 
+/** Insert peer first name into generic openers when possible. */
+export function personalizeStarterLine(line: string, peerName: string): string {
+  const name = peerName.trim();
+  if (!name) return line;
+  if (line.startsWith("Hé!")) return line.replace("Hé!", `Hé ${name}!`);
+  if (line.startsWith("Hé —")) return line.replace("Hé —", `Hé ${name} —`);
+  if (line.startsWith("Hoi")) return line.replace(/^Hoi/, `Hoi ${name}`);
+  if (line.startsWith("Oké")) return `Hé ${name} — ${line}`;
+  if (line.startsWith("Eerlijk")) return `Hé ${name} — ${line}`;
+  return line;
+}
+
 export const FUNNEL_SESSION_KEY = "whisper_funnel_session";
 export const ONBOARDED_KEY = "whisper_onboarded";
 export const WHISPER_USER_KEY = "whisper_user";
 
-/** Funnel Step 4 — age window (slider) or “open to any age”. */
+/** Funnel — age window for women (slider/presets) or “open to any age”. */
 export type FunnelAgeRange = {
   min: number;
   max: number;
   anyAge: boolean;
 };
 
-/** Funnel Step 5 — profile basics (conversational form + optional local photo preview). */
+/** Funnel — user's own age (stored in basics.age). */
+export type FunnelMyAgeBucket = "50-54" | "55-59" | "60-64" | "65+";
+
+export const FUNNEL_MY_AGE_BUCKETS: {
+  id: FunnelMyAgeBucket;
+  label: string;
+  age: number;
+}[] = [
+  { id: "50-54", label: "50 – 54", age: 52 },
+  { id: "55-59", label: "55 – 59", age: 57 },
+  { id: "60-64", label: "60 – 64", age: 62 },
+  { id: "65+", label: "65+", age: 67 },
+];
+
+export const FUNNEL_WOMEN_AGE_PRESETS: {
+  label: string;
+  min: number;
+  max: number;
+}[] = [
+  { label: "40 – 55", min: 40, max: 55 },
+  { label: "45 – 60", min: 45, max: 60 },
+  { label: "50 – 65", min: 50, max: 65 },
+];
+
+/** Funnel — profile basics (conversational form + optional local photo preview). */
 export type FunnelBasics = {
   name: string;
   age: number | null;
@@ -277,7 +332,7 @@ export type FunnelBasics = {
   photo: string | null;
 };
 
-/** Funnel Step 6 — chosen first-contact profile from the grid. */
+/** Funnel — chosen first-contact profile from the grid. */
 export type FunnelFirstContact = {
   profileId: string | null;
 };

@@ -27,9 +27,17 @@ import {
   Lock,
 } from "lucide-react";
 import {
+  FUNNEL_ATTRACTION_VIBES,
+  FUNNEL_DEFAULT_AGE_RANGE,
   FUNNEL_LOOKING_FOR,
+  FUNNEL_MAX_VIBE_PICKS,
+  FUNNEL_MY_AGE_BUCKETS,
   FUNNEL_SESSION_KEY,
+  FUNNEL_WOMEN_AGE_PRESETS,
   ONBOARDED_KEY,
+  funnelLookingForLabel,
+  getPersonalizedFirstMessageStarters,
+  personalizeStarterLine,
   type FunnelAgeRange,
   type FunnelBasics,
   type FunnelFirstContact,
@@ -70,83 +78,10 @@ import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { SITE_DISPLAY } from "@/lib/brand";
 
-const STEP_TOTAL = 6;
+const STEP_TOTAL = 7;
 const MSG_MAX = 240;
-
-/** Makes clear: chat works without signup; creating an account is optional. */
-function FunnelOptionalSignup({
-  signupPath,
-  loginPath,
-  layout = "full",
-}: {
-  signupPath: string;
-  loginPath: string;
-  layout?: "full" | "compact";
-}) {
-  const { variant } = useFunnelConfig();
-  const isV2 = variant === "v2";
-
-  const calloutClass = isV2
-    ? "rounded-xl border border-white/10 bg-[#353536] px-3 py-2.5 text-center text-[12px] leading-snug text-inkMuted"
-    : "rounded-xl border border-black/[0.06] bg-white px-3 py-2.5 text-center text-[12px] leading-snug text-gray-600";
-
-  const highlightClass = isV2
-    ? "font-semibold text-ink"
-    : "font-semibold text-gray-800";
-
-  if (layout === "compact") {
-    return (
-      <p
-        className={`text-center text-[11px] leading-snug ${
-          isV2 ? "text-inkMuted" : "text-gray-500"
-        }`}
-      >
-        <span className={highlightClass}>Geen account nodig</span> om te chatten ·{" "}
-        <Link
-          href={signupPath}
-          className="font-semibold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
-        >
-          Account aanmaken (optioneel)
-        </Link>
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className={calloutClass}>
-        <p>
-          <span className={highlightClass}>Geen account nodig</span> — je kunt meteen
-          chatten. Wil je je profiel en gesprekken bewaren? Maak dan optioneel een
-          account aan.
-        </p>
-      </div>
-      <Link
-        href={signupPath}
-        className={`flex w-full items-center justify-center rounded-full py-3 text-[14px] font-bold transition active:scale-95 ${
-          isV2
-            ? "border border-white/15 bg-[#353536] text-ink ring-1 ring-white/10"
-            : "border border-gray-200 bg-white text-gray-800 shadow-sm ring-1 ring-black/[0.06]"
-        }`}
-      >
-        Account aanmaken (optioneel)
-      </Link>
-      <p
-        className={`text-center text-[11px] ${
-          isV2 ? "text-inkMuted" : "text-gray-500"
-        }`}
-      >
-        Al een account?{" "}
-        <Link
-          href={loginPath}
-          className="font-semibold text-[var(--funnel-accent)] underline-offset-2 hover:underline"
-        >
-          Inloggen
-        </Link>
-      </p>
-    </div>
-  );
-}
+const WELCOME_MIN_PROFILE_AGE = 40;
+const WELCOME_ONLINE_COUNT_TARGET = 847;
 
 type FunnelGender = "man" | "woman";
 type FunnelSeekingGender = "men" | "women" | "both";
@@ -157,6 +92,7 @@ type FunnelPersist = {
   gender: FunnelGender | null;
   seekingGender: FunnelSeekingGender | null;
   ageRange: FunnelAgeRange;
+  vibes: string[];
   basics: FunnelBasics;
   firstContact: FunnelFirstContact;
   firstMessage: string;
@@ -172,11 +108,25 @@ function normalizeLookingFor(raw: unknown): FunnelLookingFor | null {
     : null;
 }
 
-const DEFAULT_AGE_RANGE: FunnelAgeRange = {
-  min: 18,
-  max: 35,
-  anyAge: false,
-};
+function migrateFunnelStep(raw: number): number {
+  if (raw <= 2) return raw;
+  if (raw === 3 || raw === 4) return raw;
+  if (raw === 5) return 6;
+  if (raw === 6) return 7;
+  return Math.min(STEP_TOTAL, Math.max(1, raw));
+}
+
+function normalizeVibes(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) {
+    if (typeof v !== "string" || !v.trim()) continue;
+    if (out.includes(v)) continue;
+    out.push(v);
+    if (out.length >= FUNNEL_MAX_VIBE_PICKS) break;
+  }
+  return out;
+}
 
 function normalizeAgeRange(
   p: Partial<FunnelPersist> & { ageMin?: number; ageMax?: number },
@@ -186,23 +136,23 @@ function normalizeAgeRange(
     return {
       min:
         typeof ar.min === "number"
-          ? Math.min(70, Math.max(18, Math.round(ar.min)))
-          : DEFAULT_AGE_RANGE.min,
+          ? Math.min(80, Math.max(18, Math.round(ar.min)))
+          : FUNNEL_DEFAULT_AGE_RANGE.min,
       max:
         typeof ar.max === "number"
-          ? Math.min(70, Math.max(18, Math.round(ar.max)))
-          : DEFAULT_AGE_RANGE.max,
+          ? Math.min(80, Math.max(18, Math.round(ar.max)))
+          : FUNNEL_DEFAULT_AGE_RANGE.max,
       anyAge: Boolean(ar.anyAge),
     };
   }
   const min =
     typeof p.ageMin === "number"
-      ? Math.min(70, Math.max(18, Math.round(p.ageMin)))
-      : DEFAULT_AGE_RANGE.min;
+      ? Math.min(80, Math.max(18, Math.round(p.ageMin)))
+      : FUNNEL_DEFAULT_AGE_RANGE.min;
   const max =
     typeof p.ageMax === "number"
-      ? Math.min(70, Math.max(18, Math.round(p.ageMax)))
-      : DEFAULT_AGE_RANGE.max;
+      ? Math.min(80, Math.max(18, Math.round(p.ageMax)))
+      : FUNNEL_DEFAULT_AGE_RANGE.max;
   return {
     min: Math.min(min, max - 2),
     max: Math.max(max, min + 2),
@@ -287,9 +237,10 @@ function normalizeFirstContact(
 const defaultPersist = (): FunnelPersist => ({
   step: 1,
   lookingFor: null,
-  gender: null,
-  seekingGender: null,
-  ageRange: { ...DEFAULT_AGE_RANGE },
+  gender: "man",
+  seekingGender: "women",
+  ageRange: { ...FUNNEL_DEFAULT_AGE_RANGE },
+  vibes: [],
   basics: { ...DEFAULT_BASICS },
   firstContact: { profileId: null },
   firstMessage: "",
@@ -322,17 +273,16 @@ function loadSession(): FunnelPersist | null {
       p as Partial<FunnelPersist> & { pickedMatchId?: string | null },
     );
     const rawStep = Math.max(1, Number(p.step) || 1);
-    // Legacy: step 5 was age range (removed); steps 6–8 are now 5–7.
-    const step =
-      rawStep > 5 ? rawStep - 1 : rawStep === 5 ? 5 : rawStep;
+    const step = migrateFunnelStep(rawStep);
 
     return {
       ...defaultPersist(),
       ...p,
       lookingFor: lf,
-      gender: normalizeGender(p.gender),
-      seekingGender: normalizeSeekingGender(p.seekingGender),
+      gender: normalizeGender(p.gender) ?? "man",
+      seekingGender: normalizeSeekingGender(p.seekingGender) ?? "women",
       ageRange,
+      vibes: normalizeVibes(p.vibes),
       basics,
       firstContact,
       step: Math.min(STEP_TOTAL, Math.max(1, step)),
@@ -389,8 +339,9 @@ function OnboardingFunnelInner({
   const [lookingFor, setLookingFor] = useState<FunnelLookingFor | null>(null);
   const [gender, setGender] = useState<FunnelGender | null>(null);
   const [seekingGender, setSeekingGender] = useState<FunnelSeekingGender | null>(null);
+  const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
   const [ageRange, setAgeRange] = useState<FunnelAgeRange>(() => ({
-    ...DEFAULT_AGE_RANGE,
+    ...FUNNEL_DEFAULT_AGE_RANGE,
   }));
   const [basics, setBasics] = useState<FunnelBasics>(() => ({ ...DEFAULT_BASICS }));
   const [firstContact, setFirstContact] = useState<FunnelFirstContact>({
@@ -400,7 +351,7 @@ function OnboardingFunnelInner({
   const [startingChat, setStartingChat] = useState(false);
   const [funnelError, setFunnelError] = useState<string | null>(null);
 
-  const matchAgeMin = ageRange.anyAge ? 18 : ageRange.min;
+  const matchAgeMin = ageRange.anyAge ? 40 : ageRange.min;
   const matchAgeMax = ageRange.anyAge ? 70 : ageRange.max;
 
   const funnelCatalog = useMemo(
@@ -413,12 +364,12 @@ function OnboardingFunnelInner({
     () =>
       pickFunnelMatchProfiles(
         funnelCatalog,
-        [],
+        selectedVibes,
         lookingFor,
         matchAgeMin,
         matchAgeMax,
       ),
-    [funnelCatalog, lookingFor, matchAgeMin, matchAgeMax],
+    [funnelCatalog, selectedVibes, lookingFor, matchAgeMin, matchAgeMax],
   );
 
   const pickedMatch = useMemo(
@@ -474,6 +425,7 @@ function OnboardingFunnelInner({
         setGender(saved.gender);
         setSeekingGender(saved.seekingGender);
         setAgeRange(saved.ageRange);
+        setSelectedVibes(saved.vibes);
         setBasics(saved.basics);
         setFirstContact(saved.firstContact);
         setFirstMessage(saved.firstMessage);
@@ -490,9 +442,10 @@ function OnboardingFunnelInner({
     const p: FunnelPersist = {
       step,
       lookingFor,
-      gender,
-      seekingGender,
+      gender: gender ?? "man",
+      seekingGender: seekingGender ?? "women",
       ageRange,
+      vibes: selectedVibes,
       basics,
       firstContact,
       firstMessage,
@@ -505,6 +458,7 @@ function OnboardingFunnelInner({
     gender,
     seekingGender,
     ageRange,
+    selectedVibes,
     basics,
     firstContact,
     firstMessage,
@@ -544,8 +498,8 @@ function OnboardingFunnelInner({
       credentials: "same-origin",
       body: JSON.stringify({
         lookingFor,
-        gender,
-        seekingGender,
+        gender: "man",
+        seekingGender: "women",
         ageRange,
         startingCredits: STARTING_USER_CREDITS,
       }),
@@ -554,7 +508,7 @@ function OnboardingFunnelInner({
     if (!res.ok || !data.ok) {
       throw new Error(data.error ?? `Opslaan mislukt (${res.status})`);
     }
-  }, [ageRange, gender, lookingFor, seekingGender]);
+  }, [ageRange, lookingFor]);
 
   const finishFunnelToDiscover = useCallback(async () => {
     setFunnelError(null);
@@ -729,43 +683,48 @@ function OnboardingFunnelInner({
                 />
               )}
               {step === 3 && (
-                <StepGender
-                  selected={gender}
-                  onSelect={(g) => {
-                    setGender(g);
+                <StepMyAge
+                  selectedAge={basics.age}
+                  onSelect={(age) => {
+                    setBasics((b) => ({ ...b, age }));
                     setTimeout(() => goNext(), 300);
                   }}
                 />
               )}
               {step === 4 && (
-                <StepSeekingGender
-                  selected={seekingGender}
-                  onSelect={(g) => {
-                    setSeekingGender(g);
-                    setTimeout(() => goNext(), 300);
-                  }}
+                <StepWomenAge
+                  ageRange={ageRange}
+                  onChange={setAgeRange}
+                  onContinue={goNext}
                 />
               )}
               {step === 5 && (
+                <StepVibes
+                  selected={selectedVibes}
+                  onChange={setSelectedVibes}
+                  onContinue={goNext}
+                />
+              )}
+              {step === 6 && (
                 <StepPickMatch
                   matches={matches}
+                  lookingFor={lookingFor}
+                  userVibes={selectedVibes}
                   selectedId={firstContact.profileId}
                   onSelect={(id) => setFirstContact({ profileId: id })}
                   onContinue={goNext}
                   onSkip={skipFirstLink}
-                  signupPath={cfg.signupPath}
-                  loginPath={cfg.loginPath}
                 />
               )}
-              {step === 6 && (
+              {step === 7 && (
                 <StepFirstMessage
                   peer={pickedMatch}
+                  lookingFor={lookingFor}
+                  vibeIds={selectedVibes}
                   value={firstMessage}
                   onChange={setFirstMessage}
                   onContinue={() => void startFunnelChat()}
                   continuing={startingChat}
-                  signupPath={cfg.signupPath}
-                  loginPath={cfg.loginPath}
                 />
               )}
             </motion.div>
@@ -851,7 +810,9 @@ function buildWelcomeSetsFromCatalog(
 ): FunnelWelcomeCard[][] {
   if (!catalog || catalog.length < perSet) return funnelSets;
 
-  const shuffled = [...catalog].sort(() => Math.random() - 0.5);
+  const mature = catalog.filter((p) => p.age >= WELCOME_MIN_PROFILE_AGE);
+  const pool = mature.length >= perSet ? mature : catalog;
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
   const sets: FunnelWelcomeCard[][] = [];
   for (let s = 0; s < setCount; s++) {
     const slice = shuffled.slice(s * perSet, s * perSet + perSet);
@@ -863,14 +824,16 @@ function buildWelcomeSetsFromCatalog(
 
 const WELCOME_COPY = {
   v1: {
-    headline: ["Vind iemand die", "je écht prikkelt."],
-    subMuted: "Flirterige gesprekken. ",
+    headline: ["Ontmoet vrouwen die", "weten wat ze willen."],
+    subMuted: "Voor mannen 50+. ",
     subAccent: "Discreet · op jouw tempo.",
+    socialLabel: "mannen 50+ actief vandaag",
   },
   v2: {
-    headline: ["Vind mensen die", "je écht aanzetten."],
-    subMuted: "Flirterig en discreet. ",
-    subAccent: "Jij bepaalt het tempo.",
+    headline: ["Meer tijd.", "Discreet flirten."],
+    subMuted: "Voor mannen 50+. ",
+    subAccent: "Geen haast · wel spanning.",
+    socialLabel: "mannen 50+ actief vandaag",
   },
 } as const;
 
@@ -904,7 +867,10 @@ function StepWelcome({
     const unsub = countMv.on("change", (v) => {
       setCountLabel(Math.round(v).toLocaleString());
     });
-    const ctrl = animate(countMv, 12_453, { duration: 1.2, ease: "easeOut" });
+    const ctrl = animate(countMv, WELCOME_ONLINE_COUNT_TARGET, {
+      duration: 1.2,
+      ease: "easeOut",
+    });
     return () => {
       unsub();
       ctrl.stop();
@@ -1092,7 +1058,7 @@ function StepWelcome({
               >
                 {countLabel}
               </span>{" "}
-              mensen online nu
+              {copy.socialLabel}
             </p>
           </div>
           <div
@@ -1148,11 +1114,11 @@ function StepLookingFor({
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
         <h2 className={funnelStepTitleClass(variant)}>
-          <span className="block">Waar kom je</span>
-          <span className="block">voor?</span>
+          <span className="block">Wat zoek je</span>
+          <span className="block">op dit moment?</span>
         </h2>
         <p className={funnelStepSubtitleClass(variant)}>
-          We personaliseren je feed.
+          Eerlijk antwoord = betere matches. Niemand ziet dit op je profiel.
         </p>
       </div>
 
@@ -1210,23 +1176,20 @@ function StepLookingFor({
   );
 }
 
-const GENDER_OPTIONS: {
-  id: FunnelGender;
-  emoji: string;
-  label: string;
-  sub: string;
-  bg: string;
-}[] = [
-  { id: "man", emoji: "👨", label: "Man", sub: "Ik identificeer als man", bg: "bg-blue-50" },
-  { id: "woman", emoji: "👩", label: "Vrouw", sub: "Ik identificeer als vrouw", bg: "bg-pink-50" },
-];
+function funnelPrimaryButtonClass(enabled: boolean): string {
+  return `flex w-full items-center justify-center rounded-full py-3.5 text-[15px] font-extrabold transition active:scale-95 ${
+    enabled
+      ? "bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white shadow-lg"
+      : "cursor-not-allowed bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] text-white opacity-50 shadow-none"
+  }`;
+}
 
-function StepGender({
-  selected,
+function StepMyAge({
+  selectedAge,
   onSelect,
 }: {
-  selected: FunnelGender | null;
-  onSelect: (g: FunnelGender) => void;
+  selectedAge: number | null;
+  onSelect: (age: number) => void;
 }) {
   const { variant } = useFunnelConfig();
 
@@ -1234,44 +1197,26 @@ function StepGender({
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
         <h2 className={funnelStepTitleClass(variant)}>
-          <span className="block">Ben je een</span>
-          <span className="block">man of vrouw?</span>
+          <span className="block">Hoe oud</span>
+          <span className="block">ben je?</span>
         </h2>
         <p className={funnelStepSubtitleClass(variant)}>
-          Dit helpt ons je ervaring te personaliseren.
+          Zo tonen we je vrouwen die bij jouw leeftijd passen.
         </p>
       </div>
 
-      <ul className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-3">
-        {GENDER_OPTIONS.map((opt) => {
-          const isSel = selected === opt.id;
+      <ul className="mt-4 grid grid-cols-2 gap-3">
+        {FUNNEL_MY_AGE_BUCKETS.map((bucket) => {
+          const isSel = selectedAge === bucket.age;
           return (
-            <li key={opt.id}>
+            <li key={bucket.id}>
               <button
                 type="button"
-                onClick={() => onSelect(opt.id)}
-                className={funnelChoiceRowClass(variant, isSel, opt.bg)}
+                onClick={() => onSelect(bucket.age)}
+                className={funnelChoiceRowClass(variant, isSel, "bg-blue-50")}
               >
-                <span className="text-4xl" aria-hidden>{opt.emoji}</span>
-                <span className="min-w-0 flex-1">
-                  <span className={funnelOptionTitleClass(variant)}>{opt.label}</span>
-                  <span className={funnelOptionSubClassSm(variant)}>{opt.sub}</span>
-                </span>
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-                  <AnimatePresence mode="wait">
-                    {isSel && (
-                      <motion.span
-                        key="check"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[11px] font-bold text-white"
-                      >
-                        ✓
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
+                <span className="min-w-0 flex-1 text-center">
+                  <span className={funnelOptionTitleClass(variant)}>{bucket.label}</span>
                 </span>
               </button>
             </li>
@@ -1282,69 +1227,168 @@ function StepGender({
   );
 }
 
-const SEEKING_OPTIONS: { id: FunnelSeekingGender; emoji: string; label: string; sub: string; bg: string }[] = [
-  { id: "women", emoji: "👩", label: "Vrouwen", sub: "Toon mij vrouwen", bg: "bg-pink-50" },
-  { id: "men", emoji: "👨", label: "Mannen", sub: "Toon mij mannen", bg: "bg-blue-50" },
-  { id: "both", emoji: "💫", label: "Beide", sub: "Ik sta open voor iedereen", bg: "bg-purple-50" },
-];
-
-function StepSeekingGender({
-  selected,
-  onSelect,
+function StepWomenAge({
+  ageRange,
+  onChange,
+  onContinue,
 }: {
-  selected: FunnelSeekingGender | null;
-  onSelect: (g: FunnelSeekingGender) => void;
+  ageRange: FunnelAgeRange;
+  onChange: (r: FunnelAgeRange) => void;
+  onContinue: () => void;
 }) {
   const { variant } = useFunnelConfig();
+  const canContinue =
+    ageRange.anyAge ||
+    (ageRange.min >= 18 && ageRange.max >= ageRange.min);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
       <div className="shrink-0">
         <h2 className={funnelStepTitleClass(variant)}>
-          <span className="block">Wie zoek</span>
-          <span className="block">je?</span>
+          <span className="block">Welke vrouwen</span>
+          <span className="block">wil je zien?</span>
         </h2>
         <p className={funnelStepSubtitleClass(variant)}>
-          We matchen je met de juiste mensen.
+          De meeste mannen hier kiezen 45–60.
         </p>
       </div>
 
-      <ul className="mt-3 flex min-h-0 flex-1 flex-col justify-start gap-3">
-        {SEEKING_OPTIONS.map((opt) => {
-          const isSel = selected === opt.id;
+      <ul className="mt-4 flex flex-col gap-2.5">
+        {FUNNEL_WOMEN_AGE_PRESETS.map((preset) => {
+          const isSel =
+            !ageRange.anyAge &&
+            ageRange.min === preset.min &&
+            ageRange.max === preset.max;
           return (
-            <li key={opt.id}>
+            <li key={preset.label}>
               <button
                 type="button"
-                onClick={() => onSelect(opt.id)}
-                className={funnelChoiceRowClass(variant, isSel, opt.bg)}
+                onClick={() =>
+                  onChange({ min: preset.min, max: preset.max, anyAge: false })
+                }
+                className={funnelChoiceRowClass(variant, isSel, "bg-pink-50")}
               >
-                <span className="text-4xl" aria-hidden>{opt.emoji}</span>
                 <span className="min-w-0 flex-1">
-                  <span className={funnelOptionTitleClass(variant)}>{opt.label}</span>
-                  <span className={funnelOptionSubClassSm(variant)}>{opt.sub}</span>
-                </span>
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center">
-                  <AnimatePresence mode="wait">
-                    {isSel && (
-                      <motion.span
-                        key="check"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--funnel-accent)] text-[11px] font-bold text-white"
-                      >
-                        ✓
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
+                  <span className={funnelOptionTitleClass(variant)}>
+                    {preset.label} jaar
+                  </span>
+                  <span className={funnelOptionSubClassSm(variant)}>
+                    Volwassen en zelfverzekerd
+                  </span>
                 </span>
               </button>
             </li>
           );
         })}
+        <li>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({ min: 40, max: 65, anyAge: true })
+            }
+            className={funnelChoiceRowClass(variant, ageRange.anyAge, "bg-purple-50")}
+          >
+            <span className="min-w-0 flex-1">
+              <span className={funnelOptionTitleClass(variant)}>
+                Leeftijd maakt niet uit
+              </span>
+              <span className={funnelOptionSubClassSm(variant)}>
+                Je ziet een brede mix
+              </span>
+            </span>
+          </button>
+        </li>
       </ul>
+
+      <div className="mt-auto shrink-0 pt-4">
+        <button
+          type="button"
+          disabled={!canContinue}
+          onClick={onContinue}
+          className={funnelPrimaryButtonClass(canContinue)}
+        >
+          Doorgaan →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StepVibes({
+  selected,
+  onChange,
+  onContinue,
+}: {
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  onContinue: () => void;
+}) {
+  const { variant } = useFunnelConfig();
+  const canContinue = selected.length >= 1;
+
+  const toggle = (id: string) => {
+    if (selected.includes(id)) {
+      onChange(selected.filter((x) => x !== id));
+      return;
+    }
+    if (selected.length >= FUNNEL_MAX_VIBE_PICKS) return;
+    onChange([...selected, id]);
+  };
+
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 font-sans">
+      <div className="shrink-0">
+        <h2 className={funnelStepTitleClass(variant)}>
+          <span className="block">Wat trekt</span>
+          <span className="block">je aan?</span>
+        </h2>
+        <p className={funnelStepSubtitleClass(variant)}>
+          Kies max. {FUNNEL_MAX_VIBE_PICKS} — wij zoeken vrouwen die daarbij passen.
+        </p>
+      </div>
+
+      <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 content-start gap-2.5 overflow-y-auto overscroll-y-contain">
+        {FUNNEL_ATTRACTION_VIBES.map((v) => {
+          const isSel = selected.includes(v.id);
+          const disabled =
+            !isSel && selected.length >= FUNNEL_MAX_VIBE_PICKS;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              disabled={disabled}
+              onClick={() => toggle(v.id)}
+              className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-3 text-center transition active:scale-[0.98] ${
+                variant === "v2"
+                  ? isSel
+                    ? "bg-[#353536] ring-2 ring-[var(--funnel-accent)]"
+                    : "border border-white/10 bg-[#2A2A2B] disabled:opacity-40"
+                  : isSel
+                    ? `${v.selectedBg} ring-2 ${v.selectedRing}`
+                    : "border border-gray-200 bg-white disabled:opacity-40"
+              }`}
+            >
+              <span className="text-2xl" aria-hidden>
+                {v.emoji}
+              </span>
+              <span className={funnelOptionTitleClass(variant, "md")}>
+                {v.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="shrink-0 pt-3">
+        <button
+          type="button"
+          disabled={!canContinue}
+          onClick={onContinue}
+          className={funnelPrimaryButtonClass(canContinue)}
+        >
+          Doorgaan →
+        </button>
+      </div>
     </div>
   );
 }
@@ -1479,35 +1523,48 @@ function cardFooterEmojis(
 
 function StepPickMatch({
   matches,
+  lookingFor,
+  userVibes,
   selectedId,
   onSelect,
   onContinue,
   onSkip,
-  signupPath,
-  loginPath,
 }: {
   matches: FunnelMatchPick[];
+  lookingFor: FunnelLookingFor | null;
+  userVibes: string[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onContinue: () => void;
   onSkip: () => void;
-  signupPath: string;
-  loginPath: string;
 }) {
-  const userVibes: string[] = [];
+  const { variant } = useFunnelConfig();
+  const isV2 = variant === "v2";
   const ok = Boolean(selectedId);
   const n = matches.length;
+  const intentLabel = funnelLookingForLabel(lookingFor);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pb-1 pt-1 [-webkit-overflow-scrolling:touch]">
         <div className="px-2 pb-1 pt-0">
-          <h2 className="text-[clamp(1.15rem,4.2vmin,1.5rem)] font-extrabold leading-tight text-gray-900">
-            Je eerste match.
+          <h2
+            className={`text-[clamp(1.15rem,4.2vmin,1.5rem)] font-extrabold leading-tight ${
+              isV2 ? "text-ink" : "text-gray-900"
+            }`}
+          >
+            Dit past bij wat jij koos.
           </h2>
-          <p className="mt-0.5 text-[clamp(11px,2.9vmin,13px)] text-gray-600">
-            <span className="font-bold text-pink-500">{n} mensen</span>{" "}
-            <span>online en bij jouw vibe. Kies er één.</span>
+          <p
+            className={`mt-0.5 text-[clamp(11px,2.9vmin,13px)] ${
+              isV2 ? "text-inkMuted" : "text-gray-600"
+            }`}
+          >
+            <span className="font-bold text-[var(--funnel-accent)]">{n} vrouwen</span>{" "}
+            <span>
+              online bij jou in de buurt
+              {intentLabel ? ` · ${intentLabel}` : ""}. Kies er één.
+            </span>
           </p>
         </div>
         <div className="grid auto-rows-min grid-cols-2 gap-3 px-2 pb-2 pt-2">
@@ -1614,13 +1671,6 @@ function StepPickMatch({
         >
           Overslaan — ik stuur later een bericht
         </button>
-        <div className="mt-2">
-          <FunnelOptionalSignup
-            signupPath={signupPath}
-            loginPath={loginPath}
-            layout="compact"
-          />
-        </div>
       </div>
     </div>
   );
@@ -1628,32 +1678,31 @@ function StepPickMatch({
 
 function StepFirstMessage({
   peer,
+  lookingFor,
+  vibeIds,
   value,
   onChange,
   onContinue,
   continuing = false,
-  signupPath,
-  loginPath,
 }: {
   peer: FunnelMatchPick | null;
+  lookingFor: FunnelLookingFor | null;
+  vibeIds: string[];
   value: string;
   onChange: (s: string) => void;
   onContinue: () => void;
   continuing?: boolean;
-  signupPath: string;
-  loginPath: string;
 }) {
   const { variant } = useFunnelConfig();
   const isV2 = variant === "v2";
   const ok = value.trim().length > 0;
   const len = value.length;
 
-  const name = peer?.name ?? "jou";
-  const starterChips = useMemo(() => [
-    `Hé ${name}! Wat doe je meestal in het weekend?`,
-    `${name}, ik moet zeggen — je profiel viel me op 👀 waar ben je hier naar op zoek?`,
-    `Eerlijk ${name}, jij bent precies mijn type 🔥 wat zou voor jou een perfecte eerste date zijn?`,
-  ], [name]);
+  const name = peer?.name ?? "";
+  const starterChips = useMemo(() => {
+    const lines = getPersonalizedFirstMessageStarters(lookingFor, vibeIds);
+    return lines.map((line) => personalizeStarterLine(line, name));
+  }, [lookingFor, vibeIds, name]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden font-sans">
@@ -1674,9 +1723,9 @@ function StepFirstMessage({
           isV2 ? "text-inkMuted" : "text-gray-600"
         }`}
       >
-        Een goed eerste bericht stelt een vraag.{" "}
+        Kort, respectvol, met een vraag.{" "}
         <span className={isV2 ? "font-semibold text-ink" : "font-semibold text-gray-800"}>
-          Geen account verplicht
+          Discreet
         </span>{" "}
         — je gaat daarna meteen naar de chat.
       </p>
@@ -1700,7 +1749,7 @@ function StepFirstMessage({
             onChange={(e) => onChange(e.target.value.slice(0, MSG_MAX))}
             rows={4}
             className="w-full resize-none rounded-2xl border-0 bg-white p-3 text-[clamp(13px,3.4vmin,15px)] leading-relaxed text-gray-900 shadow-sm ring-1 ring-black/[0.06] outline-none focus:ring-2 focus:ring-[var(--funnel-accent)]/40 sm:p-4"
-            placeholder="Schrijf iets aardigs…"
+            placeholder="Schrijf iets persoonlijks…"
           />
           <p className="mt-1 text-right text-[11px] font-medium text-gray-500">
             {len} / {MSG_MAX}
@@ -1719,15 +1768,15 @@ function StepFirstMessage({
               : "cursor-not-allowed bg-gray-200 text-gray-500"
           }`}
         >
-          {continuing ? "Chat openen…" : "Start chat (zonder account) →"}
+          {continuing ? "Chat openen…" : "Start chat →"}
         </button>
-        <div className="mt-3">
-          <FunnelOptionalSignup
-            signupPath={signupPath}
-            loginPath={loginPath}
-            layout="full"
-          />
-        </div>
+        <p
+          className={`mt-2 text-center text-[11px] ${
+            isV2 ? "text-inkMuted" : "text-gray-500"
+          }`}
+        >
+          Discreet. Je kunt later altijd stoppen.
+        </p>
       </div>
     </div>
   );
