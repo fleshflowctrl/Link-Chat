@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -12,6 +12,7 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 import { CreditPrice } from "@/components/credits/credit-price";
+import { ProOfferCard } from "@/components/credits/pro-offer-card";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 
@@ -75,8 +76,35 @@ function PackageCard({ pkg }: { pkg: CreditPackage }) {
 }
 
 export function CreditsView() {
+  const [proActive, setProActive] = useState(false);
+  const [proMinimumEndAt, setProMinimumEndAt] = useState<string | null>(null);
+
   useEffect(() => {
     initCreditsStore();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/me/credits/pro-subscription", {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const json = (await res.json()) as {
+          active?: boolean;
+          minimumEndAt?: string | null;
+        };
+        if (cancelled) return;
+        setProActive(Boolean(json.active));
+        setProMinimumEndAt(json.minimumEndAt ?? null);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot);
@@ -101,6 +129,7 @@ export function CreditsView() {
         {packages.map((pkg) => (
           <PackageCard key={pkg.id} pkg={pkg} />
         ))}
+        <ProOfferCard active={proActive} minimumEndAt={proMinimumEndAt} />
       </div>
     </div>
   );
