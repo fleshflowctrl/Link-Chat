@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -346,6 +347,14 @@ function saveSession(p: FunnelPersist) {
   sessionStorage.setItem(FUNNEL_SESSION_KEY, JSON.stringify(p));
 }
 
+function OnboardingFunnelFallback() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#F5F3EE] text-sm font-medium text-gray-500">
+      Laden…
+    </div>
+  );
+}
+
 export function OnboardingFunnel({
   initialCatalog,
   variant = DEFAULT_APP_VARIANT,
@@ -355,7 +364,9 @@ export function OnboardingFunnel({
 }) {
   return (
     <FunnelConfigProvider variant={variant}>
-      <OnboardingFunnelInner initialCatalog={initialCatalog} />
+      <Suspense fallback={<OnboardingFunnelFallback />}>
+        <OnboardingFunnelInner initialCatalog={initialCatalog} />
+      </Suspense>
     </FunnelConfigProvider>
   );
 }
