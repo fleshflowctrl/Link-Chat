@@ -12,7 +12,7 @@ export default async function AppV2ShellLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const initialUnread = await fetchUnreadInboxCountServer();
+  const initialUnread = await fetchUnreadInboxCountServer({ variant: "v2" });
   return (
     <AppVariantProvider variant="v2">
       <div

@@ -9,6 +9,8 @@ import {
   subscribeMessagesTabBadge,
 } from "@/lib/messages-tab-badge";
 import { warmInboxThreadsCache } from "@/lib/warm-inbox-cache";
+import { appVariantFetchHeaders, readClientAppVariant } from "@/lib/app-variant";
+import { WHISPER_THREADS_REFETCH } from "@/lib/session-sync";
 import {
   Coins,
   MessageCircle,
@@ -52,6 +54,7 @@ async function fetchUnreadCount(): Promise<number | null> {
     const res = await fetch("/api/me/unread-count", {
       cache: "no-store",
       credentials: "same-origin",
+      headers: appVariantFetchHeaders(readClientAppVariant()),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { ok?: boolean; count?: number };
@@ -118,11 +121,15 @@ export function BottomNav({
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", refresh);
 
+    const onThreadsRefetch = () => void refresh();
+    window.addEventListener(WHISPER_THREADS_REFETCH, onThreadsRefetch);
+
     return () => {
       cancelled = true;
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener(WHISPER_THREADS_REFETCH, onThreadsRefetch);
     };
   }, [pathname]);
 
@@ -141,7 +148,7 @@ export function BottomNav({
       <div className="mx-auto flex max-w-[430px] justify-between gap-0.5 px-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         {tabs.map(({ href, label, Icon, badge }) => {
           const active = isActive(pathname, href);
-          const badgeLabel = href === "/messages" ? messagesBadge : badge;
+          const badgeLabel = href.endsWith("/messages") ? messagesBadge : badge;
           return (
             <Link
               key={href}

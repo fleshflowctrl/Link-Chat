@@ -106,8 +106,12 @@ export async function fetchMessagesOnlineRailServer(
  * This is the SSR baseline for the bottom-nav red dot; clients also poll
  * `/api/me/unread-count` to keep it fresh between navigations.
  */
-export async function fetchUnreadInboxCountServer(): Promise<number> {
+export async function fetchUnreadInboxCountServer(
+  options: ChatServerVariantOptions = {},
+): Promise<number> {
   if (!isSupabaseConfigured()) return 0;
+
+  const variant = options.variant ?? (await readServerAppVariant());
 
   let supabase: ReturnType<typeof createClient>;
   try {
@@ -143,6 +147,21 @@ export async function fetchUnreadInboxCountServer(): Promise<number> {
   if (latestPeerByPeer.size === 0) return 0;
 
   const peerIds = Array.from(latestPeerByPeer.keys());
+  let variantProfilesQuery = supabase
+    .from("chat_profiles")
+    .select("id")
+    .in("id", peerIds);
+  variantProfilesQuery = applyChatProfilesVariantFilter(
+    variantProfilesQuery,
+    variant,
+  );
+  const { data: variantPeers, error: variantPeersError } =
+    await variantProfilesQuery;
+  if (variantPeersError) return 0;
+  const peersInPool = new Set(
+    (variantPeers ?? []).map((r) => r.id as string).filter(Boolean),
+  );
+
   const { data: reads } = await supabase
     .from("chat_reads")
     .select("peer_id, last_read_at")
@@ -156,6 +175,7 @@ export async function fetchUnreadInboxCountServer(): Promise<number> {
 
   let unread = 0;
   latestPeerByPeer.forEach((latestAt, pid) => {
+    if (!peersInPool.has(pid)) return;
     const readAt = lastReadByPeer.get(pid);
     if (!readAt || new Date(readAt).getTime() < new Date(latestAt).getTime()) {
       unread += 1;
