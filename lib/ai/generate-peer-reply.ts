@@ -17,6 +17,7 @@ import {
   AI_CHAT_PROMPT_VERSION,
   buildGrokSystemPrompt,
 } from "@/lib/ai/build-grok-system-prompt";
+import { v2ChatUsesBlankSlate } from "@/lib/ai/v2-chat-config";
 import {
   RECENT_MESSAGE_COUNT,
   refreshThreadSummaryIfNeeded,
@@ -518,75 +519,83 @@ export async function generatePeerReply(
     }
   }
   const emotional = isEmotionalUserMessage(lastUserBody);
-  const allowMultiMessage =
-    !args.options?.forceSingleMessage &&
-    decideMultiMessage({
-      turnIndex: priorAssistantTurns,
-      bedtimePhase: bedtime.phase,
-      emotional,
-    });
-  // Burst-mode: small chance of 4-6 chunks in 1-2 min, when conditions
-  // are right. Implies allowMultiMessage so the prompt-builder gets the
-  // separator instructions even if multi was rolled false.
-  const burstMode = decideBurstMode({
-    allowMultiMessage,
-    turnIndex: priorAssistantTurns,
-    bedtimePhase: bedtime.phase,
-    workPhase: workCtx.phase,
-    emotional,
-  });
+  const v2BlankSlate = v2ChatUsesBlankSlate(args.profile);
 
-  // Realism v2 — energy curve hint based on hour-of-day in her timezone.
+  const allowMultiMessage = v2BlankSlate
+    ? false
+    : !args.options?.forceSingleMessage &&
+      decideMultiMessage({
+        turnIndex: priorAssistantTurns,
+        bedtimePhase: bedtime.phase,
+        emotional,
+      });
+  const burstMode = v2BlankSlate
+    ? false
+    : decideBurstMode({
+        allowMultiMessage,
+        turnIndex: priorAssistantTurns,
+        bedtimePhase: bedtime.phase,
+        workPhase: workCtx.phase,
+        emotional,
+      });
+
   const nowForEnergy = new Date();
   const { hour: hourLocal, dayOfWeek: dowLocal } = getHourInTimeZone(nowForEnergy, personaTz);
   const energy = computeEnergy({ hourLocal, dayOfWeek: dowLocal });
 
-  // Realism v2 — decide terse-mode (one-bubble emoji-only / short reply).
-  const terseMode = decideTerseMode({
-    turnIndex: priorAssistantTurns,
-    bedtimePhase: bedtime.phase,
-    burstMode,
-    emotional,
-    lastUserBody,
-    energyTerseFactor: energy.terseFactor,
-  });
+  const terseMode = v2BlankSlate
+    ? false
+    : decideTerseMode({
+        turnIndex: priorAssistantTurns,
+        bedtimePhase: bedtime.phase,
+        burstMode,
+        emotional,
+        lastUserBody,
+        energyTerseFactor: energy.terseFactor,
+      });
 
   // ----- Build prompt -----
-  const system = buildGrokSystemPrompt(args.profile, {
-    threadSummary: threadSummaryForPrompt,
-    nowLocal: new Date(),
-    turnIndex: priorAssistantTurns,
-    userSilenceMs: userSilenceMs ?? undefined,
-    bedtimePhase: bedtime.phase,
-    minutesUntilBedtime: bedtime.minutesUntilBedtime,
-    workPromptHint: workCtx.promptHint,
-    daysActive,
-    bannedPhrases,
-    structuredFacts: hasAnyFacts(structured.facts) ? structured.facts : null,
-    userCrossChatProfile: userCrossChatProfile
-      ? {
-          summary: userCrossChatProfile.summary,
-          traits: userCrossChatProfile.traits,
-          topics: userCrossChatProfile.topics,
-          flirt_level: userCrossChatProfile.flirt_level,
-          communication_pace: userCrossChatProfile.communication_pace,
-          message_length: userCrossChatProfile.message_length,
-          wants: userCrossChatProfile.wants,
-          avoids: userCrossChatProfile.avoids,
-        }
-      : null,
-    // Burst implies multi.
-    allowMultiMessage: allowMultiMessage || burstMode,
-    burstMode,
-    preAckMode: false, // pre-ack support reserved for a follow-up
-    energyHint: {
-      state: energy.state,
-      hint: energy.hint,
-      lengthBias: energy.lengthBias,
-    },
-    terseMode,
-    personaSelfFacts: hasAnySelfClaims(personaSelfMem.facts) ? personaSelfMem.facts : null,
-  });
+  const system = buildGrokSystemPrompt(
+    args.profile,
+    v2BlankSlate
+      ? { nowLocal: new Date(), turnIndex: priorAssistantTurns }
+      : {
+          threadSummary: threadSummaryForPrompt,
+          nowLocal: new Date(),
+          turnIndex: priorAssistantTurns,
+          userSilenceMs: userSilenceMs ?? undefined,
+          bedtimePhase: bedtime.phase,
+          minutesUntilBedtime: bedtime.minutesUntilBedtime,
+          workPromptHint: workCtx.promptHint,
+          daysActive,
+          bannedPhrases,
+          structuredFacts: hasAnyFacts(structured.facts) ? structured.facts : null,
+          userCrossChatProfile: userCrossChatProfile
+            ? {
+                summary: userCrossChatProfile.summary,
+                traits: userCrossChatProfile.traits,
+                topics: userCrossChatProfile.topics,
+                flirt_level: userCrossChatProfile.flirt_level,
+                communication_pace: userCrossChatProfile.communication_pace,
+                message_length: userCrossChatProfile.message_length,
+                wants: userCrossChatProfile.wants,
+                avoids: userCrossChatProfile.avoids,
+              }
+            : null,
+          allowMultiMessage: allowMultiMessage || burstMode,
+          burstMode,
+          preAckMode: false,
+          energyHint: {
+            state: energy.state,
+            hint: energy.hint,
+            lengthBias: energy.lengthBias,
+          },
+          terseMode,
+          personaSelfFacts: hasAnySelfClaims(personaSelfMem.facts)
+            ? personaSelfMem.facts
+            : null,
+        },
+  );
 
   const tail = sliceRecentDialogue(args.history);
   const input: GrokInputMessage[] = [
@@ -649,7 +658,7 @@ export async function generatePeerReply(
   // Optional second-pass refinement.
   let draftText = grok.text;
   let revised = false;
-  if (isDraftReviseEnabled()) {
+  if (!v2BlankSlate && isDraftReviseEnabled()) {
     try {
       const r = await reviseDraftIfWorthIt(draftText, system);
       draftText = r.text;
@@ -695,18 +704,21 @@ export async function generatePeerReply(
     peerProfileId: args.peerId,
     messageIndex: priorAssistantTurns,
   };
-  const resolvedStyle = resolveVoiceFingerprint(args.profile.chat_style ?? null, args.peerId);
-  const cleanedChunksAfterFp = applyVoiceFingerprint(
-    cleanedChunksRaw,
-    resolvedStyle,
-    fpCtx,
-  );
-  const cleanedChunksAfterSigTypo = applySignatureTypo(
-    cleanedChunksAfterFp,
-    resolvedStyle.signature_typo ?? null,
-    fpCtx,
-  );
-  const cleanedChunks = applyTypoPass(cleanedChunksAfterSigTypo, fpCtx);
+  const cleanedChunks = v2BlankSlate
+    ? cleanedChunksRaw
+    : (() => {
+        const resolvedStyle = resolveVoiceFingerprint(
+          args.profile.chat_style ?? null,
+          args.peerId,
+        );
+        const afterFp = applyVoiceFingerprint(cleanedChunksRaw, resolvedStyle, fpCtx);
+        const afterSig = applySignatureTypo(
+          afterFp,
+          resolvedStyle.signature_typo ?? null,
+          fpCtx,
+        );
+        return applyTypoPass(afterSig, fpCtx);
+      })();
 
   if (cleanedChunks.length === 0) {
     const latencyMs = Date.now() - t0;

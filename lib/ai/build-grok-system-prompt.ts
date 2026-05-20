@@ -1,13 +1,14 @@
 import type { ChatProfileRow, ChatStyle } from "@/lib/chat/map-rows";
 import {
   isV2ChatProfile,
+  v2ChatUsesBlankSlate,
   V2_CHAT_SYSTEM_APPEND,
   V2_FLIRT_BLOCK,
   V2_SEXUAL_MOMENT_RULE,
 } from "@/lib/ai/v2-chat-config";
 import { resolveVoiceFingerprint, voiceFingerprintPromptLines } from "@/lib/ai/voice-fingerprint";
 
-export const AI_CHAT_PROMPT_VERSION = "v10";
+export const AI_CHAT_PROMPT_VERSION = "v11";
 
 /** Compact one-line voice hints per filter tag. We blend several into one fluent
  * sentence (see `combinedFilterTagVoice`) instead of bulleting them — bullets
@@ -402,6 +403,10 @@ export function buildGrokSystemPrompt(
   profile: ChatProfileRow,
   opts: BuildPromptOptions,
 ): string {
+  if (v2ChatUsesBlankSlate(profile)) {
+    return buildV2BlankSlateSystemPrompt(profile, opts);
+  }
+
   const bits: string[] = [];
   const v2 = isV2ChatProfile(profile);
 
@@ -409,9 +414,9 @@ export function buildGrokSystemPrompt(
     `Je bent ${profile.display_name} in een privé dating-app-chat (Nederlandse app). Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.`,
   );
 
-  const v2Rulebook = V2_CHAT_SYSTEM_APPEND.trim();
-  if (v2 && v2Rulebook) {
-    bits.push(v2Rulebook);
+  if (v2) {
+    const append = V2_CHAT_SYSTEM_APPEND.trim();
+    if (append) bits.push(append);
   }
 
   // Time-of-truth, placed near the top of the prompt for maximum salience.
@@ -961,4 +966,30 @@ export function buildGrokSystemPrompt(
   );
 
   return bits.join("\n");
+}
+
+/**
+ * v2 with an empty rulebook: no bio/backstory/chat_style blocks, no v1 flirt/
+ * engagement craft, no cross-chat profile — only role + clock + reply to last msg.
+ */
+function buildV2BlankSlateSystemPrompt(
+  profile: ChatProfileRow,
+  opts: BuildPromptOptions,
+): string {
+  const now = opts.nowLocal ?? new Date();
+  const tz = personaTimeZone(profile);
+  const { hour, weekdayLabel, clockText } = nowInPersonaTimeZone(now, tz);
+  const tod = timeOfDayLabel(hour);
+
+  return [
+    `Je bent ${profile.display_name}. Je antwoordt in een privé chat-app, in het Nederlands.`,
+    "Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.",
+    "",
+    "Er gelden nog geen persoonlijkheids-, flirt- of gedragsregels voor deze app-versie.",
+    "Gebruik geen bio, geen verzonnen achtergrond en geen extra persona-details — alleen wat in het gesprek al staat.",
+    "Reageer kort en normaal op haar laatste bericht (meestal één zin). Geen preken, geen standaard-vragen aan het eind tenzij zij iets vroeg.",
+    "",
+    `Tijd bij jou (alleen noemen als relevant): ${weekdayLabel} ${clockText}, ${tod}.`,
+    "Vraagt zij hoe laat het is of welke dag: gebruik exact deze tijd.",
+  ].join("\n");
 }

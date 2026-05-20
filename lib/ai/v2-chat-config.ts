@@ -26,3 +26,19 @@ export const V2_CHAT_SYSTEM_APPEND = "";
 export const V2_FLIRT_BLOCK = "";
 
 export const V2_SEXUAL_MOMENT_RULE = "";
+
+/** True when any v2 rulebook block is filled in. */
+export function v2ChatRulebookActive(): boolean {
+  return (
+    V2_CHAT_SYSTEM_APPEND.trim().length > 0 ||
+    V2_FLIRT_BLOCK.trim().length > 0 ||
+    V2_SEXUAL_MOMENT_RULE.trim().length > 0
+  );
+}
+
+/** v2 profile with empty rulebook → minimal prompt, no v1 craft / persona injection. */
+export function v2ChatUsesBlankSlate(
+  profile: { app_variant?: string | null } | null | undefined,
+): boolean {
+  return isV2ChatProfile(profile) && !v2ChatRulebookActive();
+}
