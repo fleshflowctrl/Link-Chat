@@ -91,38 +91,56 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
     return () => clearTimeout(t);
   }, [toast]);
 
+  function matchesQuery(r: PersonaListRow, q: string): boolean {
+    if (!q) return true;
+    const hay = [
+      r.display_name,
+      r.id,
+      r.city ?? "",
+      r.occupation ?? "",
+      r.bio ?? "",
+      ...(r.vibe_tags ?? []),
+    ]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
+  }
+
+  const q = query.trim().toLowerCase();
+
   const filtered = useMemo(() => {
     const inTab = rows.filter((r) => (tab === "active" ? !r.is_archived : r.is_archived));
     const inPool =
       poolFilter === "all"
         ? inTab
         : inTab.filter((r) => r.app_variant === poolFilter);
-    const q = query.trim().toLowerCase();
-    if (!q) return inPool;
-    return inPool.filter((r) => {
-      const hay = [
-        r.display_name,
-        r.id,
-        r.city ?? "",
-        r.occupation ?? "",
-        r.bio ?? "",
-        ...(r.vibe_tags ?? []),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [rows, tab, poolFilter, query]);
+    return inPool.filter((r) => matchesQuery(r, q));
+  }, [rows, tab, poolFilter, q]);
+
+  const archivedV1 = useMemo(
+    () =>
+      rows.filter((r) => r.is_archived && r.app_variant !== "v2").filter((r) => matchesQuery(r, q)),
+    [rows, q],
+  );
+
+  const archivedV2 = useMemo(
+    () =>
+      rows.filter((r) => r.is_archived && r.app_variant === "v2").filter((r) => matchesQuery(r, q)),
+    [rows, q],
+  );
 
   const v1Count = rows.filter((r) => r.app_variant !== "v2" && !r.is_archived).length;
   const v2Count = rows.filter((r) => r.app_variant === "v2" && !r.is_archived).length;
+  const archivedV1Count = rows.filter((r) => r.is_archived && r.app_variant !== "v2").length;
+  const archivedV2Count = rows.filter((r) => r.is_archived && r.app_variant === "v2").length;
 
   const activeCount = rows.filter((r) => !r.is_archived).length;
   const archivedCount = rows.filter((r) => r.is_archived).length;
 
-  // Reset selection on tab change.
+  // Reset selection on tab change; archived uses dual pools (no filter).
   useEffect(() => {
     setSelected(new Set());
+    if (tab === "archived") setPoolFilter("all");
   }, [tab]);
 
   function toggleSelect(id: string) {
@@ -252,34 +270,46 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
             }
           >
             <ArchiveIcon className="-mt-0.5 mr-1 inline-block h-3.5 w-3.5" />
-            Gearchiveerd <span className="ml-1 text-gray-400">({archivedCount})</span>
+            Gearchiveerd{" "}
+            <span className="ml-1 text-gray-400">
+              ({archivedCount}
+              {archivedCount > 0 ? (
+                <span className="text-gray-400">
+                  {" "}
+                  · v1 {archivedV1Count} · v2 {archivedV2Count}
+                </span>
+              ) : null}
+              )
+            </span>
           </button>
         </div>
-        <div className="inline-flex rounded-xl bg-gray-100 p-0.5">
-          {(
-            [
-              ["all", "Alle pools", rows.filter((r) => !r.is_archived).length],
-              ["v1", "v1", v1Count],
-              ["v2", "v2", v2Count],
-            ] as const
-          ).map(([id, label, n]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setPoolFilter(id)}
-              className={
-                "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
-                (poolFilter === id
-                  ? id === "v2"
-                    ? "bg-[#B52B2A] text-white shadow-sm"
-                    : "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-800")
-              }
-            >
-              {label} <span className="ml-0.5 opacity-70">({n})</span>
-            </button>
-          ))}
-        </div>
+        {tab === "active" ? (
+          <div className="inline-flex rounded-xl bg-gray-100 p-0.5">
+            {(
+              [
+                ["all", "Alle pools", rows.filter((r) => !r.is_archived).length],
+                ["v1", "v1", v1Count],
+                ["v2", "v2", v2Count],
+              ] as const
+            ).map(([id, label, n]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPoolFilter(id)}
+                className={
+                  "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors " +
+                  (poolFilter === id
+                    ? id === "v2"
+                      ? "bg-[#B52B2A] text-white shadow-sm"
+                      : "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-800")
+                }
+              >
+                {label} <span className="ml-0.5 opacity-70">({n})</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         <div className="relative flex-1 min-w-[200px]">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -334,7 +364,8 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
             disabled={bulkBusy || filtered.length === 0}
             className="rounded-lg border border-primary/30 bg-white px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
           >
-            Alles op deze tab ({filtered.length})
+            Alles zichtbaar (
+            {tab === "archived" ? archivedV1.length + archivedV2.length : filtered.length})
           </button>
           <button
             type="button"
@@ -393,7 +424,40 @@ export function PersonasList({ rows }: { rows: PersonaListRow[] }) {
       ) : null}
 
       {/* List */}
-      {filtered.length === 0 ? (
+      {tab === "archived" ? (
+        archivedV1.length === 0 && archivedV2.length === 0 ? (
+          <EmptyState
+            tab={tab}
+            hasQuery={query.trim().length > 0}
+            onClear={() => setQuery("")}
+          />
+        ) : (
+          <div className="space-y-6">
+            <ArchivedPoolSection
+              variant="v1"
+              title="Gearchiveerd v1"
+              count={archivedV1Count}
+              personas={archivedV1}
+              selectMode={selectMode}
+              selected={selected}
+              busyIds={busyIds}
+              onToggleSelect={toggleSelect}
+              onAction={singleAction}
+            />
+            <ArchivedPoolSection
+              variant="v2"
+              title="Gearchiveerd v2"
+              count={archivedV2Count}
+              personas={archivedV2}
+              selectMode={selectMode}
+              selected={selected}
+              busyIds={busyIds}
+              onToggleSelect={toggleSelect}
+              onAction={singleAction}
+            />
+          </div>
+        )
+      ) : filtered.length === 0 ? (
         <EmptyState
           tab={tab}
           hasQuery={query.trim().length > 0}
@@ -657,6 +721,81 @@ function PersonaCard({
         </div>
       ) : null}
     </li>
+  );
+}
+
+function ArchivedPoolSection({
+  variant,
+  title,
+  count,
+  personas,
+  selectMode,
+  selected,
+  busyIds,
+  onToggleSelect,
+  onAction,
+}: {
+  variant: "v1" | "v2";
+  title: string;
+  count: number;
+  personas: PersonaListRow[];
+  selectMode: boolean;
+  selected: Set<string>;
+  busyIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onAction: (id: string, mode: "archive" | "restore" | "hard") => void;
+}) {
+  const isV2 = variant === "v2";
+  return (
+    <section
+      className={
+        "rounded-2xl border p-4 shadow-sm " +
+        (isV2
+          ? "border-[#B52B2A]/25 bg-[#B52B2A]/[0.03]"
+          : "border-gray-200 bg-gray-50/80")
+      }
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <h2
+          className={
+            "text-sm font-semibold " + (isV2 ? "text-[#B52B2A]" : "text-gray-800")
+          }
+        >
+          {title}
+        </h2>
+        <span
+          className={
+            "rounded-full px-2 py-0.5 text-[10px] font-bold " +
+            (isV2
+              ? "bg-[#B52B2A]/15 text-[#B52B2A]"
+              : "bg-white text-gray-600 ring-1 ring-gray-200")
+          }
+        >
+          {personas.length}
+          {personas.length !== count ? ` / ${count}` : ""}
+        </span>
+      </div>
+      {personas.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-gray-200 bg-white/60 px-4 py-8 text-center text-xs text-gray-500">
+          Geen gearchiveerde {variant}-personas
+          {count > 0 ? " (pas zoekfilter aan)" : ""}.
+        </p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3">
+          {personas.map((p) => (
+            <PersonaCard
+              key={p.id}
+              persona={p}
+              selectMode={selectMode}
+              selected={selected.has(p.id)}
+              onToggleSelect={() => onToggleSelect(p.id)}
+              busy={busyIds.has(p.id)}
+              onAction={(mode) => onAction(p.id, mode)}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
