@@ -1,4 +1,5 @@
 import { isGuestAuthUser } from "@/lib/auth/user-account";
+import { grantSignupCreditsForUser } from "@/lib/credits/grant-signup-credits";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 
@@ -9,6 +10,7 @@ export type ConvertGuestResult =
       needsEmailConfirm: boolean;
       accessToken: string;
       refreshToken: string;
+      signupCredits: number;
     }
   | { ok: false; error: string };
 
@@ -96,11 +98,20 @@ export async function convertGuestToPermanentAccountServer(input: {
 
   const needsEmailConfirm = !updated.user?.email_confirmed_at;
 
+  const grant = await grantSignupCreditsForUser(input.userId);
+  if (!grant.ok) {
+    return {
+      ok: false,
+      error: grant.error ?? "Credits bij registratie mislukt",
+    };
+  }
+
   return {
     ok: true,
     userId: input.userId,
     needsEmailConfirm,
     accessToken: signIn.session.access_token,
     refreshToken: signIn.session.refresh_token,
+    signupCredits: grant.credits,
   };
 }

@@ -75,5 +75,6 @@ export async function POST(request: Request) {
     needsEmailConfirm: result.needsEmailConfirm,
     access_token: result.accessToken,
     refresh_token: result.refreshToken,
+    signupCredits: result.signupCredits,
   });
 }

@@ -41,7 +41,10 @@ import {
   setServerUnreadBaseline,
 } from "@/lib/messages-tab-badge";
 import { getChatHeaderPresence } from "@/lib/chat/online-status";
-import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
+import {
+  CHAT_MESSAGE_COST_CREDITS,
+  SIGNUP_ACCOUNT_CREDITS,
+} from "@/lib/credits/pricing";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { appVariantFetchHeaders, withVariantPath } from "@/lib/app-variant";
 import { consumeFunnelAutoSend } from "@/lib/funnel/auto-send";
@@ -1733,7 +1736,11 @@ export function ChatConversationView({
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: "100%", opacity: 0 }}
               transition={{ type: "tween", duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-              className="fixed inset-x-0 bottom-0 z-[85] mx-auto max-w-[430px] rounded-t-3xl bg-white px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl"
+              className={`fixed inset-x-0 bottom-0 z-[85] mx-auto max-w-[430px] rounded-t-3xl px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl ${
+                creditsGateMode === "signup_required" && variant === "v2"
+                  ? "bg-[#252526] ring-1 ring-white/10"
+                  : "bg-white"
+              }`}
               role="dialog"
               aria-labelledby="credits-gate-title"
               aria-modal="true"
@@ -1758,26 +1765,46 @@ export function ChatConversationView({
                 </span>
                 <h2
                   id="credits-gate-title"
-                  className="text-[18px] font-extrabold text-ink"
+                  className={`text-[18px] font-extrabold ${
+                    variant === "v2" ? "text-ink" : "text-ink"
+                  }`}
                 >
                   {creditsGateMode === "signup_required"
                     ? "Account nodig"
                     : "Credits op"}
                 </h2>
-                <p className="mt-1.5 max-w-[32ch] text-[13px] leading-snug text-gray-600">
-                  {creditsGateMode === "signup_required" ? (
-                    <>
+                {creditsGateMode === "signup_required" ? (
+                  <>
+                    <p
+                      className={`mt-3 text-[clamp(1.35rem,5vmin,1.75rem)] font-extrabold leading-tight tabular-nums ${
+                        variant === "v2" ? "text-[#B52B2A]" : "text-primary"
+                      }`}
+                    >
+                      +{SIGNUP_ACCOUNT_CREDITS} credits
+                    </p>
+                    <p
+                      className={`mt-1 text-[14px] font-bold ${
+                        variant === "v2" ? "text-ink" : "text-gray-800"
+                      }`}
+                    >
+                      bij het aanmaken van je account
+                    </p>
+                    <p
+                      className={`mt-3 max-w-[32ch] text-[13px] leading-snug ${
+                        variant === "v2" ? "text-inkMuted" : "text-gray-600"
+                      }`}
+                    >
                       Je gratis credits zijn op. Maak een account aan om verder te
                       chatten — zonder account kun je geen berichten meer sturen.
-                    </>
-                  ) : (
-                    <>
-                      Je hebt niet genoeg credits om een bericht te sturen (
-                      {CHAT_MESSAGE_COST_CREDITS} per bericht). Koop extra credits
-                      om het gesprek voort te zetten.
-                    </>
-                  )}
-                </p>
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1.5 max-w-[32ch] text-[13px] leading-snug text-gray-600">
+                    Je hebt niet genoeg credits om een bericht te sturen (
+                    {CHAT_MESSAGE_COST_CREDITS} per bericht). Koop extra credits om
+                    het gesprek voort te zetten.
+                  </p>
+                )}
               </div>
 
               {creditsGateMode === "signup_required" ? (
@@ -1800,7 +1827,9 @@ export function ChatConversationView({
               <button
                 type="button"
                 onClick={() => setCreditsGateOpen(false)}
-                className="mt-2 w-full py-2.5 text-[13px] font-semibold text-gray-500"
+                className={`mt-2 w-full py-2.5 text-[13px] font-semibold ${
+                  variant === "v2" ? "text-inkMuted" : "text-gray-500"
+                }`}
               >
                 {creditsGateMode === "signup_required"
                   ? "Later"

@@ -1,5 +1,6 @@
 "use client";
 
+import { applyServerCreditsUpdate } from "@/lib/credits-store";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -99,6 +100,7 @@ export async function convertAnonymousToPermanentAccount(input: {
     skipped?: boolean;
     userId?: string;
     needsEmailConfirm?: boolean;
+    signupCredits?: number;
     access_token?: string;
     refresh_token?: string;
     error?: string;
@@ -124,6 +126,10 @@ export async function convertAnonymousToPermanentAccount(input: {
     if (sessionErr) {
       return { ok: false, error: sessionErr.message };
     }
+  }
+
+  if (typeof data.signupCredits === "number" && data.signupCredits >= 0) {
+    applyServerCreditsUpdate(data.signupCredits);
   }
 
   return {
