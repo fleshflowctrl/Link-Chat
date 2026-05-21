@@ -5,6 +5,10 @@ import {
   type ChatMessageRow,
   type ChatProfileRow,
 } from "@/lib/chat/map-rows";
+import {
+  queueCoalescedPeerReply,
+  userBurstCharCount,
+} from "@/lib/ai/coalesce-user-reply";
 import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
 import { processDuePendingReplies } from "@/lib/ai/pending-replies";
 import { schedulePendingReplyDelivery } from "@/lib/ai/schedule-pending-reply-delivery";
@@ -321,25 +325,37 @@ export async function POST(
   //    to the multi-minute pause, so the initial estimate is good enough.
   const personaOccupation =
     (p as ChatProfileRow & { occupation?: string | null }).occupation ?? null;
+  const burstCharCount = userBurstCharCount(history);
   const initialPacing = computeReplyPacing({
     personaId: peerId,
     turnIndex: priorAssistantTurns,
-    userMessageChars: (text || "").length,
+    userMessageChars: isImage ? 80 : burstCharCount || (text || "").length,
     replyChars: 0,
     nowLocal: new Date(),
     peerLastReplyAt: lastPeerReplyAt(history),
     occupation: personaOccupation,
     appVariant: peerAppVariant,
   });
-  const initialDelayMs = initialPacing.delayMs;
 
   let peerMessage: ChatMessage | null = null;
   let nextPendingAt: string | null = null;
 
-  if (initialDelayMs <= syncThresholdMs) {
-    // Sync flow: generate now, hold the response open with sleep so the
-    // client's typing indicator runs for the right amount of time.
-    const t0 = Date.now();
+  // One Grok call per user burst: supersede older queued replies, wait a
+  // short coalesce window, then deliver via the pending-replies pipeline.
+  const queued = await queueCoalescedPeerReply(supabase, {
+    ownerUserId: user.id,
+    peerId,
+    userMessageId: insertedUser.id,
+    pacingDelayMs: initialPacing.delayMs,
+    appVariant: peerAppVariant,
+  });
+
+  if (!queued.ok) {
+    console.warn(
+      "[conversations/messages POST] coalesced queue failed, sync fallback",
+      peerId,
+      queued.error,
+    );
     const result = await generatePeerReply(supabase, {
       profile: p,
       history,
@@ -347,82 +363,58 @@ export async function POST(
       peerId,
       options: { triggerUserMessageId: insertedUser.id },
     });
-
-    if (!result.ok) {
-      warning = result.error;
-    } else {
-      // Re-compute target now that we know reply length, so a long reply gets
-      // its typing-time bonus. Subtract elapsed Grok time so a slow Grok
-      // counts as part of the natural delay.
-      const finalPacing = computeReplyPacing({
-        personaId: peerId,
-        turnIndex: priorAssistantTurns,
-        userMessageChars: (text || "").length,
-        replyChars: result.finalText.length,
-        nowLocal: new Date(),
-        peerLastReplyAt: lastPeerReplyAt(history),
-        occupation: personaOccupation,
-        appVariant: peerAppVariant,
-      });
-      const elapsed = Date.now() - t0;
-      const remaining = Math.max(0, finalPacing.delayMs - elapsed);
-      if (remaining > 0 && remaining <= syncThresholdMs) {
-        await sleep(remaining);
-      }
+    if (result.ok) {
       peerMessage = messageRowToUi(result.assistantRow);
-      // If Grok produced a multi-bubble reply, the additional chunks are
-      // already queued via chat_pending_replies (kind='chunk'). Surface
-      // their earliest scheduled_at so the client arms a poll timer.
       if (result.additionalChunks > 0 && result.nextChunkAt) {
         nextPendingAt = result.nextChunkAt;
       }
+    } else {
+      warning = result.error;
     }
   } else {
-    // Async flow: queue a pending row, return immediately, let the client
-    // poll at scheduled_at. The persona will appear "away" until the timer
-    // fires (or until a later GET catches it up if the user closes the app).
-    const scheduledAt = new Date(Date.now() + initialDelayMs).toISOString();
-    const { error: queueErr } = await supabase
-      .from("chat_pending_replies")
-      .insert({
-        user_message_id: insertedUser.id,
-        owner_user_id: user.id,
-        peer_id: peerId,
-        scheduled_at: scheduledAt,
-        status: "pending",
-        kind: "reply",
-      });
-    if (queueErr) {
-      // Fall back to sync delivery so the chat doesn't silently die. This is
-      // rare (would mean RLS / FK violation).
-      console.warn(
-        "[conversations/messages POST] pending insert failed, falling back to sync",
-        peerId,
-        queueErr.message,
-      );
-      const result = await generatePeerReply(supabase, {
-        profile: p,
-        history,
-        ownerUserId: user.id,
-        peerId,
-        options: { triggerUserMessageId: insertedUser.id },
-      });
-      if (result.ok) {
-        peerMessage = messageRowToUi(result.assistantRow);
-        if (result.additionalChunks > 0 && result.nextChunkAt) {
-          nextPendingAt = result.nextChunkAt;
-        }
-      } else {
-        warning = result.error;
+    nextPendingAt = queued.scheduledAtIso;
+    schedulePendingReplyDelivery({
+      ownerUserId: user.id,
+      peerId,
+      profile: p,
+      scheduledAtIso: queued.scheduledAtIso,
+    });
+
+    const syncBudgetMs =
+      queued.coalesceDelayMs + queued.postGrokDelayMs + 90_000;
+    if (syncBudgetMs <= syncThresholdMs) {
+      if (queued.coalesceDelayMs > 0) {
+        await sleep(queued.coalesceDelayMs);
       }
-    } else {
-      nextPendingAt = scheduledAt;
-      schedulePendingReplyDelivery({
-        ownerUserId: user.id,
-        peerId,
-        profile: p,
-        scheduledAtIso: scheduledAt,
-      });
+      try {
+        const delivered = await processDuePendingReplies(supabase, {
+          ownerUserId: user.id,
+          peerId,
+          profile: p,
+        });
+        if (queued.postGrokDelayMs > 0) {
+          await sleep(queued.postGrokDelayMs);
+        }
+        const newUi = delivered.newPeerMessages.map(messageRowToUi);
+        if (newUi.length > 0) {
+          processedPeerMessages = [...processedPeerMessages, ...newUi];
+          const peerOnly = newUi.filter((m) => m.sender === "peer");
+          if (peerOnly.length > 0) {
+            peerMessage = peerOnly[peerOnly.length - 1]!;
+          }
+        }
+        if (delivered.nextPendingAt) {
+          nextPendingAt = delivered.nextPendingAt;
+        } else if (peerMessage) {
+          nextPendingAt = null;
+        }
+      } catch (e) {
+        console.warn(
+          "[conversations/messages POST] coalesced deliver threw",
+          peerId,
+          e instanceof Error ? e.message : String(e),
+        );
+      }
     }
   }
 

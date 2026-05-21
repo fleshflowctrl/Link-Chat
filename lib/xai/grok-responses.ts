@@ -46,6 +46,29 @@ export type GrokCompleteOptions = {
   maxOutputTokens?: number;
 };
 
+/** xAI Responses API uses `input_image` / `input_text`, not OpenAI chat-completions parts. */
+function toResponsesDialogueMessage(m: GrokInputMessage): {
+  role: string;
+  content: string | Array<Record<string, unknown>>;
+} {
+  if (typeof m.content === "string") {
+    return { role: m.role, content: m.content };
+  }
+  return {
+    role: m.role,
+    content: m.content.map((p) => {
+      if (p.type === "text") {
+        return { type: "input_text", text: p.text };
+      }
+      return {
+        type: "input_image",
+        image_url: p.image_url.url,
+        detail: p.image_url.detail ?? "high",
+      };
+    }),
+  };
+}
+
 /** Prefer `instructions` for system text; dialogue uses user/assistant only (xAI Responses API). */
 function buildResponsesPayload(
   model: string,
@@ -56,7 +79,9 @@ function buildResponsesPayload(
     .filter((m) => m.role === "system")
     .map((m) => contentToPlainText(m.content).trim())
     .filter(Boolean);
-  const dialogue = input.filter((m) => m.role !== "system");
+  const dialogue = input
+    .filter((m) => m.role !== "system")
+    .map(toResponsesDialogueMessage);
   const maxOut = Math.min(
     Math.max(opts.maxOutputTokens ?? 1024, 64),
     8192,
@@ -64,7 +89,7 @@ function buildResponsesPayload(
   const payload: Record<string, unknown> = {
     model,
     max_output_tokens: maxOut,
-    input: dialogue.length > 0 ? dialogue : input,
+    input: dialogue.length > 0 ? dialogue : input.map(toResponsesDialogueMessage),
   };
   if (systemChunks.length > 0) {
     payload.instructions = systemChunks.join("\n\n");
@@ -234,10 +259,16 @@ export async function grokResponsesComplete(
     maxOutputTokens: options?.maxOutputTokens,
   };
 
-  const first = await grokViaResponses(key, model, input, opts);
+  const withImages = hasImagePart(input);
+  // Chat completions use OpenAI-style image_url parts; Responses needs input_image.
+  const first = withImages
+    ? await grokViaChatCompletions(key, model, input, opts)
+    : await grokViaResponses(key, model, input, opts);
   if (first.ok) return first;
 
-  const second = await grokViaChatCompletions(key, model, input, opts);
+  const second = withImages
+    ? await grokViaResponses(key, model, input, opts)
+    : await grokViaChatCompletions(key, model, input, opts);
   if (second.ok) return second;
 
   return {

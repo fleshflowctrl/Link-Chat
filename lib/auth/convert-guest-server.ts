@@ -60,12 +60,12 @@ export async function convertGuestToPermanentAccountServer(input: {
       ? existing.user.user_metadata
       : {};
 
-  const { data: updated, error: updateErr } = await admin.auth.admin.updateUserById(
+  const { error: updateErr } = await admin.auth.admin.updateUserById(
     input.userId,
     {
       email,
       password,
-      email_confirm: false,
+      email_confirm: true,
       user_metadata: {
         ...priorMeta,
         is_funnel_guest: false,
@@ -75,6 +75,14 @@ export async function convertGuestToPermanentAccountServer(input: {
 
   if (updateErr) {
     return { ok: false, error: mapSupabaseAuthError(updateErr.message) };
+  }
+
+  const grant = await grantSignupCreditsForUser(input.userId);
+  if (!grant.ok) {
+    return {
+      ok: false,
+      error: grant.error ?? "Credits bij registratie mislukt",
+    };
   }
 
   const { createClient } = await import("@supabase/supabase-js");
@@ -96,20 +104,10 @@ export async function convertGuestToPermanentAccountServer(input: {
     };
   }
 
-  const needsEmailConfirm = !updated.user?.email_confirmed_at;
-
-  const grant = await grantSignupCreditsForUser(input.userId);
-  if (!grant.ok) {
-    return {
-      ok: false,
-      error: grant.error ?? "Credits bij registratie mislukt",
-    };
-  }
-
   return {
     ok: true,
     userId: input.userId,
-    needsEmailConfirm,
+    needsEmailConfirm: false,
     accessToken: signIn.session.access_token,
     refreshToken: signIn.session.refresh_token,
     signupCredits: grant.credits,

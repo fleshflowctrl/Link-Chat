@@ -34,6 +34,7 @@ import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
 import { uploadPersonaPhoto } from "@/lib/images/upload-photo";
+import { scheduleUnreadEmailNotification } from "@/lib/chat/schedule-unread-email-notification";
 
 type PendingRow = {
   id: string;
@@ -246,7 +247,15 @@ export async function processDuePendingReplies(
           updated_at: new Date().toISOString(),
         })
         .eq("id", ch.id);
-      newPeerMessages.push(inserted as ChatMessageRow);
+      const row = inserted as ChatMessageRow;
+      newPeerMessages.push(row);
+      void scheduleUnreadEmailNotification(supabase, {
+        ownerUserId: args.ownerUserId,
+        peerId: args.peerId,
+        peerMessageId: row.id,
+      }).catch((e) => {
+        console.warn("[pending-replies] unread-email schedule", e);
+      });
     }
   }
 
@@ -373,7 +382,15 @@ export async function processDuePendingReplies(
           updated_at: new Date().toISOString(),
         })
         .eq("id", ph.id);
-      newPeerMessages.push(inserted as ChatMessageRow);
+      const photoRow = inserted as ChatMessageRow;
+      newPeerMessages.push(photoRow);
+      void scheduleUnreadEmailNotification(supabase, {
+        ownerUserId: args.ownerUserId,
+        peerId: args.peerId,
+        peerMessageId: photoRow.id,
+      }).catch((e) => {
+        console.warn("[pending-replies] unread-email schedule", e);
+      });
     }
     }
   }
@@ -387,10 +404,15 @@ export async function processDuePendingReplies(
     );
 
     if (locked.length > 0) {
-      const triggerId = locked[0].user_message_id ?? null;
       const triggerUserIds = locked
         .map((r) => r.user_message_id)
         .filter((id): id is string => Boolean(id));
+      // When the user sent several lines in a row, answer once — anchor on
+      // the latest queued user message (rows are oldest→newest by scheduled_at).
+      const triggerId =
+        triggerUserIds.length > 0
+          ? triggerUserIds[triggerUserIds.length - 1]
+          : null;
 
       const { data: historyRows, error: histErr } = await supabase
         .from("chat_messages")

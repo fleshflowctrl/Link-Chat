@@ -219,49 +219,6 @@ function GiftBubble({
   );
 }
 
-/**
- * Peer typing indicator shown at the bottom of the message list while we
- * wait for the AI's reply (POST in flight). Uses the same dot animation as
- * the inbox row but inside a peer-bubble shape so it visually integrates
- * with the conversation.
- */
-function PeerTypingBubble({ avatarUrl }: { avatarUrl: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
-      className="mt-4"
-      aria-live="polite"
-      aria-label="Aan het typen"
-    >
-      <div className="flex items-end gap-2">
-        <div className="w-8 shrink-0">
-          <div className="relative h-8 w-8 overflow-hidden rounded-full bg-lavender ring-1 ring-black/[0.06]">
-            <Image
-              src={avatarUrl}
-              alt=""
-              width={64}
-              height={64}
-              className="h-full w-full object-cover"
-            />
-          </div>
-        </div>
-        <span className="inline-flex items-center gap-1 rounded-2xl rounded-bl-md bg-white px-4 py-3 shadow-sm ring-1 ring-black/[0.04]">
-          {[0, 140, 280].map((delay) => (
-            <span
-              key={delay}
-              className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary/70"
-              style={{ animationDelay: `${delay}ms` }}
-            />
-          ))}
-        </span>
-      </div>
-    </motion.div>
-  );
-}
-
 function ReadReceipt({
   phase,
   read,
@@ -326,9 +283,6 @@ export function ChatConversationView({
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   /** Shown when the AI reply failed (e.g. xAI error); user message is still saved. */
   const [assistantError, setAssistantError] = useState<string | null>(null);
-  /** True only while she's actively delivering a reply (send in-flight or
-   * due async delivery) — not during idle waits for a future scheduled_at. */
-  const [peerTyping, setPeerTyping] = useState(false);
   /** ISO timestamp when the next async-scheduled AI reply should land, or null
    * if nothing is queued. Set by POST /messages (when a long pause was
    * scheduled), GET /messages (catch-up), and POST /poll-pending. The timer
@@ -343,9 +297,6 @@ export function ChatConversationView({
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
 
-  const stopPeerTyping = useCallback(() => {
-    setPeerTyping(false);
-  }, []);
   const [composerLift, setComposerLift] = useState(0);
   const longPressRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -414,19 +365,9 @@ export function ChatConversationView({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Keep the typing-bubble in view too — when peerTyping toggles on we want
-  // the user to *see* it without manually scrolling, otherwise the wait feels
-  // like a hung send.
-  useEffect(() => {
-    if (peerTyping) scrollToBottom();
-  }, [peerTyping, scrollToBottom]);
-
-  /**
-   * Deliver due async-scheduled AI replies. Typing bubble only when
-   * `showTyping` (scheduled delivery) — silent on mount / catch-up.
-   */
+  /** Deliver due async-scheduled AI replies (extra chunks, catch-up). */
   const pollPending = useCallback(
-    async (options?: { showTyping?: boolean; force?: boolean }) => {
+    async (options?: { force?: boolean }) => {
       if (!useSupabase) return;
       if (pollingRef.current) return;
 
@@ -440,8 +381,6 @@ export function ChatConversationView({
       }
 
       pollingRef.current = true;
-      const showTyping = options?.showTyping === true;
-      if (showTyping) setPeerTyping(true);
       try {
         const res = await fetch(
           `/api/conversations/${encodeURIComponent(chatId)}/poll-pending`,
@@ -485,10 +424,9 @@ export function ChatConversationView({
         /* network blip — next interaction will retry */
       } finally {
         pollingRef.current = false;
-        stopPeerTyping();
       }
     },
-    [chatId, useSupabase, stopPeerTyping, nextPendingAt, variant],
+    [chatId, useSupabase, nextPendingAt, variant],
   );
 
   /**
@@ -499,7 +437,7 @@ export function ChatConversationView({
    */
   useEffect(() => {
     if (!useSupabase) return;
-    void pollPending({ showTyping: false });
+    void pollPending();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
 
@@ -538,56 +476,41 @@ export function ChatConversationView({
     })();
   }, [chatId, messages, useSupabase, variant]);
 
-  /**
-   * Arm delivery timers: show typing slightly early, poll only when due.
-   */
+  /** Poll when the next scheduled chunk / async reply is due. */
   useEffect(() => {
-    if (!nextPendingAt || !useSupabase) return;
+    if (!nextPendingAt || !useSupabase || sendBusy) return;
     const target = new Date(nextPendingAt).getTime();
     if (!Number.isFinite(target)) return;
 
-    const TYPING_LEAD_MS = 1200;
+    const msUntilDue = target - Date.now();
+    if (msUntilDue > 12_000) return;
+
     let cancelled = false;
-    let typingTimer: number | undefined;
     let pollTimer: number | undefined;
 
     const schedule = () => {
       if (cancelled) return;
-      const msUntilDue = target - Date.now();
-
-      if (msUntilDue <= 0) {
-        setPeerTyping(true);
-        void pollPending({ showTyping: true, force: true });
+      const until = target - Date.now();
+      if (until <= 0) {
+        void pollPending({ force: true });
         return;
       }
-
-      const msUntilTyping = msUntilDue - TYPING_LEAD_MS;
-      if (msUntilTyping <= 0) {
-        setPeerTyping(true);
-      } else {
-        typingTimer = window.setTimeout(() => {
-          if (!cancelled) setPeerTyping(true);
-        }, Math.min(msUntilTyping, 30 * 60_000));
-      }
-
-      const wakeForPoll = Math.min(Math.max(msUntilDue, 250), 30 * 60_000);
       pollTimer = window.setTimeout(() => {
         if (cancelled) return;
         if (Date.now() >= target) {
-          void pollPending({ showTyping: true, force: true });
+          void pollPending({ force: true });
         } else {
           schedule();
         }
-      }, wakeForPoll);
+      }, Math.min(Math.max(until, 200), 30 * 60_000));
     };
 
     schedule();
     return () => {
       cancelled = true;
-      if (typingTimer) window.clearTimeout(typingTimer);
       if (pollTimer) window.clearTimeout(pollTimer);
     };
-  }, [nextPendingAt, pendingScheduleKey, pollPending, useSupabase]);
+  }, [nextPendingAt, pendingScheduleKey, pollPending, useSupabase, sendBusy]);
 
   /** Tab wake / return: deliver overdue replies the timer may have missed. */
   useEffect(() => {
@@ -596,7 +519,7 @@ export function ChatConversationView({
       if (document.visibilityState !== "visible") return;
       const msUntilDue = new Date(nextPendingAt).getTime() - Date.now();
       if (Number.isFinite(msUntilDue) && msUntilDue <= 0) {
-        void pollPending({ showTyping: true, force: true });
+        void pollPending({ force: true });
       }
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -699,11 +622,10 @@ export function ChatConversationView({
     () =>
       getChatHeaderPresence({
         messages,
-        peerTyping,
         personaId: chatId,
         discoverBucket: meta.discoverPresenceBucket,
       }),
-    [messages, peerTyping, chatId, meta.discoverPresenceBucket, onlineTick],
+    [messages, chatId, meta.discoverPresenceBucket, onlineTick],
   );
 
   const liveOnlineNow = headerPresence.showGreenDot;
@@ -907,6 +829,10 @@ export function ChatConversationView({
       });
 
       setSendBusy(true);
+      if (useSupabase) {
+        setNextPendingAt(null);
+        setPendingScheduleKey((k) => k + 1);
+      }
       try {
         const ac = new AbortController();
         const timeoutId = window.setTimeout(
@@ -1032,7 +958,14 @@ export function ChatConversationView({
         setSendBusy(false);
       }
     },
-    [chatId, ensureCreditsForSend, openCreditsGate, useSupabase, meta, variant],
+    [
+      chatId,
+      ensureCreditsForSend,
+      openCreditsGate,
+      useSupabase,
+      meta,
+      variant,
+    ],
   );
 
   /** Funnel: send the composed first message once after opening chat (guest session). */
@@ -1092,6 +1025,8 @@ export function ChatConversationView({
       });
 
       setSendBusy(true);
+      setNextPendingAt(null);
+      setPendingScheduleKey((k) => k + 1);
       try {
         const ac = new AbortController();
         const timeoutId = window.setTimeout(
@@ -1160,7 +1095,14 @@ export function ChatConversationView({
         setSendBusy(false);
       }
     },
-    [chatId, ensureCreditsForSend, openCreditsGate, useSupabase, meta, variant],
+    [
+      chatId,
+      ensureCreditsForSend,
+      openCreditsGate,
+      useSupabase,
+      meta,
+      variant,
+    ],
   );
 
   const sendGift = useCallback(
@@ -1626,11 +1568,6 @@ export function ChatConversationView({
               )}
             </motion.div>
           ))}
-          <AnimatePresence>
-            {peerTyping && (
-              <PeerTypingBubble avatarUrl={meta.avatarUrl} />
-            )}
-          </AnimatePresence>
         </div>
         <div ref={endRef} className="h-1 shrink-0" aria-hidden />
       </div>

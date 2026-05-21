@@ -6,6 +6,7 @@ import {
   PRO_SUBSCRIPTION_COMPARE_PRICE_EUR,
   PRO_SUBSCRIPTION_CREDITS_PER_MONTH,
   PRO_SUBSCRIPTION_PRICE_EUR,
+  proSubscriptionDiscountPercent,
 } from "@/lib/credits/pro-subscription";
 import { CreditPrice } from "@/components/credits/credit-price";
 import { useAppVariant } from "@/components/app-variant-provider";
@@ -20,6 +21,7 @@ type Props = {
 export function ProOfferCard({ active = false, className }: Props) {
   const { variant } = useAppVariant();
   const href = withVariantPath("/credits/checkout/pro", variant);
+  const discountPercent = proSubscriptionDiscountPercent();
 
   return (
     <section className={className ?? "mt-4 pt-2"}>
@@ -46,9 +48,16 @@ export function ProOfferCard({ active = false, className }: Props) {
             aria-hidden
             className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#B52B2A]/25 blur-2xl"
           />
-          <span className="self-start rounded-md bg-[#B52B2A] px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm">
-            Pro pakket
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="rounded-md bg-[#B52B2A] px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm">
+              Pro pakket
+            </span>
+            {discountPercent > 0 && (
+              <span className="rounded-md bg-emerald-500 px-2.5 py-0.5 text-[10px] font-extrabold tabular-nums text-white shadow-sm">
+                −{discountPercent}%
+              </span>
+            )}
+          </div>
 
           <div className="relative flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">

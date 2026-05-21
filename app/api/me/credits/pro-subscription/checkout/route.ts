@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { SITE_NAME } from "@/lib/brand";
 import {
   PRO_SUBSCRIPTION_CREDITS_PER_MONTH,
   PRO_SUBSCRIPTION_PLAN_ID,
   PRO_SUBSCRIPTION_PRICE_EUR,
-  proSubscriptionAmountCents,
+  readProSubscriptionStripePriceId,
 } from "@/lib/credits/pro-subscription";
 import {
   getAppOrigin,
@@ -92,11 +91,11 @@ export async function POST(req: Request) {
   }
 
   const userVariant = parseAppVariant(row?.app_variant ?? null);
-  const amountCents = proSubscriptionAmountCents();
-  if (amountCents < 50) {
+  const stripePriceId = readProSubscriptionStripePriceId();
+  if (!stripePriceId.startsWith("price_")) {
     return NextResponse.json(
-      { ok: false, error: "amount too small for Stripe" },
-      { status: 400 },
+      { ok: false, error: "pro subscription price not configured" },
+      { status: 503 },
     );
   }
 
@@ -111,20 +110,7 @@ export async function POST(req: Request) {
       customer_email: user.email ?? undefined,
       client_reference_id: user.id,
       payment_method_types: ["card"],
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency: "eur",
-            unit_amount: amountCents,
-            recurring: { interval: "month" },
-            product_data: {
-              name: `${SITE_NAME} Pro`,
-              description: `${PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits per maand`,
-            },
-          },
-        },
-      ],
+      line_items: [{ price: stripePriceId, quantity: 1 }],
       subscription_data: {
         metadata: {
           user_id: user.id,

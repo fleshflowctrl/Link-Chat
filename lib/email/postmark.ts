@@ -3,6 +3,8 @@
  * @see https://postmarkapp.com/developer/api/email-api
  */
 
+import { SITE_DISPLAY } from "@/lib/brand";
+
 export type PostmarkSendInput = {
   to: string;
   subject: string;
@@ -21,12 +23,23 @@ function postmarkServerToken(): string | null {
   return t || null;
 }
 
-export function postmarkFromEmail(): string {
+function postmarkFromAddress(): string {
   return (
     process.env.POSTMARK_FROM_EMAIL?.trim() ||
     process.env.POSTMARK_FROM?.trim() ||
-    `noreply@${process.env.NEXT_PUBLIC_SITE_DOMAIN?.trim() || "stiekemsamen.nl"}`
+    `info@stiekemefotos.nl`
   );
+}
+
+/** Verified sender for Postmark (optional display name in inbox). */
+export function postmarkFromEmail(): string {
+  const addr = postmarkFromAddress();
+  const name =
+    process.env.POSTMARK_FROM_NAME?.trim() || SITE_DISPLAY;
+  if (name && addr.includes("@") && !addr.includes("<")) {
+    return `${name} <${addr}>`;
+  }
+  return addr;
 }
 
 export function isPostmarkConfigured(): boolean {

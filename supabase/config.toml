@@ -217,7 +217,7 @@ otp_expiry = 3600
 # port = 587
 # user = "env(POSTMARK_SERVER_TOKEN)"
 # pass = "env(POSTMARK_SERVER_TOKEN)"
-# admin_email = "noreply@stiekemsamen.nl"
+# admin_email = "info@stiekemefotos.nl"
 # sender_name = "StiekemSamen.nl"
 
 # Uncomment to customize email template

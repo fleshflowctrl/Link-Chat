@@ -14,7 +14,6 @@ import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import type { AppVariant } from "@/lib/app-variant";
 import { DEFAULT_APP_VARIANT, withVariantPath } from "@/lib/app-variant";
 import { convertAnonymousToPermanentAccount } from "@/lib/auth/guest-session";
-import { requestSignupConfirmationEmail } from "@/lib/email/request-auth-email";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import type {
   FunnelAgeRange,
@@ -93,25 +92,59 @@ export async function saveFunnelAccount(
     hasSession = !converted.needsEmailConfirm;
     needsEmailConfirmFromAuth = converted.needsEmailConfirm;
   } else {
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : "";
-    const emailRedirectTo = origin
-      ? `${origin}/auth/callback?next=${encodeURIComponent(discoverPath)}`
-      : undefined;
-
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: emailRedirectTo ? { emailRedirectTo } : undefined,
+    const signupRes = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        email,
+        password,
+        next: discoverPath,
+      }),
     });
 
-    if (signUpError) {
-      return { ok: false, error: mapSupabaseAuthError(signUpError.message) };
+    const signupData = (await signupRes.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      userId?: string;
+      access_token?: string;
+      refresh_token?: string;
+    };
+
+    if (!signupRes.ok || !signupData.ok) {
+      return {
+        ok: false,
+        error:
+          signupData.error ??
+          mapSupabaseAuthError(`Registreren mislukt (${signupRes.status})`),
+      };
     }
 
-    userId = signUpData.user?.id ?? null;
-    hasSession = Boolean(signUpData.session);
-    needsEmailConfirmFromAuth = !hasSession;
+    userId = signupData.userId ?? null;
+    if (signupData.access_token && signupData.refresh_token) {
+      const { error: sessionErr } = await supabase.auth.setSession({
+        access_token: signupData.access_token,
+        refresh_token: signupData.refresh_token,
+      });
+      if (sessionErr) {
+        return { ok: false, error: mapSupabaseAuthError(sessionErr.message) };
+      }
+      hasSession = true;
+      needsEmailConfirmFromAuth = false;
+    } else {
+      const { data: signIn, error: signInErr } =
+        await supabase.auth.signInWithPassword({ email, password });
+      if (signInErr || !signIn.session) {
+        return {
+          ok: false,
+          error: mapSupabaseAuthError(
+            signInErr?.message ?? "Inloggen na registratie mislukt",
+          ),
+        };
+      }
+      hasSession = true;
+      needsEmailConfirmFromAuth = false;
+    }
   }
 
   // Link the anonymous visitor (localStorage UUID) to this brand-new auth
@@ -123,10 +156,6 @@ export async function saveFunnelAccount(
   // We still return ok so the funnel can finish; profile data is also kept in
   // localStorage and will be synced on first authenticated visit.
   if (!hasSession || needsEmailConfirmFromAuth) {
-    void requestSignupConfirmationEmail({
-      email,
-      nextPath: discoverPath,
-    });
     return { ok: true, needsEmailConfirm: true, userId };
   }
 

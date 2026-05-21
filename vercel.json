@@ -25,6 +25,9 @@
     "app/api/cron/chat-pending-replies/route.ts": {
       "maxDuration": 120
     },
+    "app/api/cron/chat-unread-email/route.ts": {
+      "maxDuration": 60
+    },
     "app/api/me/process-pending-replies/route.ts": {
       "maxDuration": 120
     },
@@ -42,6 +45,10 @@
     },
     {
       "path": "/api/cron/chat-pending-replies",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/chat-unread-email",
       "schedule": "* * * * *"
     }
   ]

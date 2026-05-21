@@ -1,4 +1,4 @@
--- Pro subscription (1000 credits / month, min. 12 months in product copy + app logic).
+-- Pro subscription (credits / month, min. term in app: PRO_SUBSCRIPTION_MIN_MONTHS).
 
 alter table public.user_profiles
   add column if not exists pro_stripe_subscription_id text,
@@ -9,7 +9,7 @@ alter table public.user_profiles
   add column if not exists pro_minimum_end_at timestamptz;
 
 comment on column public.user_profiles.pro_minimum_end_at is
-  'Earliest date the user may cancel Pro (started_at + 12 months).';
+  'Earliest date the user may cancel Pro (started_at + PRO_SUBSCRIPTION_MIN_MONTHS).';
 
 create table if not exists public.pro_subscription_grants (
   id uuid primary key default gen_random_uuid(),

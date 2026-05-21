@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { skipPendingUnreadEmailForThread } from "@/lib/chat/schedule-unread-email-notification";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { fetchUnreadInboxCountServer } from "@/lib/chat/server-data";
+import { getServiceSupabase } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,14 @@ export async function POST(
       { ok: false, error: error.message },
       { status: 500 },
     );
+  }
+
+  const service = getServiceSupabase();
+  if (service) {
+    void skipPendingUnreadEmailForThread(service, {
+      ownerUserId: user.id,
+      peerId,
+    });
   }
 
   // Return the up-to-date unread count so the client can sync the bottom-nav

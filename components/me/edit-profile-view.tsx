@@ -618,7 +618,11 @@ export function EditProfileView({
             <p className={ui.lookingLabel}>
               Op zoek naar
             </p>
-            <p className="truncate text-[14px] font-bold text-ink">
+            <p
+              className={
+                state.lookingFor ? ui.lookingValue : ui.lookingValueEmpty
+              }
+            >
               {state.lookingFor || "Kies waar je naar op zoek bent"}
             </p>
           </div>

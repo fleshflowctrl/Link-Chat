@@ -9,6 +9,7 @@ import {
   PRO_SUBSCRIPTION_COMPARE_PRICE_EUR,
   PRO_SUBSCRIPTION_CREDITS_PER_MONTH,
   PRO_SUBSCRIPTION_PRICE_EUR,
+  proSubscriptionDiscountPercent,
 } from "@/lib/credits/pro-subscription";
 import {
   applyServerCreditsUpdate,
@@ -29,6 +30,7 @@ type CheckoutQuery = {
 export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
   const router = useRouter();
   const { variant } = useAppVariant();
+  const discountPercent = proSubscriptionDiscountPercent();
   const creditsPath = withVariantPath("/credits", variant);
   const verifiedSession = useRef<string | null>(null);
 
@@ -165,7 +167,12 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
           elke maand
         </p>
 
-        <div className="mx-auto mt-6 w-full max-w-sm rounded-2xl border-2 border-[#B52B2A]/40 bg-gradient-to-br from-[#1D1D1E] to-[#2A2A2B] p-5 text-white shadow-lg">
+        <div className="relative mx-auto mt-6 w-full max-w-sm rounded-2xl border-2 border-[#B52B2A]/40 bg-gradient-to-br from-[#1D1D1E] to-[#2A2A2B] p-5 text-white shadow-lg">
+          {discountPercent > 0 && (
+            <span className="absolute right-4 top-4 rounded-md bg-emerald-500 px-2.5 py-1 text-[11px] font-extrabold tabular-nums text-white shadow-sm">
+              −{discountPercent}%
+            </span>
+          )}
           <div className="flex items-center gap-2">
             <Sparkles className="h-6 w-6 text-[#B52B2A]" aria-hidden />
             <span className="text-[20px] font-extrabold">Pro</span>

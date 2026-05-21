@@ -2,7 +2,11 @@ import type { ChatMessageRow } from "@/lib/chat/map-rows";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 
-const RECENT_MESSAGE_COUNT = 30;
+/**
+ * Verbatim dialogue tail sent to Grok. Older lines are folded into
+ * `threadSummary` (safer than sending the full thread — cost + context limits).
+ */
+const RECENT_MESSAGE_COUNT = 50;
 
 export type ThreadMemoryRow = {
   summary: string;

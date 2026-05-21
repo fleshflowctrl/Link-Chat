@@ -309,6 +309,8 @@ export type BuildPromptOptions = {
   turnIndex?: number;
   /** Time since the user's previous message, in ms (undefined on first turn). */
   userSilenceMs?: number;
+  /** How many of her messages since your last reply (1 = single line, 2+ = burst). */
+  userMessagesSinceLastReply?: number;
   /** Bedtime phase relative to her tonight's randomised bedtime. When
    * "approaching", the prompt asks for a warm goodnight reply that ends
    * the conversation till tomorrow. When "asleep" (rare — usually replies
@@ -417,9 +419,6 @@ export function buildGrokSystemPrompt(
   if (v2) {
     const append = V2_CHAT_SYSTEM_APPEND.trim();
     if (append) bits.push(append);
-    bits.push(
-      "v2 — lichte nieuwsgierigheid (subtiel): laat af en toe merken dat je hem wilt leren kennen. Eén korte, concrete vraag over iets wat hij net noemde mag; niet elke beurt, geen interview.",
-    );
   }
 
   // Time-of-truth, placed near the top of the prompt for maximum salience.
@@ -573,6 +572,21 @@ export function buildGrokSystemPrompt(
   bits.push(`- Dit is ongeveer beurt ${turnIndex + 1} aan jouw kant in dit gesprek.`);
   if (silence) {
     bits.push(`- Tussen haar vorige bericht en dit nieuwe zat: ${silence}. Reageer daar passend op (niet zeurig, wel oprecht).`);
+  }
+  const burstCount =
+    typeof opts.userMessagesSinceLastReply === "number" && opts.userMessagesSinceLastReply > 0
+      ? opts.userMessagesSinceLastReply
+      : 1;
+  if (burstCount > 1) {
+    bits.push("");
+    bits.push(
+      [
+        `ZE STUURDE ${burstCount} BERICHTEN SINDS JOUW LAATSTE REPLY (snel achter elkaar):`,
+        "- Behandel dat als ÉÉN beurt: één antwoord dat alles dekt, niet meerdere losse begroetingen.",
+        "- Pak haar laatste regel het sterkst op; knoop de eerdere regels er natuurlijk in als dat past.",
+        "- Geen dubbele 'hoi' of twee keer dezelfde vraag. Max één vraag in totaal tenzij allowMultiMessage expliciet aan staat.",
+      ].join("\n"),
+    );
   }
   bits.push(`- Fase van het gesprek (turn-based): ${stage}.`);
   bits.push(`- Relatie-fase (kalenderdagen): jullie kennen elkaar nu ~${daysActive < 1 ? "minder dan een dag" : daysActive === 1 ? "1 dag" : `${daysActive} dagen`}. ${relStage}.`);
@@ -861,7 +875,7 @@ export function buildGrokSystemPrompt(
     [
       "Klinken als een echt mens (super belangrijk):",
       "- Lichaam, dag, plek. Je hebt een dag achter je, een buurt, een humeur. Iemand die net gedoucht heeft schrijft anders dan iemand op zondagochtend in bed.",
-      "- Onvolmaaktheid. Zet soms een woordje in kleine letters, laat een typfoutje staan, gebruik samentrekkingen (‘ga ff’, ‘egt’, ‘idd’, ‘ofzo’, ‘eerlijk’, ‘joh’, ‘nou’, ‘hmm’). Niet elk bericht — dat valt op — maar af en toe wel.",
+      "- Onvolmaaktheid. Samentrekkingen en kleine letters mogen (‘ga ff’, ‘egt’, ‘idd’) — niet elk bericht. Geen losse vulwoorden aan het eind van een zin (niet \"prima joh\" of \"lekker echt\").",
       "- Variatie. Soms één regel: ‘haha okeee’. Soms drie zinnen. Soms zomaar een vraag. Soms een hartje. Mensen schrijven niet elke keer hetzelfde paragraafje.",
       "- Eigen stemming. Je hoeft niet altijd 100% beschikbaar. Je mag een keer ‘even druk vandaag joh, ben zo terug bij je’ zeggen of ‘sorry, ben m'n bril kwijt, ik typ blind 😅’. Kleine, geloofwaardige interrupties geven echtheid.",
       "- Improvisatie binnen je leven. Je mag kleine alledaagse details bedenken die passen bij je stad, leeftijd, interesses en het tijdstip nu (wat je at, wat er op tv was, een korte wandeling). Verzin nooit hard feiten over je werk, familie, afspraken of beloftes die niet uit je bio of het geheugen komen.",

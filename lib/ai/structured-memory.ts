@@ -45,6 +45,9 @@ export type StructuredMemoryRow = {
  * eventually catches up. */
 const REFRESH_DELTA = 12;
 
+/** v2 chats refresh structured facts a bit sooner (sharper callbacks). */
+export const V2_STRUCTURED_MEMORY_REFRESH_DELTA = 8;
+
 /** Cap each list so the prompt stays tight. Excess entries are pruned with
  * a "newer wins" rule — most recent extractions overwrite older ones if
  * they're semantically duplicates (we use a dumb "first occurrence" dedup). */
@@ -122,13 +125,15 @@ Houd elk veld kort (max 6-12 items, max ~80 tekens per item). Schrijf in het Ned
 export async function refreshStructuredMemoryIfNeeded(
   history: ChatMessageRow[],
   prev: StructuredMemoryRow | null,
+  options?: { refreshDelta?: number },
 ): Promise<StructuredMemoryRow> {
   const prevFacts: StructuredFacts = prev?.facts ?? {};
   const prevCount = prev?.prefix_messages_count ?? 0;
   const newSinceLast = history.length - prevCount;
+  const refreshDelta = options?.refreshDelta ?? REFRESH_DELTA;
 
   // Not enough new material — return as-is.
-  if (newSinceLast < REFRESH_DELTA) {
+  if (newSinceLast < refreshDelta) {
     return { facts: prevFacts, prefix_messages_count: prevCount };
   }
 

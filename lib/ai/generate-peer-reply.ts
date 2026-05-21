@@ -17,7 +17,11 @@ import {
   AI_CHAT_PROMPT_VERSION,
   buildGrokSystemPrompt,
 } from "@/lib/ai/build-grok-system-prompt";
-import { v2ChatUsesBlankSlate } from "@/lib/ai/v2-chat-config";
+import {
+  isV2ChatProfile,
+  v2ChatUsesBlankSlate,
+} from "@/lib/ai/v2-chat-config";
+import { userMessagesSinceLastPeerReply } from "@/lib/ai/coalesce-user-reply";
 import {
   RECENT_MESSAGE_COUNT,
   refreshThreadSummaryIfNeeded,
@@ -26,6 +30,7 @@ import {
 } from "@/lib/ai/thread-memory";
 import {
   refreshStructuredMemoryIfNeeded,
+  V2_STRUCTURED_MEMORY_REFRESH_DELTA,
   hasAnyFacts,
   type StructuredMemoryRow,
   type StructuredFacts,
@@ -55,6 +60,7 @@ import { getWorkContext } from "@/lib/ai/work-schedule";
 import { BOT_PEER_PHOTOS_ENABLED } from "@/lib/ai/bot-chat-photos";
 import { extractPhotoDirective } from "@/lib/ai/photo-directive";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
+import { scheduleUnreadEmailNotification } from "@/lib/chat/schedule-unread-email-notification";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
 
@@ -366,7 +372,11 @@ export async function generatePeerReply(
       summary: prevMemory?.summary ?? "",
       prefix_messages_count: prevMemory?.prefix_messages_count ?? 0,
     })),
-    refreshStructuredMemoryIfNeeded(args.history, prevStructured).catch(
+    refreshStructuredMemoryIfNeeded(args.history, prevStructured, {
+      refreshDelta: isV2ChatProfile(args.profile)
+        ? V2_STRUCTURED_MEMORY_REFRESH_DELTA
+        : undefined,
+    }).catch(
       (): StructuredMemoryRow => prevStructured ?? { facts: {}, prefix_messages_count: 0 },
     ),
     refreshUserChatPersonaIfNeeded(supabase, args.ownerUserId).catch(() => null),
@@ -436,6 +446,7 @@ export async function generatePeerReply(
     console.warn("[generate-peer-reply] memory upsert", memUpsertErr.message);
   }
 
+  // Safer memory: older turns → prose summary in prompt; recent → verbatim in tail.
   const threadSummaryForPrompt =
     args.history.length > RECENT_MESSAGE_COUNT && memory.summary.trim()
       ? memory.summary.trim()
@@ -509,6 +520,8 @@ export async function generatePeerReply(
   // ----- New realism inputs -----
   const daysActive = computeDaysActive(args.history);
   const bannedPhrases = extractBannedPhrases(args.history);
+  const userBurst = userMessagesSinceLastPeerReply(args.history);
+  const userMessagesSinceLastReply = userBurst.length;
 
   // Find last user message body for emotional detection.
   let lastUserBody: string | null = null;
@@ -558,11 +571,16 @@ export async function generatePeerReply(
   const system = buildGrokSystemPrompt(
     args.profile,
     v2BlankSlate
-      ? { nowLocal: new Date(), turnIndex: priorAssistantTurns }
+      ? {
+          nowLocal: new Date(),
+          turnIndex: priorAssistantTurns,
+          userMessagesSinceLastReply,
+        }
       : {
           threadSummary: threadSummaryForPrompt,
           nowLocal: new Date(),
           turnIndex: priorAssistantTurns,
+          userMessagesSinceLastReply,
           userSilenceMs: userSilenceMs ?? undefined,
           bedtimePhase: bedtime.phase,
           minutesUntilBedtime: bedtime.minutesUntilBedtime,
@@ -598,23 +616,52 @@ export async function generatePeerReply(
   );
 
   const tail = sliceRecentDialogue(args.history);
+  const visionIndices = new Set<number>();
+  for (let i = tail.length - 1; i >= 0; i--) {
+    const r = tail[i];
+    if (
+      r.sender === "me" &&
+      r.kind === "image" &&
+      typeof r.image_url === "string" &&
+      /^https?:\/\//.test(r.image_url)
+    ) {
+      visionIndices.add(i);
+      if (visionIndices.size >= 2) break;
+    }
+  }
+  if (triggerId) {
+    const ti = tail.findIndex((r) => r.id === triggerId);
+    const tr = ti >= 0 ? tail[ti] : null;
+    if (
+      tr?.kind === "image" &&
+      typeof tr.image_url === "string" &&
+      /^https?:\/\//.test(tr.image_url)
+    ) {
+      visionIndices.add(ti);
+    }
+  }
+
   const input: GrokInputMessage[] = [
     { role: "system", content: system },
-    ...tail.map((r) => {
+    ...tail.map((r, i) => {
       const role = (r.sender === "me" ? "user" : "assistant") as "user" | "assistant";
-      // Vision: when the user sent an image, pass it as a multimodal user
-      // message so Grok can see the picture and react to it. Caption (if
-      // any) goes alongside as a text part.
-      if (r.kind === "image" && r.sender === "me" && typeof r.image_url === "string" && /^https?:\/\//.test(r.image_url)) {
+      // Vision: attach pixels for at most the two latest user photos (plus the
+      // trigger message) so xAI can see what she sent without overloading the call.
+      if (visionIndices.has(i)) {
         const caption = (r.body ?? "").trim();
-        const parts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }> = [
+        const parts: Array<
+          { type: "text"; text: string } | {
+            type: "image_url";
+            image_url: { url: string; detail: "high" };
+          }
+        > = [
           {
             type: "text",
             text: caption
               ? `(zij stuurde een foto met als tekst: "${caption}")`
               : "(zij stuurde een foto, geen tekst erbij)",
           },
-          { type: "image_url", image_url: { url: r.image_url } },
+          { type: "image_url", image_url: { url: r.image_url!, detail: "high" } },
         ];
         return { role: "user" as const, content: parts };
       }
@@ -781,6 +828,14 @@ export async function generatePeerReply(
   }
 
   const assistantRow = insertedPeer as ChatMessageRow;
+
+  void scheduleUnreadEmailNotification(supabase, {
+    ownerUserId: args.ownerUserId,
+    peerId: args.peerId,
+    peerMessageId: assistantRow.id,
+  }).catch((e) => {
+    console.warn("[generate-peer-reply] unread-email schedule", e);
+  });
 
   // ----- Mark unread user messages as read by the persona -----
   // Anything she just replied to counts as "read"; older user messages

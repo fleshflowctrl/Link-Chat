@@ -13,6 +13,11 @@ export type EditProfileUi = {
   lookingBtn: string;
   lookingIcon: string;
   lookingLabel: string;
+  lookingValue: string;
+  lookingValueEmpty: string;
+  lookingValueProfile: string;
+  sayHelloBtn: string;
+  sayHelloBar: string;
   galleryTile: string;
   galleryAdd: string;
   interestChip: string;
@@ -61,6 +66,18 @@ export function getEditProfileUi(variant: AppVariant): EditProfileUi {
     lookingLabel: isV2
       ? "text-[10px] font-bold uppercase tracking-wider text-[#D63B3A]"
       : "text-[10px] font-bold uppercase tracking-wider text-accentPink",
+    lookingValue: isV2
+      ? "truncate text-[14px] font-bold text-[#E8E8E8]"
+      : "truncate text-[14px] font-bold text-ink",
+    lookingValueEmpty: "truncate text-[14px] font-bold text-inkMuted",
+    lookingValueProfile: isV2
+      ? "text-[15px] font-bold leading-snug text-[#E8E8E8]"
+      : "text-[15px] font-bold leading-snug text-ink",
+    sayHelloBtn:
+      "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-gradient-primary px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99]",
+    sayHelloBar: isV2
+      ? "sticky bottom-0 z-20 border-t border-white/10 bg-canvas/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90"
+      : "sticky bottom-0 z-20 border-t border-black/[0.06] bg-canvas/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90",
     galleryTile: isV2
       ? "relative aspect-square overflow-hidden rounded-2xl bg-[#353536] ring-1 ring-white/10 shadow-sm"
       : "relative aspect-square overflow-hidden rounded-2xl bg-ink/10 ring-1 ring-black/[0.06] shadow-sm",

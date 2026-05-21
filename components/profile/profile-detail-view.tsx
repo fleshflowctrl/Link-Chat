@@ -19,6 +19,7 @@ import {
 import type { Profile, ProfileInterestIcon } from "@/data/profiles";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
+import { getEditProfileUi } from "@/lib/me/edit-profile-styles";
 
 function InterestGlyph({
   icon,
@@ -66,6 +67,7 @@ function interestIconColor(icon: ProfileInterestIcon): string {
 export function ProfileDetailView({ profile }: { profile: Profile }) {
   const router = useRouter();
   const { variant } = useAppVariant();
+  const ui = useMemo(() => getEditProfileUi(variant), [variant]);
   const gallery = profile.gallery.length > 0 ? profile.gallery : [profile.photo];
   const [heroIndex, setHeroIndex] = useState(0);
 
@@ -170,24 +172,17 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => console.log("[profile] Looking for — placeholder")}
-          className="mt-4 flex w-full items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-100 via-rose-100 to-pink-200 px-4 py-3.5 text-left shadow-card ring-1 ring-accentPink/20"
-        >
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accentPink to-primary text-white shadow-md">
-            <Heart className="h-5 w-5" fill="currentColor" strokeWidth={0} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-accentPink">
-              Op zoek naar
-            </p>
-            <p className="text-[15px] font-bold leading-snug text-ink">
-              {profile.lookingFor}
-            </p>
+        <div className="mt-4">
+          <div className={ui.lookingBtn}>
+            <span className={ui.lookingIcon}>
+              <Heart className="h-5 w-5" fill="currentColor" strokeWidth={0} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={ui.lookingLabel}>Op zoek naar</p>
+              <p className={ui.lookingValueProfile}>{profile.lookingFor}</p>
+            </div>
           </div>
-          <ChevronRight className="h-5 w-5 shrink-0 text-ink/30" strokeWidth={2} />
-        </button>
+        </div>
 
         <section className="mt-6">
           <h2 className="text-[16px] font-bold text-ink">Over mij</h2>
@@ -216,10 +211,10 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
         <div className="h-20" aria-hidden />
       </div>
 
-      <div className="sticky bottom-0 z-20 border-t border-black/[0.06] bg-canvas/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
+      <div className={ui.sayHelloBar}>
         <Link
           href={withVariantPath(`/messages/${profile.id}`, variant)}
-          className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-ink px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99]"
+          className={ui.sayHelloBtn}
         >
           <MessageCircle className="h-5 w-5" strokeWidth={2.25} />
           Zeg hallo

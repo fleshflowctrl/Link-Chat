@@ -134,6 +134,23 @@ export function humanizeChatText(raw: string): string {
   return s;
 }
 
+/** Filler words the fingerprint layer (or the model) sometimes tacks onto the
+ * end of an otherwise complete sentence — reads unnatural ("gaat prima joh"). */
+const DANGLING_FILLER_LAST_WORD =
+  /(?:^|\s)(joh|echt|egt|ofzo|btw|uhm|hmm|trouwens|wacht|mss|idd|of\s+zo)(?:[.!?…]*)\s*$/i;
+
+export function stripDanglingChatFillers(text: string): string {
+  let s = text.trim();
+  if (!s) return s;
+  let prev = "";
+  while (prev !== s) {
+    prev = s;
+    s = s.replace(DANGLING_FILLER_LAST_WORD, "").trimEnd();
+    s = s.replace(/\s{2,}/g, " ").trim();
+  }
+  return s;
+}
+
 export function postProcessReply(raw: string): string {
   if (!raw) return "";
   let s = raw.replace(/\r\n/g, "\n").trim();
@@ -187,6 +204,8 @@ export function postProcessReply(raw: string): string {
 
   // Final humanisation pass — catches Grok's residual tidy formatting.
   s = humanizeChatText(s.trim());
+
+  s = stripDanglingChatFillers(s);
 
   return s.trim();
 }

@@ -10,8 +10,8 @@ import {
   convertAnonymousToPermanentAccount,
   isPermanentAuthUser,
 } from "@/lib/auth/guest-session";
+import { applyServerCreditsUpdate } from "@/lib/credits-store";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
-import { requestSignupConfirmationEmail } from "@/lib/email/request-auth-email";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import type { AppVariant } from "@/lib/app-variant";
 import { V2_GRADIENT_PRIMARY } from "@/lib/v2-theme";
@@ -126,9 +126,7 @@ export function LoginForm({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
-  const [status, setStatus] = useState<
-    "idle" | "loading" | "needs_confirm" | "error"
-  >("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 
   const supabaseConfigured = Boolean(
@@ -156,9 +154,6 @@ export function LoginForm({
 
     setStatus("loading");
     const supabase = createClient();
-    const origin = window.location.origin;
-    const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({
         email: trimmed,
@@ -183,17 +178,11 @@ export function LoginForm({
       const converted = await convertAnonymousToPermanentAccount({
         email: trimmed,
         password,
+        nextPath,
       });
       if (!converted.ok) {
         setStatus("error");
         setMessage(mapSupabaseAuthError(converted.error));
-        return;
-      }
-      if (converted.needsEmailConfirm) {
-        setStatus("needs_confirm");
-        setMessage(
-          "Controleer je e-mail om je account te bevestigen. Je chats blijven bewaard.",
-        );
         return;
       }
       void trackSignupLink(converted.userId);
@@ -203,33 +192,66 @@ export function LoginForm({
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: trimmed,
-      password,
-      options: { emailRedirectTo },
+    const signupRes = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        email: trimmed,
+        password,
+        next: nextPath,
+      }),
     });
 
-    if (error) {
+    const signupData = (await signupRes.json().catch(() => ({}))) as {
+      ok?: boolean;
+      error?: string;
+      userId?: string;
+      access_token?: string;
+      refresh_token?: string;
+      signupCredits?: number;
+    };
+
+    if (!signupRes.ok || !signupData.ok) {
       setStatus("error");
-      setMessage(mapSupabaseAuthError(error.message));
+      setMessage(
+        signupData.error ??
+          (signupRes.status === 503
+            ? "Registratie-server niet geconfigureerd (service role ontbreekt)."
+            : `Registreren mislukt (${signupRes.status})`),
+      );
       return;
     }
 
-    if (data.session) {
-      await hydrateClientSessionFromServer();
-      router.replace(nextPath);
-      router.refresh();
-      return;
+    if (signupData.access_token && signupData.refresh_token) {
+      const { error: sessionErr } = await supabase.auth.setSession({
+        access_token: signupData.access_token,
+        refresh_token: signupData.refresh_token,
+      });
+      if (sessionErr) {
+        setStatus("error");
+        setMessage(mapSupabaseAuthError(sessionErr.message));
+        return;
+      }
+    } else {
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email: trimmed,
+        password,
+      });
+      if (signInErr) {
+        setStatus("error");
+        setMessage(mapSupabaseAuthError(signInErr.message));
+        return;
+      }
     }
 
-    setStatus("needs_confirm");
-    setMessage(
-      "Controleer je e-mail om je account te bevestigen en log daarna hier in.",
-    );
-    void requestSignupConfirmationEmail({
-      email: trimmed,
-      nextPath,
-    });
+    if (typeof signupData.signupCredits === "number" && signupData.signupCredits >= 0) {
+      applyServerCreditsUpdate(signupData.signupCredits);
+    }
+    void trackSignupLink(signupData.userId ?? null);
+    await hydrateClientSessionFromServer();
+    router.replace(nextPath);
+    router.refresh();
   }
 
   if (!supabaseConfigured) {
@@ -356,18 +378,7 @@ export function LoginForm({
         </p>
       )}
 
-      {status === "needs_confirm" ? (
-        <p
-          className={`${embedded ? "mt-0" : "mt-6"} rounded-xl px-3 py-3 text-center text-[12px] font-medium ring-1 ${
-            isV2
-              ? "bg-[#353536] text-ink ring-white/10"
-              : "bg-lavender text-ink ring-primary/15"
-          }`}
-        >
-          {message}
-        </p>
-      ) : (
-        <form
+      <form
           onSubmit={onSubmit}
           className={`flex flex-col ${embedded ? (mode === "signup" ? "gap-2" : "gap-2.5") : "mt-6 gap-4"}`}
         >
@@ -433,7 +444,6 @@ export function LoginForm({
             {submitLabel}
           </button>
         </form>
-      )}
 
       {!embedded && (
         <p className="mt-6 text-center text-sm text-inkMuted">
