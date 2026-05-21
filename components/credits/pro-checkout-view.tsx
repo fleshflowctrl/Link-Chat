@@ -155,13 +155,14 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-5">
         <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-[#B52B2A]">
-          Speciale aanbieding
+          Eenmalige aanbieding
         </p>
         <h1 className="mt-2 text-center text-[26px] font-extrabold leading-tight text-ink">
           Pro abonnement
         </h1>
-        <p className="mt-1 text-center text-[13px] text-gray-600">
-          {PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits elke maand
+        <p className="mt-1 text-center text-[15px] font-semibold text-gray-700">
+          {PRO_SUBSCRIPTION_CREDITS_PER_MONTH.toLocaleString("nl-NL")} credits
+          elke maand
         </p>
 
         <div className="mx-auto mt-6 w-full max-w-sm rounded-2xl border-2 border-[#B52B2A]/40 bg-gradient-to-br from-[#1D1D1E] to-[#2A2A2B] p-5 text-white shadow-lg">

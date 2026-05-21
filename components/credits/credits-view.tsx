@@ -99,13 +99,13 @@ export function CreditsView() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-between gap-1.5 overflow-hidden px-5 pb-2 pt-0.5">
+      <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-5 pb-2 pt-0.5">
+        <ProOfferCard active={proActive} className="shrink-0 !mt-0 !pt-0" />
         <div className="flex min-h-0 flex-1 flex-col justify-evenly gap-1.5">
           {packages.map((pkg) => (
             <PackageCard key={pkg.id} pkg={pkg} />
           ))}
         </div>
-        <ProOfferCard active={proActive} className="shrink-0 !mt-0 !pt-0" />
       </div>
     </div>
   );
