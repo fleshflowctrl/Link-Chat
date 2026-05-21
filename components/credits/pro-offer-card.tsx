@@ -40,19 +40,19 @@ export function ProOfferCard({ active = false, className }: Props) {
       ) : (
         <Link
           href={href}
-          className="relative flex w-full flex-col gap-2.5 overflow-hidden rounded-2xl border-2 border-[#B52B2A]/60 bg-gradient-to-br from-[#1D1D1E] via-[#2A2A2B] to-[#1D1D1E] p-4 text-left shadow-lg shadow-[#B52B2A]/20 ring-1 ring-[#B52B2A]/40 transition active:scale-[0.99]"
+          className="relative flex w-full flex-col gap-2 overflow-hidden rounded-2xl border-2 border-[#B52B2A]/60 bg-gradient-to-br from-[#1D1D1E] via-[#2A2A2B] to-[#1D1D1E] p-3.5 text-left shadow-lg shadow-[#B52B2A]/20 ring-1 ring-[#B52B2A]/40 transition active:scale-[0.99]"
         >
           <span
             aria-hidden
             className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#B52B2A]/25 blur-2xl"
           />
-          <span className="absolute -top-2 left-4 z-10 rounded-md bg-[#B52B2A] px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm">
+          <span className="self-start rounded-md bg-[#B52B2A] px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm">
             Pro pakket
           </span>
 
-          <div className="relative mt-1 flex items-start justify-between gap-3">
+          <div className="relative flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[26px] font-extrabold leading-none tracking-tight text-white">
+              <p className="text-[22px] font-extrabold leading-none tracking-tight text-white">
                 {PRO_SUBSCRIPTION_CREDITS_PER_MONTH.toLocaleString("nl-NL")}
                 <span className="text-[15px] font-bold text-white/90">
                   {" "}
@@ -70,7 +70,7 @@ export function ProOfferCard({ active = false, className }: Props) {
             />
           </div>
 
-          <div className="flex items-end justify-between gap-2 border-t border-white/10 pt-3">
+          <div className="flex items-end justify-between gap-2 border-t border-white/10 pt-2.5">
             <div>
               <p className="text-[11px] text-white/50 line-through">
                 €{PRO_SUBSCRIPTION_COMPARE_PRICE_EUR.toFixed(2).replace(".", ",")}{" "}
