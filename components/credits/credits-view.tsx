@@ -18,33 +18,12 @@ import { withVariantPath } from "@/lib/app-variant";
 
 function PackageCard({ pkg }: { pkg: CreditPackage }) {
   const { variant } = useAppVariant();
-  const hasRibbon = pkg.badge === "trending" || pkg.badge === "best-value";
-
-  const cardRingClass =
-    pkg.badge === "trending"
-      ? "ring-2 ring-amber-400"
-      : pkg.badge === "best-value"
-        ? "ring-2 ring-emerald-500"
-        : "ring-1 ring-black/[0.05]";
 
   return (
     <div className="relative">
-      {pkg.badge === "trending" && (
-        <span className="absolute -top-2 right-3 z-10 rounded-md bg-amber-400 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm">
-          🔥 Hot
-        </span>
-      )}
-      {pkg.badge === "best-value" && (
-        <span className="absolute -top-2 right-3 z-10 rounded-md bg-emerald-500 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm">
-          Beste deal
-        </span>
-      )}
-
       <Link
         href={withVariantPath(`/credits/checkout/${pkg.id}`, variant)}
-        className={`relative flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm transition active:scale-[0.99] ${cardRingClass} ${
-          hasRibbon ? "mt-2" : ""
-        }`}
+        className="relative flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-sm ring-1 ring-black/[0.05] transition active:scale-[0.99]"
       >
         <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl shadow-inner">
           <Image
@@ -105,8 +84,8 @@ export function CreditsView() {
   useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-canvas">
-      <header className="shrink-0 px-5 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
+      <header className="shrink-0 px-5 pb-1.5 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-[26px] font-bold leading-tight tracking-tight text-ink">
@@ -120,11 +99,13 @@ export function CreditsView() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-start gap-2 overflow-y-auto px-5 pb-5 pt-1">
-        {packages.map((pkg) => (
-          <PackageCard key={pkg.id} pkg={pkg} />
-        ))}
-        <ProOfferCard active={proActive} />
+      <div className="flex min-h-0 flex-1 flex-col justify-between gap-1.5 overflow-hidden px-5 pb-2 pt-0.5">
+        <div className="flex min-h-0 flex-1 flex-col justify-evenly gap-1.5">
+          {packages.map((pkg) => (
+            <PackageCard key={pkg.id} pkg={pkg} />
+          ))}
+        </div>
+        <ProOfferCard active={proActive} className="shrink-0 !mt-0 !pt-0" />
       </div>
     </div>
   );

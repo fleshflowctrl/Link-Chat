@@ -14,7 +14,22 @@
 export const FEED_ROTATION_HOURS = 2;
 export const HOUR_MS = FEED_ROTATION_HOURS * 60 * 60 * 1000;
 export const HOURLY_FEED_SIZE = 30;
-export { HOURLY_FEED_REFRESH_COST_CREDITS as HOURLY_FEED_REFRESH_COST } from "@/lib/credits/pricing";
+export {
+  HOURLY_FEED_REFRESH_COST_CREDITS as HOURLY_FEED_REFRESH_COST,
+  V2_HOURLY_FEED_REFRESH_COST_CREDITS,
+} from "@/lib/credits/pricing";
+import type { AppVariant } from "@/lib/app-variant";
+import {
+  HOURLY_FEED_REFRESH_COST_CREDITS,
+  V2_HOURLY_FEED_REFRESH_COST_CREDITS,
+} from "@/lib/credits/pricing";
+
+/** Credit cost to skip the feed timer — 200 on v2, 260 on v1. */
+export function hourlyFeedRefreshCostForVariant(variant: AppVariant): number {
+  return variant === "v2"
+    ? V2_HOURLY_FEED_REFRESH_COST_CREDITS
+    : HOURLY_FEED_REFRESH_COST_CREDITS;
+}
 
 /** Whole rotation slots since epoch — increments every {@link FEED_ROTATION_HOURS}h. */
 export function currentHourBucket(now: number = Date.now()): number {

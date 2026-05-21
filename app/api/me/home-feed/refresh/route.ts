@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import {
-  HOURLY_FEED_REFRESH_COST,
   activeFeedSlot,
   hashFeedComposition,
+  hourlyFeedRefreshCostForVariant,
   nextHourBoundary,
 } from "@/lib/catalog/hourly-feed";
 import type { Profile } from "@/data/profiles";
@@ -17,7 +17,7 @@ import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 export const dynamic = "force-dynamic";
 
 /**
- * Pay {@link HOURLY_FEED_REFRESH_COST} credits to skip ahead to the next
+ * Pay variant-specific credits ({@link hourlyFeedRefreshCostForVariant}) to skip ahead to the next
  * hourly feed slot immediately. Atomic-ish:
  *
  * 1. Validate the user has enough credits.
@@ -63,19 +63,22 @@ export async function POST() {
       ? ((prof as { credits?: number }).credits as number)
       : 0;
 
-  if (balanceBefore < HOURLY_FEED_REFRESH_COST) {
+  const variant = await readServerAppVariant();
+  const refreshCost = hourlyFeedRefreshCostForVariant(variant);
+
+  if (balanceBefore < refreshCost) {
     return NextResponse.json(
       {
         ok: false,
         error: "insufficient credits",
         balance: balanceBefore,
-        cost: HOURLY_FEED_REFRESH_COST,
+        cost: refreshCost,
       },
       { status: 402 },
     );
   }
 
-  const newBalance = balanceBefore - HOURLY_FEED_REFRESH_COST;
+  const newBalance = balanceBefore - refreshCost;
   const { error: updErr } = await supabase
     .from("user_profiles")
     .update({ credits: newBalance, updated_at: new Date().toISOString() })
@@ -130,7 +133,6 @@ export async function POST() {
   // Build a fresh slice using the new offset so the client can swap in place.
   const now = Date.now();
   const slot = activeFeedSlot(now, nextOffset);
-  const variant = await readServerAppVariant();
 
   let pool: Profile[] = staticCatalogProfiles(variant);
   try {
@@ -165,7 +167,7 @@ export async function POST() {
     feedSlot: slot,
     refreshOffset: nextOffset,
     nextRefreshAt: nextHourBoundary(now),
-    refreshCost: HOURLY_FEED_REFRESH_COST,
+    refreshCost,
     feedHash: hashFeedComposition(refreshed.map((p) => p.id)),
     balance: newBalance,
   });

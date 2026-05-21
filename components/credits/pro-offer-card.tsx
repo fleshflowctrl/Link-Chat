@@ -13,14 +13,16 @@ import { withVariantPath } from "@/lib/app-variant";
 
 type Props = {
   active?: boolean;
+  /** Optional wrapper overrides (e.g. drop top margin on the credits tab). */
+  className?: string;
 };
 
-export function ProOfferCard({ active = false }: Props) {
+export function ProOfferCard({ active = false, className }: Props) {
   const { variant } = useAppVariant();
   const href = withVariantPath("/credits/checkout/pro", variant);
 
   return (
-    <section className="mt-4 pt-2">
+    <section className={className ?? "mt-4 pt-2"}>
       <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-[#B52B2A]">
         Speciale aanbieding
       </p>

@@ -58,7 +58,6 @@ export const packages: CreditPackage[] = [
     icon: "👜",
     iconAsset: 500,
     tile: "from-orange-400 to-orange-500",
-    badge: "trending",
   },
   {
     id: "10000",
@@ -70,7 +69,6 @@ export const packages: CreditPackage[] = [
     icon: "🔐",
     iconAsset: 1000,
     tile: "from-yellow-400 to-amber-500",
-    badge: "best-value",
   },
 ];
 

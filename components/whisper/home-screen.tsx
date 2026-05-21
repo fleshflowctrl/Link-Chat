@@ -18,6 +18,8 @@ import {
   pinProfileFirstInFeed,
 } from "@/lib/catalog/funnel-picked-peer";
 import { hashFeedComposition } from "@/lib/catalog/hourly-feed";
+import { useAppVariant } from "@/components/app-variant-provider";
+import { appVariantFetchHeaders } from "@/lib/app-variant";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
 import { FeedStack } from "./feed-stack";
 import { HomeHeader } from "./home-header";
@@ -79,6 +81,7 @@ export function HomeScreen({
   feedHash,
   fitViewport = false,
 }: Props) {
+  const { variant } = useAppVariant();
   const [profile, setProfile] = useState<EditProfileState | null>(initialProfile);
 
   // Hourly-feed state is owned here so the paid-refresh button can swap the
@@ -152,7 +155,10 @@ export function HomeScreen({
       const delay = Math.max(2000, nextAt - Date.now() + 500);
       fetchTimerRef.current = setTimeout(async () => {
         try {
-          const res = await fetch("/api/me/home-feed", { cache: "no-store" });
+          const res = await fetch("/api/me/home-feed", {
+            cache: "no-store",
+            headers: appVariantFetchHeaders(variant),
+          });
           const json = (await res.json()) as FeedGetResponse;
           if (json.ok && Array.isArray(json.profiles)) {
             setProfilesState(json.profiles);
@@ -176,14 +182,17 @@ export function HomeScreen({
     return () => {
       if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     };
-  }, [nextAt]);
+  }, [nextAt, variant]);
 
   async function handleRefreshNow() {
     if (refreshing) return;
     setRefreshing(true);
     setRefreshError(null);
     try {
-      const res = await fetch("/api/me/home-feed/refresh", { method: "POST" });
+      const res = await fetch("/api/me/home-feed/refresh", {
+        method: "POST",
+        headers: appVariantFetchHeaders(variant),
+      });
       const json = (await res.json()) as FeedRefreshResponse;
       if (!res.ok || !json.ok) {
         if (res.status === 402) {
@@ -218,6 +227,7 @@ export function HomeScreen({
       <HomeHeader profile={profile} compact={fitViewport} />
       <CatalogFallbackBanner show={catalogDegraded} compact={fitViewport} />
       <FeedStack
+        key={`${slot}:${hash}`}
         profiles={profilesState}
         feedSlot={slot}
         feedHash={hash}

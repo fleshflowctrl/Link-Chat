@@ -6,10 +6,10 @@ import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
 import { applyDiscoverFeedStatusToProfiles } from "@/lib/catalog/discover-feed-status";
 import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
 import {
-  HOURLY_FEED_REFRESH_COST,
   HOURLY_FEED_SIZE,
   activeFeedSlot,
   hashFeedComposition,
+  hourlyFeedRefreshCostForVariant,
   nextHourBoundary,
   pickHourlyFeedWithHistory,
 } from "@/lib/catalog/hourly-feed";
@@ -73,12 +73,16 @@ export async function fetchRefreshOffset(
   }
 }
 
-function bundleMeta(refreshOffset: number, now: number = Date.now()) {
+function bundleMeta(
+  refreshOffset: number,
+  variant: AppVariant,
+  now: number = Date.now(),
+) {
   return {
     feedSlot: activeFeedSlot(now, refreshOffset),
     refreshOffset,
     nextRefreshAt: nextHourBoundary(now),
-    refreshCost: HOURLY_FEED_REFRESH_COST,
+    refreshCost: hourlyFeedRefreshCostForVariant(variant),
   };
 }
 
@@ -207,7 +211,7 @@ export async function fetchHomePageCatalogServer(
 
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
-    const meta = bundleMeta(0, now);
+    const meta = bundleMeta(0, variant, now);
     const gridProfiles = pinProfileFirstInFeed(
       pickDiscoverFeed(staticPool, "guest", meta.feedSlot),
       staticPool,
@@ -227,7 +231,7 @@ export async function fetchHomePageCatalogServer(
     supabase = createClient();
   } catch {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
-    const meta = bundleMeta(0, now);
+    const meta = bundleMeta(0, variant, now);
     const gridProfiles = pinProfileFirstInFeed(
       pickDiscoverFeed(staticPool, "guest", meta.feedSlot),
       staticPool,
@@ -248,7 +252,7 @@ export async function fetchHomePageCatalogServer(
 
   const userKey = user?.id ?? "guest";
   const refreshOffset = user ? await fetchRefreshOffset(supabase, user.id) : 0;
-  const meta = bundleMeta(refreshOffset, now);
+  const meta = bundleMeta(refreshOffset, variant, now);
 
   if (!user) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
