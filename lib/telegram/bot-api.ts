@@ -39,6 +39,7 @@ export type TelegramMessage = {
   message_id: number;
   chat: { id: number; type: string };
   text?: string;
+  message_thread_id?: number;
   reply_to_message?: TelegramMessage;
 };
 
@@ -46,6 +47,7 @@ export async function telegramSendMessage(input: {
   chatId: number;
   text: string;
   replyToMessageId?: number;
+  messageThreadId?: number;
   parseMode?: "HTML" | "MarkdownV2";
 }): Promise<TelegramApiResult<TelegramMessage>> {
   const body: Record<string, unknown> = {
@@ -59,7 +61,24 @@ export async function telegramSendMessage(input: {
   if (input.replyToMessageId != null) {
     body.reply_to_message_id = input.replyToMessageId;
   }
+  if (input.messageThreadId != null) {
+    body.message_thread_id = input.messageThreadId;
+  }
   return telegramRequest<TelegramMessage>("sendMessage", body);
+}
+
+export async function telegramCreateForumTopic(input: {
+  chatId: number;
+  name: string;
+}): Promise<
+  TelegramApiResult<{ message_thread_id: number; name: string }>
+> {
+  const name =
+    input.name.length > 128 ? `${input.name.slice(0, 125)}…` : input.name;
+  return telegramRequest("createForumTopic", {
+    chat_id: input.chatId,
+    name,
+  });
 }
 
 export async function telegramSetWebhook(input: {

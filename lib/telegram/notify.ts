@@ -2,11 +2,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getAppBaseUrl,
   getTelegramOperatorChatIds,
+  getTelegramOperatorGroupChatId,
   isTelegramOperatorEnabled,
+  useTelegramForumTopics,
 } from "@/lib/telegram/config";
 import { telegramSendMessage } from "@/lib/telegram/bot-api";
-import { formatOperatorNotification } from "@/lib/telegram/format";
+import {
+  escapeTelegramHtml,
+  formatOperatorNotification,
+} from "@/lib/telegram/format";
 import { saveTelegramConversationMap } from "@/lib/telegram/map";
+import {
+  loadOwnerProfileSnippets,
+  type OwnerProfileSnippet,
+} from "@/lib/operator/inbox-data";
+import { ensureTelegramForumTopic } from "@/lib/telegram/topics";
 
 export async function notifyOperatorViaTelegram(
   supabase: SupabaseClient,
@@ -38,16 +48,62 @@ export async function notifyOperatorViaTelegram(
     userEmail = authData?.user?.email ?? null;
   }
 
+  const ownerMap = await loadOwnerProfileSnippets(supabase, [input.ownerUserId]);
+  const owner: OwnerProfileSnippet =
+    ownerMap.get(input.ownerUserId) ?? {
+      displayName: "Gebruiker",
+      photoUrl: "",
+      age: null,
+      location: "",
+    };
+
   const inboxUrl = `${getAppBaseUrl()}/operator/inbox`;
+  const forum = useTelegramForumTopics();
   const text = formatOperatorNotification({
-    peerDisplayName,
+    ownerDisplayName: owner.displayName,
+    peerDisplayName: peerDisplayName!,
     userEmail: userEmail ?? null,
+    ownerAge: owner.age,
+    ownerLocation: owner.location,
     messagePreview: input.messagePreview,
     inboxUrl,
+    useForumTopic: forum,
   });
+
+  const groupChatId = getTelegramOperatorGroupChatId();
+
+  if (forum && groupChatId != null) {
+    const topic = await ensureTelegramForumTopic(supabase, {
+      ownerUserId: input.ownerUserId,
+      peerId: input.peerId,
+      peerDisplayName: peerDisplayName!,
+      owner,
+      userEmail: userEmail ?? null,
+    });
+    if (topic) {
+      const sent = await telegramSendMessage({
+        chatId: topic.telegramChatId,
+        messageThreadId: topic.messageThreadId,
+        text: `👤 <b>User:</b> ${escapeTelegramHtml(input.messagePreview.slice(0, 500) || "(leeg)")}`,
+        parseMode: "HTML",
+      });
+      if (!sent.ok) {
+        console.warn("[telegram] topic notify failed", sent.description);
+      } else {
+        await saveTelegramConversationMap(supabase, {
+          telegramChatId: topic.telegramChatId,
+          telegramMessageId: sent.result.message_id,
+          ownerUserId: input.ownerUserId,
+          peerId: input.peerId,
+        });
+      }
+      return;
+    }
+  }
 
   const chatIds = getTelegramOperatorChatIds();
   for (const chatId of chatIds) {
+    if (groupChatId != null && chatId === groupChatId) continue;
     const sent = await telegramSendMessage({
       chatId,
       text,

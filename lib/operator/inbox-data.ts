@@ -6,6 +6,8 @@ import type { OperatorQueueRow } from "@/lib/operator/queue";
 export type OwnerProfileSnippet = {
   displayName: string;
   photoUrl: string;
+  age: number | null;
+  location: string;
 };
 
 export async function loadOwnerProfileSnippets(
@@ -17,15 +19,18 @@ export async function loadOwnerProfileSnippets(
 
   const { data: rows } = await supabase
     .from("user_profiles")
-    .select("user_id, first_name, main_photo_url")
+    .select("user_id, first_name, main_photo_url, age, location")
     .in("user_id", ownerUserIds);
 
   for (const row of rows ?? []) {
     const uid = row.user_id as string;
     const first = (row.first_name as string)?.trim();
+    const ageRaw = row.age as number | null;
     map.set(uid, {
       displayName: first || "Gebruiker",
       photoUrl: (row.main_photo_url as string)?.trim() || "",
+      age: typeof ageRaw === "number" && ageRaw > 0 ? ageRaw : null,
+      location: (row.location as string)?.trim() || "",
     });
   }
 
@@ -34,7 +39,12 @@ export async function loadOwnerProfileSnippets(
     const { data: authData } = await supabase.auth.admin.getUserById(oid);
     const email = authData?.user?.email ?? "";
     const name = email ? email.split("@")[0] : "Gebruiker";
-    map.set(oid, { displayName: name, photoUrl: "" });
+    map.set(oid, {
+      displayName: name,
+      photoUrl: "",
+      age: null,
+      location: "",
+    });
   }
 
   return map;
@@ -48,6 +58,8 @@ export type OperatorInboxItem = {
   peerAvatarUrl: string;
   ownerDisplayName: string;
   ownerPhotoUrl: string;
+  ownerAge: number | null;
+  ownerLocation: string;
   userEmail: string | null;
   lastMessagePreview: string | null;
   lastUserMessageAt: string | null;
@@ -114,6 +126,8 @@ export async function loadOperatorInbox(
       peerAvatarUrl: peer?.avatar_url ?? "",
       ownerDisplayName: owner?.displayName ?? "Gebruiker",
       ownerPhotoUrl: owner?.photoUrl ?? "",
+      ownerAge: owner?.age ?? null,
+      ownerLocation: owner?.location ?? "",
       userEmail: emails.get(row.owner_user_id) ?? null,
       lastMessagePreview: row.last_message_preview,
       lastUserMessageAt: row.last_user_message_at,
@@ -134,6 +148,8 @@ export type OperatorThreadDetail = {
   ownerEmail: string | null;
   ownerDisplayName: string;
   ownerPhotoUrl: string;
+  ownerAge: number | null;
+  ownerLocation: string;
   messages: ChatMessageRow[];
   queue: OperatorQueueRow | null;
   memorySummary: string | null;
@@ -184,6 +200,8 @@ export async function loadOperatorThreadDetail(
     ownerEmail: authData?.user?.email ?? null,
     ownerDisplayName: owner?.displayName ?? "Gebruiker",
     ownerPhotoUrl: owner?.photoUrl ?? "",
+    ownerAge: owner?.age ?? null,
+    ownerLocation: owner?.location ?? "",
     messages: (messages ?? []) as ChatMessageRow[],
     queue: (queue as OperatorQueueRow | null) ?? null,
     memorySummary:
@@ -191,4 +209,104 @@ export async function loadOperatorThreadDetail(
         ? (mem as { summary: string }).summary
         : null,
   };
+}
+
+/** All chat threads for one user (every persona they messaged). */
+export type OperatorUserThreadItem = {
+  conversationId: string;
+  peerId: string;
+  peerDisplayName: string;
+  peerAvatarUrl: string;
+  lastMessagePreview: string | null;
+  lastActivityAt: string | null;
+  needsOperatorReply: boolean;
+  operatorStatus: string | null;
+};
+
+export async function loadOperatorUserThreads(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+): Promise<OperatorUserThreadItem[]> {
+  const { data: messages, error: msgErr } = await supabase
+    .from("chat_messages")
+    .select("peer_id, body, sender, kind, created_at")
+    .eq("owner_user_id", ownerUserId)
+    .order("created_at", { ascending: false })
+    .limit(800);
+
+  if (msgErr) throw new Error(msgErr.message);
+
+  const latestByPeer = new Map<
+    string,
+    {
+      preview: string;
+      at: string;
+    }
+  >();
+  for (const row of messages ?? []) {
+    const peerId = row.peer_id as string;
+    if (!peerId || latestByPeer.has(peerId)) continue;
+    const body = (row.body as string | null)?.trim();
+    const kind = row.kind as string | undefined;
+    const preview =
+      body ||
+      (kind === "image" ? "[afbeelding]" : kind === "gift" ? "[gift]" : "—");
+    latestByPeer.set(peerId, {
+      preview,
+      at: row.created_at as string,
+    });
+  }
+
+  const peerIds = Array.from(latestByPeer.keys());
+  if (!peerIds.length) return [];
+
+  const { data: profiles } = await supabase
+    .from("chat_profiles")
+    .select("id, display_name, avatar_url, is_ai")
+    .in("id", peerIds);
+
+  const profileMap = new Map(
+    (profiles ?? []).map((p) => [p.id as string, p as ChatProfileRow]),
+  );
+
+  const { data: queueRows } = await supabase
+    .from("chat_operator_queue")
+    .select("peer_id, needs_operator_reply, operator_status")
+    .eq("owner_user_id", ownerUserId);
+
+  const queueMap = new Map(
+    (queueRows ?? []).map((q) => [
+      q.peer_id as string,
+      q as {
+        needs_operator_reply: boolean;
+        operator_status: string;
+      },
+    ]),
+  );
+
+  const items: OperatorUserThreadItem[] = [];
+  for (const peerId of peerIds) {
+    const peer = profileMap.get(peerId);
+    if (peer && peer.is_ai === false) continue;
+    const latest = latestByPeer.get(peerId)!;
+    const queue = queueMap.get(peerId);
+    items.push({
+      conversationId: encodeConversationId(ownerUserId, peerId),
+      peerId,
+      peerDisplayName: peer?.display_name ?? "Onbekend",
+      peerAvatarUrl: peer?.avatar_url ?? "",
+      lastMessagePreview: latest.preview,
+      lastActivityAt: latest.at,
+      needsOperatorReply: queue?.needs_operator_reply ?? false,
+      operatorStatus: queue?.operator_status ?? null,
+    });
+  }
+
+  items.sort((a, b) => {
+    const ta = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : 0;
+    const tb = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : 0;
+    return tb - ta;
+  });
+
+  return items;
 }

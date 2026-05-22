@@ -22,6 +22,10 @@ When `TELEGRAM_BOT_TOKEN` and `TELEGRAM_OPERATOR_CHAT_IDS` are set:
 
 Env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OPERATOR_CHAT_IDS`, optional `TELEGRAM_WEBHOOK_SECRET`, optional `TELEGRAM_OPERATOR_USER_ID` (admin uuid for `assigned_operator_id`).
 
+**Forum topics (recommended at scale):** set `TELEGRAM_OPERATOR_GROUP_CHAT_ID` to a supergroup with Topics enabled. Each user+persona conversation gets its own topic; reply in that topic (no reply-to needed). Migration: `20260522140000_chat_operator_telegram_topics.sql`.
+
+**Operator inbox UX:** persona color badges, user photo + age/location context, “alleen ongelezen” filter, transcript recap in long threads.
+
 ---
 
 # Chat AI Pipeline — architectuur v2 (ChatTurnPlan)

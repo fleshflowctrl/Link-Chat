@@ -17,8 +17,32 @@ export function getTelegramOperatorChatIds(): number[] {
     .filter((n) => Number.isFinite(n));
 }
 
+/** Supergroup with Topics enabled — one topic per app conversation. */
+export function getTelegramOperatorGroupChatId(): number | null {
+  const raw = process.env.TELEGRAM_OPERATOR_GROUP_CHAT_ID?.trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Private operator chats + optional group id for incoming message auth. */
+export function getTelegramAllowedChatIds(): number[] {
+  const ids = new Set(getTelegramOperatorChatIds());
+  const group = getTelegramOperatorGroupChatId();
+  if (group != null) ids.add(group);
+  return Array.from(ids);
+}
+
 export function isTelegramOperatorEnabled(): boolean {
-  return Boolean(getTelegramBotToken() && getTelegramOperatorChatIds().length);
+  return Boolean(
+    getTelegramBotToken() &&
+      (getTelegramOperatorChatIds().length > 0 ||
+        getTelegramOperatorGroupChatId() != null),
+  );
+}
+
+export function useTelegramForumTopics(): boolean {
+  return Boolean(getTelegramBotToken() && getTelegramOperatorGroupChatId() != null);
 }
 
 export function getTelegramWebhookSecret(): string | null {

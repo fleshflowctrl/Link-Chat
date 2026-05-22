@@ -28,6 +28,11 @@ const nextConfig = {
         pathname: "/**",
       },
       ...supabasePatterns,
+      {
+        protocol: "https",
+        hostname: "api.dicebear.com",
+        pathname: "/7.x/**",
+      },
     ],
     // We host fallback initials-avatars as SVG in the chat-images bucket
     // (see lib/admin/fallback-avatar.ts). Allowing SVG through next/image

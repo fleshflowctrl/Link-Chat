@@ -3,9 +3,11 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import {
   getTelegramBotToken,
   getTelegramOperatorChatIds,
+  getTelegramOperatorGroupChatId,
   getTelegramWebhookSecret,
   getTelegramWebhookUrl,
   isTelegramOperatorEnabled,
+  useTelegramForumTopics,
 } from "@/lib/telegram/config";
 import {
   telegramDeleteWebhook,
@@ -35,6 +37,8 @@ export async function GET() {
     ok: true,
     configured: isTelegramOperatorEnabled(),
     operatorChatIds: getTelegramOperatorChatIds(),
+    operatorGroupChatId: getTelegramOperatorGroupChatId(),
+    forumTopicsEnabled: useTelegramForumTopics(),
     webhookUrl: getTelegramWebhookUrl(),
     hasWebhookSecret: Boolean(getTelegramWebhookSecret()),
     webhook: info.ok ? info.result : null,

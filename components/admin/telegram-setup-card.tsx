@@ -6,6 +6,8 @@ type SetupStatus = {
   ok: boolean;
   configured?: boolean;
   operatorChatIds?: number[];
+  operatorGroupChatId?: number | null;
+  forumTopicsEnabled?: boolean;
   webhookUrl?: string;
   hasWebhookSecret?: boolean;
   webhook?: {
@@ -98,12 +100,19 @@ export function TelegramSetupCard() {
             chat-id (komma voor meerdere).
           </li>
           <li>
+            <strong className="text-zinc-200">Aanbevolen bij veel chats:</strong> maak een
+            Telegram-groep → Topics aan → bot als admin → groep-id in{" "}
+            <code className="text-zinc-300">TELEGRAM_OPERATOR_GROUP_CHAT_ID</code> (één topic
+            per user+persona).
+          </li>
+          <li>
             Optioneel: <code className="text-zinc-300">TELEGRAM_WEBHOOK_SECRET</code>{" "}
             (willekeurige string) + zelfde op Vercel.
           </li>
           <li>
-            Run migratie <code className="text-zinc-300">20260522130000_chat_operator_telegram_map.sql</code>{" "}
-            in Supabase.
+            Run migraties <code className="text-zinc-300">20260522130000_chat_operator_telegram_map.sql</code>{" "}
+            en <code className="text-zinc-300">20260522140000_chat_operator_telegram_topics.sql</code> in
+            Supabase.
           </li>
           <li>
             Productie: klik hieronder <strong>Webhook instellen</strong> (HTTPS vereist).
@@ -129,6 +138,16 @@ export function TelegramSetupCard() {
             {status?.operatorChatIds?.length
               ? status.operatorChatIds.join(", ")
               : "—"}
+          </li>
+          <li>
+            Forum-groep (topics):{" "}
+            {status?.forumTopicsEnabled ? (
+              <span className="text-emerald-400">
+                {status.operatorGroupChatId}
+              </span>
+            ) : (
+              <span className="text-amber-400">niet gezet (DM + reply)</span>
+            )}
           </li>
           <li>
             Webhook URL: <code className="text-zinc-300">{status?.webhookUrl ?? "—"}</code>
