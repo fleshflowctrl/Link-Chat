@@ -37,6 +37,7 @@ import { createClient } from "@/utils/supabase/server";
 import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 import { upsertOperatorQueueForUserMessage } from "@/lib/operator/queue";
 import { getServiceSupabase } from "@/lib/supabase/admin";
+import { notifyOperatorViaTelegram } from "@/lib/telegram/notify";
 
 export const dynamic = "force-dynamic";
 /** Grok reasoning + sync pacing can exceed default limits. */
@@ -280,12 +281,22 @@ export async function POST(
   if (isManualOperatorMode()) {
     const service = getServiceSupabase();
     if (service) {
+      const preview = isImage ? "[afbeelding]" : (text || "").trim();
       await upsertOperatorQueueForUserMessage(service, {
         ownerUserId: user.id,
         peerId,
-        messagePreview: isImage ? "[afbeelding]" : (text || "").trim(),
+        messagePreview: preview,
         messageAt: insertedUser.created_at,
       });
+      try {
+        await notifyOperatorViaTelegram(service, {
+          ownerUserId: user.id,
+          peerId,
+          messagePreview: preview,
+        });
+      } catch (e) {
+        console.warn("[telegram] notify error", e);
+      }
     }
     return NextResponse.json({
       ok: true,

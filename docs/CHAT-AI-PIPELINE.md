@@ -10,6 +10,18 @@ When enabled in `.env.local`:
 - AI only via **`POST .../suggest-reply`** → `generatePeerReplyDraftOnly` (no DB insert).
 - Cancel old AI queue: `POST /api/operator/cancel-ai-pending`.
 
+### Telegram operator (optional)
+
+When `TELEGRAM_BOT_TOKEN` and `TELEGRAM_OPERATOR_CHAT_IDS` are set:
+
+- New user messages also notify your Telegram chat (HTML melding).
+- **Reply** on that Telegram message → same insert as web (`message_source=operator_telegram`).
+- Web inbox at `/operator/inbox` keeps working in parallel.
+- Setup: `/admin/telegram` → register webhook (HTTPS; production or ngrok locally).
+- DB: migration `20260522130000_chat_operator_telegram_map.sql`.
+
+Env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OPERATOR_CHAT_IDS`, optional `TELEGRAM_WEBHOOK_SECRET`, optional `TELEGRAM_OPERATOR_USER_ID` (admin uuid for `assigned_operator_id`).
+
 ---
 
 # Chat AI Pipeline — architectuur v2 (ChatTurnPlan)

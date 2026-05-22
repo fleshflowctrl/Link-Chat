@@ -134,6 +134,12 @@ export function AdminSidebarNav({ adminEmail }: { adminEmail: string | null }) {
           <ChatBubbleIcon className="h-4 w-4 shrink-0" />
           Operator inbox
         </Link>
+        <Link
+          href="/admin/telegram"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-white px-3 py-2 text-sm font-medium text-primary transition hover:bg-primary/5"
+        >
+          Telegram koppelen
+        </Link>
         <p className="mt-1.5 px-1 text-center text-[10px] text-gray-500">
           Handmatig antwoorden namens personas
         </p>
@@ -250,6 +256,13 @@ export function AdminMobileNav({ adminEmail }: { adminEmail?: string | null }) {
               >
                 <ChatBubbleIcon className="h-4 w-4 shrink-0" />
                 Operator inbox
+              </Link>
+              <Link
+                href="/admin/telegram"
+                onClick={close}
+                className="mt-2 flex w-full items-center justify-center rounded-xl border border-primary/30 px-3 py-2 text-sm font-medium text-primary"
+              >
+                Telegram koppelen
               </Link>
             </div>
 
