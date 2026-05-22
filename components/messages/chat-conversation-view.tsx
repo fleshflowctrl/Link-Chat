@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -47,6 +46,11 @@ import {
 } from "@/lib/credits/pricing";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { appVariantFetchHeaders, withVariantPath } from "@/lib/app-variant";
+import { useChatScroll } from "@/lib/chat/use-chat-scroll";
+import {
+  isChatKeyboardOpen,
+  useChatViewport,
+} from "@/lib/chat/use-chat-viewport";
 import { consumeFunnelAutoSend } from "@/lib/funnel/auto-send";
 import {
   applyServerCreditsUpdate,
@@ -297,11 +301,8 @@ export function ChatConversationView({
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
 
-  /** Shrink the chat shell to the visible viewport when the mobile keyboard opens. */
-  const [chatViewport, setChatViewport] = useState<{
-    height: number | null;
-    offsetTop: number;
-  }>({ height: null, offsetTop: 0 });
+  const chatViewport = useChatViewport();
+  const keyboardOpen = isChatKeyboardOpen(chatViewport);
   const longPressRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -362,22 +363,10 @@ export function ChatConversationView({
     return null;
   }, [messages]);
 
-  const scrollToBottom = useCallback(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  useEffect(() => {
-    if (chatViewport.height == null) return;
-    const keyboardLikelyOpen =
-      chatViewport.offsetTop > 0 ||
-      chatViewport.height < window.innerHeight - 80;
-    if (!keyboardLikelyOpen) return;
-    requestAnimationFrame(() => scrollToBottom());
-  }, [chatViewport, scrollToBottom]);
+  const { stickToBottom } = useChatScroll(scrollRef, endRef, {
+    messageCount: messages.length,
+    keyboardOpen,
+  });
 
   /** Deliver due async-scheduled AI replies (extra chunks, catch-up). */
   const pollPending = useCallback(
@@ -754,24 +743,6 @@ export function ChatConversationView({
       window.clearInterval(interval);
     };
   }, [useSupabase, syncMessagesFromServer]);
-
-  useLayoutEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const syncViewport = () => {
-      setChatViewport({
-        height: vv.height,
-        offsetTop: vv.offsetTop,
-      });
-    };
-    syncViewport();
-    vv.addEventListener("resize", syncViewport);
-    vv.addEventListener("scroll", syncViewport);
-    return () => {
-      vv.removeEventListener("resize", syncViewport);
-      vv.removeEventListener("scroll", syncViewport);
-    };
-  }, []);
 
   const sendText = useCallback(
     async (text: string) => {
@@ -1210,6 +1181,7 @@ export function ChatConversationView({
             chatViewport.offsetTop > 0
               ? `translateY(${chatViewport.offsetTop}px)`
               : undefined,
+          willChange: keyboardOpen ? "height, transform" : undefined,
         }
       : undefined;
 
@@ -1358,7 +1330,7 @@ export function ChatConversationView({
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pb-3"
+        className="chat-message-scroll min-h-0 flex-1 overflow-y-auto px-4 pb-3"
       >
         <p className="py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
           Vandaag
@@ -1371,10 +1343,10 @@ export function ChatConversationView({
               initial={
                 skipEntryAnimateIds.has(msg.id)
                   ? false
-                  : { scale: 0.94, opacity: 0 }
+                  : { opacity: 0, y: 6 }
               }
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 520, damping: 34 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               className={msg.marginTopClass}
             >
               {msg.sender === "peer" ? (
@@ -1600,7 +1572,7 @@ export function ChatConversationView({
             </motion.div>
           ))}
         </div>
-        <div ref={endRef} className="h-1 shrink-0" aria-hidden />
+        <div ref={endRef} className="chat-scroll-anchor w-full shrink-0" aria-hidden />
       </div>
 
       <AnimatePresence>
@@ -1718,9 +1690,7 @@ export function ChatConversationView({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onFocus={() => {
-                requestAnimationFrame(() => scrollToBottom());
-              }}
+              onFocus={() => stickToBottom()}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -1728,35 +1698,46 @@ export function ChatConversationView({
                 }
               }}
               placeholder="Typ een bericht…"
-              className="h-12 w-full rounded-full border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none transition placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
+              enterKeyHint="send"
+              autoComplete="off"
+              autoCorrect="on"
+              className="h-12 w-full rounded-full border-0 bg-white px-4 text-[16px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none transition placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
             />
           </div>
-          {input.trim() ? (
-            <motion.button
-              type="button"
-              key="send"
-              initial={{ scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95 ${sendBusy ? "opacity-80" : ""}`}
-              aria-label={sendBusy ? "Versturen…" : "Versturen"}
-              aria-busy={sendBusy}
-              onClick={() => void sendText(input)}
-            >
-              <Send className="h-5 w-5" strokeWidth={2.25} />
-            </motion.button>
-          ) : (
-            <motion.button
-              type="button"
-              key="gift"
-              initial={{ scale: 0.85, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
-              aria-label="Cadeau geven"
-              onClick={() => setGiftOpen(true)}
-            >
-              <Gift className="h-5 w-5" strokeWidth={2.25} />
-            </motion.button>
-          )}
+          <div className="relative h-11 w-11 shrink-0">
+            <AnimatePresence mode="wait" initial={false}>
+              {input.trim() ? (
+                <motion.button
+                  type="button"
+                  key="send"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.92 }}
+                  transition={{ duration: 0.14 }}
+                  className={`absolute inset-0 flex items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95 ${sendBusy ? "opacity-80" : ""}`}
+                  aria-label={sendBusy ? "Versturen…" : "Versturen"}
+                  aria-busy={sendBusy}
+                  onClick={() => void sendText(input)}
+                >
+                  <Send className="h-5 w-5" strokeWidth={2.25} />
+                </motion.button>
+              ) : (
+                <motion.button
+                  type="button"
+                  key="gift"
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.92 }}
+                  transition={{ duration: 0.14 }}
+                  className="absolute inset-0 flex items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
+                  aria-label="Cadeau geven"
+                  onClick={() => setGiftOpen(true)}
+                >
+                  <Gift className="h-5 w-5" strokeWidth={2.25} />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 

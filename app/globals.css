@@ -133,6 +133,19 @@ html.funnel-scroll-lock body {
 }
 
 @layer utilities {
+  /** Chat thread list — momentum scroll + anchor at bottom (WhatsApp-style). */
+  .chat-message-scroll {
+    overflow-anchor: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+  }
+
+  .chat-scroll-anchor {
+    overflow-anchor: auto;
+    height: 1px;
+  }
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
