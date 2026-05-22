@@ -3,12 +3,51 @@ import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
 import { encodeConversationId } from "@/lib/operator/conversation-key";
 import type { OperatorQueueRow } from "@/lib/operator/queue";
 
+export type OwnerProfileSnippet = {
+  displayName: string;
+  photoUrl: string;
+};
+
+export async function loadOwnerProfileSnippets(
+  supabase: SupabaseClient,
+  ownerUserIds: string[],
+): Promise<Map<string, OwnerProfileSnippet>> {
+  const map = new Map<string, OwnerProfileSnippet>();
+  if (!ownerUserIds.length) return map;
+
+  const { data: rows } = await supabase
+    .from("user_profiles")
+    .select("user_id, first_name, main_photo_url")
+    .in("user_id", ownerUserIds);
+
+  for (const row of rows ?? []) {
+    const uid = row.user_id as string;
+    const first = (row.first_name as string)?.trim();
+    map.set(uid, {
+      displayName: first || "Gebruiker",
+      photoUrl: (row.main_photo_url as string)?.trim() || "",
+    });
+  }
+
+  for (const oid of ownerUserIds) {
+    if (map.has(oid)) continue;
+    const { data: authData } = await supabase.auth.admin.getUserById(oid);
+    const email = authData?.user?.email ?? "";
+    const name = email ? email.split("@")[0] : "Gebruiker";
+    map.set(oid, { displayName: name, photoUrl: "" });
+  }
+
+  return map;
+}
+
 export type OperatorInboxItem = {
   conversationId: string;
   ownerUserId: string;
   peerId: string;
   peerDisplayName: string;
   peerAvatarUrl: string;
+  ownerDisplayName: string;
+  ownerPhotoUrl: string;
   userEmail: string | null;
   lastMessagePreview: string | null;
   lastUserMessageAt: string | null;
@@ -62,14 +101,19 @@ export async function loadOperatorInbox(
     emails.set(oid, authData?.user?.email ?? null);
   }
 
+  const ownerProfiles = await loadOwnerProfileSnippets(supabase, ownerIds);
+
   return queue.map((row) => {
     const peer = profileMap.get(row.peer_id);
+    const owner = ownerProfiles.get(row.owner_user_id);
     return {
       conversationId: encodeConversationId(row.owner_user_id, row.peer_id),
       ownerUserId: row.owner_user_id,
       peerId: row.peer_id,
       peerDisplayName: peer?.display_name ?? "Onbekend",
       peerAvatarUrl: peer?.avatar_url ?? "",
+      ownerDisplayName: owner?.displayName ?? "Gebruiker",
+      ownerPhotoUrl: owner?.photoUrl ?? "",
       userEmail: emails.get(row.owner_user_id) ?? null,
       lastMessagePreview: row.last_message_preview,
       lastUserMessageAt: row.last_user_message_at,
@@ -88,6 +132,8 @@ export type OperatorThreadDetail = {
   peerId: string;
   peer: ChatProfileRow;
   ownerEmail: string | null;
+  ownerDisplayName: string;
+  ownerPhotoUrl: string;
   messages: ChatMessageRow[];
   queue: OperatorQueueRow | null;
   memorySummary: string | null;
@@ -127,6 +173,8 @@ export async function loadOperatorThreadDetail(
     .maybeSingle();
 
   const { data: authData } = await supabase.auth.admin.getUserById(ownerUserId);
+  const ownerProfiles = await loadOwnerProfileSnippets(supabase, [ownerUserId]);
+  const owner = ownerProfiles.get(ownerUserId);
 
   return {
     conversationId: encodeConversationId(ownerUserId, peerId),
@@ -134,6 +182,8 @@ export async function loadOperatorThreadDetail(
     peerId,
     peer: peer as ChatProfileRow,
     ownerEmail: authData?.user?.email ?? null,
+    ownerDisplayName: owner?.displayName ?? "Gebruiker",
+    ownerPhotoUrl: owner?.photoUrl ?? "",
     messages: (messages ?? []) as ChatMessageRow[],
     queue: (queue as OperatorQueueRow | null) ?? null,
     memorySummary:

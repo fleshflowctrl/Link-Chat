@@ -1,49 +1,96 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronLeft, MoreHorizontal, User } from "lucide-react";
 import type { ChatMessage } from "@/data/messages";
 
 type InboxItem = {
   conversationId: string;
   peerDisplayName: string;
-  peerAvatarUrl: string;
+  ownerDisplayName: string;
+  ownerPhotoUrl: string;
   userEmail: string | null;
   lastMessagePreview: string | null;
   lastUserMessageAt: string | null;
   unreadForOperator: boolean;
-  status: string;
 };
 
 type ThreadDetail = {
   conversationId: string;
   peer: { display_name: string; avatar_url: string };
+  ownerDisplayName: string;
+  ownerPhotoUrl: string;
   ownerEmail: string | null;
   messages: ChatMessage[];
-  memorySummary: string | null;
-  queue: { operator_status: string } | null;
 };
 
 function formatRel(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "";
   return new Date(iso).toLocaleString("nl-NL", {
-    dateStyle: "short",
-    timeStyle: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
+function Avatar({
+  src,
+  alt,
+  size = "md",
+  className = "",
+}: {
+  src: string | null | undefined;
+  alt: string;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  const dim =
+    size === "lg"
+      ? "h-12 w-12"
+      : size === "sm"
+        ? "h-8 w-8"
+        : "h-10 w-10";
+  const px = size === "lg" ? 48 : size === "sm" ? 32 : 40;
+  const hasSrc = Boolean(src?.trim());
+  if (hasSrc) {
+    return (
+      <Image
+        src={src!}
+        alt={alt}
+        width={px}
+        height={px}
+        className={`${dim} shrink-0 rounded-full object-cover ${className}`}
+        unoptimized={src!.startsWith("http")}
+      />
+    );
+  }
+  return (
+    <span
+      className={`${dim} flex shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-500 ${className}`}
+      aria-hidden
+    >
+      <User
+        className={size === "lg" ? "h-6 w-6" : size === "sm" ? "h-4 w-4" : "h-5 w-5"}
+        strokeWidth={2}
+      />
+    </span>
+  );
+}
 
 export function OperatorInbox() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ThreadDetail | null>(null);
   const [replyText, setReplyText] = useState("");
-  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const showThreadPanel = Boolean(selectedId && detail);
-  const showListOnMobile = !showThreadPanel;
+  const inThread = Boolean(selectedId && detail);
 
   const loadInbox = useCallback(async () => {
     const res = await fetch("/api/operator/conversations");
@@ -62,7 +109,6 @@ export function OperatorInbox() {
 
   const loadThread = useCallback(async (conversationId: string) => {
     setLoading(true);
-    setSuggestion(null);
     const res = await fetch(`/api/operator/conversations/${conversationId}`);
     const data = (await res.json()) as ThreadDetail & { ok: boolean; error?: string };
     setLoading(false);
@@ -73,10 +119,10 @@ export function OperatorInbox() {
     setDetail({
       conversationId: data.conversationId,
       peer: data.peer,
+      ownerDisplayName: data.ownerDisplayName,
+      ownerPhotoUrl: data.ownerPhotoUrl,
       ownerEmail: data.ownerEmail,
       messages: data.messages,
-      memorySummary: data.memorySummary,
-      queue: data.queue,
     });
     setError(null);
   }, []);
@@ -91,8 +137,23 @@ export function OperatorInbox() {
     if (selectedId) void loadThread(selectedId);
   }, [selectedId, loadThread]);
 
+  useEffect(() => {
+    if (inThread) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [detail?.messages, inThread]);
+
   function selectConversation(id: string) {
     setSelectedId(id);
+    setMenuOpen(false);
+    setError(null);
+  }
+
+  function backToList() {
+    setSelectedId(null);
+    setDetail(null);
+    setReplyText("");
+    setMenuOpen(false);
     setError(null);
   }
 
@@ -111,13 +172,13 @@ export function OperatorInbox() {
       return;
     }
     setReplyText("");
-    setSuggestion(null);
     await loadThread(selectedId);
     await loadInbox();
   }
 
   async function fetchSuggestion() {
     if (!selectedId) return;
+    setMenuOpen(false);
     setLoading(true);
     const res = await fetch(
       `/api/operator/conversations/${selectedId}/suggest-reply`,
@@ -133,19 +194,12 @@ export function OperatorInbox() {
       setError(data.error ?? "Suggestie mislukt");
       return;
     }
-    setSuggestion(data.suggestion ?? null);
     if (data.suggestion) setReplyText(data.suggestion);
-  }
-
-  function backToList() {
-    setSelectedId(null);
-    setDetail(null);
-    setSuggestion(null);
-    setError(null);
   }
 
   async function markClosed() {
     if (!selectedId) return;
+    setMenuOpen(false);
     await fetch(`/api/operator/conversations/${selectedId}/close`, {
       method: "POST",
     });
@@ -154,182 +208,221 @@ export function OperatorInbox() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm lg:min-h-[520px] lg:max-h-[calc(100dvh-10rem)] lg:flex-row lg:rounded-2xl">
-      {/* Inbox list — full width on phone when no thread open */}
-      <aside
-        className={`flex min-h-0 flex-1 flex-col border-neutral-200 lg:w-full lg:max-w-sm lg:shrink-0 lg:border-r ${
-          showListOnMobile ? "flex" : "hidden"
-        } lg:flex`}
-      >
-        <div className="shrink-0 border-b border-neutral-100 px-3 py-3 sm:px-4">
-          <h2 className="text-sm font-semibold text-neutral-900">Wacht op antwoord</h2>
-          <p className="text-xs text-neutral-500">{items.length} gesprekken</p>
-        </div>
-        <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          {items.map((item) => (
-            <li key={item.conversationId}>
-              <button
-                type="button"
-                onClick={() => selectConversation(item.conversationId)}
-                className={`flex w-full gap-3 px-3 py-3.5 text-left active:bg-neutral-100 sm:px-4 ${
-                  selectedId === item.conversationId
-                    ? "bg-primary/5"
-                    : "hover:bg-neutral-50"
-                }`}
+    <div className="flex min-h-0 min-h-dvh flex-1 flex-col overflow-hidden lg:min-h-0 lg:flex-row">
+      {/* Inbox list */}
+      {!inThread && (
+        <div className="flex min-h-0 flex-1 flex-col bg-white lg:max-w-sm lg:shrink-0 lg:border-r lg:border-neutral-200">
+          <div className="shrink-0 border-b border-neutral-200 px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-neutral-900">Gesprekken</h2>
+              <Link
+                href="/admin"
+                className="text-xs font-medium text-neutral-500 hover:text-neutral-800"
               >
-                <Image
-                  src={item.peerAvatarUrl || "/placeholder-avatar.png"}
-                  alt=""
-                  width={44}
-                  height={44}
-                  className="h-11 w-11 shrink-0 rounded-full object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium text-neutral-900">
-                      {item.peerDisplayName}
-                    </span>
-                    {item.unreadForOperator && (
-                      <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-white">
-                        nieuw
-                      </span>
-                    )}
-                  </div>
-                  <p className="truncate text-xs text-neutral-500">
-                    {item.userEmail ?? "user"}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-neutral-600">
-                    {item.lastMessagePreview ?? "—"}
-                  </p>
-                  <p className="text-[10px] text-neutral-400">
-                    {formatRel(item.lastUserMessageAt)}
-                  </p>
-                </div>
-              </button>
-            </li>
-          ))}
-          {items.length === 0 && (
-            <li className="px-4 py-12 text-center text-sm text-neutral-500">
-              Geen open gesprekken
-            </li>
-          )}
-        </ul>
-      </aside>
-
-      {/* Thread — full screen on phone when selected */}
-      <section
-        className={`min-h-0 flex-1 flex-col ${
-          showThreadPanel ? "flex" : "hidden"
-        } lg:flex`}
-      >
-        {!detail ? (
-          <div className="hidden flex-1 items-center justify-center p-6 text-sm text-neutral-500 lg:flex">
-            Kies een gesprek in de lijst
+                Admin
+              </Link>
+            </div>
+            <p className="text-xs text-neutral-500">{items.length} open</p>
           </div>
-        ) : (
-          <>
-            <header className="flex shrink-0 items-start gap-2 border-b border-neutral-100 px-3 py-3 sm:px-4">
+          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {items.map((item) => (
+              <li key={item.conversationId}>
+                <button
+                  type="button"
+                  onClick={() => selectConversation(item.conversationId)}
+                  className="flex w-full gap-3 border-b border-neutral-50 px-4 py-3.5 text-left active:bg-neutral-50"
+                >
+                  <Avatar
+                    src={item.ownerPhotoUrl}
+                    alt={item.ownerDisplayName}
+                    size="lg"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-[15px] font-semibold text-neutral-900">
+                        {item.ownerDisplayName}
+                      </span>
+                      {item.lastUserMessageAt && (
+                        <span className="shrink-0 text-[11px] text-neutral-400">
+                          {formatRel(item.lastUserMessageAt)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="truncate text-xs text-neutral-500">
+                      → {item.peerDisplayName}
+                      {item.userEmail ? ` · ${item.userEmail}` : ""}
+                    </p>
+                    <p className="mt-0.5 truncate text-sm text-neutral-600">
+                      {item.lastMessagePreview ?? "—"}
+                    </p>
+                  </div>
+                  {item.unreadForOperator && (
+                    <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+                  )}
+                </button>
+              </li>
+            ))}
+            {items.length === 0 && (
+              <li className="px-4 py-16 text-center text-sm text-neutral-500">
+                Geen open gesprekken
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {/* Full-screen chat */}
+      {inThread && detail && (
+        <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[#f0f0f0] lg:relative lg:inset-auto lg:z-auto lg:min-h-0 lg:flex-1">
+          <header className="flex shrink-0 items-center gap-2 border-b border-neutral-200/80 bg-white px-2 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-sm">
+            <button
+              type="button"
+              onClick={backToList}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-800 active:bg-neutral-100"
+              aria-label="Terug naar gesprekken"
+            >
+              <ChevronLeft className="h-6 w-6" strokeWidth={2} />
+            </button>
+            <Avatar
+              src={detail.ownerPhotoUrl}
+              alt={detail.ownerDisplayName}
+              size="md"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-semibold leading-tight text-neutral-900">
+                {detail.ownerDisplayName}
+              </p>
+              <p className="truncate text-xs text-neutral-500">
+                Jij antwoordt als {detail.peer.display_name}
+              </p>
+            </div>
+            <div className="relative shrink-0">
               <button
                 type="button"
-                onClick={backToList}
-                className="lg:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-700 active:bg-neutral-100"
-                aria-label="Terug naar inbox"
+                onClick={() => setMenuOpen((o) => !o)}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-neutral-600 active:bg-neutral-100"
+                aria-label="Meer opties"
               >
-                <span className="text-xl leading-none" aria-hidden>
-                  ←
-                </span>
+                <MoreHorizontal className="h-5 w-5" />
               </button>
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-sm font-semibold sm:text-base">
-                  {detail.peer.display_name}
-                </h2>
-                <p className="truncate text-xs text-neutral-500">
-                  {detail.ownerEmail ?? "—"} · {detail.queue?.operator_status ?? "—"}
-                </p>
-                {detail.memorySummary && (
-                  <p className="mt-1 line-clamp-2 text-xs text-neutral-600">
-                    {detail.memorySummary}
-                  </p>
-                )}
-              </div>
-            </header>
-
-            <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4">
-              {loading && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 text-sm text-neutral-600">
-                  Laden…
-                </div>
+              {menuOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-10"
+                    aria-label="Menu sluiten"
+                    onClick={() => setMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full z-20 mt-1 min-w-[10rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg">
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => void fetchSuggestion()}
+                      className="block w-full px-4 py-2.5 text-left text-sm text-neutral-800 active:bg-neutral-50"
+                    >
+                      AI-suggestie
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => void markClosed()}
+                      className="block w-full px-4 py-2.5 text-left text-sm text-neutral-600 active:bg-neutral-50"
+                    >
+                      Afsluiten
+                    </button>
+                  </div>
+                </>
               )}
-              <div className="space-y-2 pb-2">
-                {detail.messages.map((m) => (
+            </div>
+          </header>
+
+          <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
+            {loading && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#f0f0f0]/60 text-sm text-neutral-600">
+                Laden…
+              </div>
+            )}
+            <div className="space-y-1">
+              {detail.messages.map((m) => {
+                const isPeer = m.sender === "peer";
+                return (
                   <div
                     key={m.id}
-                    className={`max-w-[min(85%,20rem)] rounded-2xl px-3 py-2.5 text-sm leading-snug ${
-                      m.sender === "peer"
-                        ? "ml-auto bg-primary/10 text-neutral-900"
-                        : "mr-auto bg-neutral-100 text-neutral-800"
-                    }`}
+                    className={`flex gap-2 ${isPeer ? "flex-row-reverse" : "flex-row"}`}
                   >
-                    <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-neutral-400">
-                      {m.sender === "peer" ? detail.peer.display_name : "User"}
-                    </span>
-                    <span className="break-words">
-                      {m.body ?? (m.kind === "image" ? "[afbeelding]" : "")}
-                    </span>
+                    {!isPeer ? (
+                      <Avatar
+                        src={detail.ownerPhotoUrl}
+                        alt=""
+                        size="sm"
+                        className="mt-1"
+                      />
+                    ) : (
+                      <Avatar
+                        src={detail.peer.avatar_url}
+                        alt=""
+                        size="sm"
+                        className="mt-1"
+                      />
+                    )}
+                    <div
+                      className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-[15px] leading-snug shadow-sm ${
+                        isPeer
+                          ? "rounded-br-md bg-primary text-white"
+                          : "rounded-bl-md bg-white text-neutral-900"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap break-words">
+                        {m.body ?? (m.kind === "image" ? "[afbeelding]" : "")}
+                      </p>
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
             </div>
+          </div>
 
-            {suggestion && (
-              <p className="shrink-0 mx-3 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:mx-4">
-                AI-suggestie — bewerk en tik op Versturen.
-              </p>
-            )}
+          {error && (
+            <p className="shrink-0 bg-red-50 px-4 py-2 text-center text-xs text-red-800">
+              {error}
+            </p>
+          )}
 
-            <footer className="shrink-0 border-t border-neutral-100 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
+          <footer className="shrink-0 border-t border-neutral-200/80 bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-end gap-2">
               <textarea
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
-                rows={2}
-                placeholder={`Antwoord als ${detail.peer.display_name}…`}
-                className="mb-2 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2.5 text-base sm:text-sm"
+                rows={1}
+                placeholder="Bericht…"
+                className="max-h-28 min-h-[44px] flex-1 resize-none rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-base leading-snug focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendReply();
+                  }
+                }}
               />
-              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-                <button
-                  type="button"
-                  disabled={loading || !replyText.trim()}
-                  onClick={() => void sendReply()}
-                  className="min-h-[44px] w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
-                >
-                  Versturen als {detail.peer.display_name}
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void fetchSuggestion()}
-                  className="min-h-[44px] w-full rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium active:bg-neutral-50 sm:w-auto"
-                >
-                  AI suggestie
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => void markClosed()}
-                  className="min-h-[44px] w-full rounded-xl border border-neutral-200 px-4 py-2.5 text-sm text-neutral-600 active:bg-neutral-50 sm:w-auto"
-                >
-                  Afsluiten
-                </button>
-              </div>
-            </footer>
-          </>
-        )}
-        {error && (
-          <p className="shrink-0 border-t border-red-100 bg-red-50 px-3 py-2 text-xs text-red-800 sm:px-4">
-            {error}
-          </p>
-        )}
-      </section>
+              <button
+                type="button"
+                disabled={loading || !replyText.trim()}
+                onClick={() => void sendReply()}
+                className="flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-full bg-primary px-4 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                Stuur
+              </button>
+            </div>
+          </footer>
+        </div>
+      )}
+
+      {/* Desktop empty state when no thread */}
+      {!inThread && (
+        <div className="hidden flex-1 items-center justify-center bg-neutral-100 text-sm text-neutral-500 lg:flex">
+          Kies een gesprek
+        </div>
+      )}
     </div>
   );
 }

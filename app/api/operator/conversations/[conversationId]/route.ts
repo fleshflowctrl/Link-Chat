@@ -33,6 +33,8 @@ export async function GET(
       ownerUserId: detail.ownerUserId,
       peerId: detail.peerId,
       ownerEmail: detail.ownerEmail,
+      ownerDisplayName: detail.ownerDisplayName,
+      ownerPhotoUrl: detail.ownerPhotoUrl,
       peer: detail.peer,
       queue: detail.queue,
       memorySummary: detail.memorySummary,
