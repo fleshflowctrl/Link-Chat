@@ -19,27 +19,37 @@ export default async function OperatorLayout({
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
-          <div>
-            <h1 className="text-lg font-semibold text-neutral-900">Operator inbox</h1>
-            <p className="text-xs text-neutral-500">
-              Handmatige antwoorden namens personas
-              {isManualOperatorMode() ? " · MANUAL_OPERATOR_MODE actief" : ""}
+    <div className="flex min-h-dvh flex-col bg-neutral-50">
+      <header className="shrink-0 border-b border-neutral-200 bg-white pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-4 sm:py-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-semibold text-neutral-900 sm:text-lg">
+              Operator inbox
+            </h1>
+            <p className="text-[11px] text-neutral-500 sm:text-xs">
+              Handmatige antwoorden
+              {isManualOperatorMode() ? " · manual mode" : ""}
             </p>
           </div>
-          <nav className="flex gap-3 text-sm">
-            <Link href="/operator/inbox" className="text-primary hover:underline">
+          <nav className="flex shrink-0 gap-4 text-sm">
+            <Link
+              href="/operator/inbox"
+              className="min-h-[44px] flex items-center font-medium text-primary"
+            >
               Inbox
             </Link>
-            <Link href="/admin" className="text-neutral-600 hover:underline">
+            <Link
+              href="/admin"
+              className="min-h-[44px] flex items-center text-neutral-600"
+            >
               Admin
             </Link>
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+      <main className="mx-auto flex w-full min-h-0 max-w-7xl flex-1 flex-col px-2 py-2 sm:px-4 sm:py-4 lg:py-6">
+        {children}
+      </main>
     </div>
   );
 }

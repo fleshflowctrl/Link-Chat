@@ -32,6 +32,7 @@ function formatRel(iso: string | null): string {
   });
 }
 
+
 export function OperatorInbox() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -40,6 +41,9 @@ export function OperatorInbox() {
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const showThreadPanel = Boolean(selectedId && detail);
+  const showListOnMobile = !showThreadPanel;
 
   const loadInbox = useCallback(async () => {
     const res = await fetch("/api/operator/conversations");
@@ -53,8 +57,8 @@ export function OperatorInbox() {
       return;
     }
     setItems(data.conversations ?? []);
-    setError(null);
-  }, []);
+    if (!selectedId) setError(null);
+  }, [selectedId]);
 
   const loadThread = useCallback(async (conversationId: string) => {
     setLoading(true);
@@ -86,6 +90,11 @@ export function OperatorInbox() {
   useEffect(() => {
     if (selectedId) void loadThread(selectedId);
   }, [selectedId, loadThread]);
+
+  function selectConversation(id: string) {
+    setSelectedId(id);
+    setError(null);
+  }
 
   async function sendReply() {
     if (!selectedId || !replyText.trim()) return;
@@ -128,39 +137,52 @@ export function OperatorInbox() {
     if (data.suggestion) setReplyText(data.suggestion);
   }
 
+  function backToList() {
+    setSelectedId(null);
+    setDetail(null);
+    setSuggestion(null);
+    setError(null);
+  }
+
   async function markClosed() {
     if (!selectedId) return;
     await fetch(`/api/operator/conversations/${selectedId}/close`, {
       method: "POST",
     });
     await loadInbox();
-    setSelectedId(null);
-    setDetail(null);
+    backToList();
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-[480px] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
-      <aside className="w-full max-w-sm shrink-0 border-r border-neutral-200 flex flex-col">
-        <div className="border-b border-neutral-100 px-4 py-3">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm lg:min-h-[520px] lg:max-h-[calc(100dvh-10rem)] lg:flex-row lg:rounded-2xl">
+      {/* Inbox list — full width on phone when no thread open */}
+      <aside
+        className={`flex min-h-0 flex-1 flex-col border-neutral-200 lg:w-full lg:max-w-sm lg:shrink-0 lg:border-r ${
+          showListOnMobile ? "flex" : "hidden"
+        } lg:flex`}
+      >
+        <div className="shrink-0 border-b border-neutral-100 px-3 py-3 sm:px-4">
           <h2 className="text-sm font-semibold text-neutral-900">Wacht op antwoord</h2>
           <p className="text-xs text-neutral-500">{items.length} gesprekken</p>
         </div>
-        <ul className="flex-1 overflow-y-auto">
+        <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {items.map((item) => (
             <li key={item.conversationId}>
               <button
                 type="button"
-                onClick={() => setSelectedId(item.conversationId)}
-                className={`flex w-full gap-3 px-4 py-3 text-left hover:bg-neutral-50 ${
-                  selectedId === item.conversationId ? "bg-primary/5" : ""
+                onClick={() => selectConversation(item.conversationId)}
+                className={`flex w-full gap-3 px-3 py-3.5 text-left active:bg-neutral-100 sm:px-4 ${
+                  selectedId === item.conversationId
+                    ? "bg-primary/5"
+                    : "hover:bg-neutral-50"
                 }`}
               >
                 <Image
                   src={item.peerAvatarUrl || "/placeholder-avatar.png"}
                   alt=""
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 shrink-0 rounded-full object-cover"
+                  width={44}
+                  height={44}
+                  className="h-11 w-11 shrink-0 rounded-full object-cover"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
@@ -168,7 +190,7 @@ export function OperatorInbox() {
                       {item.peerDisplayName}
                     </span>
                     {item.unreadForOperator && (
-                      <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-white">
+                      <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-white">
                         nieuw
                       </span>
                     )}
@@ -187,76 +209,106 @@ export function OperatorInbox() {
             </li>
           ))}
           {items.length === 0 && (
-            <li className="px-4 py-8 text-center text-sm text-neutral-500">
+            <li className="px-4 py-12 text-center text-sm text-neutral-500">
               Geen open gesprekken
             </li>
           )}
         </ul>
       </aside>
 
-      <section className="flex min-w-0 flex-1 flex-col">
+      {/* Thread — full screen on phone when selected */}
+      <section
+        className={`min-h-0 flex-1 flex-col ${
+          showThreadPanel ? "flex" : "hidden"
+        } lg:flex`}
+      >
         {!detail ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-neutral-500">
-            Kies een gesprek links
+          <div className="hidden flex-1 items-center justify-center p-6 text-sm text-neutral-500 lg:flex">
+            Kies een gesprek in de lijst
           </div>
         ) : (
           <>
-            <header className="border-b border-neutral-100 px-4 py-3">
-              <h2 className="text-sm font-semibold">{detail.peer.display_name}</h2>
-              <p className="text-xs text-neutral-500">
-                User: {detail.ownerEmail ?? "—"} · status:{" "}
-                {detail.queue?.operator_status ?? "—"}
-              </p>
-              {detail.memorySummary && (
-                <p className="mt-2 line-clamp-2 text-xs text-neutral-600">
-                  Memory: {detail.memorySummary}
+            <header className="flex shrink-0 items-start gap-2 border-b border-neutral-100 px-3 py-3 sm:px-4">
+              <button
+                type="button"
+                onClick={backToList}
+                className="lg:hidden flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-neutral-700 active:bg-neutral-100"
+                aria-label="Terug naar inbox"
+              >
+                <span className="text-xl leading-none" aria-hidden>
+                  ←
+                </span>
+              </button>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-sm font-semibold sm:text-base">
+                  {detail.peer.display_name}
+                </h2>
+                <p className="truncate text-xs text-neutral-500">
+                  {detail.ownerEmail ?? "—"} · {detail.queue?.operator_status ?? "—"}
                 </p>
-              )}
+                {detail.memorySummary && (
+                  <p className="mt-1 line-clamp-2 text-xs text-neutral-600">
+                    {detail.memorySummary}
+                  </p>
+                )}
+              </div>
             </header>
-            <div className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
-              {detail.messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
-                    m.sender === "peer"
-                      ? "ml-auto bg-primary/10 text-neutral-900"
-                      : "bg-neutral-100 text-neutral-800"
-                  }`}
-                >
-                  <span className="mb-0.5 block text-[10px] font-medium uppercase text-neutral-400">
-                    {m.sender === "peer" ? detail.peer.display_name : "User"}
-                  </span>
-                  {m.body ?? (m.kind === "image" ? "[afbeelding]" : "")}
+
+            <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sm:px-4">
+              {loading && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 text-sm text-neutral-600">
+                  Laden…
                 </div>
-              ))}
+              )}
+              <div className="space-y-2 pb-2">
+                {detail.messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`max-w-[min(85%,20rem)] rounded-2xl px-3 py-2.5 text-sm leading-snug ${
+                      m.sender === "peer"
+                        ? "ml-auto bg-primary/10 text-neutral-900"
+                        : "mr-auto bg-neutral-100 text-neutral-800"
+                    }`}
+                  >
+                    <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-neutral-400">
+                      {m.sender === "peer" ? detail.peer.display_name : "User"}
+                    </span>
+                    <span className="break-words">
+                      {m.body ?? (m.kind === "image" ? "[afbeelding]" : "")}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
+
             {suggestion && (
-              <p className="mx-4 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                AI-suggestie (nog niet verzonden): bewerk en klik Send.
+              <p className="shrink-0 mx-3 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:mx-4">
+                AI-suggestie — bewerk en tik op Versturen.
               </p>
             )}
-            <footer className="border-t border-neutral-100 p-4 space-y-2">
+
+            <footer className="shrink-0 border-t border-neutral-100 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
               <textarea
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
-                rows={3}
+                rows={2}
                 placeholder={`Antwoord als ${detail.peer.display_name}…`}
-                className="w-full resize-none rounded-xl border border-neutral-200 px-3 py-2 text-sm"
+                className="mb-2 w-full resize-none rounded-xl border border-neutral-200 px-3 py-2.5 text-base sm:text-sm"
               />
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                 <button
                   type="button"
                   disabled={loading || !replyText.trim()}
                   onClick={() => void sendReply()}
-                  className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                  className="min-h-[44px] w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
                 >
-                  Send as {detail.peer.display_name}
+                  Versturen als {detail.peer.display_name}
                 </button>
                 <button
                   type="button"
                   disabled={loading}
                   onClick={() => void fetchSuggestion()}
-                  className="rounded-xl border border-neutral-200 px-4 py-2 text-sm"
+                  className="min-h-[44px] w-full rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium active:bg-neutral-50 sm:w-auto"
                 >
                   AI suggestie
                 </button>
@@ -264,16 +316,16 @@ export function OperatorInbox() {
                   type="button"
                   disabled={loading}
                   onClick={() => void markClosed()}
-                  className="rounded-xl border border-neutral-200 px-4 py-2 text-sm text-neutral-600"
+                  className="min-h-[44px] w-full rounded-xl border border-neutral-200 px-4 py-2.5 text-sm text-neutral-600 active:bg-neutral-50 sm:w-auto"
                 >
-                  Mark closed
+                  Afsluiten
                 </button>
               </div>
             </footer>
           </>
         )}
         {error && (
-          <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-xs text-red-800">
+          <p className="shrink-0 border-t border-red-100 bg-red-50 px-3 py-2 text-xs text-red-800 sm:px-4">
             {error}
           </p>
         )}
