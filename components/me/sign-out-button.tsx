@@ -2,12 +2,28 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAppVariant } from "@/components/app-variant-provider";
+import {
+  readClientAppVariant,
+  variantFromPathname,
+  withVariantPath,
+} from "@/lib/app-variant";
 import { clearClientCachesOnLogout } from "@/lib/client-user-session";
 import { createClient } from "@/utils/supabase/client";
 
 export function SignOutButton() {
   const router = useRouter();
+  const { variant: layoutVariant } = useAppVariant();
   const [pending, setPending] = useState(false);
+
+  function postLogoutPath(): string {
+    const fromPath =
+      typeof window !== "undefined"
+        ? variantFromPathname(window.location.pathname)
+        : null;
+    const variant = fromPath === "v2" ? "v2" : layoutVariant ?? readClientAppVariant();
+    return withVariantPath("/login", variant);
+  }
 
   async function signOut() {
     setPending(true);
@@ -16,7 +32,7 @@ export function SignOutButton() {
       const supabase = createClient();
       await supabase.auth.signOut();
       clearClientCachesOnLogout();
-      router.push("/login");
+      router.push(postLogoutPath());
       router.refresh();
     } finally {
       setPending(false);

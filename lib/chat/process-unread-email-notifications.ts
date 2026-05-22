@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { parseAppVariant, type AppVariant } from "@/lib/app-variant";
 import {
   isNotifiableUserEmail,
   sendUnreadMessageEmail,
@@ -32,6 +33,39 @@ async function isPeerMessageStillUnread(
   const readAt = read?.last_read_at as string | undefined;
   if (!readAt) return true;
   return new Date(readAt).getTime() < new Date(args.messageCreatedAt).getTime();
+}
+
+async function resolveOwnerAppVariant(
+  supabase: SupabaseClient,
+  args: {
+    ownerUserId: string;
+    peerId: string;
+    authMetadata?: Record<string, unknown>;
+  },
+): Promise<AppVariant> {
+  const { data: userProfile } = await supabase
+    .from("user_profiles")
+    .select("app_variant")
+    .eq("user_id", args.ownerUserId)
+    .maybeSingle();
+
+  const fromProfile = parseAppVariant(
+    (userProfile?.app_variant as string | null | undefined) ?? null,
+  );
+  if (fromProfile === "v2") return "v2";
+
+  const metaVariant = args.authMetadata?.app_variant;
+  if (metaVariant === "v2") return "v2";
+
+  const { data: peerProfile } = await supabase
+    .from("chat_profiles")
+    .select("app_variant")
+    .eq("id", args.peerId)
+    .maybeSingle();
+
+  return parseAppVariant(
+    (peerProfile?.app_variant as string | null | undefined) ?? null,
+  );
 }
 
 export async function processDueUnreadEmailNotifications(
@@ -126,8 +160,11 @@ export async function processDueUnreadEmailNotifications(
       .maybeSingle();
 
     const meta = authUser.user.user_metadata as Record<string, unknown> | undefined;
-    const appVariant =
-      meta?.app_variant === "v2" ? ("v2" as const) : ("v1" as const);
+    const appVariant = await resolveOwnerAppVariant(supabase, {
+      ownerUserId: row.owner_user_id,
+      peerId: row.peer_id,
+      authMetadata: meta,
+    });
 
     const sent = await sendUnreadMessageEmail({
       to: email!,

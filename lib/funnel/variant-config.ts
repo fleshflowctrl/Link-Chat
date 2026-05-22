@@ -24,8 +24,8 @@ export function getFunnelVariantConfig(variant: AppVariant): FunnelVariantConfig
     return {
       variant,
       discoverPath,
-      signupPath: `/signup?next=${loginNext}`,
-      loginPath: `/login?next=${loginNext}`,
+      signupPath: `${withVariantPath("/signup", variant)}?next=${loginNext}`,
+      loginPath: `${withVariantPath("/login", variant)}?next=${loginNext}`,
       helpPath: withVariantPath("/me/help", variant),
       privacyPath: withVariantPath("/me/privacy", variant),
       outerBg: "bg-[#1D1D1E]",
@@ -39,8 +39,8 @@ export function getFunnelVariantConfig(variant: AppVariant): FunnelVariantConfig
   return {
     variant,
     discoverPath,
-    signupPath: `/signup?next=${loginNext}`,
-    loginPath: `/login?next=${loginNext}`,
+    signupPath: `${withVariantPath("/signup", variant)}?next=${loginNext}`,
+    loginPath: `${withVariantPath("/login", variant)}?next=${loginNext}`,
     helpPath: withVariantPath("/me/help", variant),
     privacyPath: withVariantPath("/me/privacy", variant),
     outerBg: "bg-[#E4DFD4]",

@@ -1,3 +1,8 @@
+import {
+  parseAppVariant,
+  withVariantPath,
+  type AppVariant,
+} from "@/lib/app-variant";
 import { SITE_DISPLAY } from "@/lib/brand";
 import { isPostmarkConfigured, postmarkFromEmail, sendPostmarkEmail } from "@/lib/email/postmark";
 
@@ -28,14 +33,18 @@ export async function sendUnreadMessageEmail(args: {
   peerName: string;
   preview: string;
   peerId: string;
-  appVariant?: "v1" | "v2";
+  appVariant?: AppVariant;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!isPostmarkConfigured()) {
     return { ok: false, error: "Postmark niet geconfigureerd" };
   }
 
-  const prefix = args.appVariant === "v2" ? "/v2" : "";
-  const chatUrl = `${appOrigin()}${prefix}/messages/${encodeURIComponent(args.peerId)}`;
+  const variant = parseAppVariant(args.appVariant ?? null);
+  const chatPath = withVariantPath(
+    `/messages/${encodeURIComponent(args.peerId)}`,
+    variant,
+  );
+  const chatUrl = `${appOrigin()}${chatPath}`;
   const peerName = args.peerName.trim() || "Iemand";
   const preview =
     args.preview.trim() ||

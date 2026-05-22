@@ -3,6 +3,7 @@ import {
   APP_VARIANT_COOKIE,
   isAppVariant,
   variantFromPathname,
+  withVariantPath,
 } from "@/lib/app-variant";
 import {
   DEV_BYPASS_COOKIE,
@@ -19,7 +20,14 @@ function hasDevBypassCookie(request: NextRequest): boolean {
 }
 
 function isPublicPath(pathname: string): boolean {
-  if (pathname === "/login" || pathname === "/signup") return true;
+  if (
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/v2/login" ||
+    pathname === "/v2/signup"
+  ) {
+    return true;
+  }
   if (pathname.startsWith("/auth")) return true;
   /** Funnel + discover home for first-time / anonymous onboarding flows */
   if (pathname === "/" || pathname === "/discover" || pathname.startsWith("/discover/"))
@@ -152,11 +160,18 @@ export async function middleware(request: NextRequest) {
           return out;
         }
         const url = request.nextUrl.clone();
-        url.pathname = "/login";
+        const variant = variantFromPathname(pathname);
+        url.pathname = withVariantPath("/login", variant);
         url.searchParams.set("next", pathname + request.nextUrl.search);
         return redirectPreservingSessionCookies(out, url);
       }
-      if (user && (pathname === "/login" || pathname === "/signup")) {
+      if (
+        user &&
+        (pathname === "/login" ||
+          pathname === "/signup" ||
+          pathname === "/v2/login" ||
+          pathname === "/v2/signup")
+      ) {
         const url = request.nextUrl.clone();
         url.pathname = postLoginPath(request);
         url.search = "";

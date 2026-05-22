@@ -13,7 +13,10 @@ import {
 import { applyServerCreditsUpdate } from "@/lib/credits-store";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
-import type { AppVariant } from "@/lib/app-variant";
+import {
+  type AppVariant,
+  withVariantPath,
+} from "@/lib/app-variant";
 import { V2_GRADIENT_PRIMARY } from "@/lib/v2-theme";
 import { createClient } from "@/utils/supabase/client";
 
@@ -100,6 +103,10 @@ export function LoginForm({
   appVariant?: AppVariant;
 }) {
   const isV2 = appVariant === "v2";
+  const defaultAfterAuth = withVariantPath("/discover", appVariant);
+  const loginPath = withVariantPath("/login", appVariant);
+  const signupPath = withVariantPath("/signup", appVariant);
+  const funnelEntry = isV2 ? "/v2" : "/";
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
@@ -108,15 +115,15 @@ export function LoginForm({
       return override;
     }
     const n = searchParams.get("next");
-    if (!n || !n.startsWith("/") || n.startsWith("//")) return "/discover";
+    if (!n || !n.startsWith("/") || n.startsWith("//")) return defaultAfterAuth;
     return n;
-  }, [searchParams, nextPathOverride]);
+  }, [searchParams, nextPathOverride, defaultAfterAuth]);
   const errorParam = searchParams.get("error");
 
   const authToggleQuery = useMemo(() => {
     if (nextPathOverride) return "";
     const q = new URLSearchParams();
-    if (nextPath && nextPath !== "/discover") q.set("next", nextPath);
+    if (nextPath && nextPath !== defaultAfterAuth) q.set("next", nextPath);
     const s = q.toString();
     return s ? `?${s}` : "";
   }, [nextPath, nextPathOverride]);
@@ -272,7 +279,7 @@ export function LoginForm({
             <>
               Heb je al een account?{" "}
               <Link
-                href={`/login${authToggleQuery}`}
+                href={`${loginPath}${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Inloggen
@@ -282,7 +289,7 @@ export function LoginForm({
             <>
               Nieuw hier?{" "}
               <Link
-                href="/"
+                href={`${isV2 ? signupPath : funnelEntry}${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Registreren
@@ -451,7 +458,7 @@ export function LoginForm({
             <>
               Heb je al een account?{" "}
               <Link
-                href={`/login${authToggleQuery}`}
+                href={`${loginPath}${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Inloggen
@@ -461,7 +468,7 @@ export function LoginForm({
             <>
               Nieuw hier?{" "}
               <Link
-                href="/"
+                href={`${isV2 ? signupPath : funnelEntry}${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Registreren
