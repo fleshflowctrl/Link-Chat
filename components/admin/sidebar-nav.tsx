@@ -126,6 +126,19 @@ export function AdminSidebarNav({ adminEmail }: { adminEmail: string | null }) {
         </div>
       </div>
 
+      <div className="px-3 pt-4">
+        <Link
+          href="/operator/inbox"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 active:scale-[0.98]"
+        >
+          <ChatBubbleIcon className="h-4 w-4 shrink-0" />
+          Operator inbox
+        </Link>
+        <p className="mt-1.5 px-1 text-center text-[10px] text-gray-500">
+          Handmatig antwoorden namens personas
+        </p>
+      </div>
+
       <AdminNavLinks
         pathname={pathname}
         className="flex-1 space-y-1 px-3 py-4"
@@ -227,6 +240,17 @@ export function AdminMobileNav({ adminEmail }: { adminEmail?: string | null }) {
               >
                 <XIcon className="h-5 w-5" />
               </button>
+            </div>
+
+            <div className="px-3 pt-4">
+              <Link
+                href="/operator/inbox"
+                onClick={close}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-primary px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98]"
+              >
+                <ChatBubbleIcon className="h-4 w-4 shrink-0" />
+                Operator inbox
+              </Link>
             </div>
 
             <AdminNavLinks
