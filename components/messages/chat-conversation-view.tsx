@@ -48,6 +48,8 @@ import { useAppVariant } from "@/components/app-variant-provider";
 import { appVariantFetchHeaders, withVariantPath } from "@/lib/app-variant";
 import { useChatScroll } from "@/lib/chat/use-chat-scroll";
 import {
+  CHAT_COMPOSER_HEIGHT_PX,
+  chatComposerPositionStyle,
   isChatKeyboardOpen,
   useChatViewport,
 } from "@/lib/chat/use-chat-viewport";
@@ -1173,23 +1175,11 @@ export function ChatConversationView({
     setReactionTargetId(null);
   }
 
-  const chatShellStyle =
-    chatViewport.height != null
-      ? {
-          height: chatViewport.height,
-          transform:
-            chatViewport.offsetTop > 0
-              ? `translateY(${chatViewport.offsetTop}px)`
-              : undefined,
-          willChange: keyboardOpen ? "height, transform" : undefined,
-        }
-      : undefined;
+  const messagesPadBottom = CHAT_COMPOSER_HEIGHT_PX + chatViewport.keyboardInset;
+  const composerStyle = chatComposerPositionStyle(chatViewport);
 
   return (
-    <div
-      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas"
-      style={chatShellStyle}
-    >
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas">
       <header className="z-30 flex shrink-0 items-center gap-3 border-b border-black/[0.06] bg-canvas/95 px-3 py-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
         <button
           type="button"
@@ -1330,7 +1320,8 @@ export function ChatConversationView({
 
       <div
         ref={scrollRef}
-        className="chat-message-scroll min-h-0 flex-1 overflow-y-auto px-4 pb-3"
+        className="chat-message-scroll min-h-0 flex-1 overflow-y-auto px-4 pt-0"
+        style={{ paddingBottom: messagesPadBottom }}
       >
         <p className="py-3 text-center text-[11px] font-semibold uppercase tracking-wide text-inkMuted">
           Vandaag
@@ -1650,8 +1641,11 @@ export function ChatConversationView({
         </>
       )}
 
-      <div className="shrink-0 border-t border-black/[0.06] bg-canvas/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
-        <div className="mx-auto flex max-w-[430px] items-end gap-2">
+      <div
+        className="chat-composer-bar fixed inset-x-0 z-40 border-t border-black/[0.06] bg-canvas/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90"
+        style={composerStyle}
+      >
+        <div className="mx-auto flex w-full max-w-[430px] items-end gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -1690,7 +1684,15 @@ export function ChatConversationView({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onFocus={() => stickToBottom()}
+              onFocus={() => {
+                stickToBottom();
+                requestAnimationFrame(() => {
+                  textInputRef.current?.scrollIntoView({
+                    block: "nearest",
+                    inline: "nearest",
+                  });
+                });
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
