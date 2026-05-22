@@ -30,11 +30,16 @@ import type {
   ChatProfileRow,
 } from "@/lib/chat/map-rows";
 import { BOT_PEER_PHOTOS_ENABLED } from "@/lib/ai/bot-chat-photos";
-import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
+import { generatePeerReply, isPersistedPeerReply } from "@/lib/ai/generate-peer-reply";
 import { generatePersonaPhoto } from "@/lib/images/generate-photo";
 import { buildPersonaPhotoPrompt } from "@/lib/images/persona-photo-prompt";
 import { uploadPersonaPhoto } from "@/lib/images/upload-photo";
+import {
+  supersedeOtherPendingFollowUps,
+  type FollowUpKind,
+} from "@/lib/ai/follow-up-reply";
 import { scheduleUnreadEmailNotification } from "@/lib/chat/schedule-unread-email-notification";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 
 type PendingRow = {
   id: string;
@@ -164,6 +169,13 @@ export async function processDuePendingReplies(
     profile: ChatProfileRow;
   },
 ): Promise<ProcessDueResult> {
+  if (isManualOperatorMode()) {
+    return {
+      newPeerMessages: [],
+      nextPendingAt: null,
+      hadDuePending: false,
+    };
+  }
   const nowIso = new Date().toISOString();
   const newPeerMessages: ChatMessageRow[] = [];
 
@@ -474,7 +486,7 @@ export async function processDuePendingReplies(
                 updated_at: finishedAt,
               })
               .in("id", locked.map((r) => r.id));
-          } else {
+          } else if (isPersistedPeerReply(result)) {
             await finalizeLockedReplyRows(
               supabase,
               locked,
@@ -553,12 +565,23 @@ export async function processDuePendingReplies(
       continue;
     }
 
+    const pendingKind = row.kind as FollowUpKind;
+    await supersedeOtherPendingFollowUps(
+      supabase,
+      args.ownerUserId,
+      args.peerId,
+      pendingKind,
+    );
+
     const result = await generatePeerReply(supabase, {
       profile: args.profile,
       history: historyRows as ChatMessageRow[],
       ownerUserId: args.ownerUserId,
       peerId: args.peerId,
-      options: { forceSingleMessage: true },
+      options: {
+        forceSingleMessage: true,
+        pendingKind,
+      },
     });
 
     const finishedAt = new Date().toISOString();
@@ -571,7 +594,7 @@ export async function processDuePendingReplies(
           updated_at: finishedAt,
         })
         .eq("id", row.id);
-    } else {
+    } else if (isPersistedPeerReply(result)) {
       await supabase
         .from("chat_pending_replies")
         .update({

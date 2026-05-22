@@ -80,16 +80,16 @@ Schema (alle velden verplicht tenzij gemarkeerd):
     "voice_style": "string"                   // bv. "kort en speels", "warme zinnen, weinig emoji"
   },
   "chat_style": {
-    "verbal_tics": ["string", ...],           // 3–6 NL chat-tics ("joh", "ofzo", "echt waar")
+    "verbal_tics": ["string", ...],           // 3–6 NL chat-tics ("ff", "lol", "echt") — geen "ofzo"/"joh" als standaard-eindtag
     "emoji_palette": ["string", ...],         // 2–5 favoriete emoji
     "reply_length": "short",                  // short|medium|variable
     "punctuation": "casual",                  // casual|clean
     "quirks": ["string", ...],                // 2–4 kleine eigenaardigheden
     "talks_less_about": ["string", ...],      // 0–3 onderwerpen die ze liever vermijdt
-    "signature_words": ["string", ...],       // 1–3 woorden die haar persoonlijke stem-vingerafdruk vormen (bv. ["yo", "wacht", "ofzo"])
+    "signature_words": ["string", ...],       // 1–3 woorden die haar stem vormen (bv. ["wacht", "serieus"]) — geen "ofzo"/"joh"
     "signature_emojis": ["string", ...],      // 1–3 favoriete emoji die ze vaak gebruikt (KORT, max 3)
     "signature_quirk": "string",              // exact één van: "geen-punten" | "altijd-lowercase" | "drie-puntjes-eind" | "dubbele-vraagteken" | "geen-shift" | "veel-spaties"
-    "signature_typo": "string"                // één tikfout die ze altijd maakt (bv. "ofcourse" voor "of course", "egt" voor "echt")
+    "signature_typo": "string"                // optioneel; leeg laten — geen vaste eindwoorden zoals "egt"/"joh"
   },
   "photo_style": {
     "appearance": "string",                   // 1–2 zinnen: haar, ogen, sproetjes, glimlach — concreet

@@ -732,7 +732,7 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
           icon={<MicIcon className="h-5 w-5" />}
         >
           <Field label="Verbale tics" hint="laat 1× per ~5 berichten subtiel vallen">
-            <ChipList values={v.chat_style.verbal_tics} onChange={(n) => setChat("verbal_tics", n)} placeholder="joh, ofzo, echt waar, …" />
+            <ChipList values={v.chat_style.verbal_tics} onChange={(n) => setChat("verbal_tics", n)} placeholder="ff, lol, echt, … (geen ofzo/joh)" />
           </Field>
           <Field label="Emoji-palet" hint="2–5 favoriete emoji">
             <ChipList values={v.chat_style.emoji_palette} onChange={(n) => setChat("emoji_palette", n)} placeholder="🙈 🥹 😅" />

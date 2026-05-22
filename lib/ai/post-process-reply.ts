@@ -71,14 +71,10 @@ export function splitMultiMessage(raw: string, maxChunks = 4): string[] {
   return parts;
 }
 
+/** Casual abbreviations — no forced "egt"/"wn" (handled by dutch-human-realism-rewriter). */
 const ABBREV_TABLE: Array<[RegExp, string]> = [
   [/\beven\b/g, "ff"],
-  [/\bnatuurlijk\b/gi, "tuurlijk"],
-  [/\becht\b/g, "egt"],
-  [/\bweet niet\b/gi, "wn"],
-  [/\biets\b/g, "ies"],
   [/\bgisteren\b/gi, "gister"],
-  [/\bvandaag\b/g, "vandag"],
 ];
 
 /** Apply a small humanisation pass: lowercase first letter sometimes, drop
@@ -137,7 +133,10 @@ export function humanizeChatText(raw: string): string {
 /** Filler words the fingerprint layer (or the model) sometimes tacks onto the
  * end of an otherwise complete sentence — reads unnatural ("gaat prima joh"). */
 const DANGLING_FILLER_LAST_WORD =
-  /(?:^|\s)(joh|echt|egt|ofzo|btw|uhm|hmm|trouwens|wacht|mss|idd|of\s+zo)(?:[.!?…]*)\s*$/i;
+  /(?:^|\s|\.{2,})(joh|echt|egt|ofzo|btw|uhm|hmm|trouwens|wacht|mss|idd|of\s+zo)(?:[.!?…]*)\s*$/i;
+
+/** Trailing "…ofzo" / "... of zo" without a space before the filler. */
+const ELLIPSIS_OFZO_TAIL = /\.{2,}\s*of\s*z[oO](?:[.!?…]*)?\s*$/i;
 
 export function stripDanglingChatFillers(text: string): string {
   let s = text.trim();
@@ -145,6 +144,7 @@ export function stripDanglingChatFillers(text: string): string {
   let prev = "";
   while (prev !== s) {
     prev = s;
+    s = s.replace(ELLIPSIS_OFZO_TAIL, "").trimEnd();
     s = s.replace(DANGLING_FILLER_LAST_WORD, "").trimEnd();
     s = s.replace(/\s{2,}/g, " ").trim();
   }

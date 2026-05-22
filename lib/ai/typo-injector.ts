@@ -34,7 +34,6 @@ function toSeed(strings: string[]): number {
 
 /** Common Dutch chat-style misspellings — high frequency. */
 const COMMON_TYPO_MAP: Record<string, string[]> = {
-  echt: ["egt", "echtt"],
   even: ["efkes", "evn"],
   weet: ["weeet", "wet"],
   hebben: ["hbben", "heb"],
@@ -144,7 +143,16 @@ function pickCorruptionCount(wordCount: number, rng: Rng): number {
   return 2;
 }
 
+/** Random word corruption disabled — use `applyLanguageCleanupPass` instead. */
 export function applyTypoPass(
+  chunks: string[],
+  _ctx: { ownerUserId: string; peerProfileId: string; messageIndex: number },
+): string[] {
+  return chunks;
+}
+
+/** @deprecated Use applyLanguageCleanupPass. Kept for imports. */
+export function applyTypoPassLegacy(
   chunks: string[],
   ctx: { ownerUserId: string; peerProfileId: string; messageIndex: number },
 ): string[] {
@@ -205,37 +213,11 @@ export function applyTypoPass(
   });
 }
 
-/** Inject the persona's signature typo (one specific word she always
- * misspells). Called per message — only ~25% of the time so it stays
- * believable. */
+/** Signature typo injection disabled — appended filler ("egt", "joh") read artificial. */
 export function applySignatureTypo(
   chunks: string[],
-  signatureTypo: string | null | undefined,
-  ctx: { ownerUserId: string; peerProfileId: string; messageIndex: number },
+  _signatureTypo: string | null | undefined,
+  _ctx: { ownerUserId: string; peerProfileId: string; messageIndex: number },
 ): string[] {
-  if (!signatureTypo || signatureTypo.trim().length === 0) return chunks;
-  const seed = toSeed([
-    ctx.ownerUserId,
-    ctx.peerProfileId,
-    String(ctx.messageIndex),
-    "sig-typo",
-  ]);
-  const rng = makeRng(seed);
-  if (rng() > 0.25) return chunks;
-
-  // The signature typo is just a word/phrase the persona consistently uses.
-  // We pick a chunk and append the typo at the end of a sentence if it
-  // doesn't already appear; otherwise no-op.
-  const containsAlready = chunks.some((c) =>
-    c.toLowerCase().includes(signatureTypo.toLowerCase()),
-  );
-  if (containsAlready) return chunks;
-
-  const idx = Math.floor(rng() * chunks.length);
-  const chunk = chunks[idx]!;
-  if (/^\[SEND_PHOTO/i.test(chunk.trim())) return chunks;
-
-  const out = chunks.slice();
-  out[idx] = `${chunk.trim()} ${signatureTypo}`.trim();
-  return out;
+  return chunks;
 }

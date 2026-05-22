@@ -5,6 +5,7 @@ import { sleep } from "@/lib/ai/reply-pacing";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { scheduleAfterResponse } from "@/lib/vercel/schedule-after-response";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 
 /** Stay under route maxDuration (120s) so waitUntil can finish short delays. */
 const WAIT_UNTIL_BUDGET_MS = 110_000;
@@ -20,6 +21,7 @@ export function schedulePendingReplyDelivery(args: {
   profile: ChatProfileRow;
   scheduledAtIso: string;
 }): void {
+  if (isManualOperatorMode()) return;
   const service = getServiceSupabase();
   if (!service) return;
 

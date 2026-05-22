@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
 import { processDuePendingReplies } from "@/lib/ai/pending-replies";
 import { maybeScheduleWinback } from "@/lib/ai/spontaneous";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 
 export type ProcessPendingForOwnerResult = {
   threadsProcessed: number;
@@ -79,6 +80,9 @@ export async function processPendingForOwner(
     scheduleWinback?: boolean;
   },
 ): Promise<ProcessPendingForOwnerResult> {
+  if (isManualOperatorMode()) {
+    return { threadsProcessed: 0, messagesDelivered: 0, errors: 0 };
+  }
   const maxThreads = args.maxThreads ?? 8;
   let threads: DueThread[];
 
@@ -154,6 +158,9 @@ export async function processAllDuePendingGlobally(
   supabase: SupabaseClient,
   args?: { maxThreadsPerBatch?: number; timeBudgetMs?: number },
 ): Promise<ProcessPendingForOwnerResult & { batches: number }> {
+  if (isManualOperatorMode()) {
+    return { threadsProcessed: 0, messagesDelivered: 0, errors: 0, batches: 0 };
+  }
   const maxThreadsPerBatch = args?.maxThreadsPerBatch ?? 16;
   const deadline = Date.now() + (args?.timeBudgetMs ?? 100_000);
 

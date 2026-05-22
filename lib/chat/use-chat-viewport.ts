@@ -6,13 +6,21 @@ export type ChatViewportState = {
   /** Distance from layout viewport bottom to visual viewport bottom (keyboard). */
   keyboardInset: number;
   offsetTop: number;
+  offsetLeft: number;
   visibleHeight: number;
+  visibleWidth: number;
 };
 
 function readViewportState(): ChatViewportState {
   const vv = window.visualViewport;
   if (!vv) {
-    return { keyboardInset: 0, offsetTop: 0, visibleHeight: window.innerHeight };
+    return {
+      keyboardInset: 0,
+      offsetTop: 0,
+      offsetLeft: 0,
+      visibleHeight: window.innerHeight,
+      visibleWidth: window.innerWidth,
+    };
   }
   const keyboardInset = Math.max(
     0,
@@ -21,7 +29,9 @@ function readViewportState(): ChatViewportState {
   return {
     keyboardInset,
     offsetTop: vv.offsetTop,
+    offsetLeft: vv.offsetLeft,
     visibleHeight: vv.height,
+    visibleWidth: vv.width,
   };
 }
 
@@ -30,7 +40,13 @@ export function useChatViewport(): ChatViewportState {
   const [chatViewport, setChatViewport] = useState<ChatViewportState>(() =>
     typeof window !== "undefined"
       ? readViewportState()
-      : { keyboardInset: 0, offsetTop: 0, visibleHeight: 0 },
+      : {
+          keyboardInset: 0,
+          offsetTop: 0,
+          offsetLeft: 0,
+          visibleHeight: 0,
+          visibleWidth: 0,
+        },
   );
 
   useLayoutEffect(() => {
@@ -57,15 +73,37 @@ export function useChatViewport(): ChatViewportState {
     };
   }, []);
 
+  const keyboardOpen = isChatKeyboardOpen(chatViewport);
+
   useLayoutEffect(() => {
-    if (!isChatKeyboardOpen(chatViewport)) return;
+    if (!keyboardOpen) return;
+
+    const scrollY = window.scrollY;
+    const prevOverflow = document.body.style.overflow;
+    const prevPosition = document.body.style.position;
+    const prevTop = document.body.style.top;
+    const prevWidth = document.body.style.width;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+
     const lockScroll = () => {
       if (window.scrollY !== 0) window.scrollTo(0, 0);
     };
     lockScroll();
     window.visualViewport?.addEventListener("scroll", lockScroll);
-    return () => window.visualViewport?.removeEventListener("scroll", lockScroll);
-  }, [chatViewport]);
+
+    return () => {
+      window.visualViewport?.removeEventListener("scroll", lockScroll);
+      document.body.style.overflow = prevOverflow;
+      document.body.style.position = prevPosition;
+      document.body.style.top = prevTop;
+      document.body.style.width = prevWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, [keyboardOpen]);
 
   return chatViewport;
 }
@@ -75,8 +113,8 @@ export function isChatKeyboardOpen(viewport: ChatViewportState): boolean {
 }
 
 /**
- * Shrink and shift the entire chat (header + messages + composer) into the
- * visible viewport so the header stays on screen and messages slide up.
+ * Pin the chat column between visual viewport top and bottom (above keyboard).
+ * Uses top+bottom instead of height — more reliable on iOS Safari.
  */
 export function chatShellStyle(viewport: ChatViewportState): CSSProperties {
   if (!isChatKeyboardOpen(viewport)) {
@@ -85,11 +123,17 @@ export function chatShellStyle(viewport: ChatViewportState): CSSProperties {
   return {
     position: "fixed",
     top: viewport.offsetTop,
-    left: "50%",
-    transform: "translateX(-50%)",
-    width: "100%",
+    bottom: viewport.keyboardInset,
+    left: viewport.offsetLeft,
+    width: viewport.visibleWidth,
     maxWidth: 430,
-    height: viewport.visibleHeight,
     zIndex: 35,
   };
+}
+
+export function chatShellClassName(keyboardOpen: boolean): string {
+  if (!keyboardOpen) {
+    return "relative flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas";
+  }
+  return "fixed z-[35] flex min-h-0 flex-col overflow-hidden bg-canvas";
 }

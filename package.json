@@ -8,7 +8,11 @@
     "dev:turbo": "next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "chat:acceptance": "npx tsx scripts/run-chat-acceptance.ts",
+    "chat:ellipsis-acceptance": "npx tsx scripts/run-ellipsis-acceptance.ts",
+    "chat:greeting-variation": "npx tsx scripts/run-greeting-variation-acceptance.ts",
+    "chat:manual-operator-acceptance": "MANUAL_OPERATOR_MODE=1 npx tsx scripts/run-manual-operator-acceptance.ts"
   },
   "dependencies": {
     "@gradio/client": "^1.19.1",

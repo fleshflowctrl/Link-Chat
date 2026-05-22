@@ -7,6 +7,7 @@ import {
   chatProfileMatchesVariant,
 } from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -49,11 +50,12 @@ export async function POST(
   }
 
   const p = profile as ChatProfileRow;
-  if (!p.is_ai) {
+  if (!p.is_ai || isManualOperatorMode()) {
     return NextResponse.json({
       ok: true,
       newPeerMessages: [],
       nextPendingAt: null,
+      manualOperatorMode: isManualOperatorMode(),
     });
   }
 

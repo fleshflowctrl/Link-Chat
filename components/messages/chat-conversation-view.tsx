@@ -48,6 +48,7 @@ import { useAppVariant } from "@/components/app-variant-provider";
 import { appVariantFetchHeaders, withVariantPath } from "@/lib/app-variant";
 import { useChatScroll } from "@/lib/chat/use-chat-scroll";
 import {
+  chatShellClassName,
   chatShellStyle,
   isChatKeyboardOpen,
   useChatViewport,
@@ -70,6 +71,18 @@ const GROUP_GAP_MIN = 5;
 /** Prevent double-tap duplicate sends only — do not block while AI reply is in flight. */
 const SEND_DEBOUNCE_MS = 400;
 const SEND_FETCH_TIMEOUT_MS = 90_000;
+
+/** Tijdelijk: direct follow-up testen zonder 5 min / 30 min wachten. */
+const DEV_FOLLOWUP_TEST = process.env.NODE_ENV === "development";
+
+const DEV_FOLLOWUP_LABELS: Record<
+  "v2_open_followup" | "spontaneous" | "winback",
+  string
+> = {
+  v2_open_followup: "5 min open",
+  spontaneous: "30–90 min",
+  winback: "winback",
+};
 
 function minuteFromClock(m: ChatMessage): number {
   return m.minuteOfDay;
@@ -301,6 +314,9 @@ export function ChatConversationView({
   const [sendBusy, setSendBusy] = useState(false);
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
+  const [devFollowUpBusy, setDevFollowUpBusy] = useState<
+    "v2_open_followup" | "spontaneous" | "winback" | null
+  >(null);
 
   const chatViewport = useChatViewport();
   const keyboardOpen = isChatKeyboardOpen(chatViewport);
@@ -431,6 +447,54 @@ export function ChatConversationView({
       }
     },
     [chatId, useSupabase, nextPendingAt, variant],
+  );
+
+  const runDevFollowUpTest = useCallback(
+    async (kind: "v2_open_followup" | "spontaneous" | "winback") => {
+      if (!useSupabase || !DEV_FOLLOWUP_TEST) return;
+      setDevFollowUpBusy(kind);
+      setAssistantError(null);
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(chatId)}/test-followup`,
+          {
+            method: "POST",
+            cache: "no-store",
+            credentials: "same-origin",
+            headers: {
+              "Content-Type": "application/json",
+              ...appVariantFetchHeaders(variant),
+            },
+            body: JSON.stringify({ kind }),
+          },
+        );
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          newPeerMessages?: ChatMessage[];
+        };
+        if (!res.ok || !data.ok) {
+          setAssistantError(data.error ?? "Follow-up test mislukt");
+          return;
+        }
+        const fresh = data.newPeerMessages ?? [];
+        if (fresh.length > 0) {
+          setMessages((prev) => {
+            const seen = new Set(prev.map((m) => m.id));
+            const additions = fresh
+              .filter((m) => !seen.has(m.id))
+              .map(withAmsterdamMessageTimes);
+            return additions.length === 0 ? prev : [...prev, ...additions];
+          });
+          requestThreadsRefetch();
+        }
+      } catch {
+        setAssistantError("Follow-up test: netwerkfout");
+      } finally {
+        setDevFollowUpBusy(null);
+      }
+    },
+    [chatId, useSupabase, variant],
   );
 
   /**
@@ -1177,10 +1241,7 @@ export function ChatConversationView({
   const shellStyle = chatShellStyle(chatViewport);
 
   return (
-    <div
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas"
-      style={shellStyle}
-    >
+    <div className={chatShellClassName(keyboardOpen)} style={shellStyle}>
       <header className="z-30 flex shrink-0 items-center gap-3 border-b border-black/[0.06] bg-canvas/95 px-3 py-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
         <button
           type="button"
@@ -1307,6 +1368,34 @@ export function ChatConversationView({
           </AnimatePresence>
         </div>
       </header>
+
+      {DEV_FOLLOWUP_TEST && useSupabase ? (
+        <div className="shrink-0 border-b border-violet-300/80 bg-violet-50 px-3 py-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-900">
+            Dev — follow-up test (direct)
+          </p>
+          <p className="mt-0.5 text-[11px] text-violet-800/90">
+            Zorg dat zij als laatste typte voor “5 min open”.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {(
+              ["v2_open_followup", "spontaneous", "winback"] as const
+            ).map((kind) => (
+              <button
+                key={kind}
+                type="button"
+                disabled={devFollowUpBusy !== null}
+                onClick={() => void runDevFollowUpTest(kind)}
+                className="rounded-full bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white transition active:scale-95 disabled:opacity-50"
+              >
+                {devFollowUpBusy === kind
+                  ? "…"
+                  : DEV_FOLLOWUP_LABELS[kind]}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {assistantError ? (
         <div
@@ -1641,7 +1730,13 @@ export function ChatConversationView({
         </>
       )}
 
-      <div className="shrink-0 border-t border-black/[0.06] bg-canvas/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
+      <div
+        className={`shrink-0 border-t border-black/[0.06] bg-canvas/95 px-3 pt-2 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90 ${
+          keyboardOpen
+            ? "pb-2"
+            : "pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        }`}
+      >
         <div className="flex items-end gap-2">
           <input
             ref={fileInputRef}
@@ -1681,15 +1776,7 @@ export function ChatConversationView({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onFocus={() => {
-                stickToBottom();
-                requestAnimationFrame(() => {
-                  textInputRef.current?.scrollIntoView({
-                    block: "nearest",
-                    inline: "nearest",
-                  });
-                });
-              }}
+              onFocus={() => stickToBottom()}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

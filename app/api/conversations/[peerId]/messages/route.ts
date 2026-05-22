@@ -9,7 +9,10 @@ import {
   queueCoalescedPeerReply,
   userBurstCharCount,
 } from "@/lib/ai/coalesce-user-reply";
-import { generatePeerReply } from "@/lib/ai/generate-peer-reply";
+import {
+  generatePeerReply,
+  isPersistedPeerReply,
+} from "@/lib/ai/generate-peer-reply";
 import { processDuePendingReplies } from "@/lib/ai/pending-replies";
 import { schedulePendingReplyDelivery } from "@/lib/ai/schedule-pending-reply-delivery";
 import {
@@ -31,6 +34,9 @@ import { isGuestAuthUser } from "@/lib/auth/user-account";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
 import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
+import { upsertOperatorQueueForUserMessage } from "@/lib/operator/queue";
+import { getServiceSupabase } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 /** Grok reasoning + sync pacing can exceed default limits. */
@@ -82,7 +88,7 @@ export async function GET(
   }
 
   let nextPendingAt: string | null = null;
-  if ((profileForGet as ChatProfileRow).is_ai) {
+  if ((profileForGet as ChatProfileRow).is_ai && !isManualOperatorMode()) {
     try {
       const r = await processDuePendingReplies(supabase, {
         ownerUserId: user.id,
@@ -102,26 +108,28 @@ export async function GET(
     // screen polls), if she's been silent for >22h and we don't have a
     // winback queued yet, maybe schedule one. This piggybacks on existing
     // traffic so we don't need a cron job.
-    try {
-      const { data: histForWinback } = await supabase
-        .from("chat_messages")
-        .select("id, sender, created_at")
-        .eq("peer_id", peerId)
-        .eq("owner_user_id", user.id)
-        .order("created_at", { ascending: true });
-      if (histForWinback) {
-        await maybeScheduleWinback(supabase, {
-          ownerUserId: user.id,
+    if (!isManualOperatorMode()) {
+      try {
+        const { data: histForWinback } = await supabase
+          .from("chat_messages")
+          .select("id, sender, created_at")
+          .eq("peer_id", peerId)
+          .eq("owner_user_id", user.id)
+          .order("created_at", { ascending: true });
+        if (histForWinback) {
+          await maybeScheduleWinback(supabase, {
+            ownerUserId: user.id,
+            peerId,
+            history: histForWinback as unknown as ChatMessageRow[],
+          });
+        }
+      } catch (e) {
+        console.warn(
+          "[conversations/messages GET] maybeScheduleWinback threw",
           peerId,
-          history: histForWinback as unknown as ChatMessageRow[],
-        });
+          e instanceof Error ? e.message : String(e),
+        );
       }
-    } catch (e) {
-      console.warn(
-        "[conversations/messages GET] maybeScheduleWinback threw",
-        peerId,
-        e instanceof Error ? e.message : String(e),
-      );
     }
   }
 
@@ -269,6 +277,28 @@ export async function POST(
     });
   }
 
+  if (isManualOperatorMode()) {
+    const service = getServiceSupabase();
+    if (service) {
+      await upsertOperatorQueueForUserMessage(service, {
+        ownerUserId: user.id,
+        peerId,
+        messagePreview: isImage ? "[afbeelding]" : (text || "").trim(),
+        messageAt: insertedUser.created_at,
+      });
+    }
+    return NextResponse.json({
+      ok: true,
+      mode: "manual_operator",
+      aiReplyGenerated: false,
+      userMessage,
+      peerMessage: null,
+      newPeerMessages: [] as ChatMessage[],
+      nextPendingAt: null,
+      newBalance,
+    });
+  }
+
   // 2. Catch up any *already-due* pending replies (older messages whose
   //    scheduled_at has passed while the user was away). These deliveries
   //    happen BEFORE we look at the new message — so the persona's reply
@@ -363,12 +393,12 @@ export async function POST(
       peerId,
       options: { triggerUserMessageId: insertedUser.id },
     });
-    if (result.ok) {
+    if (isPersistedPeerReply(result)) {
       peerMessage = messageRowToUi(result.assistantRow);
       if (result.additionalChunks > 0 && result.nextChunkAt) {
         nextPendingAt = result.nextChunkAt;
       }
-    } else {
+    } else if (!result.ok) {
       warning = result.error;
     }
   } else {

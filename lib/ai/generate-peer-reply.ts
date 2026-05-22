@@ -46,10 +46,27 @@ import {
   endsWithQuestion,
   hasEmoji,
   postProcessReply,
+  MULTI_MESSAGE_SEPARATOR,
   splitMultiMessage,
 } from "@/lib/ai/post-process-reply";
+import { buildChatTurnPlan } from "@/lib/ai/chat-turn-plan";
+import {
+  createChatTurnDebug,
+  logChatTurnDebug,
+} from "@/lib/ai/chat-turn-debug";
+import { sliceRecentTurns } from "@/lib/ai/conversation-state-guard";
+import { extractBotSessionFacts } from "@/lib/ai/session-fact-consistency-guard";
+import { applyFinalCoherenceValidator } from "@/lib/ai/final-coherence-validator";
+import { applyEllipsisRealismGuard } from "@/lib/ai/ellipsis-realism-guard";
+import { applyEmojiRealismGuard } from "@/lib/ai/emoji-realism-guard";
+import { applyLightTextCleanup } from "@/lib/ai/light-text-cleanup";
+import { applyLanguageCleanupPass } from "@/lib/ai/language-cleanup";
+import { validateChatQuality } from "@/lib/ai/chat-quality-gate";
+import { fallbackResponseForPlan } from "@/lib/ai/chat-turn-fallbacks";
+import type { FallbackPersonaContext } from "@/lib/ai/chat-turn-fallbacks";
+import { logTemplateFallback } from "@/lib/ai/template-fallback-log";
+import { lastPeerMessageBodies } from "@/lib/ai/dutch-human-realism-rewriter";
 import { applyVoiceFingerprint, resolveVoiceFingerprint } from "@/lib/ai/voice-fingerprint";
-import { applyTypoPass, applySignatureTypo } from "@/lib/ai/typo-injector";
 import { computeEnergy, getHourInTimeZone } from "@/lib/ai/energy-curve";
 import {
   isDraftReviseEnabled,
@@ -62,7 +79,41 @@ import { extractPhotoDirective } from "@/lib/ai/photo-directive";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
 import { scheduleUnreadEmailNotification } from "@/lib/chat/schedule-unread-email-notification";
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
+import { hasConversationBond } from "@/lib/ai/conversation-bond";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
+
+function buildPersonaFallbackCtx(
+  profile: ChatProfileRow,
+  peerId: string,
+  history: ChatMessageRow[],
+  userMessage: string,
+  flirtLevel?: string,
+  bond?: boolean,
+): FallbackPersonaContext {
+  return {
+    peerId,
+    conversationId: peerId,
+    personaName: profile.display_name,
+    chatStyle: profile.chat_style ?? null,
+    age: profile.age ?? null,
+    city: profile.city ?? null,
+    vibeTags: profile.vibe_tags ?? null,
+    flirtLevel,
+    bondFormed: bond,
+    recentBotMessages: lastPeerMessageBodies(history, 8),
+    userMessage,
+  };
+}
+import {
+  buildFollowUpContext,
+  followUpExtraBannedPhrases,
+  followUpSyntheticUserTurn,
+  pickFollowUpAngle,
+  type FollowUpKind,
+} from "@/lib/ai/follow-up-reply";
 import { grokResponsesComplete } from "@/lib/xai/grok-responses";
+
+const FOLLOW_UP_MAX_CHARS = 180;
 
 function personaTimeZone(_profile: ChatProfileRow): string {
   const env = process.env.PERSONA_DEFAULT_TZ?.trim();
@@ -260,6 +311,7 @@ function decideBurstMode(args: {
 export type GeneratePeerReplyResult =
   | {
       ok: true;
+      draftOnly?: false;
       assistantRow: ChatMessageRow;
       finalText: string;
       revised: boolean;
@@ -267,10 +319,21 @@ export type GeneratePeerReplyResult =
       model: string;
       turnIndex: number;
       userSilenceMs: number | null;
-      /** Number of additional chunk rows queued for delayed delivery. */
       additionalChunks: number;
-      /** Earliest scheduled_at among the queued chunks, ISO. */
       nextChunkAt: string | null;
+    }
+  | {
+      ok: true;
+      draftOnly: true;
+      draftText: string;
+      finalText: string;
+      revised: boolean;
+      latencyMs: number;
+      model: string;
+      turnIndex: number;
+      userSilenceMs: number | null;
+      additionalChunks: 0;
+      nextChunkAt: null;
     }
   | {
       ok: false;
@@ -279,11 +342,20 @@ export type GeneratePeerReplyResult =
       model: string;
     };
 
+export function isPersistedPeerReply(
+  result: GeneratePeerReplyResult,
+): result is Extract<GeneratePeerReplyResult, { ok: true }> & {
+  assistantRow: ChatMessageRow;
+} {
+  return result.ok && !("draftOnly" in result && result.draftOnly === true);
+}
+
 export type GeneratePeerReplyOptions = {
   triggerUserMessageId?: string;
-  /** Force-disable multi-message split (used for spontaneous + winback so
-   * those stay one focused message). */
   forceSingleMessage?: boolean;
+  pendingKind?: FollowUpKind;
+  /** Build reply text only — no chat_messages / pending inserts (operator suggest). */
+  draftOnly?: boolean;
 };
 
 /**
@@ -313,6 +385,18 @@ export async function generatePeerReply(
     process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
 
   const triggerId = args.options?.triggerUserMessageId;
+  const followUpKind = args.options?.pendingKind;
+  const isFollowUp = Boolean(followUpKind);
+  const draftOnly = Boolean(args.options?.draftOnly);
+
+  if (isManualOperatorMode() && !draftOnly) {
+    return {
+      ok: false,
+      error: "MANUAL_OPERATOR_MODE: automatic AI replies are disabled",
+      latencyMs: 0,
+      model: process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3",
+    };
+  }
 
   // ----- Prose summary (legacy thread memory) -----
   // select("*") so envs missing the structured_facts column (migration
@@ -519,7 +603,19 @@ export async function generatePeerReply(
 
   // ----- New realism inputs -----
   const daysActive = computeDaysActive(args.history);
-  const bannedPhrases = extractBannedPhrases(args.history);
+  const bondFormed = hasConversationBond(args.history);
+  const followUpCtx = isFollowUp ? buildFollowUpContext(args.history) : null;
+  const followUpAngle =
+    isFollowUp && followUpKind
+      ? pickFollowUpAngle(args.peerId, followUpKind)
+      : undefined;
+  const bannedPhrases = [
+    ...extractBannedPhrases(args.history),
+    ...(followUpCtx ? followUpExtraBannedPhrases(followUpCtx) : []),
+    "ofzo",
+    "of zo",
+    "egt",
+  ].filter((p, i, arr) => arr.indexOf(p) === i);
   const userBurst = userMessagesSinceLastPeerReply(args.history);
   const userMessagesSinceLastReply = userBurst.length;
 
@@ -534,7 +630,7 @@ export async function generatePeerReply(
   const emotional = isEmotionalUserMessage(lastUserBody);
   const v2BlankSlate = v2ChatUsesBlankSlate(args.profile);
 
-  const allowMultiMessage = v2BlankSlate
+  const allowMultiMessage = v2BlankSlate || isFollowUp
     ? false
     : !args.options?.forceSingleMessage &&
       decideMultiMessage({
@@ -542,7 +638,7 @@ export async function generatePeerReply(
         bedtimePhase: bedtime.phase,
         emotional,
       });
-  const burstMode = v2BlankSlate
+  const burstMode = v2BlankSlate || isFollowUp
     ? false
     : decideBurstMode({
         allowMultiMessage,
@@ -556,7 +652,7 @@ export async function generatePeerReply(
   const { hour: hourLocal, dayOfWeek: dowLocal } = getHourInTimeZone(nowForEnergy, personaTz);
   const energy = computeEnergy({ hourLocal, dayOfWeek: dowLocal });
 
-  const terseMode = v2BlankSlate
+  const terseMode = v2BlankSlate || isFollowUp
     ? false
     : decideTerseMode({
         turnIndex: priorAssistantTurns,
@@ -567,7 +663,57 @@ export async function generatePeerReply(
         energyTerseFactor: energy.terseFactor,
       });
 
+  const recentTurns = sliceRecentTurns(args.history, 12);
+  const userBurstText = userBurst
+    .map((m) => (m.body ?? "").trim())
+    .filter(Boolean)
+    .join("\n");
+
+  const chatTurnPlan = buildChatTurnPlan({
+    currentUserMessage: userBurstText || (lastUserBody ?? ""),
+    userBurstLines: userBurst.map((m) => (m.body ?? "").trim()).filter(Boolean),
+    userBurstTimestamps: userBurst
+      .map((m) => new Date(m.created_at).getTime())
+      .filter((t) => Number.isFinite(t)),
+    recentMessages: recentTurns,
+    structuredFacts: hasAnyFacts(structured.facts) ? structured.facts : null,
+    personaSelfFacts: hasAnySelfClaims(personaSelfMem.facts) ? personaSelfMem.facts : null,
+    bondFormed,
+    userFlirtLevel: userCrossChatProfile?.flirt_level,
+    isFollowUp,
+  });
+
+  const turnDebug = createChatTurnDebug(args.peerId, AI_CHAT_PROMPT_VERSION);
+  turnDebug.chatTurnPlan = chatTurnPlan;
+  turnDebug.userMessagesSinceLastPeerReply = userBurst
+    .map((m) => (m.body ?? "").trim())
+    .filter(Boolean);
+
+  const userMsgForTurn = userBurstText || (lastUserBody ?? "");
+  const personaFallbackCtx = buildPersonaFallbackCtx(
+    args.profile,
+    args.peerId,
+    args.history,
+    userMsgForTurn,
+    userCrossChatProfile?.flirt_level,
+    bondFormed,
+  );
+
+  const planOpts = { chatTurnPlan };
+
   // ----- Build prompt -----
+  const bondOpts = { bondFormed };
+
+  const followUpOpts =
+    isFollowUp && followUpKind && followUpCtx
+      ? {
+          followUpKind,
+          followUpContext: followUpCtx,
+          followUpAngle,
+          ...bondOpts,
+        }
+      : {};
+
   const system = buildGrokSystemPrompt(
     args.profile,
     v2BlankSlate
@@ -575,6 +721,9 @@ export async function generatePeerReply(
           nowLocal: new Date(),
           turnIndex: priorAssistantTurns,
           userMessagesSinceLastReply,
+          ...bondOpts,
+          ...followUpOpts,
+          ...planOpts,
         }
       : {
           threadSummary: threadSummaryForPrompt,
@@ -584,7 +733,7 @@ export async function generatePeerReply(
           userSilenceMs: userSilenceMs ?? undefined,
           bedtimePhase: bedtime.phase,
           minutesUntilBedtime: bedtime.minutesUntilBedtime,
-          workPromptHint: workCtx.promptHint,
+          workPromptHint: bondFormed ? workCtx.promptHint : "",
           daysActive,
           bannedPhrases,
           structuredFacts: hasAnyFacts(structured.facts) ? structured.facts : null,
@@ -612,6 +761,9 @@ export async function generatePeerReply(
           personaSelfFacts: hasAnySelfClaims(personaSelfMem.facts)
             ? personaSelfMem.facts
             : null,
+          ...bondOpts,
+          ...followUpOpts,
+          ...planOpts,
         },
   );
 
@@ -675,6 +827,13 @@ export async function generatePeerReply(
     }),
   ];
 
+  if (isFollowUp && followUpKind) {
+    input.push({
+      role: "user",
+      content: followUpSyntheticUserTurn(followUpKind),
+    });
+  }
+
   // ----- Grok call -----
   let grok: Awaited<ReturnType<typeof grokResponsesComplete>>;
   try {
@@ -702,27 +861,59 @@ export async function generatePeerReply(
     return { ok: false, error: grok.error, latencyMs, model: resolvedModel };
   }
 
-  // Optional second-pass refinement.
   let draftText = grok.text;
+  turnDebug.rawGrokResponse = draftText;
   let revised = false;
-  if (!v2BlankSlate && isDraftReviseEnabled()) {
+
+  if (!v2BlankSlate && !isFollowUp && isDraftReviseEnabled()) {
     try {
       const r = await reviseDraftIfWorthIt(draftText, system);
       draftText = r.text;
       revised = r.revised;
+      turnDebug.afterDraftRevise = draftText;
     } catch {
-      /* keep draft */
+      turnDebug.afterDraftRevise = draftText;
     }
+  } else {
+    turnDebug.afterDraftRevise = draftText;
   }
 
-  // ----- Multi-message split + post-process -----
-  // Terse-mode forces a single bubble. Otherwise burst raises the cap
-  // from 4 to 6 so an excited 5-bubble waterfall isn't folded back to 3.
+  const coherence = await applyFinalCoherenceValidator({
+    chatTurnPlan,
+    candidateBotResponse: draftText,
+    recentMessages: recentTurns,
+    currentUserMessage: userMsgForTurn,
+    personaName: args.profile.display_name,
+    personaCtx: personaFallbackCtx,
+  });
+  draftText = coherence.text;
+  turnDebug.afterCoherence = draftText;
+  turnDebug.finalCoherenceValid = coherence.valid;
+  turnDebug.invalidReasons = coherence.reasons;
+  turnDebug.correctedResponse = coherence.corrected ? draftText : "";
+  if (coherence.corrected) {
+    logTemplateFallback({
+      fallbackUsed: true,
+      fallbackReason: coherence.reasons.join("; "),
+      selectedTemplate: draftText,
+      peerId: args.peerId,
+      personaName: args.profile.display_name,
+      intent: chatTurnPlan.userIntent,
+      rawGrokResponse: turnDebug.rawGrokResponse,
+      finalResponse: draftText,
+    });
+  }
+
+  draftText = applyLightTextCleanup(draftText, chatTurnPlan);
+  turnDebug.afterLightCleanup = draftText;
+
+  const splitCap = Math.min(
+    chatTurnPlan.maxBubbles,
+    burstMode ? 6 : allowMultiMessage ? 4 : 1,
+  );
   const rawChunks = terseMode
     ? [draftText]
-    : (allowMultiMessage || burstMode)
-      ? splitMultiMessage(draftText, burstMode ? 6 : 4)
-      : [draftText];
+    : splitMultiMessage(draftText, Math.max(1, splitCap));
 
   // Photo directives can appear in any chunk. We extract them up front
   // so the visible chunk text stays clean, and we collect the scenes
@@ -738,34 +929,93 @@ export async function generatePeerReply(
     return ext.cleanText;
   });
 
-  const cleanedChunksRaw = directiveStrippedChunks
+  let cleanedChunksRaw = directiveStrippedChunks
     .map((c) => postProcessReply(c))
     .filter((c) => c.length > 0);
 
-  // Realism v2 — voice fingerprint + typo injection passes. Both run
-  // BEFORE chunks are inserted so the persona's signature words/emoji/
-  // quirks AND her natural typo rate end up in storage (not stripped on
-  // re-render). messageIndex makes typos deterministic per turn.
+  if (isFollowUp && cleanedChunksRaw.length > 0) {
+    cleanedChunksRaw = [
+      cleanedChunksRaw[0].slice(0, FOLLOW_UP_MAX_CHARS).trim(),
+    ].filter((c) => c.length > 0);
+  }
+
+  // Voice fingerprint + language cleanup (no random typo injection).
   const fpCtx = {
     ownerUserId: args.ownerUserId,
     peerProfileId: args.peerId,
     messageIndex: priorAssistantTurns,
   };
   let cleanedChunks = v2BlankSlate
-    ? cleanedChunksRaw
+    ? applyLanguageCleanupPass(cleanedChunksRaw)
     : (() => {
         const resolvedStyle = resolveVoiceFingerprint(
           args.profile.chat_style ?? null,
           args.peerId,
         );
         const afterFp = applyVoiceFingerprint(cleanedChunksRaw, resolvedStyle, fpCtx);
-        const afterSig = applySignatureTypo(
-          afterFp,
-          resolvedStyle.signature_typo ?? null,
-          fpCtx,
-        );
-        return applyTypoPass(afterSig, fpCtx);
+        return applyLanguageCleanupPass(afterFp);
       })();
+
+  const emojiGuard = applyEmojiRealismGuard({
+    chunks: cleanedChunks,
+    recentBotMessages: lastPeerMessageBodies(args.history, 8),
+    currentUserMessage: userBurstText || (lastUserBody ?? ""),
+    combinedUserIntent: chatTurnPlan.normalizedIntent.combinedUserIntent,
+    userFlirtLevel: userCrossChatProfile?.flirt_level,
+    bondFormed,
+    personaEmojiPalette: Array.isArray(
+      (args.profile.chat_style as { emoji_palette?: string[] } | null)?.emoji_palette,
+    )
+      ? (args.profile.chat_style as { emoji_palette: string[] }).emoji_palette
+      : undefined,
+  });
+  cleanedChunks = emojiGuard.chunks;
+
+  const ellipsisGuard = applyEllipsisRealismGuard({
+    chunks: cleanedChunks,
+    recentBotMessages: lastPeerMessageBodies(args.history, 12),
+    currentUserMessage: userMsgForTurn,
+    combinedUserIntent: chatTurnPlan.normalizedIntent.combinedUserIntent,
+    chatTurnPlan,
+    chatStyle: args.profile.chat_style ?? null,
+    greetingPersona: personaFallbackCtx,
+  });
+  cleanedChunks = ellipsisGuard.chunks;
+
+  const lastResort = validateChatQuality({
+    currentUserMessage: userMsgForTurn,
+    recentMessages: recentTurns,
+    candidateBotResponse: cleanedChunks.join("\n"),
+    normalizedIntent: chatTurnPlan.normalizedIntent,
+    persona: {
+      name: args.profile.display_name,
+      flirtLevel: userCrossChatProfile?.flirt_level,
+    },
+    sessionFacts: extractBotSessionFacts(recentTurns),
+    greetingPersona: personaFallbackCtx,
+  });
+  if (!lastResort.isValid) {
+    const fbText = fallbackResponseForPlan(chatTurnPlan, personaFallbackCtx);
+    cleanedChunks = splitMultiMessage(fbText, chatTurnPlan.maxBubbles);
+    logTemplateFallback({
+      fallbackUsed: true,
+      fallbackReason: lastResort.reasons.join("; "),
+      selectedTemplate: fbText,
+      peerId: args.peerId,
+      personaName: args.profile.display_name,
+      intent: chatTurnPlan.userIntent,
+      rawGrokResponse: turnDebug.rawGrokResponse,
+      finalResponse: fbText,
+    });
+    turnDebug.invalidReasons = [
+      ...turnDebug.invalidReasons,
+      ...lastResort.reasons.map((r) => `last_resort:${r}`),
+    ];
+  }
+
+  turnDebug.finalCandidate = cleanedChunks.join(" | ");
+  turnDebug.finalResponse = cleanedChunks.join("\n");
+  logChatTurnDebug(turnDebug);
 
   if (cleanedChunks.length === 0) {
     const latencyMs = Date.now() - t0;
@@ -790,8 +1040,29 @@ export async function generatePeerReply(
     };
   }
 
+  const firstText = cleanedChunks[0]!;
+  const fullDraftText =
+    cleanedChunks.length <= 1
+      ? firstText
+      : cleanedChunks.join(`\n${MULTI_MESSAGE_SEPARATOR}\n`);
+
+  if (draftOnly) {
+    return {
+      ok: true,
+      draftOnly: true,
+      draftText: fullDraftText,
+      finalText: firstText,
+      revised,
+      latencyMs: Date.now() - t0,
+      model: grok.model,
+      turnIndex: priorAssistantTurns,
+      userSilenceMs,
+      additionalChunks: 0,
+      nextChunkAt: null,
+    };
+  }
+
   // ----- Insert FIRST chunk as the immediate peer message -----
-  const firstText = cleanedChunks[0];
   const { data: insertedPeer, error: peIns } = await supabase
     .from("chat_messages")
     .insert({
@@ -974,4 +1245,30 @@ export async function generatePeerReply(
     additionalChunks,
     nextChunkAt,
   };
+}
+
+/** Operator-only: run Grok pipeline but never insert user-facing messages. */
+export async function generatePeerReplyDraftOnly(
+  supabase: Parameters<typeof generatePeerReply>[0],
+  args: Parameters<typeof generatePeerReply>[1],
+): Promise<
+  | { ok: true; draftText: string; model: string; latencyMs: number }
+  | { ok: false; error: string }
+> {
+  const result = await generatePeerReply(supabase, {
+    ...args,
+    options: { ...args.options, draftOnly: true },
+  });
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+  if (result.ok && "draftOnly" in result && result.draftOnly) {
+    return {
+      ok: true,
+      draftText: result.draftText,
+      model: result.model,
+      latencyMs: result.latencyMs,
+    };
+  }
+  return { ok: false, error: "Draft-only mode expected" };
 }

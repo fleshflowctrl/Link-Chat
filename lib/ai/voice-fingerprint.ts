@@ -37,6 +37,8 @@ function applyStructuralQuirk(
   rng: Rng,
 ): string {
   if (/\[SEND_PHOTO/i.test(chunk)) return chunk;
+  // Ellipsis is handled by ellipsis-realism-guard — never inject "..." here.
+  if (quirk === "drie-puntjes-eind") return chunk;
   if (rng() > 0.6) return chunk;
 
   switch (quirk) {
@@ -44,11 +46,6 @@ function applyStructuralQuirk(
       return chunk.replace(/\.+(\s|$)/g, "$1");
     case "altijd-lowercase":
       return chunk.toLowerCase();
-    case "drie-puntjes-eind":
-      if (/[.!?]\s*$/.test(chunk)) {
-        return chunk.replace(/[.!?]\s*$/, "...");
-      }
-      return chunk + "...";
     case "dubbele-vraagteken":
       return chunk.replace(/\?(?!\?)/g, "??");
     case "geen-shift":
@@ -93,9 +90,9 @@ export function applyVoiceFingerprint(
 const DEFAULT_QUIRK_POOL: NonNullable<ChatStyle["signature_quirk"]>[] = [
   "geen-punten",
   "altijd-lowercase",
-  "drie-puntjes-eind",
   "dubbele-vraagteken",
   "geen-shift",
+  "veel-spaties",
 ];
 
 /** Resolve persona chat_style; no auto-seeded signature word lists. */
@@ -143,7 +140,8 @@ export function voiceFingerprintPromptLines(style: ChatStyle | null | undefined)
     const map: Record<NonNullable<ChatStyle["signature_quirk"]>, string> = {
       "geen-punten": "Schrijft zonder punten aan het einde van zinnen — voelt natuurlijk casual.",
       "altijd-lowercase": "Typt vrijwel alles in lowercase, ook na een punt.",
-      "drie-puntjes-eind": "Eindigt regelmatig zinnen met '...' in plaats van een punt.",
+      "drie-puntjes-eind":
+        "Gebruikt '...' hoogstens zelden (niet elk bericht, niet bij hoi/gaat goed/met jou). Nooit als standaard afsluiting.",
       "dubbele-vraagteken": "Gebruikt graag dubbele vraagtekens '??' als ze écht verbaasd of nieuwsgierig is.",
       "geen-shift": "Vermijdt hoofdletters bijna altijd — alsof shift kapot is.",
       "veel-spaties": "Slordige spaties: extra spatie na komma's bijvoorbeeld.",
@@ -152,6 +150,7 @@ export function voiceFingerprintPromptLines(style: ChatStyle | null | undefined)
   }
 
   out.push(
+    "- Gebruik '...' zelden. Niet als standaard afsluiting. Simpele berichten (hoi, gaat goed, met jou?) blijven schoon zonder puntjes.",
     "- Geen stopwoordjes of vulwoorden als losse tag aan het eind van een zin (niet: \"… prima joh\", \"… echt\", \"… ofzo\"). Als je ze gebruikt, moeten ze ín de zin horen.",
   );
 

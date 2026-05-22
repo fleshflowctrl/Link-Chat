@@ -6,9 +6,22 @@ import {
   V2_FLIRT_BLOCK,
   V2_SEXUAL_MOMENT_RULE,
 } from "@/lib/ai/v2-chat-config";
+import {
+  bondFormedPromptLines,
+  earlyBondPromptLines,
+  filterChatStyleForPrompt,
+} from "@/lib/ai/conversation-bond";
+import {
+  type FollowUpContext,
+  type FollowUpKind,
+  followUpPromptBlock,
+} from "@/lib/ai/follow-up-reply";
 import { resolveVoiceFingerprint, voiceFingerprintPromptLines } from "@/lib/ai/voice-fingerprint";
+import type { ChatTurnPlan } from "@/lib/ai/chat-turn-plan";
+import { chatTurnPlanPromptLines } from "@/lib/ai/chat-turn-plan";
+import { HUMAN_DUTCH_FLIRTING_STYLE_LAYER } from "@/lib/ai/human-dutch-flirting-style";
 
-export const AI_CHAT_PROMPT_VERSION = "v11";
+export const AI_CHAT_PROMPT_VERSION = "v15";
 
 /** Compact one-line voice hints per filter tag. We blend several into one fluent
  * sentence (see `combinedFilterTagVoice`) instead of bulleting them — bullets
@@ -275,7 +288,7 @@ function chatStyleLines(style: ChatStyle | null | undefined): string[] {
 
   if (style.punctuation === "casual") {
     out.push(
-      "- Schrijft casual: laat dots vaak weg, gebruikt soms lowercase, hoofdletters alleen waar het echt nodig voelt.",
+      "- Schrijft casual: laat punten vaak weg, geen '...' als standaard. Soms lowercase. Hoofdletters alleen waar het echt nodig voelt.",
     );
   } else if (style.punctuation === "clean") {
     out.push("- Schrijft netjes — punten en komma's kloppen, hoofdletters waar ze horen, geen sloppy chat.");
@@ -388,6 +401,14 @@ export type BuildPromptOptions = {
   /** Realism v2 — running record of what the persona has CLAIMED about
    * herself in this thread. Used to prevent self-contradiction. */
   personaSelfFacts?: { self_claims?: string[] } | null;
+  /** Async follow-up delivery — user silent; one contextual nag bubble. */
+  followUpKind?: FollowUpKind;
+  followUpContext?: FollowUpContext;
+  followUpAngle?: string;
+  /** True after BOND_MESSAGE_THRESHOLD messages in thread — work/beroep may surface. */
+  bondFormed?: boolean;
+  /** Central turn plan — intent and constraints for this reply. */
+  chatTurnPlan?: ChatTurnPlan | null;
 };
 
 /**
@@ -415,6 +436,14 @@ export function buildGrokSystemPrompt(
   bits.push(
     `Je bent ${profile.display_name} in een privé dating-app-chat (Nederlandse app). Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.`,
   );
+
+  bits.push("");
+  bits.push(HUMAN_DUTCH_FLIRTING_STYLE_LAYER);
+
+  if (opts.chatTurnPlan) {
+    bits.push("");
+    bits.push(...chatTurnPlanPromptLines(opts.chatTurnPlan));
+  }
 
   if (v2) {
     const append = V2_CHAT_SYSTEM_APPEND.trim();
@@ -454,11 +483,18 @@ export function buildGrokSystemPrompt(
     `Regels rond tijd: Als zij vraagt hoe laat het is, welke dag het is, of welke datum het is — gebruik UITSLUITEND bovenstaande gegevens. Geef nooit een andere tijd, dag of datum. Je hebt geen andere klok dan deze. Je trainings-data of "vandaag in de echte wereld" is niet relevant; deze waarden zijn jouw werkelijkheid op dit moment.`,
   );
 
+  const bondFormed = opts.bondFormed === true;
+
   const loc: string[] = [];
   if (profile.city?.trim()) loc.push(profile.city.trim());
   if (typeof profile.age === "number" && profile.age > 0) loc.push(`${profile.age} jaar`);
-  if (profile.occupation?.trim()) loc.push(profile.occupation.trim());
+  if (bondFormed && profile.occupation?.trim()) loc.push(profile.occupation.trim());
   if (loc.length) bits.push(`Kerngegevens: ${loc.join(" · ")}.`);
+  if (!bondFormed && profile.occupation?.trim()) {
+    bits.push(
+      `(Intern — niet noemen in chat tot jullie een band hebben: je werkt als ${profile.occupation.trim()}.)`,
+    );
+  }
 
   const cityLines = profile.city?.trim() ? cityAndLocalVoiceBlock(profile.city.trim()) : [];
   if (cityLines.length) {
@@ -537,8 +573,9 @@ export function buildGrokSystemPrompt(
     );
   }
 
-  const resolvedStyleForPrompt = resolveVoiceFingerprint(profile.chat_style ?? null, profile.id);
-  const styleLines = chatStyleLines(profile.chat_style);
+  const filteredStyle = filterChatStyleForPrompt(profile.chat_style ?? null);
+  const resolvedStyleForPrompt = resolveVoiceFingerprint(filteredStyle, profile.id);
+  const styleLines = chatStyleLines(filteredStyle);
   const fingerprintLines = voiceFingerprintPromptLines(resolvedStyleForPrompt);
   const allStyleLines = [...styleLines, ...fingerprintLines];
   if (allStyleLines.length) {
@@ -590,6 +627,12 @@ export function buildGrokSystemPrompt(
   }
   bits.push(`- Fase van het gesprek (turn-based): ${stage}.`);
   bits.push(`- Relatie-fase (kalenderdagen): jullie kennen elkaar nu ~${daysActive < 1 ? "minder dan een dag" : daysActive === 1 ? "1 dag" : `${daysActive} dagen`}. ${relStage}.`);
+
+  if (bondFormed) {
+    bits.push(...bondFormedPromptLines());
+  } else {
+    bits.push(...earlyBondPromptLines());
+  }
 
   // Bedtime context: when she's about to go to bed in real life, her last
   // reply of the night should warmly close the conversation and suggest
@@ -875,7 +918,7 @@ export function buildGrokSystemPrompt(
     [
       "Klinken als een echt mens (super belangrijk):",
       "- Lichaam, dag, plek. Je hebt een dag achter je, een buurt, een humeur. Iemand die net gedoucht heeft schrijft anders dan iemand op zondagochtend in bed.",
-      "- Onvolmaaktheid. Samentrekkingen en kleine letters mogen (‘ga ff’, ‘egt’, ‘idd’) — niet elk bericht. Geen losse vulwoorden aan het eind van een zin (niet \"prima joh\" of \"lekker echt\").",
+      "- Onvolmaaktheid. Samentrekkingen en kleine letters mogen (‘ga ff’, ‘idd’) — niet elk bericht. Gebruik nooit ‘egt’ als standaard-eindwoord. Geen losse vulwoorden aan het eind (niet \"prima joh\", niet \"… echt\" of \"… egt\").",
       "- Variatie. Soms één regel: ‘haha okeee’. Soms drie zinnen. Soms zomaar een vraag. Soms een hartje. Mensen schrijven niet elke keer hetzelfde paragraafje.",
       "- Eigen stemming. Je hoeft niet altijd 100% beschikbaar. Je mag een keer ‘even druk vandaag joh, ben zo terug bij je’ zeggen of ‘sorry, ben m'n bril kwijt, ik typ blind 😅’. Kleine, geloofwaardige interrupties geven echtheid.",
       "- Improvisatie binnen je leven. Je mag kleine alledaagse details bedenken die passen bij je stad, leeftijd, interesses en het tijdstip nu (wat je at, wat er op tv was, een korte wandeling). Verzin nooit hard feiten over je werk, familie, afspraken of beloftes die niet uit je bio of het geheugen komen.",
@@ -904,6 +947,7 @@ export function buildGrokSystemPrompt(
       "- Geen herhaling van wat zij net schreef voor je antwoordt (‘Dus jij zegt dat je…’).",
       "- Geen vraag aan het einde van élk bericht. Mik op ~60% zonder vraag.",
       "- Geen ‘ik ben benieuwd wat jij…’, ‘ik vraag me af…’, ‘het zou interessant zijn om…’ — te poëtisch, te taalmodel.",
+      "- Geen losse \"ofzo\" / \"of zo\" aan het eind van een zin (ook niet na puntjes: \"…ofzo\").",
       "- Geen drie-zins-paragrafen als standaard. Wissel echt af: 1 regel, 4 woorden, 2 zinnen.",
       "- Geen ‘je hebt gelijk’ / ‘absoluut’ / ‘inderdaad’ als opener.",
       "- Geen metaforen of slimme beeldspraak. Echte chat is plat en concreet.",
@@ -984,6 +1028,16 @@ export function buildGrokSystemPrompt(
     "Voor je verstuurt: lees je antwoord nog één keer alsof jij de ontvanger bent. Klinkt het als een echt iemand op haar telefoon, of als een AI? Bij twijfel: maak het korter, vager, persoonlijker, en haal de laatste vraag weg als die geforceerd voelt.",
   );
 
+  if (opts.followUpKind && opts.followUpContext) {
+    bits.push(
+      ...followUpPromptBlock(
+        opts.followUpKind,
+        opts.followUpContext,
+        opts.followUpAngle ?? "kort en passend bij wat net gezegd werd",
+      ),
+    );
+  }
+
   return bits.join("\n");
 }
 
@@ -1000,16 +1054,43 @@ function buildV2BlankSlateSystemPrompt(
   const { hour, weekdayLabel, clockText } = nowInPersonaTimeZone(now, tz);
   const tod = timeOfDayLabel(hour);
 
-  return [
+  const bondFormed = opts.bondFormed === true;
+
+  const base = [
     `Je bent ${profile.display_name}. Je antwoordt in een privé chat-app, in het Nederlands.`,
     "Blijf in je rol. Zeg nooit dat je een AI, bot of taalmodel bent.",
     "",
+    HUMAN_DUTCH_FLIRTING_STYLE_LAYER,
+    "",
+    ...(opts.chatTurnPlan ? ["", ...chatTurnPlanPromptLines(opts.chatTurnPlan), ""] : []),
     "Er gelden nog geen persoonlijkheids-, flirt- of gedragsregels voor deze app-versie.",
     "Gebruik geen bio, geen verzonnen achtergrond en geen extra persona-details — alleen wat in het gesprek al staat.",
-    "Reageer kort en normaal op zijn laatste bericht (meestal één zin). Geen preken.",
-    "Af en toe (niet elke beurt) mag je licht nieuwsgierig zijn naar hem: één korte, concrete vraag over iets wat hij net zei — geen standaard 'en jij?', geen interview.",
+  ];
+
+  if (!bondFormed) {
+    base.push(...earlyBondPromptLines());
+  }
+
+  if (opts.followUpKind && opts.followUpContext) {
+    base.push(
+      ...followUpPromptBlock(
+        opts.followUpKind,
+        opts.followUpContext,
+        opts.followUpAngle ?? "kort en passend bij wat net gezegd werd",
+      ),
+    );
+  } else {
+    base.push(
+      "Reageer kort en normaal op zijn laatste bericht (meestal één zin). Geen preken.",
+      "Af en toe (niet elke beurt) mag je licht nieuwsgierig zijn naar hem: één korte, concrete vraag over iets wat hij net zei — geen standaard 'en jij?', geen interview.",
+    );
+  }
+
+  base.push(
     "",
     `Tijd bij jou (alleen noemen als relevant): ${weekdayLabel} ${clockText}, ${tod}.`,
     "Vraagt zij hoe laat het is of welke dag: gebruik exact deze tijd.",
-  ].join("\n");
+  );
+
+  return base.join("\n");
 }

@@ -2,6 +2,7 @@ import type { AppVariant } from "@/lib/app-variant";
 import { USER_BURST_COALESCE_MS_DEFAULT } from "@/lib/chat/burst-coalesce-ms";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatMessageRow } from "@/lib/chat/map-rows";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 
 /** Wait this long after the latest user line before calling Grok so rapid
  * double-texts become one reply. Override via XAI_USER_BURST_COALESCE_MS. */
@@ -97,6 +98,9 @@ export async function queueCoalescedPeerReply(
     appVariant?: AppVariant;
   },
 ): Promise<QueueCoalescedReplyResult> {
+  if (isManualOperatorMode()) {
+    return { ok: false, error: "MANUAL_OPERATOR_MODE" };
+  }
   await supersedePendingReplyRows(supabase, args.ownerUserId, args.peerId);
 
   const coalesceMs = userBurstCoalesceMs();

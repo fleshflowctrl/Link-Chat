@@ -25,6 +25,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatMessageRow } from "@/lib/chat/map-rows";
 import { getBedtimeContext } from "@/lib/ai/bedtime";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 
 /** Time window after the trigger user message during which a spontaneous
  * follow-up may land. We pick a uniform random ms in this window so the
@@ -89,6 +90,7 @@ export async function maybeScheduleSpontaneous(
     history: ChatMessageRow[];
   },
 ): Promise<string | null> {
+  if (isManualOperatorMode()) return null;
   if (Math.random() >= SPONTANEOUS_PROB) return null;
 
   // Need an established back-and-forth — at least 2 peer turns and 2 user.
@@ -106,7 +108,7 @@ export async function maybeScheduleSpontaneous(
     .select("id")
     .eq("owner_user_id", args.ownerUserId)
     .eq("peer_id", args.peerId)
-    .in("kind", ["spontaneous", "winback"])
+    .in("kind", ["spontaneous", "winback", "v2_open_followup"])
     .eq("status", "pending")
     .limit(1);
   if (existing && existing.length > 0) return null;
@@ -151,6 +153,7 @@ export async function maybeScheduleWinback(
     history: ChatMessageRow[];
   },
 ): Promise<string | null> {
+  if (isManualOperatorMode()) return null;
   if (Math.random() >= WINBACK_PROB) return null;
 
   // Need a real prior conversation — winback isn't for fresh chats.
@@ -177,7 +180,7 @@ export async function maybeScheduleWinback(
     .select("id")
     .eq("owner_user_id", args.ownerUserId)
     .eq("peer_id", args.peerId)
-    .in("kind", ["spontaneous", "winback"])
+    .in("kind", ["spontaneous", "winback", "v2_open_followup"])
     .in("status", ["pending", "processing"])
     .limit(1);
   if (existing && existing.length > 0) return null;

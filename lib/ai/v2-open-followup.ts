@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 
 export const V2_OPEN_FOLLOWUP_DELAY_MS = 5 * 60_000;
 
@@ -38,6 +39,7 @@ export async function scheduleV2OpenFollowup(
     peerId: string;
   },
 ): Promise<string | null> {
+  if (isManualOperatorMode()) return null;
   const { data: historyRows, error: he } = await supabase
     .from("chat_messages")
     .select("id, sender, created_at")
