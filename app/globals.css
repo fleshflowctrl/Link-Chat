@@ -146,12 +146,6 @@ html.funnel-scroll-lock body {
     height: 1px;
   }
 
-  /** Pinned above the mobile keyboard (see useChatViewport keyboardInset). */
-  .chat-composer-bar {
-    margin-left: auto;
-    margin-right: auto;
-  }
-
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
