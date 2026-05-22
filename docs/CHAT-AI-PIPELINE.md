@@ -26,6 +26,8 @@ Env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OPERATOR_CHAT_IDS`, optional `TELEGRAM_WEBH
 
 **Operator inbox UX:** persona color badges, user photo + age/location context, “alleen ongelezen” filter, transcript recap in long threads.
 
+**Operator summary (Grok):** menu → **Samenvatting** → `GET` loads saved text; **Opnieuw genereren** → `POST { refresh: true }`. Stored in `chat_operator_saved_summary` (migration `20260522150000`). Does not message the user.
+
 ---
 
 # Chat AI Pipeline — architectuur v2 (ChatTurnPlan)

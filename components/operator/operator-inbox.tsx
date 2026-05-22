@@ -129,6 +129,38 @@ function Avatar({
   );
 }
 
+function OperatorSummaryBody({ text }: { text: string }) {
+  const blocks = text.split(/(?=^## )/m).filter(Boolean);
+  if (blocks.length <= 1 && !text.includes("## ")) {
+    return (
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-800">
+        {text}
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {blocks.map((block, i) => {
+        const lines = block.trim().split("\n");
+        const title = lines[0]?.replace(/^##\s*/, "") ?? "";
+        const body = lines.slice(1).join("\n").trim();
+        return (
+          <section key={i}>
+            {title && (
+              <h4 className="mb-1 text-sm font-semibold text-neutral-900">
+                {title}
+              </h4>
+            )}
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-neutral-700">
+              {body || title}
+            </p>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 export function OperatorInbox() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -141,6 +173,13 @@ export function OperatorInbox() {
   const [userChatsOpen, setUserChatsOpen] = useState(false);
   const [userThreads, setUserThreads] = useState<UserThreadItem[]>([]);
   const [userThreadsLoading, setUserThreadsLoading] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryText, setSummaryText] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryCached, setSummaryCached] = useState(false);
+  const [summaryGeneratedAt, setSummaryGeneratedAt] = useState<string | null>(
+    null,
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
 
@@ -156,7 +195,7 @@ export function OperatorInbox() {
       const tb = b.lastUserMessageAt
         ? new Date(b.lastUserMessageAt).getTime()
         : 0;
-      return ta - tb;
+      return tb - ta;
     });
     return list;
   }, [items, onlyUnread]);
@@ -207,6 +246,13 @@ export function OperatorInbox() {
         messages: data.messages,
         memorySummary: data.memorySummary ?? null,
       });
+      setItems((prev) =>
+        prev.map((i) =>
+          i.conversationId === conversationId
+            ? { ...i, unreadForOperator: false }
+            : i,
+        ),
+      );
       if (!opts?.silent) setError(null);
     },
     [],
@@ -354,6 +400,113 @@ export function OperatorInbox() {
     await loadInbox();
   }
 
+  function applySummaryResponse(data: {
+    summary?: string | null;
+    cached?: boolean;
+    generatedAt?: string;
+  }) {
+    setSummaryText(data.summary ?? null);
+    setSummaryCached(Boolean(data.cached));
+    setSummaryGeneratedAt(data.generatedAt ?? null);
+  }
+
+  async function openSummary() {
+    if (!selectedId) return;
+    setMenuOpen(false);
+    setSummaryOpen(true);
+    setSummaryLoading(true);
+    setSummaryText(null);
+    setSummaryCached(false);
+    setSummaryGeneratedAt(null);
+    try {
+      const res = await fetch(
+        `/api/operator/conversations/${selectedId}/summary`,
+        { cache: "no-store" },
+      );
+      const data = (await res.json()) as {
+        ok: boolean;
+        summary?: string | null;
+        cached?: boolean;
+        generatedAt?: string;
+        error?: string;
+      };
+      if (!data.ok) {
+        setError(data.error ?? "Samenvatting laden mislukt");
+        setSummaryOpen(false);
+        return;
+      }
+      applySummaryResponse(data);
+    } catch {
+      setError("Samenvatting laden mislukt");
+      setSummaryOpen(false);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  async function regenerateSummary() {
+    if (!selectedId) return;
+    setSummaryLoading(true);
+    try {
+      const res = await fetch(
+        `/api/operator/conversations/${selectedId}/summary`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh: true }),
+          cache: "no-store",
+        },
+      );
+      const data = (await res.json()) as {
+        ok: boolean;
+        summary?: string;
+        cached?: boolean;
+        generatedAt?: string;
+        error?: string;
+      };
+      if (!data.ok) {
+        setError(data.error ?? "Samenvatting mislukt");
+        return;
+      }
+      applySummaryResponse(data);
+    } catch {
+      setError("Samenvatting mislukt");
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  async function generateSummaryFirstTime() {
+    if (!selectedId) return;
+    setSummaryLoading(true);
+    try {
+      const res = await fetch(
+        `/api/operator/conversations/${selectedId}/summary`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh: false }),
+          cache: "no-store",
+        },
+      );
+      const data = (await res.json()) as {
+        ok: boolean;
+        summary?: string;
+        generatedAt?: string;
+        error?: string;
+      };
+      if (!data.ok) {
+        setError(data.error ?? "Samenvatting mislukt");
+        return;
+      }
+      applySummaryResponse({ ...data, cached: false });
+    } catch {
+      setError("Samenvatting mislukt");
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
   async function fetchSuggestion() {
     if (!selectedId) return;
     setMenuOpen(false);
@@ -410,7 +563,8 @@ export function OperatorInbox() {
               </Link>
             </div>
             <p className="text-xs text-neutral-500">
-              {visibleItems.length} open
+              {visibleItems.length}{" "}
+              {visibleItems.length === 1 ? "gesprek" : "gesprekken"}
               {onlyUnread ? " (ongelezen)" : ""}
             </p>
             <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600">
@@ -554,7 +708,15 @@ export function OperatorInbox() {
                       aria-label="Menu sluiten"
                       onClick={() => setMenuOpen(false)}
                     />
-                    <div className="absolute right-0 top-full z-20 mt-1 min-w-[10rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg">
+                    <div className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-lg">
+                      <button
+                        type="button"
+                        disabled={loading || summaryLoading}
+                        onClick={() => void openSummary()}
+                        className="block w-full px-4 py-2.5 text-left text-sm text-neutral-800 active:bg-neutral-50"
+                      >
+                        Samenvatting
+                      </button>
                       <button
                         type="button"
                         disabled={loading}
@@ -734,6 +896,82 @@ export function OperatorInbox() {
             <p className="shrink-0 bg-red-50 px-4 py-2 text-center text-xs text-red-800">
               {error}
             </p>
+          )}
+
+          {summaryOpen && (
+            <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 p-3 sm:items-center">
+              <button
+                type="button"
+                className="absolute inset-0"
+                aria-label="Sluit samenvatting"
+                onClick={() => setSummaryOpen(false)}
+              />
+              <div className="relative z-[1] flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+                  <h3 className="text-base font-semibold text-neutral-900">
+                    Gesprekssamenvatting
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setSummaryOpen(false)}
+                    className="rounded-lg px-2 py-1 text-sm text-neutral-600 active:bg-neutral-100"
+                  >
+                    Sluiten
+                  </button>
+                </div>
+                <div className="overflow-y-auto px-4 py-4">
+                  {summaryLoading && (
+                    <p className="text-sm text-neutral-500">
+                      {summaryText
+                        ? "Bezig…"
+                        : "Grok maakt samenvatting… (kan ~10 s duren)"}
+                    </p>
+                  )}
+                  {!summaryLoading && summaryText && (
+                    <>
+                      {summaryCached && summaryGeneratedAt && (
+                        <p className="mb-3 text-[11px] text-neutral-500">
+                          Opgeslagen ·{" "}
+                          {new Date(summaryGeneratedAt).toLocaleString("nl-NL", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </p>
+                      )}
+                      <OperatorSummaryBody text={summaryText} />
+                    </>
+                  )}
+                  {!summaryLoading && !summaryText && (
+                    <p className="text-sm text-neutral-600">
+                      Nog geen samenvatting voor dit gesprek. Genereer er een
+                      met Grok (eenmalig, daarna onthouden).
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2 border-t border-neutral-100 p-3">
+                  {!summaryText && (
+                    <button
+                      type="button"
+                      disabled={summaryLoading}
+                      onClick={() => void generateSummaryFirstTime()}
+                      className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      Genereer samenvatting
+                    </button>
+                  )}
+                  {summaryText && (
+                    <button
+                      type="button"
+                      disabled={summaryLoading}
+                      onClick={() => void regenerateSummary()}
+                      className="w-full rounded-xl border border-neutral-200 py-2.5 text-sm font-medium text-neutral-800 active:bg-neutral-50 disabled:opacity-50"
+                    >
+                      Opnieuw genereren (Grok)
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
 
           <footer className="shrink-0 border-t border-neutral-200/80 bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">

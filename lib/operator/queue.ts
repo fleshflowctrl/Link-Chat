@@ -59,6 +59,23 @@ export async function upsertOperatorQueueForUserMessage(
   return { ok: true };
 }
 
+/** Operator opened the thread (read); does not clear needs_operator_reply. */
+export async function markOperatorThreadViewed(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+  peerId: string,
+): Promise<void> {
+  await supabase
+    .from("chat_operator_queue")
+    .update({
+      unread_for_operator: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("owner_user_id", ownerUserId)
+    .eq("peer_id", peerId)
+    .eq("unread_for_operator", true);
+}
+
 export async function markOperatorReplied(
   supabase: SupabaseClient,
   input: {

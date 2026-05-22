@@ -79,15 +79,14 @@ export async function loadOperatorInbox(
     .from("chat_operator_queue")
     .select("*")
     .order("priority", { ascending: false })
-    .order("last_user_message_at", { ascending: true, nullsFirst: false })
+    .order("last_user_message_at", { ascending: false, nullsFirst: false })
     .limit(limit);
 
   if (opts?.status) {
     q = q.eq("operator_status", opts.status);
   } else {
-    q = q.or(
-      "needs_operator_reply.eq.true,operator_status.eq.waiting_operator",
-    );
+    // Keep answered threads visible; only hide explicitly closed/archived.
+    q = q.not("operator_status", "in", "(closed,archived)");
   }
 
   const { data: rows, error } = await q;
