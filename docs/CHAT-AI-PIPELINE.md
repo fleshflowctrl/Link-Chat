@@ -6,7 +6,7 @@ When enabled in `.env.local`:
 
 - User messages are saved; **no** automatic `generatePeerReply`, pending queue, spontaneous, or winback.
 - Threads appear in **`/operator/inbox`** (`chat_operator_queue`).
-- Operators send via `POST /api/operator/conversations/{ownerId__peerId}/reply` (`message_source=operator_manual`).
+- Operators send via `POST /api/operator/conversations/{ownerId__peerId}/reply` (`message_source=operator_manual`). Unread e-mail queue (`scheduleUnreadEmailNotification`) runs on operator/Telegram sends too — same 5 min cron as auto-AI.
 - AI only via **`POST .../suggest-reply`** → `generatePeerReplyDraftOnly` (no DB insert).
 - Cancel old AI queue: `POST /api/operator/cancel-ai-pending`.
 

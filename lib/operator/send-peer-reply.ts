@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatMessageRow } from "@/lib/chat/map-rows";
 import { messageRowToUi } from "@/lib/chat/map-rows";
 import type { ChatMessage } from "@/data/messages";
+import { scheduleUnreadEmailNotification } from "@/lib/chat/schedule-unread-email-notification";
 import {
   cancelPendingAiForThread,
   markOperatorReplied,
@@ -61,6 +62,15 @@ export async function sendOperatorPeerReply(
   }
 
   await cancelPendingAiForThread(supabase, input.ownerUserId, input.peerId);
+
+  const peerMessageId = (inserted as ChatMessageRow).id;
+  void scheduleUnreadEmailNotification(supabase, {
+    ownerUserId: input.ownerUserId,
+    peerId: input.peerId,
+    peerMessageId,
+  }).catch((e) => {
+    console.warn("[operator] unread-email schedule", e);
+  });
 
   if (input.operatorId) {
     await markOperatorReplied(supabase, {
