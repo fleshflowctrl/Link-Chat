@@ -129,6 +129,100 @@ function Avatar({
   );
 }
 
+function isOperatorImageMessage(message: ChatMessage): boolean {
+  if (message.kind === "image") return true;
+  const url = message.imageUrl?.trim();
+  if (!url) return false;
+  const body = message.body?.trim().toLowerCase();
+  return !body || body === "[afbeelding]" || body === "afbeelding";
+}
+
+function imageCaption(message: ChatMessage): string | null {
+  const body = message.body?.trim();
+  if (!body) return null;
+  const lower = body.toLowerCase();
+  if (lower === "[afbeelding]" || lower === "afbeelding") return null;
+  return body;
+}
+
+function OperatorMessageBubble({
+  message,
+  isPeer,
+  peerBubbleClass,
+}: {
+  message: ChatMessage;
+  isPeer: boolean;
+  peerBubbleClass: string;
+}) {
+  if (isOperatorImageMessage(message)) {
+    const url = message.imageUrl?.trim();
+    if (!url) {
+      return (
+        <div
+          className={`max-w-[min(78%,100%)] min-w-0 rounded-2xl px-3.5 py-2 text-[15px] italic shadow-sm ${
+            isPeer
+              ? `rounded-br-md text-white/90 ${peerBubbleClass}`
+              : "rounded-bl-md bg-white text-neutral-500"
+          }`}
+        >
+          Afbeelding (niet beschikbaar)
+        </div>
+      );
+    }
+    const caption = imageCaption(message);
+    return (
+      <div className="min-w-0 max-w-[min(78%,100%)] shrink overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/[0.06]">
+        {/* Native img — more reliable on mobile Safari than next/image in flex layouts */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt="Verzonden afbeelding"
+          loading="lazy"
+          decoding="async"
+          className="block h-auto max-h-[min(60vh,400px)] w-full max-w-[280px] bg-neutral-100 object-contain"
+        />
+        {caption ? (
+          <p
+            className={`px-3.5 py-2 text-[15px] leading-snug ${
+              isPeer
+                ? `text-white ${peerBubbleClass}`
+                : "bg-white text-neutral-900"
+            }`}
+          >
+            {caption}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (message.kind === "gift") {
+    return (
+      <div
+        className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-[15px] leading-snug shadow-sm ${
+          isPeer
+            ? `rounded-br-md text-white ${peerBubbleClass}`
+            : "rounded-bl-md bg-white text-neutral-900"
+        }`}
+      >
+        🎁 Gift · {message.giftCredits ?? 0} credits
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-[15px] leading-snug shadow-sm ${
+        isPeer
+          ? `rounded-br-md text-white ${peerBubbleClass}`
+          : "rounded-bl-md bg-white text-neutral-900"
+      }`}
+    >
+      <p className="whitespace-pre-wrap break-words">{message.body ?? ""}</p>
+    </div>
+  );
+}
+
 function OperatorSummaryBody({ text }: { text: string }) {
   const blocks = text.split(/(?=^## )/m).filter(Boolean);
   if (blocks.length <= 1 && !text.includes("## ")) {
@@ -847,7 +941,7 @@ export function OperatorInbox() {
               </div>
             )}
             {transcript && detail.messages.length > 8 && (
-              <pre className="mb-3 whitespace-pre-wrap rounded-xl border border-neutral-200/80 bg-white/90 p-2.5 text-[10px] leading-relaxed text-neutral-600">
+              <pre className="mb-3 hidden whitespace-pre-wrap rounded-xl border border-neutral-200/80 bg-white/90 p-2.5 text-[10px] leading-relaxed text-neutral-600 sm:block">
                 {transcript}
               </pre>
             )}
@@ -874,17 +968,11 @@ export function OperatorInbox() {
                         className="mt-1"
                       />
                     )}
-                    <div
-                      className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-[15px] leading-snug shadow-sm ${
-                        isPeer
-                          ? `rounded-br-md text-white ${threadAccent.bubbleClass}`
-                          : "rounded-bl-md bg-white text-neutral-900"
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words">
-                        {m.body ?? (m.kind === "image" ? "[afbeelding]" : "")}
-                      </p>
-                    </div>
+                    <OperatorMessageBubble
+                      message={m}
+                      isPeer={isPeer}
+                      peerBubbleClass={threadAccent.bubbleClass}
+                    />
                   </div>
                 );
               })}

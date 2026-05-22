@@ -43,7 +43,7 @@ export function formatRecentTranscript(
       const who = m.sender === "peer" ? peerName : "User";
       const text =
         m.body?.trim() ||
-        (m.kind === "image" ? "[afbeelding]" : "");
+        (m.kind === "image" ? "📷 foto" : "");
       return `${who}: ${text.slice(0, 120)}`;
     })
     .join("\n");
