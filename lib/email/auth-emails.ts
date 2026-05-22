@@ -19,31 +19,27 @@ async function generateSignupConfirmOtp(
   redirectTo: string,
 ): Promise<SignupOtpResult> {
   let lastError = "";
-  const linkTypes = ["magiclink", "signup"] as const;
+  for (let attempt = 0; attempt < SIGNUP_LINK_MAX_ATTEMPTS; attempt++) {
+    const link = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: { redirectTo },
+    });
 
-  for (const linkType of linkTypes) {
-    for (let attempt = 0; attempt < SIGNUP_LINK_MAX_ATTEMPTS; attempt++) {
-      const link = await admin.auth.admin.generateLink({
-        type: linkType,
-        email,
-        options: { redirectTo },
-      });
-
-      const otp = link.data?.properties?.email_otp;
-      if (!link.error && otp) {
-        return { ok: true, otp: String(otp).trim() };
-      }
-
-      lastError = link.error?.message ?? "Onbekende fout";
-      const retryable = /not found|does not exist|no user|unable to find/i.test(
-        lastError,
-      );
-
-      if (!retryable) {
-        break;
-      }
-      await sleep(SIGNUP_LINK_RETRY_MS * (attempt + 1));
+    const otp = link.data?.properties?.email_otp;
+    if (!link.error && otp) {
+      return { ok: true, otp: String(otp).trim() };
     }
+
+    lastError = link.error?.message ?? "Onbekende fout";
+    const retryable = /not found|does not exist|no user|unable to find/i.test(
+      lastError,
+    );
+
+    if (!retryable) {
+      break;
+    }
+    await sleep(SIGNUP_LINK_RETRY_MS * (attempt + 1));
   }
 
   console.error("[auth-email] signup OTP failed:", email, lastError);
