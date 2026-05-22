@@ -297,9 +297,14 @@ export function ChatConversationView({
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
 
-  const [composerLift, setComposerLift] = useState(0);
+  /** Shrink the chat shell to the visible viewport when the mobile keyboard opens. */
+  const [chatViewport, setChatViewport] = useState<{
+    height: number | null;
+    offsetTop: number;
+  }>({ height: null, offsetTop: 0 });
   const longPressRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
   const [imageBusy, setImageBusy] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
 
@@ -364,6 +369,15 @@ export function ChatConversationView({
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    if (chatViewport.height == null) return;
+    const keyboardLikelyOpen =
+      chatViewport.offsetTop > 0 ||
+      chatViewport.height < window.innerHeight - 80;
+    if (!keyboardLikelyOpen) return;
+    requestAnimationFrame(() => scrollToBottom());
+  }, [chatViewport, scrollToBottom]);
 
   /** Deliver due async-scheduled AI replies (extra chunks, catch-up). */
   const pollPending = useCallback(
@@ -744,15 +758,18 @@ export function ChatConversationView({
   useLayoutEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const onResize = () => {
-      const hidden = window.innerHeight - vv.height;
-      setComposerLift(hidden > 80 ? hidden : 0);
+    const syncViewport = () => {
+      setChatViewport({
+        height: vv.height,
+        offsetTop: vv.offsetTop,
+      });
     };
-    vv.addEventListener("resize", onResize);
-    vv.addEventListener("scroll", onResize);
+    syncViewport();
+    vv.addEventListener("resize", syncViewport);
+    vv.addEventListener("scroll", syncViewport);
     return () => {
-      vv.removeEventListener("resize", onResize);
-      vv.removeEventListener("scroll", onResize);
+      vv.removeEventListener("resize", syncViewport);
+      vv.removeEventListener("scroll", syncViewport);
     };
   }, []);
 
@@ -1185,9 +1202,23 @@ export function ChatConversationView({
     setReactionTargetId(null);
   }
 
+  const chatShellStyle =
+    chatViewport.height != null
+      ? {
+          height: chatViewport.height,
+          transform:
+            chatViewport.offsetTop > 0
+              ? `translateY(${chatViewport.offsetTop}px)`
+              : undefined,
+        }
+      : undefined;
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-canvas">
-      <header className="sticky top-0 z-30 flex shrink-0 items-center gap-3 border-b border-black/[0.06] bg-canvas/95 px-3 py-2.5 pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-canvas"
+      style={chatShellStyle}
+    >
+      <header className="z-30 flex shrink-0 items-center gap-3 border-b border-black/[0.06] bg-canvas/95 px-3 py-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
         <button
           type="button"
           onClick={() => router.back()}
@@ -1647,13 +1678,7 @@ export function ChatConversationView({
         </>
       )}
 
-      <div
-        className="shrink-0 border-t border-black/[0.06] bg-canvas/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-md transition-transform supports-[backdrop-filter]:bg-canvas/90"
-        style={{
-          transform:
-            composerLift > 0 ? `translateY(-${composerLift}px)` : undefined,
-        }}
-      >
+      <div className="shrink-0 border-t border-black/[0.06] bg-canvas/95 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/90">
         <div className="mx-auto flex max-w-[430px] items-end gap-2">
           <input
             ref={fileInputRef}
@@ -1689,9 +1714,13 @@ export function ChatConversationView({
           </button>
           <div className="relative min-w-0 flex-1">
             <input
+              ref={textInputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onFocus={() => {
+                requestAnimationFrame(() => scrollToBottom());
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

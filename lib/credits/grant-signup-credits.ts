@@ -2,8 +2,8 @@ import { SIGNUP_ACCOUNT_CREDITS } from "@/lib/credits/pricing";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
 /**
- * One-time balance when a guest/anonymous user becomes a permanent account.
- * Uses service role so it works even before email confirmation.
+ * Bonus when a guest/anonymous user becomes a permanent account (+100 on top of
+ * existing balance). Uses service role so it works even before email confirmation.
  */
 export async function grantSignupCreditsForUser(
   userId: string,
@@ -13,8 +13,23 @@ export async function grantSignupCreditsForUser(
     return { ok: false, error: "Service role ontbreekt" };
   }
 
-  const credits = SIGNUP_ACCOUNT_CREDITS;
   const now = new Date().toISOString();
+
+  const { data: existing, error: readErr } = await admin
+    .from("user_profiles")
+    .select("credits")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (readErr) {
+    return { ok: false, error: readErr.message };
+  }
+
+  const current =
+    typeof existing?.credits === "number" && existing.credits >= 0
+      ? existing.credits
+      : 0;
+  const credits = current + SIGNUP_ACCOUNT_CREDITS;
 
   const { error } = await admin.from("user_profiles").upsert(
     {

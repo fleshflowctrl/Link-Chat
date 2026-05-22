@@ -32,6 +32,8 @@ export const viewport: Viewport = {
   minimumScale: 1,
   userScalable: false,
   viewportFit: "cover",
+  /** Keep the URL bar area stable; chat uses visualViewport for the keyboard. */
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

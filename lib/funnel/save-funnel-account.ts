@@ -5,6 +5,7 @@ import {
   discoveryPrefsToJson,
   funnelInputToDiscoveryPrefs,
 } from "@/lib/discovery-preferences-server";
+import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import {
   CHAT_MESSAGE_COST_CREDITS,
   STARTING_USER_CREDITS,
@@ -178,16 +179,24 @@ export async function saveFunnelAccount(
     0,
     Math.floor(input.startingCredits ?? STARTING_USER_CREDITS),
   );
-  const firstMessageCost =
-    firstMessage && peerId ? CHAT_MESSAGE_COST_CREDITS : 0;
-  const creditsAfterSignup = Math.max(0, startingCredits - firstMessageCost);
+
+  const { data: existingProfile } = await supabase
+    .from("user_profiles")
+    .select("credits")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const creditsKeep =
+    typeof existingProfile?.credits === "number" && existingProfile.credits >= 0
+      ? existingProfile.credits
+      : startingCredits;
 
   const { error: upsertError } = await supabase
     .from("user_profiles")
     .upsert(
       {
         user_id: userId,
-        credits: creditsAfterSignup,
+        credits: creditsKeep,
         looking_for: input.lookingFor ?? "",
         gender: input.gender ?? "",
         seeking_gender: input.seekingGender ?? "",
@@ -210,15 +219,35 @@ export async function saveFunnelAccount(
     };
   }
 
-  // Persist the funnel's first chat message (credits already deducted above).
   if (firstMessage && peerId) {
-    await supabase.from("chat_messages").insert({
-      peer_id: peerId,
-      sender: "me",
-      kind: "text",
-      body: firstMessage,
-      owner_user_id: userId,
-    });
+    const { data: existingMsg } = await supabase
+      .from("chat_messages")
+      .select("id")
+      .eq("owner_user_id", userId)
+      .eq("peer_id", peerId)
+      .eq("sender", "me")
+      .limit(1)
+      .maybeSingle();
+
+    if (!existingMsg) {
+      const deduct = await deductUserCredits(
+        supabase,
+        userId,
+        CHAT_MESSAGE_COST_CREDITS,
+      );
+      if (deduct.ok) {
+        const { error: msgErr } = await supabase.from("chat_messages").insert({
+          peer_id: peerId,
+          sender: "me",
+          kind: "text",
+          body: firstMessage,
+          owner_user_id: userId,
+        });
+        if (msgErr) {
+          await refundUserCredits(supabase, userId, deduct.balanceBefore);
+        }
+      }
+    }
   }
 
   return { ok: true, needsEmailConfirm: false, userId };

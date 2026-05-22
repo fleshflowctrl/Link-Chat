@@ -105,7 +105,6 @@ export function LoginForm({
   const isV2 = appVariant === "v2";
   const defaultAfterAuth = withVariantPath("/discover", appVariant);
   const loginPath = withVariantPath("/login", appVariant);
-  const signupPath = withVariantPath("/signup", appVariant);
   const funnelEntry = isV2 ? "/v2" : "/";
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -289,7 +288,7 @@ export function LoginForm({
             <>
               Nieuw hier?{" "}
               <Link
-                href={`${isV2 ? signupPath : funnelEntry}${authToggleQuery}`}
+                href={`${funnelEntry}${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Registreren
@@ -468,7 +467,7 @@ export function LoginForm({
             <>
               Nieuw hier?{" "}
               <Link
-                href={`${isV2 ? signupPath : funnelEntry}${authToggleQuery}`}
+                href={`${funnelEntry}${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Registreren
