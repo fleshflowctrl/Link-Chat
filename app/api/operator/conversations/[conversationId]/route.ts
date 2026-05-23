@@ -47,6 +47,7 @@ export async function GET(
       ownerPhotoUrl: detail.ownerPhotoUrl,
       ownerAge: detail.ownerAge,
       ownerLocation: detail.ownerLocation,
+      ownerCredits: detail.ownerCredits,
       peer: detail.peer,
       queue: detail.queue,
       memorySummary: detail.memorySummary,

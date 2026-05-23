@@ -52,9 +52,29 @@ type ThreadDetail = {
   ownerAge: number | null;
   ownerLocation: string;
   ownerEmail: string | null;
+  ownerCredits: number;
   messages: ChatMessage[];
   memorySummary: string | null;
 };
+
+function OperatorUserCreditsBadge({ credits }: { credits: number }) {
+  const low = credits < 60;
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ring-1 ${
+        low
+          ? "bg-red-50 text-red-800 ring-red-200"
+          : "bg-amber-50 text-amber-950 ring-amber-200"
+      }`}
+      title="Credits saldo van deze gebruiker"
+    >
+      <span aria-hidden className="text-[10px]">
+        {low ? "⚠" : "◎"}
+      </span>
+      {credits} credits
+    </span>
+  );
+}
 
 function formatRel(iso: string | null): string {
   if (!iso) return "";
@@ -145,6 +165,58 @@ function imageCaption(message: ChatMessage): string | null {
   return body;
 }
 
+function OperatorChatImage({
+  url,
+  caption,
+  isPeer,
+  peerBubbleClass,
+}: {
+  url: string;
+  caption: string | null;
+  isPeer: boolean;
+  peerBubbleClass: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="min-w-0 max-w-[min(78%,100%)] shrink overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/[0.06]">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="block w-full bg-neutral-100 text-left active:opacity-95"
+        aria-expanded={expanded}
+        aria-label={
+          expanded ? "Afbeelding verkleinen" : "Afbeelding vergroten"
+        }
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt="Verzonden afbeelding"
+          loading="lazy"
+          decoding="async"
+          className={
+            expanded
+              ? "block h-auto max-h-[min(50vh,320px)] w-full max-w-[min(88vw,300px)] object-contain"
+              : "block h-auto max-h-[120px] w-auto max-w-[min(56vw,152px)] cursor-zoom-in object-cover"
+          }
+        />
+      </button>
+      {caption ? (
+        <p
+          className={`px-3.5 py-2 text-[15px] leading-snug ${
+            isPeer
+              ? `text-white ${peerBubbleClass}`
+              : "bg-white text-neutral-900"
+          }`}
+        >
+          {caption}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function OperatorMessageBubble({
   message,
   isPeer,
@@ -169,30 +241,13 @@ function OperatorMessageBubble({
         </div>
       );
     }
-    const caption = imageCaption(message);
     return (
-      <div className="min-w-0 max-w-[min(78%,100%)] shrink overflow-hidden rounded-2xl shadow-sm ring-1 ring-black/[0.06]">
-        {/* Native img — more reliable on mobile Safari than next/image in flex layouts */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt="Verzonden afbeelding"
-          loading="lazy"
-          decoding="async"
-          className="block h-auto max-h-[min(60vh,400px)] w-full max-w-[280px] bg-neutral-100 object-contain"
-        />
-        {caption ? (
-          <p
-            className={`px-3.5 py-2 text-[15px] leading-snug ${
-              isPeer
-                ? `text-white ${peerBubbleClass}`
-                : "bg-white text-neutral-900"
-            }`}
-          >
-            {caption}
-          </p>
-        ) : null}
-      </div>
+      <OperatorChatImage
+        url={url}
+        caption={imageCaption(message)}
+        isPeer={isPeer}
+        peerBubbleClass={peerBubbleClass}
+      />
     );
   }
 
@@ -337,6 +392,8 @@ export function OperatorInbox() {
         ownerAge: data.ownerAge ?? null,
         ownerLocation: data.ownerLocation ?? "",
         ownerEmail: data.ownerEmail,
+        ownerCredits:
+          typeof data.ownerCredits === "number" ? data.ownerCredits : 0,
         messages: data.messages,
         memorySummary: data.memorySummary ?? null,
       });
@@ -641,9 +698,12 @@ export function OperatorInbox() {
     });
 
   return (
-    <div className="flex min-h-0 min-h-dvh flex-1 flex-col overflow-hidden lg:min-h-0 lg:flex-row">
-      {!inThread && (
-        <div className="flex min-h-0 flex-1 flex-col bg-white lg:max-w-sm lg:shrink-0 lg:border-r lg:border-neutral-200">
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row">
+      <div
+        className={`flex h-full min-h-0 flex-col bg-white lg:max-w-sm lg:shrink-0 lg:border-r lg:border-neutral-200 ${
+          inThread ? "hidden lg:flex" : "flex"
+        }`}
+      >
           <div className="shrink-0 border-b border-neutral-200 px-4 py-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold text-neutral-900">
@@ -679,7 +739,11 @@ export function OperatorInbox() {
                   <button
                     type="button"
                     onClick={() => selectConversation(item.conversationId)}
-                    className="flex w-full gap-3 border-b border-neutral-50 px-4 py-3.5 text-left active:bg-neutral-50"
+                    className={`flex w-full gap-3 border-b border-neutral-50 px-4 py-3.5 text-left active:bg-neutral-50 ${
+                      selectedId === item.conversationId
+                        ? "bg-primary/5 lg:bg-primary/[0.07]"
+                        : ""
+                    }`}
                   >
                     <div
                       className={`w-1 shrink-0 self-stretch rounded-full ${accent.headerBar}`}
@@ -728,11 +792,10 @@ export function OperatorInbox() {
               </li>
             )}
           </ul>
-        </div>
-      )}
+      </div>
 
       {inThread && detail && threadAccent && (
-        <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[#f0f0f0] lg:relative lg:inset-auto lg:z-auto lg:min-h-0 lg:flex-1">
+        <div className="fixed inset-0 z-50 flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden bg-[#f0f0f0] lg:static lg:z-auto lg:h-full lg:max-h-full lg:min-h-0 lg:min-w-0 lg:flex-1">
           <header className="shrink-0 bg-white shadow-sm">
             <div
               className={`h-1 ${threadAccent.headerBar}`}
@@ -742,7 +805,7 @@ export function OperatorInbox() {
               <button
                 type="button"
                 onClick={backToList}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-800 active:bg-neutral-100"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-neutral-800 active:bg-neutral-100 lg:hidden"
                 aria-label="Terug naar gesprekken"
               >
                 <ChevronLeft className="h-6 w-6" strokeWidth={2} />
@@ -760,9 +823,12 @@ export function OperatorInbox() {
                   size="md"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold leading-tight text-neutral-900">
-                    {detail.ownerDisplayName}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 truncate text-[15px] font-semibold leading-tight text-neutral-900">
+                      {detail.ownerDisplayName}
+                    </p>
+                    <OperatorUserCreditsBadge credits={detail.ownerCredits} />
+                  </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                     <span className="text-[11px] text-neutral-500">
                       Antwoord als
@@ -773,10 +839,13 @@ export function OperatorInbox() {
                       size="md"
                     />
                   </div>
-                  <p className="mt-0.5 text-[10px] font-medium text-primary">
+                  <p className="mt-0.5 text-[10px] font-medium text-primary lg:hidden">
                     {userChatsOpen
                       ? "Verberg chats"
                       : "Tik voor alle chats van deze user"}
+                  </p>
+                  <p className="mt-0.5 hidden text-[10px] font-medium text-primary lg:block">
+                    {userChatsOpen ? "Verberg chats" : "Alle chats van user"}
                   </p>
                 </div>
                 <ChevronDown
@@ -832,7 +901,10 @@ export function OperatorInbox() {
                 )}
               </div>
             </div>
-            <div className="border-t border-neutral-100 bg-neutral-50 px-3 py-2 text-[11px] leading-snug text-neutral-600">
+            <div className="hidden items-center justify-end border-t border-neutral-100 bg-neutral-50 px-3 py-1.5 lg:flex">
+              <OperatorUserCreditsBadge credits={detail.ownerCredits} />
+            </div>
+            <div className="border-t border-neutral-100 bg-neutral-50 px-3 py-2 text-[11px] leading-snug text-neutral-600 max-lg:block lg:hidden">
               <p>
                 {formatOperatorContextLine({
                   ownerDisplayName: detail.ownerDisplayName,
@@ -840,6 +912,7 @@ export function OperatorInbox() {
                   userEmail: detail.ownerEmail,
                   ownerAge: detail.ownerAge,
                   ownerLocation: detail.ownerLocation,
+                  ownerCredits: detail.ownerCredits,
                 })}
               </p>
               <p className="mt-0.5 font-medium text-neutral-500">
@@ -1063,9 +1136,12 @@ export function OperatorInbox() {
           )}
 
           <footer className="shrink-0 border-t border-neutral-200/80 bg-white p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-            <p className="mb-1.5 truncate px-1 text-center text-[10px] font-medium text-neutral-500">
-              Stuur als {detail.peer.display_name}
-            </p>
+            <div className="mb-1.5 flex flex-wrap items-center justify-center gap-2 px-1">
+              <p className="text-center text-[10px] font-medium text-neutral-500">
+                Stuur als {detail.peer.display_name}
+              </p>
+              <OperatorUserCreditsBadge credits={detail.ownerCredits} />
+            </div>
             <div className="flex items-end gap-2">
               <textarea
                 value={replyText}
@@ -1094,7 +1170,7 @@ export function OperatorInbox() {
       )}
 
       {!inThread && (
-        <div className="hidden flex-1 items-center justify-center bg-neutral-100 text-sm text-neutral-500 lg:flex">
+        <div className="hidden h-full min-h-0 flex-1 items-center justify-center overflow-hidden bg-neutral-100 text-sm text-neutral-500 lg:flex">
           Kies een gesprek
         </div>
       )}

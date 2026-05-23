@@ -17,8 +17,8 @@ export default async function OperatorLayout({
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-neutral-100">
-      <main className="mx-auto flex w-full min-h-0 max-w-3xl flex-1 flex-col lg:max-w-5xl">
+    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-neutral-100">
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-1 flex-col overflow-hidden lg:max-w-6xl">
         {children}
       </main>
     </div>

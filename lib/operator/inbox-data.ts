@@ -1,13 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
+import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { encodeConversationId } from "@/lib/operator/conversation-key";
 import type { OperatorQueueRow } from "@/lib/operator/queue";
+
+export function normalizeOwnerCredits(raw: unknown): number {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
+    return Math.floor(raw);
+  }
+  return STARTING_USER_CREDITS;
+}
 
 export type OwnerProfileSnippet = {
   displayName: string;
   photoUrl: string;
   age: number | null;
   location: string;
+  credits: number;
 };
 
 export async function loadOwnerProfileSnippets(
@@ -19,7 +28,7 @@ export async function loadOwnerProfileSnippets(
 
   const { data: rows } = await supabase
     .from("user_profiles")
-    .select("user_id, first_name, main_photo_url, age, location")
+    .select("user_id, first_name, main_photo_url, age, location, credits")
     .in("user_id", ownerUserIds);
 
   for (const row of rows ?? []) {
@@ -31,6 +40,7 @@ export async function loadOwnerProfileSnippets(
       photoUrl: (row.main_photo_url as string)?.trim() || "",
       age: typeof ageRaw === "number" && ageRaw > 0 ? ageRaw : null,
       location: (row.location as string)?.trim() || "",
+      credits: normalizeOwnerCredits(row.credits),
     });
   }
 
@@ -44,6 +54,7 @@ export async function loadOwnerProfileSnippets(
       photoUrl: "",
       age: null,
       location: "",
+      credits: STARTING_USER_CREDITS,
     });
   }
 
@@ -60,6 +71,7 @@ export type OperatorInboxItem = {
   ownerPhotoUrl: string;
   ownerAge: number | null;
   ownerLocation: string;
+  ownerCredits: number;
   userEmail: string | null;
   lastMessagePreview: string | null;
   lastUserMessageAt: string | null;
@@ -127,6 +139,7 @@ export async function loadOperatorInbox(
       ownerPhotoUrl: owner?.photoUrl ?? "",
       ownerAge: owner?.age ?? null,
       ownerLocation: owner?.location ?? "",
+      ownerCredits: owner?.credits ?? STARTING_USER_CREDITS,
       userEmail: emails.get(row.owner_user_id) ?? null,
       lastMessagePreview: row.last_message_preview,
       lastUserMessageAt: row.last_user_message_at,
@@ -149,6 +162,7 @@ export type OperatorThreadDetail = {
   ownerPhotoUrl: string;
   ownerAge: number | null;
   ownerLocation: string;
+  ownerCredits: number;
   messages: ChatMessageRow[];
   queue: OperatorQueueRow | null;
   memorySummary: string | null;
@@ -201,6 +215,7 @@ export async function loadOperatorThreadDetail(
     ownerPhotoUrl: owner?.photoUrl ?? "",
     ownerAge: owner?.age ?? null,
     ownerLocation: owner?.location ?? "",
+    ownerCredits: owner?.credits ?? STARTING_USER_CREDITS,
     messages: (messages ?? []) as ChatMessageRow[],
     queue: (queue as OperatorQueueRow | null) ?? null,
     memorySummary:

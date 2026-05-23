@@ -4,6 +4,7 @@ export type ConversationLabelInput = {
   userEmail?: string | null;
   ownerAge?: number | null;
   ownerLocation?: string | null;
+  ownerCredits?: number | null;
 };
 
 /** Short title for inbox list / Telegram topic (max ~64 chars). */
@@ -26,6 +27,9 @@ export function formatOperatorContextLine(input: ConversationLabelInput): string
   if (input.ownerAge != null && input.ownerAge > 0) parts.push(`${input.ownerAge} jaar`);
   if (input.ownerLocation?.trim()) parts.push(input.ownerLocation.trim());
   if (input.userEmail) parts.push(input.userEmail);
+  if (typeof input.ownerCredits === "number" && input.ownerCredits >= 0) {
+    parts.push(`${input.ownerCredits} credits`);
+  }
   return parts.join(" · ");
 }
 
