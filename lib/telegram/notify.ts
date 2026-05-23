@@ -16,6 +16,7 @@ import {
   loadOwnerProfileSnippets,
   type OwnerProfileSnippet,
 } from "@/lib/operator/inbox-data";
+import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { ensureTelegramForumTopic } from "@/lib/telegram/topics";
 
 export async function notifyOperatorViaTelegram(
@@ -55,6 +56,7 @@ export async function notifyOperatorViaTelegram(
       photoUrl: "",
       age: null,
       location: "",
+      credits: STARTING_USER_CREDITS,
     };
 
   const inboxUrl = `${getAppBaseUrl()}/operator/inbox`;
