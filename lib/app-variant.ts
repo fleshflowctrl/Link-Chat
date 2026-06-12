@@ -1,10 +1,10 @@
-/** App A/B variant — v1 is the default production experience. */
+/** App variant — production is v2-only; v1 kept for legacy DB/analytics values. */
 export type AppVariant = "v1" | "v2";
 
 export const APP_VARIANT_COOKIE = "whisper_app_variant";
 export const APP_VARIANT_STORAGE = "whisper:app_variant";
 
-export const DEFAULT_APP_VARIANT: AppVariant = "v1";
+export const DEFAULT_APP_VARIANT: AppVariant = "v2";
 
 export function isAppVariant(v: string | null | undefined): v is AppVariant {
   return v === "v1" || v === "v2";
@@ -14,51 +14,39 @@ export function parseAppVariant(v: string | null | undefined): AppVariant {
   return isAppVariant(v) ? v : DEFAULT_APP_VARIANT;
 }
 
-/** URL prefix for in-app navigation (`""` for v1, `"/v2"` for v2). */
-export function variantBasePath(variant: AppVariant): string {
-  return variant === "v2" ? "/v2" : "";
+/** Legacy: v2 routes no longer use a URL prefix. */
+export function variantBasePath(_variant?: AppVariant): string {
+  return "";
 }
 
-/** Prefix a path with the variant base (`/discover` → `/v2/discover`). */
-export function withVariantPath(path: string, variant: AppVariant): string {
-  if (variant === "v1") return path;
-  if (path.startsWith("/v2")) return path;
-  return `/v2${path === "/" ? "" : path}`;
+/** Normalize in-app paths (strip legacy `/v2` prefix). */
+export function withVariantPath(path: string, _variant?: AppVariant): string {
+  if (path.startsWith("/v2/")) return path.slice(3) || "/";
+  if (path === "/v2") return "/";
+  return path;
 }
 
-/** Detect variant from a Next.js pathname. */
-export function variantFromPathname(pathname: string | null | undefined): AppVariant {
-  if (!pathname) return DEFAULT_APP_VARIANT;
-  return pathname === "/v2" || pathname.startsWith("/v2/") ? "v2" : "v1";
+/** Production resolves to v2; pathname kept for legacy redirects only. */
+export function variantFromPathname(_pathname?: string | null): AppVariant {
+  return "v2";
 }
 
 /** Optional client hint on API fetches (`X-Whisper-App-Variant`). */
 export const APP_VARIANT_REQUEST_HEADER = "x-whisper-app-variant";
 
-/** Server: variant for the current request (pathname via middleware header, else cookie). */
+/** Server: variant for the current request. */
 export async function readServerAppVariant(): Promise<AppVariant> {
-  const { cookies, headers } = await import("next/headers");
-  const h = await headers();
-  const fromClient = h.get(APP_VARIANT_REQUEST_HEADER);
-  if (isAppVariant(fromClient)) return fromClient;
-  const fromMiddleware = h.get("x-app-variant");
-  if (isAppVariant(fromMiddleware)) return fromMiddleware;
-  const c = await cookies();
-  return parseAppVariant(c.get(APP_VARIANT_COOKIE)?.value ?? null);
+  return "v2";
 }
 
-/** Attach to client `fetch` calls so API routes resolve the correct pool. */
+/** Attach to client `fetch` calls so API routes resolve the v2 pool. */
 export function appVariantFetchHeaders(
-  variant: AppVariant,
+  _variant?: AppVariant,
 ): Record<string, string> {
-  return { [APP_VARIANT_REQUEST_HEADER]: variant };
+  return { [APP_VARIANT_REQUEST_HEADER]: "v2" };
 }
 
-/** Client: read persisted variant (cookie set by middleware). */
+/** Client: read persisted variant (always v2 in production). */
 export function readClientAppVariant(): AppVariant {
-  if (typeof document === "undefined") return DEFAULT_APP_VARIANT;
-  const match = document.cookie.match(
-    new RegExp(`(?:^|; )${APP_VARIANT_COOKIE}=([^;]*)`),
-  );
-  return parseAppVariant(match?.[1] ? decodeURIComponent(match[1]) : null);
+  return "v2";
 }

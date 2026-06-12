@@ -11,7 +11,13 @@ import { WHISPER_DISCOVERY_PREFS_REFETCH } from "@/lib/session-sync";
 import { sortProfilesForPreferences } from "@/lib/personalize-feed";
 import { ProfileGrid } from "./profile-grid";
 
-export function PersonalizedProfileGrid({ profiles }: { profiles: Profile[] }) {
+export function PersonalizedProfileGrid({
+  profiles,
+  primaryAction = "profile",
+}: {
+  profiles: Profile[];
+  primaryAction?: "profile" | "chat";
+}) {
   const prefs = useSyncExternalStore(
     subscribeDiscoveryPreferences,
     getDiscoveryPreferencesSnapshot,
@@ -31,5 +37,5 @@ export function PersonalizedProfileGrid({ profiles }: { profiles: Profile[] }) {
     [profiles, prefs],
   );
 
-  return <ProfileGrid profiles={sorted} />;
+  return <ProfileGrid profiles={sorted} primaryAction={primaryAction} />;
 }

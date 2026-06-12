@@ -4,6 +4,7 @@ import { CreditsPill } from "@/components/ui/credits-pill";
 import { ProfileStrengthPill } from "@/components/whisper/profile-strength-pill";
 import type { EditProfileState } from "@/data/me-edit";
 import { SITE_DISPLAY } from "@/lib/brand";
+import { APP_PAGE_PADDING_X } from "@/lib/responsive-shell";
 
 /**
  * Discover page header. Shows the brand mark on the left, with the credits
@@ -22,8 +23,8 @@ export function HomeHeader({
     <header
       className={
         compact
-          ? "flex shrink-0 items-center justify-between gap-2 px-4 pb-0 pt-[max(0.35rem,env(safe-area-inset-top))]"
-          : "flex items-start justify-between gap-3 px-5 pb-1 pt-[max(1rem,env(safe-area-inset-top))]"
+          ? `flex shrink-0 items-center justify-between gap-2 pb-0 pt-[max(0.35rem,env(safe-area-inset-top))] ${APP_PAGE_PADDING_X}`
+          : `flex items-start justify-between gap-3 pb-1 pt-[max(1rem,env(safe-area-inset-top))] ${APP_PAGE_PADDING_X}`
       }
     >
       <h1

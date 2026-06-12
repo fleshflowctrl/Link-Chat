@@ -38,6 +38,11 @@ export function resetDiscoveryPreferencesStore(): void {
   setPrefs(null, false);
 }
 
+/** Apply prefs locally (instant grid re-sort; guests or optimistic UI). */
+export function setDiscoveryPreferencesClient(prefs: DiscoveryPreferencesV1): void {
+  setPrefs(prefs, true);
+}
+
 /** Pull discovery prefs from Supabase. */
 export async function refreshDiscoveryPreferencesFromServer(): Promise<void> {
   try {

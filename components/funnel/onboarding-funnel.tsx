@@ -74,6 +74,7 @@ import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { createClient } from "@/utils/supabase/client";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { SITE_DISPLAY } from "@/lib/brand";
+import { APP_SHELL_WIDTH_CLASS } from "@/lib/responsive-shell";
 
 const STEP_TOTAL = 6;
 import { setFunnelPickedPeerClient } from "@/lib/catalog/funnel-picked-peer";
@@ -578,11 +579,11 @@ function OnboardingFunnelInner({
 
   return (
     <div
-      className={`fixed inset-0 z-10 flex justify-center overflow-hidden overscroll-none touch-manipulation ${cfg.outerBg}`}
+      className={`fixed inset-0 z-10 flex justify-center overflow-hidden overscroll-none touch-manipulation md:px-4 lg:px-6 ${cfg.outerBg}`}
       style={accentStyle}
     >
       <div
-        className={`relative flex h-full min-h-0 w-full max-w-[430px] flex-col overflow-hidden overscroll-none touch-manipulation ${cfg.cardBg} shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]`}
+        className={`relative flex h-full min-h-0 flex-col overflow-hidden overscroll-none touch-manipulation ${APP_SHELL_WIDTH_CLASS} ${cfg.cardBg} shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_24px_60px_-20px_rgba(60,40,20,0.12)]`}
       >
         {step > 1 && (
           <header
@@ -1503,7 +1504,7 @@ function FunnelFindingTypeScreen({
   return (
     <div className="flex h-full min-h-0 w-full justify-center overflow-hidden overscroll-none touch-manipulation">
       <div
-        className={`relative flex h-full min-h-0 w-full max-w-[430px] flex-col items-center justify-center overflow-hidden px-6 ${cardBg}`}
+        className={`relative flex h-full min-h-0 flex-col items-center justify-center overflow-hidden px-6 ${APP_SHELL_WIDTH_CLASS} ${cardBg}`}
       >
         <div
           className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[var(--funnel-accent-soft)]/25 blur-3xl"

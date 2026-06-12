@@ -714,7 +714,7 @@ function BulkForm(props: {
             </div>
             <p className="rounded-xl bg-[#B52B2A]/10 px-3 py-2 text-[11px] leading-relaxed text-[#8B2020] ring-1 ring-[#B52B2A]/20">
               {v2PhotoMode === "nude"
-                ? "Avatar + galerij via nude template-pool (/admin/nudes). Alleen zichtbaar op /v2/discover."
+                ? "Avatar + galerij via nude template-pool (/admin/nudes). Alleen zichtbaar op /discover."
                 : "Lingerie, bikini, sheer, mesh — zelfde poses/licht als nude-pool maar outfit blijft sexy-clothed. Alleen /v2."}
             </p>
           </div>

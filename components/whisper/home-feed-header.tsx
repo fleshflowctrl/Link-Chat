@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Coins, Heart, RefreshCcw, Timer } from "lucide-react";
+import { useAppVariant } from "@/components/app-variant-provider";
 import {
   FEED_ROTATION_HOURS,
   HOURLY_FEED_SIZE,
@@ -51,6 +52,8 @@ export function HomeFeedHeader({
   refreshing,
   error,
 }: Props) {
+  const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
   const [now, setNow] = useState<number>(() => Date.now());
 
   useEffect(() => {
@@ -65,10 +68,14 @@ export function HomeFeedHeader({
   const insufficient = !isAnonymous && balance < refreshCost;
 
   return (
-    <section className="px-4 pt-4" aria-labelledby="home-for-you-heading">
+    <section className="px-4 pt-3" aria-labelledby="home-for-you-heading">
       <div className="flex items-start gap-2.5">
         <Heart
-          className="mt-0.5 h-5 w-5 shrink-0 text-primary"
+          className={
+            isV2
+              ? "mt-0.5 h-5 w-5 shrink-0 text-[#B52B2A]"
+              : "mt-0.5 h-5 w-5 shrink-0 text-primary"
+          }
           fill="currentColor"
           strokeWidth={0}
           aria-hidden
@@ -79,10 +86,14 @@ export function HomeFeedHeader({
               id="home-for-you-heading"
               className="text-[17px] font-bold leading-tight tracking-tight text-ink"
             >
-              Speciaal voor jou
+              {isV2 ? "Kies met wie je appt" : "Speciaal voor jou"}
             </h2>
             <span
-              className="flex shrink-0 items-center gap-1 rounded-full bg-lavender px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary"
+              className={
+                isV2
+                  ? "flex shrink-0 items-center gap-1 rounded-full bg-[#B52B2A]/15 px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#B52B2A]"
+                  : "flex shrink-0 items-center gap-1 rounded-full bg-lavender px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary"
+              }
               aria-live="polite"
             >
               <Timer className="h-3 w-3" strokeWidth={2.25} aria-hidden />
@@ -90,8 +101,9 @@ export function HomeFeedHeader({
             </span>
           </div>
           <p className="mt-0.5 text-[13px] leading-snug text-inkMuted">
-            Elke {FEED_ROTATION_HOURS} uur {HOURLY_FEED_SIZE} nieuwe profielen
-            voor jou
+            {isV2
+              ? `Scroll door ${HOURLY_FEED_SIZE} profielen en start een gesprek`
+              : `Elke ${FEED_ROTATION_HOURS} uur ${HOURLY_FEED_SIZE} nieuwe profielen voor jou`}
           </p>
         </div>
       </div>
@@ -102,7 +114,11 @@ export function HomeFeedHeader({
             type="button"
             onClick={onRefreshNow}
             disabled={refreshing || insufficient}
-            className="flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl bg-gradient-primary px-4 py-2.5 text-[13px] font-bold leading-tight text-white shadow-md transition active:scale-[0.98] disabled:opacity-60"
+            className={
+              isV2
+                ? "flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#B52B2A] via-[#C93535] to-[#D63B3A] px-4 py-2.5 text-[13px] font-bold leading-tight text-white shadow-md transition active:scale-[0.98] disabled:opacity-60"
+                : "flex w-full min-w-0 items-center justify-center gap-2 rounded-2xl bg-gradient-primary px-4 py-2.5 text-[13px] font-bold leading-tight text-white shadow-md transition active:scale-[0.98] disabled:opacity-60"
+            }
           >
             <RefreshCcw
               className={`h-4 w-4 shrink-0 ${refreshing ? "animate-spin" : ""}`}
@@ -124,7 +140,13 @@ export function HomeFeedHeader({
             )}
           </button>
           {error && (
-            <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-[12px] font-medium text-red-700">
+            <p
+              className={
+                isV2
+                  ? "mt-2 rounded-xl bg-[#B52B2A]/10 px-3 py-2 text-[12px] font-medium text-[#E85A59]"
+                  : "mt-2 rounded-xl bg-red-50 px-3 py-2 text-[12px] font-medium text-red-700"
+              }
+            >
               {error}
             </p>
           )}

@@ -599,7 +599,7 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
           icon={<CompassIcon className="h-5 w-5" />}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="A/B pool" hint="v2 = alleen zichtbaar op /v2/discover en funnel">
+            <Field label="A/B pool" hint="v2 = zichtbaar op /discover en funnel">
               <Select
                 value={v.app_variant}
                 onChange={(e: ChangeEvent<HTMLSelectElement>) => {

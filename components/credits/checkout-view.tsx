@@ -16,6 +16,7 @@ import {
 import { CreditPrice } from "@/components/credits/credit-price";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
+import { LEGAL_PATHS } from "@/lib/legal/constants";
 
 type CheckoutQuery = {
   success?: string;
@@ -45,6 +46,7 @@ export function CheckoutView({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [canceled, setCanceled] = useState(query.canceled === "1");
+  const [acceptInstantDelivery, setAcceptInstantDelivery] = useState(false);
 
   const applyPurchaseResult = useCallback(
     (json: {
@@ -154,6 +156,12 @@ export function CheckoutView({
 
   const handlePurchase = useCallback(async () => {
     if (submitting || success) return;
+    if (!acceptInstantDelivery) {
+      setError(
+        "Bevestig dat je direct levering van digitale credits wilt en je herroepingsrecht verliest.",
+      );
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setCanceled(false);
@@ -169,7 +177,13 @@ export function CheckoutView({
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, success, startStripeCheckout, runDevPurchase]);
+  }, [
+    submitting,
+    success,
+    acceptInstantDelivery,
+    startStripeCheckout,
+    runDevPurchase,
+  ]);
 
   const busy = submitting || (query.success === "1" && !success && !error);
 
@@ -231,6 +245,23 @@ export function CheckoutView({
         </div>
 
         <div className="mt-auto flex flex-col gap-2">
+          <label className="flex gap-2 rounded-xl bg-white px-3 py-2.5 text-[11px] leading-snug text-gray-600 ring-1 ring-black/[0.05]">
+            <input
+              type="checkbox"
+              checked={acceptInstantDelivery}
+              onChange={(e) => setAcceptInstantDelivery(e.target.checked)}
+              className="mt-0.5 rounded border-neutral-300"
+            />
+            <span>
+              Ik wil dat de credits direct op mijn account worden gezet en
+              begrijp dat ik daarmee afstand doe van mijn 14 dagen herroepingsrecht
+              voor deze digitale aankoop. Zie{" "}
+              <Link href={LEGAL_PATHS.terms} className="font-medium text-primary underline-offset-2 hover:underline" target="_blank">
+                voorwaarden
+              </Link>
+              .
+            </span>
+          </label>
           {canceled && !success && (
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-center text-[12px] font-medium text-amber-800">
               Betaling geannuleerd. Probeer het opnieuw.
@@ -251,7 +282,7 @@ export function CheckoutView({
           <button
             type="button"
             onClick={handlePurchase}
-            disabled={busy || success !== null}
+            disabled={busy || success !== null || !acceptInstantDelivery}
             className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-black px-5 py-3.5 text-[15px] font-bold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-60"
           >
             <span className="inline-flex items-center gap-1">

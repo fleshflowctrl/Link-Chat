@@ -4,12 +4,14 @@ import { AffiliateClickCapture } from "@/components/analytics/affiliate-click-ca
 import { VisitorTracker } from "@/components/analytics/visitor-tracker";
 
 export default async function FunnelEntryPage() {
-  const { profiles: funnelCatalog } = await fetchFunnelCatalogProfilesServer();
+  const { profiles: funnelCatalog } = await fetchFunnelCatalogProfilesServer({
+    variant: "v2",
+  });
   return (
     <>
-      <VisitorTracker />
+      <VisitorTracker variant="v2" />
       <AffiliateClickCapture />
-      <OnboardingFunnel initialCatalog={funnelCatalog} variant="v1" />
+      <OnboardingFunnel initialCatalog={funnelCatalog} variant="v2" />
     </>
   );
 }

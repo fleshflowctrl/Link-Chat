@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -12,7 +12,6 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 import { CreditPrice } from "@/components/credits/credit-price";
-import { ProOfferCard } from "@/components/credits/pro-offer-card";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 
@@ -55,30 +54,8 @@ function PackageCard({ pkg }: { pkg: CreditPackage }) {
 }
 
 export function CreditsView() {
-  const [proActive, setProActive] = useState(false);
-
   useEffect(() => {
     initCreditsStore();
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/me/credits/pro-subscription", {
-          cache: "no-store",
-        });
-        if (!res.ok || cancelled) return;
-        const json = (await res.json()) as { active?: boolean };
-        if (cancelled) return;
-        setProActive(Boolean(json.active));
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useSyncExternalStore(subscribeCredits, getCreditsSnapshot, getCreditsSnapshot);
@@ -92,7 +69,7 @@ export function CreditsView() {
               Credits
             </h1>
             <p className="mt-0.5 text-[12px] text-gray-500">
-              Stuur berichten en koppel met mensen
+              Koop credits voor berichten en extra&apos;s
             </p>
           </div>
           <CreditsPill />
@@ -100,9 +77,6 @@ export function CreditsView() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden px-5 pb-2 pt-0.5">
-        <div className="shrink-0 overflow-visible">
-          <ProOfferCard active={proActive} className="!mt-0 !pt-0" />
-        </div>
         <div className="flex min-h-0 flex-1 flex-col justify-evenly gap-1.5 overflow-hidden">
           {packages.map((pkg) => (
             <PackageCard key={pkg.id} pkg={pkg} />

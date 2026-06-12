@@ -107,21 +107,7 @@ function writeSavedCursor(
   }
 }
 
-/** Best-effort fire-and-forget — record that the user saw this profile. */
-function postProfileSeen(profileId: string) {
-  if (typeof window === "undefined" || !profileId) return;
-  try {
-    void fetch("/api/me/feed/seen", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profileId }),
-      credentials: "same-origin",
-      keepalive: true,
-    }).catch(() => {});
-  } catch {
-    /* ignore */
-  }
-}
+import { postProfileSeen } from "@/lib/catalog/post-profile-seen";
 
 /** Number of upcoming profile photos to preload while the user is browsing. */
 const PRELOAD_AHEAD = 3;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { APP_PAGE_PADDING_X } from "@/lib/responsive-shell";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import {
@@ -21,13 +22,13 @@ import {
 const GRAY = "#9CA3AF";
 
 const TAB_SUFFIXES = [
-  { suffix: "/discover", label: "Ontdekken", Icon: Search, badge: null as string | null },
   {
     suffix: "/messages",
     label: "Berichten",
     Icon: MessageCircle,
     badge: null as string | null,
   },
+  { suffix: "/discover", label: "Ontdekken", Icon: Search, badge: null as string | null },
   { suffix: "/credits", label: "Credits", Icon: Coins, badge: null },
   { suffix: "/me", label: "Profiel", Icon: User, badge: null },
 ] as const;
@@ -151,7 +152,9 @@ export function BottomNav({
 
   return (
     <nav className={`shrink-0 ${navSurfaceClass}`} aria-label="Hoofdnavigatie">
-      <div className="mx-auto flex max-w-[430px] justify-between gap-0.5 px-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+      <div
+        className={`mx-auto flex w-full justify-between gap-0.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] ${APP_PAGE_PADDING_X}`}
+      >
         {tabs.map(({ href, label, Icon, badge }) => {
           const active = isActive(pathname, href);
           const badgeLabel = href.endsWith("/messages") ? messagesBadge : badge;

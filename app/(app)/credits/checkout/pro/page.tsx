@@ -1,21 +1,6 @@
-import { ProCheckoutView } from "@/components/credits/pro-checkout-view";
+import { redirect } from "next/navigation";
 
-export default function ProCreditsCheckoutPage({
-  searchParams,
-}: {
-  searchParams?: {
-    success?: string;
-    canceled?: string;
-    session_id?: string;
-  };
-}) {
-  return (
-    <ProCheckoutView
-      query={{
-        success: searchParams?.success,
-        canceled: searchParams?.canceled,
-        session_id: searchParams?.session_id,
-      }}
-    />
-  );
+/** Pro subscription removed — redirect to credit packs. */
+export default function ProCheckoutRedirectPage() {
+  redirect("/credits");
 }

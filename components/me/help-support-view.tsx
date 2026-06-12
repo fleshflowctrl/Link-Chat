@@ -516,10 +516,9 @@ export function HelpSupportView() {
               aria-hidden
             />
           </button>
-          <button
-            type="button"
-            onClick={() => showToast("Algemene voorwaarden openen binnenkort")}
-            className="flex w-full min-h-[52px] items-center gap-3 border-t border-gray-100 px-4 py-3 text-left transition active:bg-black/[0.02]"
+          <Link
+            href="/terms"
+            className="flex min-h-[52px] items-center gap-3 border-t border-gray-100 px-4 py-3 transition active:bg-black/[0.02]"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 ring-1 ring-amber-100">
               <ShieldCheck className="h-[16px] w-[16px]" strokeWidth={2} />
@@ -532,7 +531,39 @@ export function HelpSupportView() {
               strokeWidth={2.25}
               aria-hidden
             />
-          </button>
+          </Link>
+          <Link
+            href="/privacy"
+            className="flex min-h-[52px] items-center gap-3 border-t border-gray-100 px-4 py-3 transition active:bg-black/[0.02]"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-600 ring-1 ring-sky-100">
+              <Shield className="h-[16px] w-[16px]" strokeWidth={2} />
+            </span>
+            <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">
+              Privacybeleid
+            </p>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-gray-300"
+              strokeWidth={2.25}
+              aria-hidden
+            />
+          </Link>
+          <Link
+            href="/cookies"
+            className="flex min-h-[52px] items-center gap-3 border-t border-gray-100 px-4 py-3 transition active:bg-black/[0.02]"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200">
+              <Lock className="h-[16px] w-[16px]" strokeWidth={2} />
+            </span>
+            <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">
+              Cookiebeleid
+            </p>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-gray-300"
+              strokeWidth={2.25}
+              aria-hidden
+            />
+          </Link>
         </div>
 
         <p className="mt-4 text-center text-[11px] text-gray-500">

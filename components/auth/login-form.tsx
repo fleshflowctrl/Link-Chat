@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
 import { SITE_DISPLAY } from "@/lib/brand";
+import { LEGAL_PATHS } from "@/lib/legal/constants";
 import {
   convertAnonymousToPermanentAccount,
   isPermanentAuthUser,
@@ -91,7 +92,7 @@ export function LoginForm({
   nextPathOverride,
   embedded = false,
   seamless = false,
-  appVariant = "v1",
+  appVariant = "v2",
 }: {
   mode?: LoginFormMode;
   /** When set (e.g. profile gate), used instead of `?next=` from the URL. */
@@ -103,9 +104,9 @@ export function LoginForm({
   appVariant?: AppVariant;
 }) {
   const isV2 = appVariant === "v2";
-  const defaultAfterAuth = withVariantPath("/discover", appVariant);
+  const defaultAfterAuth = withVariantPath("/messages", appVariant);
   const loginPath = withVariantPath("/login", appVariant);
-  const funnelEntry = isV2 ? "/v2" : "/";
+  const funnelEntry = "/";
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
@@ -134,6 +135,8 @@ export function LoginForm({
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptMarketing, setAcceptMarketing] = useState(false);
 
   const supabaseConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL?.length,
@@ -146,6 +149,11 @@ export function LoginForm({
     if (!trimmed || !password) return;
 
     if (mode === "signup") {
+      if (!acceptTerms) {
+        setStatus("error");
+        setMessage("Accepteer de voorwaarden en het privacybeleid om door te gaan.");
+        return;
+      }
       if (password.length < PASSWORD_MIN) {
         setStatus("error");
         setMessage(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn.`);
@@ -437,6 +445,50 @@ export function LoginForm({
               visible={confirmVisible}
               onToggleVisible={() => setConfirmVisible((v) => !v)}
             />
+          )}
+          {mode === "signup" && (
+            <div className="space-y-2 text-[12px] leading-snug text-inkMuted">
+              <label className="flex gap-2">
+                <input
+                  type="checkbox"
+                  checked={acceptTerms}
+                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  className="mt-0.5 rounded border-neutral-300"
+                  required
+                />
+                <span>
+                  Ik ga akkoord met de{" "}
+                  <Link
+                    href={LEGAL_PATHS.terms}
+                    className="font-medium text-primary underline-offset-2 hover:underline"
+                    target="_blank"
+                  >
+                    algemene voorwaarden
+                  </Link>{" "}
+                  en het{" "}
+                  <Link
+                    href={LEGAL_PATHS.privacy}
+                    className="font-medium text-primary underline-offset-2 hover:underline"
+                    target="_blank"
+                  >
+                    privacybeleid
+                  </Link>
+                  . Ik ben 18 jaar of ouder.
+                </span>
+              </label>
+              <label className="flex gap-2">
+                <input
+                  type="checkbox"
+                  checked={acceptMarketing}
+                  onChange={(e) => setAcceptMarketing(e.target.checked)}
+                  className="mt-0.5 rounded border-neutral-300"
+                />
+                <span>
+                  Ja, stuur mij e-mails over acties en nieuws (optioneel, afmelden
+                  kan altijd).
+                </span>
+              </label>
+            </div>
           )}
           {message && status === "error" && (
             <p className="text-[12px] text-red-600">{message}</p>

@@ -1,10 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import {
-  APP_VARIANT_COOKIE,
-  isAppVariant,
-  variantFromPathname,
-  withVariantPath,
-} from "@/lib/app-variant";
+import { APP_VARIANT_COOKIE } from "@/lib/app-variant";
 import {
   DEV_BYPASS_COOKIE,
   DEV_BYPASS_VALUE,
@@ -20,24 +15,11 @@ function hasDevBypassCookie(request: NextRequest): boolean {
 }
 
 function isPublicPath(pathname: string): boolean {
-  if (
-    pathname === "/login" ||
-    pathname === "/signup" ||
-    pathname === "/v2/login" ||
-    pathname === "/v2/signup"
-  ) {
-    return true;
-  }
+  if (pathname === "/login" || pathname === "/signup") return true;
   if (pathname.startsWith("/auth")) return true;
-  /** Funnel + discover home for first-time / anonymous onboarding flows */
   if (pathname === "/" || pathname === "/discover" || pathname.startsWith("/discover/"))
     return true;
-  /** V2 funnel entry + discover (ads may land on either). */
-  if (pathname === "/v2") return true;
-  if (pathname === "/v2/discover" || pathname.startsWith("/v2/discover/"))
-    return true;
   if (pathname.startsWith("/profile/")) return true;
-  if (pathname.startsWith("/v2/profile/")) return true;
   return false;
 }
 
@@ -62,33 +44,21 @@ function redirectPreservingSessionCookies(
   return redirect;
 }
 
-/** Pages: pathname wins. API routes: cookie/referer (path is always `/api/...`). */
-function variantForRequest(request: NextRequest): "v1" | "v2" {
-  const pathname = request.nextUrl.pathname;
-  if (!pathname.startsWith("/api")) {
-    return variantFromPathname(pathname);
-  }
-  const cookie = request.cookies.get(APP_VARIANT_COOKIE)?.value;
-  if (isAppVariant(cookie)) return cookie;
-  const referer = request.headers.get("referer");
-  if (referer) {
-    try {
-      return variantFromPathname(new URL(referer).pathname);
-    } catch {
-      /* ignore malformed referer */
-    }
-  }
-  return variantFromPathname(pathname);
+/** Legacy `/v2/*` URLs → unprefixed routes. */
+function legacyV2RedirectUrl(request: NextRequest): URL | null {
+  const { pathname } = request.nextUrl;
+  if (pathname !== "/v2" && !pathname.startsWith("/v2/")) return null;
+  const url = request.nextUrl.clone();
+  url.pathname = pathname === "/v2" ? "/" : pathname.slice(3) || "/";
+  return url;
 }
 
 function withVariantRequestHeaders(
   request: NextRequest,
   response: NextResponse,
 ): NextResponse {
-  const pathname = request.nextUrl.pathname;
-  const variant = variantForRequest(request);
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-app-variant", variant);
+  requestHeaders.set("x-app-variant", "v2");
   const next = NextResponse.next({
     request: { headers: requestHeaders },
   });
@@ -105,22 +75,9 @@ function withVariantRequestHeaders(
       secure: c.secure,
     });
   });
-  // Only write the cookie when it would actually change — every cookie
-  // write forces the browser to round-trip a Set-Cookie header and breaks
-  // some HTTP caching, so skip it when the value is already correct.
   const currentCookie = request.cookies.get(APP_VARIANT_COOKIE)?.value;
-  if (variant === "v2" && currentCookie !== "v2") {
+  if (currentCookie !== "v2") {
     next.cookies.set(APP_VARIANT_COOKIE, "v2", {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-      sameSite: "lax",
-    });
-  } else if (
-    variant === "v1" &&
-    !pathname.startsWith("/api") &&
-    currentCookie !== "v1"
-  ) {
-    next.cookies.set(APP_VARIANT_COOKIE, "v1", {
       path: "/",
       maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
@@ -134,9 +91,7 @@ function postLoginPath(request: NextRequest): string {
   if (next && next.startsWith("/") && !next.startsWith("//")) {
     return next;
   }
-  const variant = request.cookies.get(APP_VARIANT_COOKIE)?.value;
-  if (variant === "v2") return "/v2/discover";
-  return "/discover";
+  return "/messages";
 }
 
 export async function middleware(request: NextRequest) {
@@ -145,6 +100,15 @@ export async function middleware(request: NextRequest) {
 
     if (pathname.startsWith("/auth/callback")) {
       return NextResponse.next();
+    }
+
+    const legacyRedirect = legacyV2RedirectUrl(request);
+    if (legacyRedirect) {
+      const { response } = await updateSession(request);
+      return redirectPreservingSessionCookies(
+        withVariantRequestHeaders(request, response),
+        legacyRedirect,
+      );
     }
 
     const { response, user, supabaseConfigured } = await updateSession(request);
@@ -160,18 +124,11 @@ export async function middleware(request: NextRequest) {
           return out;
         }
         const url = request.nextUrl.clone();
-        const variant = variantFromPathname(pathname);
-        url.pathname = withVariantPath("/login", variant);
+        url.pathname = "/login";
         url.searchParams.set("next", pathname + request.nextUrl.search);
         return redirectPreservingSessionCookies(out, url);
       }
-      if (
-        user &&
-        (pathname === "/login" ||
-          pathname === "/signup" ||
-          pathname === "/v2/login" ||
-          pathname === "/v2/signup")
-      ) {
+      if (user && (pathname === "/login" || pathname === "/signup")) {
         const url = request.nextUrl.clone();
         url.pathname = postLoginPath(request);
         url.search = "";
@@ -181,17 +138,10 @@ export async function middleware(request: NextRequest) {
       if (
         user &&
         request.nextUrl.searchParams.get("testFunnel") !== "1" &&
-        (pathname === "/" ||
-          (pathname === "/v2" &&
-            !pathname.startsWith("/v2/discover")))
+        pathname === "/"
       ) {
         const url = request.nextUrl.clone();
-        const variant =
-          pathname === "/v2"
-            ? "v2"
-            : request.cookies.get(APP_VARIANT_COOKIE)?.value;
-        url.pathname =
-          variant === "v2" ? "/v2/discover" : "/discover";
+        url.pathname = "/messages";
         url.search = "";
         return redirectPreservingSessionCookies(out, url);
       }

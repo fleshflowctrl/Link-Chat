@@ -17,6 +17,9 @@ import {
   OPERATOR_THREAD_POLL_MS,
 } from "@/lib/operator/live-poll";
 
+/** Outgoing persona/operator messages — static classes (dynamic persona bg-*-500 may be purged in prod). */
+const OPERATOR_SENT_BUBBLE = "bg-emerald-600 text-white";
+
 type InboxItem = {
   conversationId: string;
   peerId: string;
@@ -169,12 +172,10 @@ function OperatorChatImage({
   url,
   caption,
   isPeer,
-  peerBubbleClass,
 }: {
   url: string;
   caption: string | null;
   isPeer: boolean;
-  peerBubbleClass: string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -205,9 +206,7 @@ function OperatorChatImage({
       {caption ? (
         <p
           className={`px-3.5 py-2 text-[15px] leading-snug ${
-            isPeer
-              ? `text-white ${peerBubbleClass}`
-              : "bg-white text-neutral-900"
+            isPeer ? OPERATOR_SENT_BUBBLE : "bg-white text-neutral-900"
           }`}
         >
           {caption}
@@ -220,11 +219,9 @@ function OperatorChatImage({
 function OperatorMessageBubble({
   message,
   isPeer,
-  peerBubbleClass,
 }: {
   message: ChatMessage;
   isPeer: boolean;
-  peerBubbleClass: string;
 }) {
   if (isOperatorImageMessage(message)) {
     const url = message.imageUrl?.trim();
@@ -233,7 +230,7 @@ function OperatorMessageBubble({
         <div
           className={`max-w-[min(78%,100%)] min-w-0 rounded-2xl px-3.5 py-2 text-[15px] italic shadow-sm ${
             isPeer
-              ? `rounded-br-md text-white/90 ${peerBubbleClass}`
+              ? `rounded-br-md ${OPERATOR_SENT_BUBBLE}`
               : "rounded-bl-md bg-white text-neutral-500"
           }`}
         >
@@ -246,7 +243,6 @@ function OperatorMessageBubble({
         url={url}
         caption={imageCaption(message)}
         isPeer={isPeer}
-        peerBubbleClass={peerBubbleClass}
       />
     );
   }
@@ -256,7 +252,7 @@ function OperatorMessageBubble({
       <div
         className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-[15px] leading-snug shadow-sm ${
           isPeer
-            ? `rounded-br-md text-white ${peerBubbleClass}`
+            ? `rounded-br-md ${OPERATOR_SENT_BUBBLE}`
             : "rounded-bl-md bg-white text-neutral-900"
         }`}
       >
@@ -269,7 +265,7 @@ function OperatorMessageBubble({
     <div
       className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-[15px] leading-snug shadow-sm ${
         isPeer
-          ? `rounded-br-md text-white ${peerBubbleClass}`
+          ? `rounded-br-md ${OPERATOR_SENT_BUBBLE}`
           : "rounded-bl-md bg-white text-neutral-900"
       }`}
     >
@@ -1041,11 +1037,7 @@ export function OperatorInbox() {
                         className="mt-1"
                       />
                     )}
-                    <OperatorMessageBubble
-                      message={m}
-                      isPeer={isPeer}
-                      peerBubbleClass={threadAccent.bubbleClass}
-                    />
+                    <OperatorMessageBubble message={m} isPeer={isPeer} />
                   </div>
                 );
               })}
@@ -1160,7 +1152,7 @@ export function OperatorInbox() {
                 type="button"
                 disabled={loading || !replyText.trim()}
                 onClick={() => void sendReply()}
-                className={`flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-full px-4 text-sm font-semibold text-white disabled:opacity-40 ${threadAccent.bubbleClass}`}
+                className="flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white disabled:opacity-40"
               >
                 Stuur
               </button>

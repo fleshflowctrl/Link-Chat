@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { Profile } from "@/data/profiles";
 import type { EditProfileState } from "@/data/me-edit";
 import {
-  applyServerCreditsUpdate,
-  getCreditsSnapshot,
   initCreditsStore,
-  subscribeCredits,
 } from "@/lib/credits-store";
 // ActivityStrip is temporarily disabled — re-enable in the JSX below to bring
 // back the "Nieuw op whisper" rail.
@@ -18,10 +15,9 @@ import {
   pinProfileFirstInFeed,
 } from "@/lib/catalog/funnel-picked-peer";
 import { hashFeedComposition } from "@/lib/catalog/hourly-feed";
-import { useAppVariant } from "@/components/app-variant-provider";
 import { appVariantFetchHeaders } from "@/lib/app-variant";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
-import { FeedStack } from "./feed-stack";
+import { DiscoverGridFeed } from "./discover-grid-feed";
 import { HomeHeader } from "./home-header";
 
 type Props = {
@@ -43,21 +39,8 @@ type Props = {
   refreshCost: number;
   /** Stable hash of the resulting ordered profile ids — used as the cursor key. */
   feedHash: string;
-  /** v2: fit header + feed in viewport without page scroll. */
+  /** Fit header + feed in viewport without page scroll. */
   fitViewport?: boolean;
-};
-
-type FeedRefreshResponse = {
-  ok: boolean;
-  error?: string;
-  profiles?: Profile[];
-  feedSlot?: number;
-  refreshOffset?: number;
-  nextRefreshAt?: number;
-  refreshCost?: number;
-  feedHash?: string;
-  balance?: number;
-  cost?: number;
 };
 
 type FeedGetResponse = {
@@ -81,7 +64,6 @@ export function HomeScreen({
   feedHash,
   fitViewport = false,
 }: Props) {
-  const { variant } = useAppVariant();
   const [profile, setProfile] = useState<EditProfileState | null>(initialProfile);
 
   // Hourly-feed state is owned here so the paid-refresh button can swap the
@@ -89,12 +71,7 @@ export function HomeScreen({
   const [profilesState, setProfilesState] = useState<Profile[]>(gridProfiles);
   const [slot, setSlot] = useState<number>(feedSlot);
   const [nextAt, setNextAt] = useState<number>(nextRefreshAt);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [hash, setHash] = useState<string>(feedHash);
-  const [funnelStartProfileId, setFunnelStartProfileId] = useState<string | null>(
-    null,
-  );
 
   useEffect(() => {
     initCreditsStore();
@@ -105,7 +82,6 @@ export function HomeScreen({
   useEffect(() => {
     const pickedId = consumeFunnelPickedPeerClient();
     if (!pickedId) return;
-    setFunnelStartProfileId(pickedId);
     setProfilesState((prev) => {
       const next = pinProfileFirstInFeed(prev, prev, pickedId);
       if (next[0]?.id === pickedId) {
@@ -114,15 +90,6 @@ export function HomeScreen({
       return next;
     });
   }, []);
-
-  const creditsSnapshot = useSyncExternalStore(
-    subscribeCredits,
-    getCreditsSnapshot,
-    getCreditsSnapshot,
-  );
-  // Hide the pay-to-refresh button for guests (no userKey yet).
-  const balanceForButton =
-    creditsSnapshot.userKey === "guest" ? null : creditsSnapshot.balance;
 
   /**
    * Re-sync after mount: the user might have just edited their profile and
@@ -157,7 +124,7 @@ export function HomeScreen({
         try {
           const res = await fetch("/api/me/home-feed", {
             cache: "no-store",
-            headers: appVariantFetchHeaders(variant),
+            headers: appVariantFetchHeaders(),
           });
           const json = (await res.json()) as FeedGetResponse;
           if (json.ok && Array.isArray(json.profiles)) {
@@ -182,39 +149,7 @@ export function HomeScreen({
     return () => {
       if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     };
-  }, [nextAt, variant]);
-
-  async function handleRefreshNow() {
-    if (refreshing) return;
-    setRefreshing(true);
-    setRefreshError(null);
-    try {
-      const res = await fetch("/api/me/home-feed/refresh", {
-        method: "POST",
-        headers: appVariantFetchHeaders(variant),
-      });
-      const json = (await res.json()) as FeedRefreshResponse;
-      if (!res.ok || !json.ok) {
-        if (res.status === 402) {
-          setRefreshError("Niet genoeg credits voor een directe refresh.");
-        } else {
-          setRefreshError(json.error ?? "Vernieuwen mislukt. Probeer opnieuw.");
-        }
-        return;
-      }
-      if (Array.isArray(json.profiles)) setProfilesState(json.profiles);
-      if (typeof json.feedSlot === "number") setSlot(json.feedSlot);
-      if (typeof json.feedHash === "string") setHash(json.feedHash);
-      if (typeof json.nextRefreshAt === "number") setNextAt(json.nextRefreshAt);
-      if (typeof json.balance === "number") {
-        applyServerCreditsUpdate(json.balance);
-      }
-    } catch {
-      setRefreshError("Vernieuwen mislukt. Probeer opnieuw.");
-    } finally {
-      setRefreshing(false);
-    }
-  }
+  }, [nextAt]);
 
   return (
     <div
@@ -226,21 +161,7 @@ export function HomeScreen({
     >
       <HomeHeader profile={profile} compact={fitViewport} />
       <CatalogFallbackBanner show={catalogDegraded} compact={fitViewport} />
-      <FeedStack
-        key={`${slot}:${hash}`}
-        profiles={profilesState}
-        feedSlot={slot}
-        feedHash={hash}
-        startAtProfileId={funnelStartProfileId}
-        nextRefreshAt={nextAt}
-        refreshCost={refreshCost}
-        balance={balanceForButton}
-        onRefreshNow={handleRefreshNow}
-        refreshing={refreshing}
-        refreshError={refreshError}
-        profile={profile}
-        compact={fitViewport}
-      />
+      <DiscoverGridFeed key={`${slot}:${hash}`} profiles={profilesState} />
     </div>
   );
 }
