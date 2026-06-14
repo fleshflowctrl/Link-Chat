@@ -11,7 +11,7 @@
 /* ── Surfaces ─────────────────────────────────────────────────────────── */
 :is([data-app-variant="v2"], [data-funnel-variant="v2"])
   .bg-white:not([class*="bg-white/"]) {
-  background-color: #2a2a2b !important;
+  background-color: #1e2430 !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-50,
@@ -20,7 +20,7 @@
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-yellow-50,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-purple-50,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-pink-50 {
-  background-color: #2a2a2b !important;
+  background-color: #1e2430 !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-blue-200\/70,
@@ -28,7 +28,7 @@
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-purple-200\/70,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-pink-200\/70,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-200\/70 {
-  background-color: #353536 !important;
+  background-color: #252b36 !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-blue-100,
@@ -50,7 +50,7 @@
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#EDE7FF\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#F4EFFF\] {
-  background-color: #2a2a2b !important;
+  background-color: #1e2430 !important;
 }
 
 /* ── Typography ───────────────────────────────────────────────────────── */
@@ -76,7 +76,7 @@
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-pink-600 {
-  color: #d63b3a !important;
+  color: #b8956a !important;
 }
 
 /* ── Borders & dividers ───────────────────────────────────────────────── */
@@ -105,43 +105,43 @@
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-black\/\[0\.05\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-black\/\[0\.08\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-black\/\[0\.1\] {
-  --tw-ring-color: rgba(181, 43, 42, 0.22) !important;
+  --tw-ring-color: rgba(196, 167, 125, 0.22) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-gray-200,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-gray-300 {
-  --tw-ring-color: rgba(181, 43, 42, 0.2) !important;
+  --tw-ring-color: rgba(196, 167, 125, 0.2) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-lavender\/60,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-primary\/15,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-primary\/10 {
-  --tw-ring-color: rgba(181, 43, 42, 0.28) !important;
+  --tw-ring-color: rgba(196, 167, 125, 0.28) !important;
 }
 
-/* ── Purple / pink gradients → FetLife red ───────────────────────────── */
+/* ── Purple / pink gradients → champagne accent ───────────────────────── */
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-primary {
-  --tw-gradient-from: rgb(181 43 42) var(--tw-gradient-from-position) !important;
-  --tw-gradient-to: rgb(181 43 42 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-from: rgb(196 167 125) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(196 167 125 / 0) var(--tw-gradient-to-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-\[\#EDE7FF\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#FDE4F0\] {
   --tw-gradient-from: #3a2a2a var(--tw-gradient-from-position) !important;
-  --tw-gradient-via: #2a2a2b var(--tw-gradient-via-position) !important;
+  --tw-gradient-via: #1e2430 var(--tw-gradient-via-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via),
     var(--tw-gradient-to) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#FDE4F0\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#EDE7FF\] {
-  --tw-gradient-to: #2a2a2b var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: #1e2430 var(--tw-gradient-to-position) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#8B6BFF\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#8E6BFF\] {
-  --tw-gradient-via: #c93535 var(--tw-gradient-via-position) !important;
+  --tw-gradient-via: #d4b88f var(--tw-gradient-via-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via),
     var(--tw-gradient-to) !important;
 }
@@ -149,12 +149,12 @@
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-accentPink,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-accentPink\/15,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-accentPink\/20 {
-  --tw-gradient-to: #d63b3a var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: #b8956a var(--tw-gradient-to-position) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-primary\/25,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-primary\/10 {
-  --tw-gradient-from: rgb(181 43 42 / 0.25) var(--tw-gradient-from-position) !important;
+  --tw-gradient-from: rgb(196 167 125 / 0.25) var(--tw-gradient-from-position) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .shadow-card,
@@ -168,7 +168,7 @@
   input:not([type="checkbox"]):not([type="radio"]),
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) textarea,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) select {
-  background-color: #1d1d1e !important;
+  background-color: #0f1218 !important;
   color: #e8e8e8 !important;
 }
 
@@ -179,24 +179,24 @@
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) input:focus,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) textarea:focus {
-  --tw-ring-color: rgba(181, 43, 42, 0.45) !important;
+  --tw-ring-color: rgba(196, 167, 125, 0.45) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-gray-200.bg-white,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"])
   .rounded-full.border-2.border-gray-200.bg-white {
-  background-color: #1d1d1e !important;
-  border-color: rgba(181, 43, 42, 0.35) !important;
+  background-color: #0f1218 !important;
+  border-color: rgba(196, 167, 125, 0.35) !important;
   color: #e8e8e8 !important;
 }
 
 /* Chat: peer bubble */
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .rounded-bl-md.bg-white {
-  background-color: #353536 !important;
+  background-color: #252b36 !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .hover\:bg-gray-50:hover {
-  background-color: #353536 !important;
+  background-color: #252b36 !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .hover\:bg-black\/\[0\.03\]:hover {
@@ -204,16 +204,16 @@
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gray-900 {
-  background-color: #b52b2a !important;
+  background-color: #c4a77d !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"])
   .focus-visible\:ring-gray-900:focus-visible {
-  --tw-ring-color: #b52b2a !important;
+  --tw-ring-color: #c4a77d !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-red-50 {
-  background-color: rgba(181, 43, 42, 0.12) !important;
+  background-color: rgba(196, 167, 125, 0.12) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-red-700 {
@@ -236,5 +236,69 @@
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-rose-100,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-violet-100,
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-emerald-100 {
-  background-color: #353536 !important;
+  background-color: #252b36 !important;
+}
+
+/* ── Legacy hardcoded red (#B52B2A) → champagne gold ───────────────────── */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#B52B2A\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#C93535\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#D63B3A\] {
+  background-color: #c4a77d !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-\[\#B52B2A\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-\[\#D63B3A\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .text-\[\#E85A59\] {
+  color: #c4a77d !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-\[\#B52B2A\]\/25,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-\[\#B52B2A\]\/20,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-\[\#B52B2A\]\/30,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .border-\[\#B52B2A\]\/40 {
+  border-color: rgba(196, 167, 125, 0.28) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-\[\#B52B2A\]\/25,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-\[\#B52B2A\]\/30,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .ring-\[\#B52B2A\]\/20 {
+  --tw-ring-color: rgba(196, 167, 125, 0.28) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .from-\[\#B52B2A\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#C93535\] {
+  --tw-gradient-from: #c4a77d var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(196 167 125 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#C93535\] {
+  --tw-gradient-via: #d4b88f var(--tw-gradient-via-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via),
+    var(--tw-gradient-to) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#D63B3A\],
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#D94A48\] {
+  --tw-gradient-to: #b8956a var(--tw-gradient-to-position) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#B52B2A\]\/10,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#B52B2A\]\/12,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-\[\#B52B2A\]\/15 {
+  background-color: rgba(196, 167, 125, 0.12) !important;
+}
+
+/* Hot pink “Nieuw” badges → warm gold (discreet, mature) */
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-pink-500,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-pink-500\/90,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-pink-500\/95 {
+  background-color: rgb(184 149 106 / 0.95) !important;
+}
+
+:is([data-app-variant="v2"], [data-funnel-variant="v2"])
+  .from-amber-400.to-pink-500,
+:is([data-app-variant="v2"], [data-funnel-variant="v2"])
+  .bg-gradient-to-br.from-amber-400.to-pink-500 {
+  background-image: linear-gradient(135deg, #c4a77d 0%, #b8956a 100%) !important;
 }

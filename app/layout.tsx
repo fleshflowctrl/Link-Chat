@@ -17,11 +17,12 @@ const playfair = Playfair_Display({
   weight: ["400", "500", "600", "700"],
 });
 
-import { SITE_TAGLINE, SITE_TITLE } from "@/lib/brand";
+import { SITE_TITLE } from "@/lib/brand";
+import { SITE_META_DESCRIPTION } from "@/lib/site-positioning";
 
 export const metadata: Metadata = {
   title: SITE_TITLE,
-  description: `Een rustige plek om in je eigen tempo te chatten. ${SITE_TAGLINE}.`,
+  description: SITE_META_DESCRIPTION,
 };
 
 /** Lock mobile viewport so users can't pinch / double-tap zoom (native-app feel). */

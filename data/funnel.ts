@@ -1,4 +1,4 @@
-/** Onboarding funnel copy + option lists (Nederlandse UI, 50+ mannen). */
+/** Onboarding funnel copy + option lists (Nederlandse UI, gescheiden professionals). */
 
 export type FunnelLookingFor =
   | "chatting"
@@ -20,9 +20,9 @@ export type LookingForOption = {
 export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
   {
     id: "casual",
-    emoji: "🔥",
-    label: "Spannend avontuur",
-    description: "Flirt, chemie, misschien een date",
+    emoji: "✨",
+    label: "Opnieuw verleid worden",
+    description: "Chemie en flirt na een nieuwe start",
     cardBg: "bg-pink-50",
     cardBorder: "border-pink-100",
     tileBg: "bg-pink-200/70",
@@ -30,8 +30,8 @@ export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
   {
     id: "chatting",
     emoji: "🤫",
-    label: "Discreet chatten",
-    description: "Flirten zonder haast · privé",
+    label: "Discreet contact",
+    description: "Privé gesprekken · jouw tempo",
     cardBg: "bg-blue-50",
     cardBorder: "border-blue-100",
     tileBg: "bg-blue-200/70",
@@ -39,17 +39,17 @@ export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
   {
     id: "friends",
     emoji: "🍷",
-    label: "Gezelschap & spanning",
-    description: "Iemand die je écht ziet",
+    label: "Gezelschap met klasse",
+    description: "Iemand op jouw niveau",
     cardBg: "bg-yellow-50",
     cardBorder: "border-yellow-100",
     tileBg: "bg-yellow-200/70",
   },
   {
     id: "meaningful",
-    emoji: "💜",
-    label: "Iets serieus, stiekem",
-    description: "Geen publiek theater",
+    emoji: "💼",
+    label: "Iets échts, zonder haast",
+    description: "Geen drama · wel diepte",
     cardBg: "bg-purple-50",
     cardBorder: "border-purple-100",
     tileBg: "bg-purple-200/70",
@@ -57,7 +57,7 @@ export const FUNNEL_LOOKING_FOR: LookingForOption[] = [
   {
     id: "notsure",
     emoji: "👀",
-    label: "Ik kijk even rond",
+    label: "Ik verken het rustig",
     description: "Geen verplichtingen",
     cardBg: "bg-gray-50",
     cardBorder: "border-gray-200",
@@ -99,8 +99,8 @@ export const FUNNEL_VIBES: VibeOption[] = [
   },
   {
     id: "romantic",
-    emoji: "💜",
-    label: "Houdt van aandacht",
+    emoji: "🥂",
+    label: "Verfijnd & attent",
     category: "vibes",
     selectedBg: "bg-purple-100",
     selectedRing: "ring-purple-400",
@@ -108,7 +108,7 @@ export const FUNNEL_VIBES: VibeOption[] = [
   {
     id: "playful",
     emoji: "😏",
-    label: "Plagerig & ondeugend",
+    label: "Ondeugend & zelfverzekerd",
     category: "vibes",
     selectedBg: "bg-yellow-100",
     selectedRing: "ring-yellow-400",
@@ -183,10 +183,10 @@ export const FUNNEL_DEFAULT_AGE_RANGE: FunnelAgeRange = {
 
 /** Generic fallbacks (each ≥10 chars for first-message step validation). */
 export const FUNNEL_STARTER_MESSAGES: string[] = [
-  "Hé! Je profiel sprong eruit — wat is jouw ideale ontspannen avond?",
-  "Hoi — ik ben nieuw hier. Waar ben jij nu naar op zoek, gezellig of echt spannend?",
-  "Eerlijk: jij lijkt precies mijn type. Zin in een kort gesprek?",
-  "Wat zou voor jou een perfecte eerste ontmoeting zijn, rustig en discreet?",
+  "Hé — nieuw hoofdstuk, zelfde succes. Wat mis je soms in je avonden?",
+  "Fijn contact zonder haast — waar ben jij nu naar op zoek?",
+  "Eerlijk: jij lijkt iemand met klasse. Zin in een discreet gesprek?",
+  "Wat zou voor jou een perfecte, rustige eerste ontmoeting zijn?",
 ];
 
 const STARTER_LINE_MIN = 10;
@@ -196,23 +196,23 @@ const LOOKING_FOR_STARTERS: Record<
   readonly [string, string]
 > = {
   casual: [
-    "Hé! Wat trekt je het meest aan in een eerste gesprek — humor of spanning?",
-    "Hoi — waar ben jij nu naar op zoek: flirten, date, of rustig opbouwen?",
+    "Hé! Na een scheiding zoek ik weer die vonk — wat trekt jou aan in een gesprek?",
+    "Hoi — discreet flirten op jouw tempo: waar heb je zin in?",
   ],
   chatting: [
-    "Hé! Discreet chatten is precies mijn tempo — wat is jouw ideale avond?",
+    "Hé! Discreet chatten past bij mijn leven — wat is jouw ideale avond?",
     "Hoi — wat zou je willen dat iemand als eerste tegen je zegt?",
   ],
   friends: [
-    "Hé! Ik zoek gezelschap met een vleugje spanning — wat mis jij soms in je week?",
-    "Hoi — wat doe je het liefst op een vrije avond?",
+    "Hé! Gezelschap op niveau, met een vleugje spanning — wat mis jij soms?",
+    "Hoi — wat doe je het liefst na een drukke week?",
   ],
   meaningful: [
-    "Hé — ik hou van echte gesprekken, zonder haast. Wat speelt er bij jou?",
+    "Hé — echte gesprekken, zonder haast of drama. Wat speelt er bij jou?",
     "Hoi! Wat zou voor jou een goede eerste indruk zijn?",
   ],
   notsure: [
-    "Hé! Ik kijk even rond — wat zou chatten hier voor jou de moeite waard maken?",
+    "Hé! Ik verken het rustig — wat zou chatten hier voor jou de moeite waard maken?",
     "Hoi — wat sprak je aan op mijn profiel?",
   ],
 };

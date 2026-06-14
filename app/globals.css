@@ -17,32 +17,32 @@
   --lavender-deep: 228 220 255;
 }
 
-/** V2 — FetLife-inspired: #1D1D1E shell, #B52B2A accent (only under /v2/*). */
+/** V2 — premium discreet: deep slate shell, champagne gold accent. */
 [data-app-variant="v2"],
 [data-funnel-variant="v2"] {
-  --canvas: 37 37 38;
-  --ink: 232 232 232;
-  --ink-muted: 155 155 155;
-  --primary: 181 43 42;
-  --primary-soft: 214 59 58;
-  --accent-pink: 214 59 58;
-  --accent-orange: 201 53 53;
+  --canvas: 30 36 48;
+  --ink: 240 237 232;
+  --ink-muted: 156 163 175;
+  --primary: 196 167 125;
+  --primary-soft: 212 184 143;
+  --accent-pink: 212 184 143;
+  --accent-orange: 184 149 106;
   --accent-green: 34 197 94;
-  --lavender: 42 42 43;
-  --lavender-deep: 29 29 30;
+  --lavender: 37 43 54;
+  --lavender-deep: 23 27 36;
   color-scheme: dark;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gradient-primary {
-  background-image: linear-gradient(135deg, #b52b2a 0%, #d63b3a 100%);
+  background-image: linear-gradient(135deg, #c4a77d 0%, #b8956a 100%);
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .bg-gradient-ring {
   background-image: linear-gradient(
     135deg,
-    #b52b2a 0%,
-    #d63b3a 55%,
-    #c93535 100%
+    #c4a77d 0%,
+    #b8956a 55%,
+    #d4b88f 100%
   );
 }
 
@@ -63,20 +63,20 @@
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#8E6BFF\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#B68BFF\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#9B7BFF\] {
-  --tw-gradient-from: rgb(181 43 42) var(--tw-gradient-from-position) !important;
-  --tw-gradient-to: rgb(181 43 42 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-from: rgb(196 167 125) var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(196 167 125 / 0) var(--tw-gradient-to-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .via-\[\#8E6BFF\] {
-  --tw-gradient-via: rgb(214 59 58) var(--tw-gradient-via-position) !important;
+  --tw-gradient-via: rgb(212 184 143) var(--tw-gradient-via-position) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via),
     var(--tw-gradient-to) !important;
 }
 
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#B68BFF\],
 :is([data-app-variant="v2"], [data-funnel-variant="v2"]) .to-\[\#9B7BFF\] {
-  --tw-gradient-to: rgb(214 59 58) var(--tw-gradient-to-position) !important;
+  --tw-gradient-to: rgb(184 149 106) var(--tw-gradient-to-position) !important;
 }
 
 html {

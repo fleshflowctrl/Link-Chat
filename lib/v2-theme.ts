@@ -1,20 +1,19 @@
 /**
- * V2 visual theme — aligned with FetLife's dark shell + brick-red accent.
- * @see https://fetlife.com
+ * Premium discreet theme — executive lounge feel for divorced professionals.
  */
 export const V2_THEME = {
-  /** Signature FetLife red */
-  red: "#B52B2A",
-  redHover: "#C93535",
-  redSoft: "#D63B3A",
-  /** Near-black backgrounds */
-  bg: "#1D1D1E",
-  bgElevated: "#252526",
-  bgSurface: "#2A2A2B",
+  /** Warm champagne gold accent */
+  red: "#C4A77D",
+  redHover: "#D4B88F",
+  redSoft: "#B8956A",
+  /** Deep slate backgrounds */
+  bg: "#0F1218",
+  bgElevated: "#171B24",
+  bgSurface: "#1E2430",
   /** Typography */
-  text: "#E8E8E8",
-  textMuted: "#9B9B9B",
-  border: "rgba(181, 43, 42, 0.25)",
+  text: "#F0EDE8",
+  textMuted: "#9CA3AF",
+  border: "rgba(196, 167, 125, 0.22)",
 } as const;
 
 export const V2_GRADIENT_PRIMARY =
