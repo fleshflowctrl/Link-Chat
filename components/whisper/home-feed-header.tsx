@@ -7,6 +7,7 @@ import {
   FEED_ROTATION_HOURS,
   HOURLY_FEED_SIZE,
 } from "@/lib/catalog/hourly-feed";
+import { insufficientBundleWithCost } from "@/lib/credits/copy";
 
 type Props = {
   /** Epoch-ms timestamp of the next natural hourly rotation. */
@@ -129,7 +130,7 @@ export function HomeFeedHeader({
               {refreshing
                 ? "Vernieuwen…"
                 : insufficient
-                  ? `Te weinig credits (${refreshCost} nodig)`
+                  ? insufficientBundleWithCost(refreshCost)
                   : `Direct ${HOURLY_FEED_SIZE} nieuwe profielen`}
             </span>
             {!refreshing && !insufficient && (

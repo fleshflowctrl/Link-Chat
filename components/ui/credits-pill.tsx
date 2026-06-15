@@ -32,6 +32,7 @@ export function CreditsPill() {
   return (
     <Link
       href="/credits"
+      aria-label={`Berichtenbundel: ${balance.toLocaleString("nl-NL")} berichten`}
       className={`inline-flex items-center gap-1.5 rounded-full py-1.5 pl-2 pr-3 shadow-sm transition active:scale-95 ${
         isV2
           ? "border border-[#B52B2A]/30 bg-[#2A2A2B]"

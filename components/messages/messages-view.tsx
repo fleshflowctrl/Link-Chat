@@ -116,9 +116,6 @@ function PinnedSection({ threads }: { threads: MessageThread[] }) {
                   className="h-full w-full object-cover"
                 />
               </span>
-              {t.showOnlineDot && (
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
-              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1">
@@ -170,8 +167,6 @@ function ConversationRow({
   const { variant } = useAppVariant();
   const mt = effectivePreviewType(t, revealedLocked);
   const locked = t.messageType === "locked" && !revealedLocked.has(t.id);
-  const showOnline =
-    t.showOnlineDot && !locked && mt !== "reaction";
   const timeTyping = mt === "typing";
   const unread = !locked && (t.unreadCount ?? 0) > 0;
   const previewClass = unread
@@ -297,9 +292,6 @@ function ConversationRow({
           className="h-full w-full object-cover"
         />
       </span>
-      {showOnline && (
-        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" />
-      )}
     </div>
   );
 

@@ -31,6 +31,7 @@ import {
 import { uploadProfileImage } from "@/lib/me/client-storage-upload";
 import { setMeProfileSnapshot } from "@/lib/me-profile-store";
 import { applyServerCreditsUpdate } from "@/lib/credits-store";
+import { bundleRewardUnits } from "@/lib/credits/copy";
 import {
   COMPLETENESS_FIELDS,
   profileCompletionRewardsEnabled,
@@ -207,7 +208,7 @@ export function EditProfileView({
                 COMPLETENESS_FIELDS.find((f) => f.key === a.key)?.label ?? a.key,
             )
             .join(", ");
-          showToast(`+${total} credits voor ${labels} ✨`);
+          showToast(`${bundleRewardUnits(total)} voor ${labels} ✨`);
         }
         return;
       }

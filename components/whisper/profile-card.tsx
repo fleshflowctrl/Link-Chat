@@ -6,7 +6,7 @@ import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 import { postProfileSeen } from "@/lib/catalog/post-profile-seen";
 import { GuestMessageAuthPrompt } from "@/components/auth/guest-message-auth-prompt";
-import { GUEST_PHOTO_LOCK_MESSAGE } from "@/lib/discover/guest-photo-lock";
+import { getGuestPhotoLockMessage } from "@/lib/discover/guest-photo-lock";
 import { ArrowRight, Lock, MapPin, MessageCircle } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import type { Profile, ProfileStatusVariant } from "@/data/profiles";
@@ -120,7 +120,7 @@ export function ProfileCard({
               aria-hidden
             />
             <span className="text-[10px] font-bold leading-snug text-white drop-shadow-sm">
-              {GUEST_PHOTO_LOCK_MESSAGE}
+              {getGuestPhotoLockMessage(profile.name)}
             </span>
           </p>
         </div>

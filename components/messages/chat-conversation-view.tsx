@@ -34,12 +34,17 @@ import {
   setThreadPreview,
 } from "@/lib/thread-preview-store";
 import { uploadChatImage } from "@/lib/chat/upload-chat-image";
-import { GiftModal } from "@/components/messages/gift-modal";
 import {
   applyOptimisticUnreadDelta,
   setServerUnreadBaseline,
 } from "@/lib/messages-tab-badge";
-import { getChatHeaderPresence } from "@/lib/chat/online-status";
+import {
+  BUY_BUNDLES_CTA,
+  bundleRewardUnits,
+  bundleUnits,
+  notEnoughForMessageCost,
+  unlockForUnits,
+} from "@/lib/credits/copy";
 import {
   CHAT_MESSAGE_COST_CREDITS,
   SIGNUP_ACCOUNT_CREDITS,
@@ -71,18 +76,6 @@ const GROUP_GAP_MIN = 5;
 /** Prevent double-tap duplicate sends only — do not block while AI reply is in flight. */
 const SEND_DEBOUNCE_MS = 400;
 const SEND_FETCH_TIMEOUT_MS = 90_000;
-
-/** Tijdelijk: direct follow-up testen zonder 5 min / 30 min wachten. */
-const DEV_FOLLOWUP_TEST = process.env.NODE_ENV === "development";
-
-const DEV_FOLLOWUP_LABELS: Record<
-  "v2_open_followup" | "spontaneous" | "winback",
-  string
-> = {
-  v2_open_followup: "5 min open",
-  spontaneous: "30–90 min",
-  winback: "winback",
-};
 
 function minuteFromClock(m: ChatMessage): number {
   return m.minuteOfDay;
@@ -231,7 +224,7 @@ function GiftBubble({
         <span className="text-[11px] font-semibold uppercase tracking-wider opacity-80">
           {mine ? "Cadeau verstuurd" : "Cadeau ontvangen"}
         </span>
-        <span className="text-[16px] tabular-nums">{credits} credits</span>
+        <span className="text-[16px] tabular-nums">{bundleUnits(credits)}</span>
       </span>
     </span>
   );
@@ -273,12 +266,6 @@ export function ChatConversationView({
   const router = useRouter();
   const { variant } = useAppVariant();
   const meta = threadMeta;
-  /** Re-render so "Nu online" drops off ~90s after her last bubble. */
-  const [onlineTick, setOnlineTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setOnlineTick((n) => (n + 1) & 0x7fffffff), 15_000);
-    return () => clearInterval(id);
-  }, []);
   /** Ids that skip entry animation — SSR baseline, then full list after API sync. */
   const [skipEntryAnimateIds, setSkipEntryAnimateIds] = useState(
     () => new Set(initialMessages.map((m) => m.id)),
@@ -314,9 +301,6 @@ export function ChatConversationView({
   const [sendBusy, setSendBusy] = useState(false);
   /** Bumps when an early poll returned empty — forces the delivery timer to re-arm. */
   const [pendingScheduleKey, setPendingScheduleKey] = useState(0);
-  const [devFollowUpBusy, setDevFollowUpBusy] = useState<
-    "v2_open_followup" | "spontaneous" | "winback" | null
-  >(null);
 
   const chatViewport = useChatViewport();
   const keyboardOpen = isChatKeyboardOpen(chatViewport);
@@ -324,7 +308,6 @@ export function ChatConversationView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const [imageBusy, setImageBusy] = useState(false);
-  const [giftOpen, setGiftOpen] = useState(false);
 
   /** Per-message blur unlock state for this chat session. */
   const [unlockedBlurred, setUnlockedBlurred] = useState<Record<string, boolean>>({});
@@ -359,7 +342,7 @@ export function ChatConversationView({
     }
     if (bal < CHAT_MESSAGE_COST_CREDITS) {
       setAssistantError(
-        `Niet genoeg credits (${CHAT_MESSAGE_COST_CREDITS} per bericht).`,
+        notEnoughForMessageCost(CHAT_MESSAGE_COST_CREDITS),
       );
       openCreditsGate();
       return false;
@@ -447,54 +430,6 @@ export function ChatConversationView({
       }
     },
     [chatId, useSupabase, nextPendingAt, variant],
-  );
-
-  const runDevFollowUpTest = useCallback(
-    async (kind: "v2_open_followup" | "spontaneous" | "winback") => {
-      if (!useSupabase || !DEV_FOLLOWUP_TEST) return;
-      setDevFollowUpBusy(kind);
-      setAssistantError(null);
-      try {
-        const res = await fetch(
-          `/api/conversations/${encodeURIComponent(chatId)}/test-followup`,
-          {
-            method: "POST",
-            cache: "no-store",
-            credentials: "same-origin",
-            headers: {
-              "Content-Type": "application/json",
-              ...appVariantFetchHeaders(variant),
-            },
-            body: JSON.stringify({ kind }),
-          },
-        );
-        const data = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          newPeerMessages?: ChatMessage[];
-        };
-        if (!res.ok || !data.ok) {
-          setAssistantError(data.error ?? "Follow-up test mislukt");
-          return;
-        }
-        const fresh = data.newPeerMessages ?? [];
-        if (fresh.length > 0) {
-          setMessages((prev) => {
-            const seen = new Set(prev.map((m) => m.id));
-            const additions = fresh
-              .filter((m) => !seen.has(m.id))
-              .map(withAmsterdamMessageTimes);
-            return additions.length === 0 ? prev : [...prev, ...additions];
-          });
-          requestThreadsRefetch();
-        }
-      } catch {
-        setAssistantError("Follow-up test: netwerkfout");
-      } finally {
-        setDevFollowUpBusy(null);
-      }
-    },
-    [chatId, useSupabase, variant],
   );
 
   /**
@@ -686,18 +621,6 @@ export function ChatConversationView({
     void markReadOnServer();
   }, [messages, markReadOnServer, chatId]);
 
-  const headerPresence = useMemo(
-    () =>
-      getChatHeaderPresence({
-        messages,
-        personaId: chatId,
-        discoverBucket: meta.discoverPresenceBucket,
-      }),
-    [messages, chatId, meta.discoverPresenceBucket, onlineTick],
-  );
-
-  const liveOnlineNow = headerPresence.showGreenDot;
-
   /** If mock transcript missed SSR, merge saved first outbound (dev without Supabase). */
   useEffect(() => {
     if (useSupabase) return;
@@ -847,7 +770,7 @@ export function ChatConversationView({
           name: meta.name,
           avatarUrl: meta.avatarUrl,
           verified: meta.verified,
-          showOnlineDot: liveOnlineNow,
+          showOnlineDot: false,
           unreadCount: 0,
         });
         return;
@@ -877,7 +800,7 @@ export function ChatConversationView({
         name: meta.name,
         avatarUrl: meta.avatarUrl,
         verified: meta.verified,
-        showOnlineDot: liveOnlineNow,
+        showOnlineDot: false,
         unreadCount: 0,
       });
 
@@ -987,7 +910,7 @@ export function ChatConversationView({
           name: meta.name,
           avatarUrl: meta.avatarUrl,
           verified: meta.verified,
-          showOnlineDot: liveOnlineNow,
+          showOnlineDot: false,
         });
         requestThreadsRefetch();
       } catch (e) {
@@ -1073,7 +996,7 @@ export function ChatConversationView({
         name: meta.name,
         avatarUrl: meta.avatarUrl,
         verified: meta.verified,
-        showOnlineDot: liveOnlineNow,
+        showOnlineDot: false,
         unreadCount: 0,
       });
 
@@ -1158,77 +1081,6 @@ export function ChatConversationView({
     ],
   );
 
-  const sendGift = useCallback(
-    async (amount: number) => {
-      if (!Number.isFinite(amount) || amount <= 0) return { ok: false as const, error: "Ongeldig bedrag" };
-
-      const { timeLabel, minuteOfDay } = nowAmsterdamClock();
-      const tempId = `tmp-${gid()}`;
-      const optimistic: ChatMessage = {
-        id: tempId,
-        sender: "me",
-        kind: "text",
-        body: `🎁 Cadeau verstuurd: ${amount} credits`,
-        timeLabel,
-        minuteOfDay,
-      };
-
-      setAssistantError(null);
-      setMessages((prev) => [...prev, optimistic]);
-      setThreadPreview(chatId, {
-        lastMessage: `🎁 ${amount} credits`,
-        timestampLabel: timeLabel,
-        lastActivityAt: new Date().toISOString(),
-        name: meta.name,
-        avatarUrl: meta.avatarUrl,
-        verified: meta.verified,
-        showOnlineDot: liveOnlineNow,
-        unreadCount: 0,
-      });
-
-      try {
-        const res = await fetch(
-          `/api/conversations/${encodeURIComponent(chatId)}/gifts`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...appVariantFetchHeaders(variant),
-            },
-            body: JSON.stringify({ amount }),
-          },
-        );
-        const data = (await res.json()) as {
-          ok?: boolean;
-          userMessage?: ChatMessage;
-          peerMessage?: ChatMessage | null;
-          newBalance?: number;
-          error?: string;
-        };
-        if (!res.ok || !data.ok || !data.userMessage) {
-          setAssistantError(data.error ?? `Cadeau versturen mislukt (${res.status})`);
-          setMessages((prev) => prev.filter((m) => m.id !== tempId));
-          return { ok: false as const, error: data.error ?? "Versturen mislukt" };
-        }
-        setMessages((prev) =>
-          finalizeMessagesAfterSend(prev, tempId, data.userMessage!, {
-            peerMessage: data.peerMessage,
-          }),
-        );
-        requestThreadsRefetch();
-        return { ok: true as const, newBalance: data.newBalance };
-      } catch (e) {
-        console.error("[chat] send gift failed", e);
-        setAssistantError(
-          e instanceof Error ? e.message : "Cadeau versturen mislukt",
-        );
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        return { ok: false as const, error: "Netwerkfout" };
-      }
-    },
-    [chatId, meta, variant],
-  );
-
   function attachReactionTo(messageId: string, emoji: string) {
     setMessages((prev) =>
       prev.map((m) =>
@@ -1273,32 +1125,6 @@ export function ChatConversationView({
               />
             )}
           </div>
-          <p
-            className={`mt-0.5 flex items-center gap-1.5 text-[12px] ${
-              headerPresence.variant === "online" ||
-              headerPresence.variant === "typing"
-                ? "text-primary"
-                : "text-inkMuted"
-            }`}
-          >
-            {headerPresence.showGreenDot && (
-              <span
-                className={`h-2 w-2 shrink-0 rounded-full bg-accentGreen shadow-[0_0_0_2px_rgba(124,92,255,0.12)] ${
-                  headerPresence.variant === "typing" ? "animate-pulse" : ""
-                }`}
-              />
-            )}
-            <span
-              className={
-                headerPresence.variant === "online" ||
-                headerPresence.variant === "typing"
-                  ? "font-medium"
-                  : "font-normal"
-              }
-            >
-              {headerPresence.label}
-            </span>
-          </p>
         </div>
         <div className="relative shrink-0">
           <button
@@ -1368,34 +1194,6 @@ export function ChatConversationView({
           </AnimatePresence>
         </div>
       </header>
-
-      {DEV_FOLLOWUP_TEST && useSupabase ? (
-        <div className="shrink-0 border-b border-violet-300/80 bg-violet-50 px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-900">
-            Dev — follow-up test (direct)
-          </p>
-          <p className="mt-0.5 text-[11px] text-violet-800/90">
-            Zorg dat zij als laatste typte voor “5 min open”.
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {(
-              ["v2_open_followup", "spontaneous", "winback"] as const
-            ).map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                disabled={devFollowUpBusy !== null}
-                onClick={() => void runDevFollowUpTest(kind)}
-                className="rounded-full bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white transition active:scale-95 disabled:opacity-50"
-              >
-                {devFollowUpBusy === kind
-                  ? "…"
-                  : DEV_FOLLOWUP_LABELS[kind]}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       {assistantError ? (
         <div
@@ -1535,7 +1333,7 @@ export function ChatConversationView({
                                         }}
                                         className="mt-2 rounded-full bg-primary px-5 py-1.5 text-[13px] font-bold text-white shadow active:scale-[0.985]"
                                       >
-                                        {unlockBusy[msg.id] ? "Bezig..." : `Ontgrendel voor ${msg.blurCost} credits`}
+                                        {unlockBusy[msg.id] ? "Bezig..." : unlockForUnits(msg.blurCost ?? 0)}
                                       </button>
                                     </div>
                                   </div>
@@ -1790,50 +1588,25 @@ export function ChatConversationView({
               className="h-12 w-full rounded-full border-0 bg-white px-4 text-[16px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none transition placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35"
             />
           </div>
-          <div className="relative h-11 w-11 shrink-0">
-            <AnimatePresence mode="wait" initial={false}>
-              {input.trim() ? (
-                <motion.button
-                  type="button"
-                  key="send"
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.92 }}
-                  transition={{ duration: 0.14 }}
-                  className={`absolute inset-0 flex items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95 ${sendBusy ? "opacity-80" : ""}`}
-                  aria-label={sendBusy ? "Versturen…" : "Versturen"}
-                  aria-busy={sendBusy}
-                  onClick={() => void sendText(input)}
-                >
-                  <Send className="h-5 w-5" strokeWidth={2.25} />
-                </motion.button>
-              ) : (
-                <motion.button
-                  type="button"
-                  key="gift"
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.92 }}
-                  transition={{ duration: 0.14 }}
-                  className="absolute inset-0 flex items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95"
-                  aria-label="Cadeau geven"
-                  onClick={() => setGiftOpen(true)}
-                >
-                  <Gift className="h-5 w-5" strokeWidth={2.25} />
-                </motion.button>
-              )}
-            </AnimatePresence>
-          </div>
+          {input.trim() ? (
+            <div className="relative h-11 w-11 shrink-0">
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.92 }}
+                transition={{ duration: 0.14 }}
+                className={`absolute inset-0 flex items-center justify-center rounded-full bg-gradient-primary text-white shadow-md transition active:scale-95 ${sendBusy ? "opacity-80" : ""}`}
+                aria-label={sendBusy ? "Versturen…" : "Versturen"}
+                aria-busy={sendBusy}
+                onClick={() => void sendText(input)}
+              >
+                <Send className="h-5 w-5" strokeWidth={2.25} />
+              </motion.button>
+            </div>
+          ) : null}
         </div>
       </div>
-
-      <GiftModal
-        open={giftOpen}
-        onClose={() => setGiftOpen(false)}
-        peerName={meta.name}
-        peerAvatarUrl={meta.avatarUrl}
-        onSend={sendGift}
-      />
 
       <AnimatePresence>
         {creditsGateOpen && (
@@ -1887,7 +1660,7 @@ export function ChatConversationView({
                 >
                   {creditsGateMode === "signup_required"
                     ? "Account nodig"
-                    : "Credits op"}
+                    : "Bundel opwaarderen"}
                 </h2>
                 {creditsGateMode === "signup_required" ? (
                   <>
@@ -1896,7 +1669,7 @@ export function ChatConversationView({
                         variant === "v2" ? "text-[#B52B2A]" : "text-primary"
                       }`}
                     >
-                      +{SIGNUP_ACCOUNT_CREDITS} credits
+                      {bundleRewardUnits(SIGNUP_ACCOUNT_CREDITS)}
                     </p>
                     <p
                       className={`mt-1 text-[14px] font-bold ${
@@ -1910,15 +1683,15 @@ export function ChatConversationView({
                         variant === "v2" ? "text-inkMuted" : "text-gray-600"
                       }`}
                     >
-                      Je gratis credits zijn op. Maak een account aan om verder te
+                      Je gratis berichten zijn op. Maak een account aan om verder te
                       chatten — zonder account kun je geen berichten meer sturen.
                     </p>
                   </>
                 ) : (
                   <p className="mt-1.5 max-w-[32ch] text-[13px] leading-snug text-gray-600">
-                    Je hebt niet genoeg credits om een bericht te sturen (
-                    {CHAT_MESSAGE_COST_CREDITS} per bericht). Koop extra credits om
-                    het gesprek voort te zetten.
+                    Je hebt niet genoeg berichten in je bundel om een bericht te sturen (
+                    {CHAT_MESSAGE_COST_CREDITS.toLocaleString("nl-NL")} per bericht). Koop een
+                    Berichtenbundel om het gesprek voort te zetten.
                   </p>
                 )}
               </div>
@@ -1937,7 +1710,7 @@ export function ChatConversationView({
                   onClick={() => setCreditsGateOpen(false)}
                   className="mt-5 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
                 >
-                  Credits kopen
+                  {BUY_BUNDLES_CTA}
                 </Link>
               )}
               <button

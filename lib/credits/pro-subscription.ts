@@ -4,12 +4,12 @@ import { creditsToEuroAtBaseRate } from "@/lib/credits/pricing";
 
 export const PRO_SUBSCRIPTION_PLAN_ID = "pro_monthly";
 
-/** Stripe catalog — StiekemSamen Pro (monthly). Override in production via env. */
+/** Stripe catalog — DiscreetNetwerk Pro (monthly). Override in production via env. */
 export const PRO_SUBSCRIPTION_STRIPE_PRODUCT_ID_DEFAULT = "prod_UYbAEhUzc8kZoq";
 export const PRO_SUBSCRIPTION_STRIPE_PRICE_ID_DEFAULT =
   "price_1TZTydRoFAYFDiXDHhGIjFov";
 
-export const PRO_SUBSCRIPTION_CREDITS_PER_MONTH = 1500;
+export const PRO_SUBSCRIPTION_CREDITS_PER_MONTH = 150;
 
 export const PRO_SUBSCRIPTION_PRICE_EUR = 14.99;
 

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { packages } from "@/data/credits";
+import { findCreditPackage } from "@/data/credits";
 import { fulfillCreditPurchase } from "@/lib/credits/fulfill-purchase";
+import {
+  canPurchasePackage,
+  FIRST_PURCHASE_ONLY_ERROR,
+} from "@/lib/credits/package-access";
 import { recordCheckoutClick } from "@/lib/credits/checkout-clicks";
 import { isStripeConfigured } from "@/lib/stripe/server";
 import { getServiceSupabase } from "@/lib/supabase/admin";
@@ -48,7 +52,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const pkg = packages.find((p) => p.id === packageId);
+  const pkg = findCreditPackage(packageId);
   if (!pkg) {
     return NextResponse.json(
       { ok: false, error: "unknown package" },
@@ -82,6 +86,32 @@ export async function POST(req: Request) {
     );
   }
 
+  const { data: prof, error: readErr } = await service
+    .from("user_profiles")
+    .select("purchase_count")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (readErr) {
+    return NextResponse.json(
+      { ok: false, error: readErr.message },
+      { status: 500 },
+    );
+  }
+
+  const purchaseCountBefore =
+    typeof (prof as { purchase_count?: number } | null)?.purchase_count ===
+      "number" &&
+    (prof as { purchase_count: number }).purchase_count >= 0
+      ? (prof as { purchase_count: number }).purchase_count
+      : 0;
+
+  if (!canPurchasePackage(pkg, purchaseCountBefore)) {
+    return NextResponse.json(
+      { ok: false, error: FIRST_PURCHASE_ONLY_ERROR },
+      { status: 403 },
+    );
+  }
+
   // Mirror the click log we keep for the Stripe flow so the admin metrics
   // page treats dev purchases the same way for the click → paid funnel.
   void recordCheckoutClick(service, {
@@ -89,7 +119,7 @@ export async function POST(req: Request) {
     packageId: pkg.id,
     amountCents: Math.round(pkg.price * 100),
     discount: 0,
-    purchaseCountBefore: 0,
+    purchaseCountBefore: purchaseCountBefore,
     source: "dev",
   });
 

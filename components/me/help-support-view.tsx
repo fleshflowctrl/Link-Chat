@@ -54,7 +54,7 @@ const helpCategories: HelpCategory[] = [
   {
     key: "payments",
     title: "Betalingen",
-    description: "Credits, kaarten en facturen",
+    description: "Berichtenbundels, kaarten en facturen",
     icon: CreditCard,
     iconBg: "bg-amber-50",
     iconColor: "text-amber-600",
@@ -88,16 +88,16 @@ const faqs: FaqItem[] = [
   {
     id: "credits-what",
     category: "payments",
-    question: "Wat zijn credits en waar gebruik ik ze voor?",
+    question: "Wat zijn Berichtenbundels en waar gebruik ik ze voor?",
     answer:
-      "Credits gebruik je voor chats, exclusieve content en geschenken. Je kunt credits kopen op de Credits-pagina of gratis verdienen via Sparkles verdienen op je profiel.",
+      "Berichtenbundels gebruik je voor chats en exclusieve content. Je kunt een bundel kopen op de Berichtenbundels-pagina of gratis berichten verdienen via Sparkles verdienen op je profiel.",
   },
   {
     id: "credits-refund",
     category: "payments",
-    question: "Kan ik credits terugkrijgen?",
+    question: "Kan ik mijn Berichtenbundel terugkrijgen?",
     answer:
-      "Aangekochte credits zijn niet-restitueerbaar zodra ze zijn opgewaardeerd. Bij een betalingsfout of dubbele afschrijving nemen we contact op met onze betaalprovider — neem dan contact op via support.",
+      "Aangekochte Berichtenbundels zijn niet-restitueerbaar zodra ze zijn opgewaardeerd. Bij een betalingsfout of dubbele afschrijving nemen we contact op met onze betaalprovider — neem dan contact op via support.",
   },
   {
     id: "card-safety",
@@ -125,7 +125,7 @@ const faqs: FaqItem[] = [
     category: "account",
     question: "Hoe verwijder ik mijn account?",
     answer:
-      "Profiel → Account → Account verwijderen. Je profiel, foto's en chats worden definitief verwijderd. Resterende credits vervallen — gebruik ze dus eerst.",
+      "Profiel → Account → Account verwijderen. Je profiel, foto's en chats worden definitief verwijderd. Resterende berichten in je bundel vervallen — gebruik ze dus eerst.",
   },
   {
     id: "report-user",
@@ -264,7 +264,7 @@ export function HelpSupportView() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Zoek bv. credits, foto, blokkeren…"
+                placeholder="Zoek bv. berichtenbundel, foto, blokkeren…"
                 aria-label="Zoek in hulp & ondersteuning"
                 className="h-11 min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-gray-400"
               />

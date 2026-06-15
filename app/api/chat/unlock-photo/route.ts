@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notEnoughBundleMessage } from "@/lib/credits/copy";
 import { DEFAULT_PHOTO_UNLOCK_COST_CREDITS } from "@/lib/credits/pricing";
 import { createClient } from "@/utils/supabase/server";
 
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
   const currentCredits = (profile as any)?.credits ?? 0;
   if (currentCredits < blurCost) {
     return NextResponse.json(
-      { ok: false, error: `Niet genoeg credits (heb ${currentCredits}, nodig ${blurCost})` },
+      { ok: false, error: notEnoughBundleMessage(blurCost) },
       { status: 402 },
     );
   }
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
     .eq("user_id", user.id);
 
   if (deductErr) {
-    return NextResponse.json({ ok: false, error: "Credits aftrekken mislukt" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Bundel aftrekken mislukt" }, { status: 500 });
   }
 
   const { error: unlockErr } = await supabase.from("chat_photo_unlocks").insert({

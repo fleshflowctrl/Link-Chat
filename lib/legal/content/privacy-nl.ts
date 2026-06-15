@@ -52,7 +52,7 @@ export const privacyNl: LegalDocument = {
       paragraphs: ["Wij verwerken gegevens voor:"],
       bullets: [
         "Het leveren van de Dienst (uitvoering overeenkomst);",
-        "Credits en betalingen (overeenkomst, wettelijke administratie);",
+        "Berichtenbundels en betalingen (overeenkomst, wettelijke administratie);",
         "Beveiliging, fraudepreventie en misbruikbestrijding (gerechtvaardigd belang);",
         "Ongelezen-bericht e-mails en serviceberichten (overeenkomst / gerechtvaardigd belang);",
         "Marketing per e-mail (toestemming — je kunt je altijd afmelden);",

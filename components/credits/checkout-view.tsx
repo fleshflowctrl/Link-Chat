@@ -14,6 +14,15 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 import { CreditPrice } from "@/components/credits/credit-price";
+import {
+  BACK_TO_BUNDLES_ARIA,
+  BUNDLE_TITLE_SINGULAR,
+  bundleBonusUnits,
+  bundleTotalUnits,
+  bundleUnits,
+  bundleUnitsAdded,
+} from "@/lib/credits/copy";
+import { PackageBonusBadge, PackagePointsSummary } from "@/components/credits/package-points-summary";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 import { LEGAL_PATHS } from "@/lib/legal/constants";
@@ -61,7 +70,7 @@ export function CheckoutView({
         applyServerPurchaseUpdate(json.balance, json.purchaseCount);
       }
       setSuccess(
-        `+${json.grantedCredits ?? pkg.credits + pkg.bonus} credits toegevoegd`,
+        bundleUnitsAdded(json.grantedCredits ?? pkg.credits + pkg.bonus),
       );
       setTimeout(() => router.push(creditsPath), 900);
     },
@@ -158,7 +167,7 @@ export function CheckoutView({
     if (submitting || success) return;
     if (!acceptInstantDelivery) {
       setError(
-        "Bevestig dat je direct levering van digitale credits wilt en je herroepingsrecht verliest.",
+        `Bevestig dat je direct levering van je ${BUNDLE_TITLE_SINGULAR.toLowerCase()} wilt en je herroepingsrecht verliest.`,
       );
       return;
     }
@@ -193,7 +202,7 @@ export function CheckoutView({
         <div className="flex items-center justify-between gap-3">
           <Link
             href={creditsPath}
-            aria-label="Terug naar credits"
+            aria-label={BACK_TO_BUNDLES_ARIA}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 transition active:scale-95"
           >
             <ArrowLeft className="h-5 w-5 text-ink" strokeWidth={2.5} aria-hidden />
@@ -211,23 +220,41 @@ export function CheckoutView({
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-inner">
               <Image
                 src={`/assets/credits_${pkg.iconAsset}.png`}
-                alt={`${pkg.credits} credits`}
+                alt={bundleUnits(pkg.credits)}
                 fill
                 className="object-cover"
                 sizes="56px"
               />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[18px] font-extrabold leading-tight tracking-tight text-ink">
-                {pkg.credits} credits
-              </p>
-              {pkg.bonus > 0 && (
-                <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-600">
-                  +{pkg.bonus} bonus credits gratis
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <p className="text-[18px] font-extrabold leading-tight tracking-tight text-ink">
+                  {pkg.bundleLabel}
                 </p>
-              )}
+                <PackageBonusBadge bonus={pkg.bonus} />
+              </div>
+              <PackagePointsSummary pkg={pkg} />
             </div>
           </div>
+
+          {pkg.bonus > 0 && (
+            <div className="mt-4 space-y-2 rounded-2xl bg-[#B52B2A]/8 px-3 py-2.5 ring-1 ring-[#B52B2A]/20">
+              <div className="flex items-center justify-between gap-2 text-[12px]">
+                <span className="font-medium text-inkMuted">Basis</span>
+                <span className="font-semibold text-ink">{bundleUnits(pkg.credits)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 text-[12px]">
+                <span className="font-medium text-[#B52B2A]">Bonus (gratis)</span>
+                <span className="font-bold text-[#B52B2A]">{bundleBonusUnits(pkg.bonus)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2 border-t border-[#B52B2A]/15 pt-2 text-[13px]">
+                <span className="font-bold text-ink">Je ontvangt</span>
+                <span className="font-extrabold text-ink">
+                  {bundleTotalUnits(pkg.credits, pkg.bonus)}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-2 text-ink">
             <span className="text-[14px] font-bold">Te betalen</span>
@@ -253,7 +280,7 @@ export function CheckoutView({
               className="mt-0.5 rounded border-neutral-300"
             />
             <span>
-              Ik wil dat de credits direct op mijn account worden gezet en
+              Ik wil dat de berichten direct op mijn account worden gezet en
               begrijp dat ik daarmee afstand doe van mijn 14 dagen herroepingsrecht
               voor deze digitale aankoop. Zie{" "}
               <Link href={LEGAL_PATHS.terms} className="font-medium text-primary underline-offset-2 hover:underline" target="_blank">

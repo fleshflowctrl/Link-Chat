@@ -12,6 +12,7 @@ import {
   CHAT_MESSAGE_COST_CREDITS,
   STARTING_USER_CREDITS,
 } from "@/lib/credits/pricing";
+import { notEnoughBundleMessage } from "@/lib/credits/copy";
 import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
@@ -123,8 +124,8 @@ export async function POST(request: Request) {
       if (!deduct.ok) {
         return bad(
           deduct.reason === "insufficient"
-            ? `Niet genoeg credits voor je eerste bericht (${CHAT_MESSAGE_COST_CREDITS} nodig)`
-            : deduct.error ?? "Credits aftrekken mislukt",
+            ? notEnoughBundleMessage(CHAT_MESSAGE_COST_CREDITS)
+            : deduct.error ?? "Bundel aftrekken mislukt",
           deduct.reason === "insufficient" ? 402 : 500,
         );
       }

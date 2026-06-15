@@ -8,5 +8,7 @@ export function isGuestLockedProfilePhoto(profileId: string): boolean {
   return (h >>> 0) % 2 === 0;
 }
 
-export const GUEST_PHOTO_LOCK_MESSAGE =
-  "Log in om profielfoto's te zien";
+export function getGuestPhotoLockMessage(profileName: string): string {
+  const name = profileName.trim() || "dit profiel";
+  return `Meld je aan om de foto's van ${name} te zien`;
+}

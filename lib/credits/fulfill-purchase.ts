@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { packages } from "@/data/credits";
+import { findCreditPackage } from "@/data/credits";
+import {
+  canPurchasePackage,
+  FIRST_PURCHASE_ONLY_ERROR,
+} from "@/lib/credits/package-access";
 export type FulfillPurchaseInput = {
   userId: string;
   packageId: string;
@@ -28,7 +32,7 @@ export async function fulfillCreditPurchase(
   service: SupabaseClient,
   input: FulfillPurchaseInput,
 ): Promise<FulfillPurchaseResult> {
-  const pkg = packages.find((p) => p.id === input.packageId);
+  const pkg = findCreditPackage(input.packageId);
   if (!pkg) {
     return { ok: false, error: "unknown package" };
   }
@@ -67,6 +71,10 @@ export async function fulfillCreditPurchase(
     input.purchaseCountBefore >= 0
       ? input.purchaseCountBefore
       : profile.purchaseCount;
+
+  if (!canPurchasePackage(pkg, countBefore)) {
+    return { ok: false, error: FIRST_PURCHASE_ONLY_ERROR };
+  }
 
   if (profile.purchaseCount > countBefore) {
     return {

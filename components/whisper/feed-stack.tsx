@@ -22,6 +22,7 @@ import type { Profile } from "@/data/profiles";
 import { HOURLY_FEED_SIZE } from "@/lib/catalog/hourly-feed";
 import type { EditProfileState } from "@/data/me-edit";
 import { hasProfileBasics } from "@/lib/me/profile-completeness";
+import { BUNDLES_TITLE, bundleUnits, BUY_BUNDLES_CTA, insufficientBundleWithCost } from "@/lib/credits/copy";
 import {
   getCreditsSnapshot,
   subscribeCredits,
@@ -519,7 +520,7 @@ function FeedEndCard({
               {refreshing
                 ? "Vernieuwen…"
                 : insufficient
-                  ? `Te weinig credits (${refreshCost} nodig)`
+                  ? insufficientBundleWithCost(refreshCost)
                   : `Ontgrendel ${HOURLY_FEED_SIZE} nieuwe matches`}
             </span>
             {!refreshing && !insufficient && (

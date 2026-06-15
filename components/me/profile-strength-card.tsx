@@ -10,6 +10,7 @@ import {
   type CompletenessFieldMeta,
 } from "@/lib/me/profile-completeness";
 import type { EditProfileState } from "@/data/me-edit";
+import { bundleRewardUnits, bundleUnits } from "@/lib/credits/copy";
 
 const RING_SIZE = 56;
 const RING_STROKE = 5;
@@ -83,7 +84,7 @@ function StepRow({ field }: { field: CompletenessFieldMeta }) {
         <p className="truncate text-[14px] font-bold text-ink">{field.cta}</p>
         {field.reward > 0 && (
           <p className="text-[11px] font-semibold text-primary">
-            +{field.reward} credits
+            {bundleRewardUnits(field.reward)}
           </p>
         )}
       </div>
@@ -159,7 +160,7 @@ export function ProfileStrengthCard({
                   {" "}
                   · verdien nog{" "}
                   <span className="font-bold text-primary">
-                    {reward} credits
+                    {bundleUnits(reward)}
                   </span>
                 </>
               )}

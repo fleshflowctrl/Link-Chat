@@ -33,7 +33,7 @@ const TAB_SUFFIXES = [
     badge: null as string | null,
   },
   { suffix: "/discover", label: "Ontdekken", Icon: Search, badge: null as string | null },
-  { suffix: "/credits", label: "Credits", Icon: Coins, badge: null },
+  { suffix: "/credits", label: "Berichtenbundels", Icon: Coins, badge: null },
   { suffix: "/me", label: "Profiel", Icon: User, badge: null },
 ] as const;
 

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { packages } from "@/data/credits";
+import { findCreditPackage } from "@/data/credits";
+import {
+  canPurchasePackage,
+  FIRST_PURCHASE_ONLY_ERROR,
+} from "@/lib/credits/package-access";
 import { SITE_NAME } from "@/lib/brand";
 import {
   getAppOrigin,
@@ -13,6 +17,7 @@ import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 import { parseAppVariant, variantBasePath } from "@/lib/app-variant";
 import { getServiceSupabase } from "@/lib/supabase/admin";
+import { bundleBonusUnits, bundleUnits } from "@/lib/credits/copy";
 import { recordCheckoutClick } from "@/lib/credits/checkout-clicks";
 
 export const dynamic = "force-dynamic";
@@ -68,7 +73,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const pkg = packages.find((p) => p.id === packageId);
+  const pkg = findCreditPackage(packageId);
   if (!pkg) {
     return NextResponse.json(
       { ok: false, error: "unknown package" },
@@ -113,6 +118,13 @@ export async function POST(req: Request) {
       ? row.purchase_count
       : 0;
 
+  if (!canPurchasePackage(pkg, purchaseCountBefore)) {
+    return NextResponse.json(
+      { ok: false, error: FIRST_PURCHASE_ONLY_ERROR },
+      { status: 403 },
+    );
+  }
+
   const discount = 0;
   const paid = pkg.price;
   const grantedCredits = pkg.credits + pkg.bonus;
@@ -148,8 +160,8 @@ export async function POST(req: Request) {
 
   const description =
     pkg.bonus > 0
-      ? `${pkg.credits} credits + ${pkg.bonus} bonus`
-      : `${pkg.credits} credits`;
+      ? `${bundleUnits(pkg.credits)} + ${bundleBonusUnits(pkg.bonus)}`
+      : bundleUnits(pkg.credits);
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -164,7 +176,7 @@ export async function POST(req: Request) {
             currency: "eur",
             unit_amount: amountCents,
             product_data: {
-              name: `${SITE_NAME} · ${pkg.credits} credits`,
+              name: `${SITE_NAME} · ${pkg.bundleLabel}`,
               description,
             },
           },

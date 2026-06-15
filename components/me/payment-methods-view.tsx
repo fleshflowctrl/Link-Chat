@@ -494,7 +494,7 @@ export function PaymentMethodsView({
               Nog geen betaalmethode
             </p>
             <p className="mx-auto mt-1.5 max-w-[260px] text-[12.5px] leading-relaxed text-gray-500">
-              Voeg een kaart toe om je credits sneller op te kunnen waarderen.
+              Voeg een kaart toe om je Berichtenbundels sneller op te kunnen waarderen.
             </p>
           </div>
         ) : (

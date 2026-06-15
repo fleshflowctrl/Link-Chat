@@ -9,6 +9,7 @@ import {
   proSubscriptionDiscountPercent,
 } from "@/lib/credits/pro-subscription";
 import { CreditPrice } from "@/components/credits/credit-price";
+import { bundleUnits } from "@/lib/credits/copy";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 
@@ -36,7 +37,7 @@ export function ProOfferCard({ active = false, className }: Props) {
             <span className="text-[16px] font-extrabold text-ink">Pro actief</span>
           </div>
           <p className="mt-2 text-[12px] leading-snug text-gray-600">
-            Je ontvangt elke maand {PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits.
+            Je ontvangt elke maand {bundleUnits(PRO_SUBSCRIPTION_CREDITS_PER_MONTH)}.
           </p>
         </div>
       ) : (
@@ -65,7 +66,7 @@ export function ProOfferCard({ active = false, className }: Props) {
                 {PRO_SUBSCRIPTION_CREDITS_PER_MONTH.toLocaleString("nl-NL")}
                 <span className="text-[15px] font-bold text-white/90">
                   {" "}
-                  credits
+                  berichten
                 </span>
               </p>
               <p className="mt-1.5 text-[12px] font-semibold leading-snug text-[#E8A8A7]">

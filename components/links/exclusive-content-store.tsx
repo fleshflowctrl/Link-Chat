@@ -5,6 +5,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Lock, MessageCircle, Sparkles, X } from "lucide-react";
+import {
+  BUNDLES_TITLE,
+  BUY_BUNDLES_CTA,
+  bundleUnits,
+  notEnoughBundleMessage,
+  unlockForUnits,
+} from "@/lib/credits/copy";
 import { CreditsPill } from "@/components/ui/credits-pill";
 import {
   contentSets,
@@ -126,14 +133,14 @@ function UnlockSheet({
         <span className="text-[13px] font-semibold text-gray-600">Prijs</span>
         <span className="flex items-center gap-1.5 text-[16px] font-extrabold text-gray-900">
           <Sparkles className="h-4 w-4 text-[#7C5CFF]" strokeWidth={2} />
-          {set.credits} credits
+          {bundleUnits(set.credits)}
         </span>
       </div>
 
       <div className="mb-5 flex items-center justify-between text-[12px] text-gray-500">
         <span>Jouw saldo</span>
         <span className={`font-bold ${canAfford ? "text-gray-900" : "text-red-500"}`}>
-          {balance} credits{!canAfford && " — te weinig"}
+          {bundleUnits(balance)}{!canAfford && " — te weinig"}
         </span>
       </div>
 
@@ -144,7 +151,7 @@ function UnlockSheet({
           className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7C5CFF] to-[#9B7BFF] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
         >
           <Sparkles className="h-4 w-4" strokeWidth={2} />
-          Ontgrendel voor {set.credits} credits
+          {unlockForUnits(set.credits)}
         </button>
       ) : (
         <button
@@ -152,7 +159,7 @@ function UnlockSheet({
           onClick={onClose}
           className="flex w-full items-center justify-center rounded-full border border-[#7C5CFF] py-3.5 text-[15px] font-bold text-[#7C5CFF] transition active:scale-[0.98]"
         >
-          Koop meer credits
+          {BUY_BUNDLES_CTA}
         </button>
       )}
     </motion.div>
@@ -234,7 +241,7 @@ function ContentCard({
           {!isUnlocked && (
             <div className="mt-1.5 flex items-center gap-1 text-[12px] font-extrabold text-[#7C5CFF]">
               <Sparkles className="h-3 w-3 shrink-0" strokeWidth={2} />
-              {set.credits} credits
+              {bundleUnits(set.credits)}
             </div>
           )}
         </div>
@@ -342,7 +349,7 @@ export function ExclusiveContentStore() {
 
       if (!res.ok || !data.ok) {
         if (res.status === 402) {
-          showToast("Niet genoeg credits — laad meer op");
+          showToast(`${notEnoughBundleMessage()} — laad meer op`);
         } else {
           showToast(data.error ?? "Ontgrendelen mislukt");
         }
@@ -378,7 +385,7 @@ export function ExclusiveContentStore() {
           <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
             Exclusief
           </h1>
-          <p className="mt-0.5 text-[13px] text-gray-500">Ontgrendel met credits</p>
+          <p className="mt-0.5 text-[13px] text-gray-500">Ontgrendel met je Berichtenbundel</p>
         </div>
         <CreditsPill />
       </div>

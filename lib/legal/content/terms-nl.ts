@@ -21,7 +21,7 @@ export const termsNl: LegalDocument = {
         `Deze algemene voorwaarden (“Voorwaarden”) gelden voor het gebruik van de website en app van ${LEGAL_SITE_LABEL} (de “Dienst”).`,
         `De Dienst wordt aangeboden door ${LEGAL_CONTROLLER_NAME}, gevestigd te ${LEGAL_CONTROLLER_ADDRESS}, ingeschreven bij de Kamer van Koophandel onder nummer ${LEGAL_KVK} (“wij”, “ons”).`,
         `Contact: ${LEGAL_CONTACT_EMAIL}.`,
-        `Door een account aan te maken, credits te kopen of de Dienst anderszins te gebruiken, ga je een overeenkomst met ons aan en accepteer je deze Voorwaarden en ons privacybeleid.`,
+        `Door een account aan te maken, een Berichtenbundel te kopen of de Dienst anderszins te gebruiken, ga je een overeenkomst met ons aan en accepteer je deze Voorwaarden en ons privacybeleid.`,
       ],
     },
     {
@@ -43,29 +43,29 @@ export const termsNl: LegalDocument = {
     },
     {
       id: "credits",
-      title: "4. Credits en betalingen",
+      title: "4. Berichtenbundels en betalingen",
       paragraphs: [
-        "Voor bepaalde acties (zoals het versturen van berichten of het ontgrendelen van content) heb je credits nodig. Credits zijn een digitaal tegoed binnen de Dienst, geen geld op een bankrekening, en zijn niet overdraagbaar of inwisselbaar voor contanten.",
+        "Voor bepaalde acties (zoals het versturen van berichten of het ontgrendelen van content) heb je tegoed in een Berichtenbundel nodig. Dit tegoed is een digitaal saldo binnen de Dienst, geen geld op een bankrekening, en is niet overdraagbaar of inwisselbaar voor contanten.",
         "Prijzen worden getoond in euro’s vóór afrekenen. Betalingen verlopen via onze betalingsprovider (Stripe). Wij slaan geen volledige kaartgegevens op.",
-        "Credits worden toegevoegd na geslaagde betaling. Het verbruik per actie (bijv. een chatbericht) staat in de app vermeld en kan wijzigen; wijzigingen gelden voor toekomstig verbruik.",
+        "Tegoed wordt toegevoegd na geslaagde betaling. Het verbruik per actie (bijv. een chatbericht) staat in de app vermeld en kan wijzigen; wijzigingen gelden voor toekomstig verbruik.",
       ],
       bullets: [
-        "Credits vervallen bij beëindiging van je account wegens ernstig misbruik, zoals bepaald door ons.",
-        "Wij bieden geen doorlopend abonnement (Pro) aan via deze Voorwaarden; alleen losse creditpakketten.",
+        "Tegoed vervalt bij beëindiging van je account wegens ernstig misbruik, zoals bepaald door ons.",
+        "Wij bieden geen doorlopend abonnement (Pro) aan via deze Voorwaarden; alleen losse Berichtenbundels.",
       ],
     },
     {
       id: "refunds",
-      title: "5. Herroeping en restitutie (credits)",
+      title: "5. Herroeping en restitutie (Berichtenbundels)",
       paragraphs: [
-        "Omdat credits digitaal zijn en direct beschikbaar komen na betaling, vervalt je herroepingsrecht zodra de levering is begonnen, mits je daarvoor uitdrukkelijk toestemming hebt gegeven bij de aankoop en hebt bevestigd dat je je herroepingsrecht verliest zodra de credits op je account staan.",
-        "Restitutie van een creditaankoop is in de volgende gevallen mogelijk:",
-        "Geen restitutie: verbruikte credits, credits verkregen via promoties, of aankopen ouder dan 14 dagen (tenzij wettelijk anders verplicht). Chargebacks zonder eerst contact op te nemen kunnen leiden tot blokkade van je account.",
+        "Omdat Berichtenbundels digitaal zijn en direct beschikbaar komen na betaling, vervalt je herroepingsrecht zodra de levering is begonnen, mits je daarvoor uitdrukkelijk toestemming hebt gegeven bij de aankoop en hebt bevestigd dat je je herroepingsrecht verliest zodra het tegoed op je account staat.",
+        "Restitutie van een Berichtenbundel is in de volgende gevallen mogelijk:",
+        "Geen restitutie: verbruikt tegoed, tegoed verkregen via promoties, of aankopen ouder dan 14 dagen (tenzij wettelijk anders verplicht). Chargebacks zonder eerst contact op te nemen kunnen leiden tot blokkade van je account.",
       ],
       bullets: [
-        "Dubbele afschrijving of technische fout waardoor credits niet zijn bijgeschreven terwijl wel is betaald — na controle storten wij credits bij of betalen we terug via de oorspronkelijke betaalmethode.",
-        `Binnen 14 dagen na aankoop, alleen als je nog geen credits uit het betreffende pakket hebt verbruikt; aanvraag via ${LEGAL_CONTACT_EMAIL} met je account-e-mail en betaalbewijs.`,
-        "Wanneer wij de Dienst permanent beëindigen binnen 30 dagen na je aankoop, naar rato van ongebruikte credits van dat pakket.",
+        "Dubbele afschrijving of technische fout waardoor tegoed niet is bijgeschreven terwijl wel is betaald — na controle schrijven wij tegoed bij of betalen we terug via de oorspronkelijke betaalmethode.",
+        `Binnen 14 dagen na aankoop, alleen als je nog geen tegoed uit de betreffende bundel hebt verbruikt; aanvraag via ${LEGAL_CONTACT_EMAIL} met je account-e-mail en betaalbewijs.`,
+        "Wanneer wij de Dienst permanent beëindigen binnen 30 dagen na je aankoop, naar rato van ongebruikt tegoed uit die bundel.",
       ],
     },
     {
@@ -79,7 +79,7 @@ export const termsNl: LegalDocument = {
         "Minderjarigen te betrekken of content met minderjarigen te delen;",
         "Illegale, gewelddadige, bedreigende, haatdragende of niet-consensuele content te delen;",
         "Persoonsgegevens van anderen zonder toestemming te verspreiden;",
-        "Spam, oplichting of misbruik van het creditsysteem;",
+        "Spam, oplichting of misbruik van het bundelsysteem;",
         "De Dienst te reverse-engineeren of te scrapen.",
       ],
     },
@@ -101,7 +101,7 @@ export const termsNl: LegalDocument = {
       id: "liability",
       title: "9. Aansprakelijkheid",
       paragraphs: [
-        "Voor zover wettelijk toegestaan zijn wij niet aansprakelijk voor indirecte schade, gemiste winst of schade door handelingen van andere gebruikers, AI-output of operators. Onze totale aansprakelijkheid per gebeurtenis is beperkt tot het bedrag dat je in de 12 maanden vóór de claim aan credits hebt betaald, met een maximum van €150, tenzij dwingend recht anders voorschrijft.",
+        "Voor zover wettelijk toegestaan zijn wij niet aansprakelijk voor indirecte schade, gemiste winst of schade door handelingen van andere gebruikers, AI-output of operators. Onze totale aansprakelijkheid per gebeurtenis is beperkt tot het bedrag dat je in de 12 maanden vóór de claim aan Berichtenbundels hebt betaald, met een maximum van €150, tenzij dwingend recht anders voorschrijft.",
         "Niets in deze Voorwaarden beperkt aansprakelijkheid voor dood of letsel door opzet of bewuste roekeloosheid, of fraude.",
       ],
     },
@@ -109,7 +109,7 @@ export const termsNl: LegalDocument = {
       id: "termination",
       title: "10. Beëindiging",
       paragraphs: [
-        "Je kunt je account beëindigen via de app of door contact op te nemen. Wij kunnen je account opschorten of beëindigen bij overtreding van deze Voorwaarden. Ongebruikte credits worden bij beëindiging wegens overtreding niet gerestitueerd, tenzij wettelijk anders vereist.",
+        "Je kunt je account beëindigen via de app of door contact op te nemen. Wij kunnen je account opschorten of beëindigen bij overtreding van deze Voorwaarden. Ongebruikt tegoed in je Berichtenbundel wordt bij beëindiging wegens overtreding niet gerestitueerd, tenzij wettelijk anders vereist.",
       ],
     },
     {

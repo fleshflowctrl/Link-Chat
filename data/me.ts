@@ -22,7 +22,7 @@ export const meStatCardLayout: Record<
     cardBg: "bg-purple-100",
   },
   credits: {
-    label: "Credits",
+    label: "Berichtenbundels",
     subtitle: "Opwaarderen voor meer chat",
     emoji: "✨",
     cardBg: "bg-amber-100",

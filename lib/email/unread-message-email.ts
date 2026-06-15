@@ -3,13 +3,13 @@ import {
   withVariantPath,
   type AppVariant,
 } from "@/lib/app-variant";
-import { SITE_DISPLAY } from "@/lib/brand";
+import { SITE_DISPLAY, SITE_DOMAIN } from "@/lib/brand";
 import { isPostmarkConfigured, postmarkFromEmail, sendPostmarkEmail } from "@/lib/email/postmark";
 
 function appOrigin(): string {
   const url = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (url) return url.replace(/\/$/, "");
-  return `https://stiekemsamen.nl`;
+  return `https://${SITE_DOMAIN}`;
 }
 
 export function unreadMessagePreview(body: string | null, kind: string): string {

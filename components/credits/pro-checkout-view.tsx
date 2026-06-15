@@ -18,6 +18,12 @@ import {
   subscribeCredits,
 } from "@/lib/credits-store";
 import { CreditPrice } from "@/components/credits/credit-price";
+import {
+  BACK_TO_BUNDLES_ARIA,
+  BUNDLES_TITLE,
+  bundleUnits,
+  bundleUnitsAdded,
+} from "@/lib/credits/copy";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 
@@ -55,7 +61,7 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
         applyServerCreditsUpdate(json.balance);
       }
       setSuccess(
-        `Pro actief · +${json.grantedCredits ?? PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits`,
+        `Pro actief · ${bundleUnitsAdded(json.grantedCredits ?? PRO_SUBSCRIPTION_CREDITS_PER_MONTH)}`,
       );
       setTimeout(() => router.push(creditsPath), 900);
     },
@@ -147,7 +153,7 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
           <Link
             href={creditsPath}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm transition active:scale-95"
-            aria-label="Terug naar credits"
+            aria-label={BACK_TO_BUNDLES_ARIA}
           >
             <ArrowLeft className="h-5 w-5 text-ink" strokeWidth={2.25} />
           </Link>
@@ -163,7 +169,7 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
           Pro abonnement
         </h1>
         <p className="mt-1 text-center text-[15px] font-semibold text-gray-700">
-          {PRO_SUBSCRIPTION_CREDITS_PER_MONTH.toLocaleString("nl-NL")} credits
+          {bundleUnits(PRO_SUBSCRIPTION_CREDITS_PER_MONTH)}
           elke maand
         </p>
 
@@ -188,12 +194,12 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
           </p>
           <p className="mt-1 text-[12px] text-white/50 line-through">
             vs €{PRO_SUBSCRIPTION_COMPARE_PRICE_EUR.toFixed(2).replace(".", ",")}{" "}
-            eenmalig voor {PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits
+            eenmalig voor {bundleUnits(PRO_SUBSCRIPTION_CREDITS_PER_MONTH)}
           </p>
           <ul className="mt-4 space-y-2 text-[13px] leading-snug text-white/85">
             <li className="flex gap-2">
               <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-              {PRO_SUBSCRIPTION_CREDITS_PER_MONTH} credits direct bij elke betaling
+              {bundleUnits(PRO_SUBSCRIPTION_CREDITS_PER_MONTH)} direct bij elke betaling
             </li>
             <li className="flex gap-2">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
@@ -219,7 +225,7 @@ export function ProCheckoutView({ query = {} }: { query?: CheckoutQuery }) {
         )}
 
         <p className="mt-4 text-center text-[11px] leading-snug text-gray-500">
-          Huidig saldo: {creditsSnap.balance} credits
+          Huidig saldo: {bundleUnits(creditsSnap.balance)}
         </p>
       </div>
 

@@ -29,7 +29,7 @@ export const COMPLETENESS_FIELDS: CompletenessFieldMeta[] = [
     label: "Profielfoto",
     cta: "Voeg een profielfoto toe",
     emoji: "📸",
-    reward: 100,
+    reward: 10,
     focus: "photo",
   },
   {
@@ -53,7 +53,7 @@ export const COMPLETENESS_FIELDS: CompletenessFieldMeta[] = [
     label: "Locatie",
     cta: "Voeg je locatie toe",
     emoji: "📍",
-    reward: 50,
+    reward: 5,
     focus: "location",
   },
   {
@@ -61,7 +61,7 @@ export const COMPLETENESS_FIELDS: CompletenessFieldMeta[] = [
     label: "Korte bio",
     cta: "Schrijf een korte bio",
     emoji: "✍️",
-    reward: 100,
+    reward: 10,
     focus: "bio",
   },
   {
@@ -69,7 +69,7 @@ export const COMPLETENESS_FIELDS: CompletenessFieldMeta[] = [
     label: "Interesses",
     cta: "Kies minimaal 3 interesses",
     emoji: "🏷️",
-    reward: 100,
+    reward: 10,
     focus: "interests",
   },
   {
@@ -77,7 +77,7 @@ export const COMPLETENESS_FIELDS: CompletenessFieldMeta[] = [
     label: "Meer foto's",
     cta: "Voeg minstens 3 foto's toe",
     emoji: "🖼",
-    reward: 150,
+    reward: 15,
     focus: "gallery",
   },
 ];

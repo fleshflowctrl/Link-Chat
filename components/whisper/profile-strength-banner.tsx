@@ -1,5 +1,7 @@
 "use client";
 
+import { bundleRewardUnits } from "@/lib/credits/copy";
+
 import { VariantLink as Link } from "@/components/variant-link";
 import { useAppVariant } from "@/components/app-variant-provider";
 import {
@@ -57,7 +59,7 @@ export function ProfileStrengthBanner({
           <p className="truncate text-[13px] font-extrabold">{top.cta}</p>
           <p className="truncate text-[11px] font-bold text-white/90">
             {nextReward > 0
-              ? `+${nextReward} gratis credits · ${report.percent}% af`
+              ? `${bundleRewardUnits(nextReward)} · ${report.percent}% af`
               : `Vereist · ${report.percent}% af`}
           </p>
         </div>
@@ -99,7 +101,7 @@ export function ProfileStrengthBanner({
 
         {nextReward > 0 ? (
           <p className="mt-1 text-[12px] font-bold leading-tight text-white/95">
-            +{nextReward} gratis credits voor deze stap
+            {bundleRewardUnits(nextReward)} voor deze stap
           </p>
         ) : (
           <p className="mt-1 text-[12px] font-bold leading-tight text-white/95">

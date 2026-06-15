@@ -9,6 +9,7 @@ import {
   isoToThreadTimeLabelAmsterdam,
   minuteOfDayAmsterdam,
 } from "@/lib/datetime/amsterdam";
+import { bundleUnits } from "@/lib/credits/copy";
 
 /** Optional structured persona styling metadata (DB column `chat_style`, jsonb).
  * Every key is optional; missing keys must fall back gracefully. Never surface
@@ -186,7 +187,7 @@ export function mergeProfileWithLatestUserMessage(
     return {
       ...base,
       messageType: "text",
-      lastMessage: amount > 0 ? `🎁 ${amount} credits` : "🎁 Cadeau verstuurd",
+      lastMessage: amount > 0 ? `🎁 ${bundleUnits(amount)}` : "🎁 Cadeau verstuurd",
       timestampLabel: ts,
       lastActivityAt: at,
       latestSender,

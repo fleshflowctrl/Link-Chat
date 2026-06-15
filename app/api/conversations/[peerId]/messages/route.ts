@@ -31,6 +31,7 @@ import {
   chatProfileMatchesVariant,
 } from "@/lib/catalog/profile-variant";
 import { isGuestAuthUser } from "@/lib/auth/user-account";
+import { bundleUnits, notEnoughBundleMessage } from "@/lib/credits/copy";
 import { CHAT_MESSAGE_COST_CREDITS } from "@/lib/credits/pricing";
 import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
@@ -219,10 +220,10 @@ export async function POST(
     const guestNeedsSignup =
       deduct.reason === "insufficient" && isGuestAuthUser(user);
     const msg = guestNeedsSignup
-      ? "Je credits zijn op. Maak een account aan om verder te chatten."
+      ? "Je berichten zijn op. Maak een account aan om verder te chatten."
       : deduct.reason === "insufficient"
-        ? `Niet genoeg credits (heb ${deduct.balance}, nodig ${CHAT_MESSAGE_COST_CREDITS})`
-        : deduct.error ?? "Credits aftrekken mislukt";
+        ? notEnoughBundleMessage(CHAT_MESSAGE_COST_CREDITS)
+        : deduct.error ?? "Bundel aftrekken mislukt";
     return NextResponse.json(
       {
         ok: false,

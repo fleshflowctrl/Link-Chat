@@ -3,7 +3,7 @@
  * @see https://postmarkapp.com/developer/api/email-api
  */
 
-import { SITE_DISPLAY } from "@/lib/brand";
+import { SITE_DISPLAY, SITE_DOMAIN } from "@/lib/brand";
 
 export type PostmarkSendInput = {
   to: string;
@@ -27,7 +27,7 @@ function postmarkFromAddress(): string {
   return (
     process.env.POSTMARK_FROM_EMAIL?.trim() ||
     process.env.POSTMARK_FROM?.trim() ||
-    `info@stiekemefotos.nl`
+    `info@${SITE_DOMAIN}`
   );
 }
 
