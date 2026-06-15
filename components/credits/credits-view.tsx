@@ -144,7 +144,12 @@ export function CreditsView() {
         ) : null}
 
         <div className="space-y-3">
-          <PackageCard pkg={starterPackage} />
+          <section className="space-y-2">
+            <p className="px-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+              Bundels zonder bonus
+            </p>
+            <PackageCard pkg={starterPackage} />
+          </section>
 
           <BonusBundlesSection packages={bonusPackages} />
         </div>

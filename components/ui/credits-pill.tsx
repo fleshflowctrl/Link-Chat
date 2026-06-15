@@ -2,6 +2,7 @@
 
 import { VariantLink as Link } from "@/components/variant-link";
 import { useAppVariant } from "@/components/app-variant-provider";
+import { Sparkles } from "lucide-react";
 import { useEffect, useSyncExternalStore } from "react";
 import {
   getCreditsSnapshot,
@@ -40,13 +41,13 @@ export function CreditsPill() {
       }`}
     >
       <span
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white ${
           isV2
             ? "bg-gradient-to-br from-[#B52B2A] to-[#D63B3A]"
             : "bg-gradient-to-br from-yellow-400 to-amber-500"
         }`}
       >
-        $
+        <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
       </span>
       <span
         className={`text-[14px] font-bold ${isV2 ? "text-[#E8E8E8]" : "text-gray-900"}`}
