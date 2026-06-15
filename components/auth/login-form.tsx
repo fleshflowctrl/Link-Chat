@@ -106,7 +106,7 @@ export function LoginForm({
   const isV2 = appVariant === "v2";
   const defaultAfterAuth = withVariantPath("/messages", appVariant);
   const loginPath = withVariantPath("/login", appVariant);
-  const funnelEntry = "/discover";
+  const signupPath = withVariantPath("/signup", appVariant);
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
@@ -296,7 +296,7 @@ export function LoginForm({
             <>
               Nieuw hier?{" "}
               <Link
-                href={`${funnelEntry}${authToggleQuery}`}
+                href={`${signupPath}${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Registreren
@@ -519,7 +519,7 @@ export function LoginForm({
             <>
               Nieuw hier?{" "}
               <Link
-                href={`${funnelEntry}${authToggleQuery}`}
+                href={`${signupPath}${authToggleQuery}`}
                 className="font-semibold text-primary underline-offset-2 hover:underline"
               >
                 Registreren

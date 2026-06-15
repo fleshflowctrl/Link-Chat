@@ -153,7 +153,7 @@ export function ProfileDetailView({
             style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
           >
             <p className="flex flex-col items-center gap-2 text-center">
-              <Lock className="h-5 w-5 text-[#c4a77d]" strokeWidth={2.25} aria-hidden />
+              <Lock className="h-5 w-5 text-[#E85A59]" strokeWidth={2.25} aria-hidden />
               <span className="max-w-[20ch] text-[13px] font-bold leading-snug text-white drop-shadow-sm">
                 {GUEST_PHOTO_LOCK_MESSAGE}
               </span>

@@ -68,15 +68,15 @@ const config: Config = {
         display: ["var(--font-playfair)", "Georgia", "serif"],
       },
       boxShadow: {
-        card: "0 10px 40px -12px rgba(124, 92, 255, 0.18), 0 4px 16px -8px rgba(0,0,0,0.08)",
-        cardHover: "0 14px 48px -10px rgba(124, 92, 255, 0.22), 0 8px 24px -8px rgba(0,0,0,0.1)",
-        pill: "0 4px 14px -4px rgba(124, 92, 255, 0.25)",
-        fab: "0 12px 32px -8px rgba(124, 92, 255, 0.45)",
+        card: "0 10px 40px -12px rgba(181, 43, 42, 0.22), 0 4px 16px -8px rgba(0,0,0,0.12)",
+        cardHover: "0 14px 48px -10px rgba(181, 43, 42, 0.28), 0 8px 24px -8px rgba(0,0,0,0.14)",
+        pill: "0 4px 14px -4px rgba(181, 43, 42, 0.3)",
+        fab: "0 12px 32px -8px rgba(181, 43, 42, 0.45)",
       },
       backgroundImage: {
-        "gradient-primary": "linear-gradient(135deg, #7C5CFF 0%, #9B7BFF 100%)",
+        "gradient-primary": "linear-gradient(135deg, #B52B2A 0%, #D63B3A 100%)",
         "gradient-ring":
-          "linear-gradient(135deg, #7C5CFF 0%, #9B7BFF 55%, #FF6B9D 100%)",
+          "linear-gradient(135deg, #B52B2A 0%, #C93535 55%, #FF5A5A 100%)",
       },
     },
   },

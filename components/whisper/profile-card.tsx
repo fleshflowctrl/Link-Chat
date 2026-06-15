@@ -40,7 +40,6 @@ function StatusChip({ status }: { status: Profile["status"] }) {
   let prefix: ReactNode = null;
   if (variant === "replied") prefix = <span aria-hidden>⚡</span>;
   if (variant === "popular") prefix = <span aria-hidden>🔥</span>;
-  if (variant === "quiet") prefix = <span aria-hidden>🌙</span>;
 
   const showDot = variant === "active" || variant === "online";
 
@@ -116,7 +115,7 @@ export function ProfileCard({
         >
           <p className="flex flex-col items-center gap-1.5 text-center">
             <Lock
-              className={`h-4 w-4 ${isV2 ? "text-[#c4a77d]" : "text-white"}`}
+              className={`h-4 w-4 ${isV2 ? "text-[#E85A59]" : "text-white"}`}
               strokeWidth={2.25}
               aria-hidden
             />
@@ -127,9 +126,11 @@ export function ProfileCard({
         </div>
       )}
 
-      <div className="absolute left-3 top-3 z-[1] max-w-[calc(100%-1.5rem)]">
-        <StatusChip status={profile.status} />
-      </div>
+      {profile.status.label.trim().length > 0 && (
+        <div className="absolute left-3 top-3 z-[1] max-w-[calc(100%-1.5rem)]">
+          <StatusChip status={profile.status} />
+        </div>
+      )}
 
       <div className="pointer-events-none absolute bottom-2 left-2.5 right-2.5 z-[1]">
         <p className="truncate text-[15px] font-extrabold leading-tight text-white">
@@ -155,13 +156,13 @@ export function ProfileCard({
     </>
   );
 
-  const profileButtonClass = `mt-2.5 flex w-full items-center justify-center gap-1 rounded-full py-1.5 text-[11px] font-bold transition active:scale-[0.98] ${
+  const profileButtonClass = `mt-2.5 flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full py-3 text-[15px] font-bold transition active:scale-[0.98] ${
     isV2
       ? "bg-[#353536] text-white ring-1 ring-[#B52B2A]/30"
       : "bg-gray-100 text-gray-900 ring-1 ring-black/10"
   }`;
 
-  const chatButtonClass = `flex w-full items-center justify-center gap-1 rounded-full py-1.5 text-[11px] font-bold text-white transition active:scale-[0.98] ${
+  const chatButtonClass = `flex w-full min-h-[48px] items-center justify-center gap-2 rounded-full py-3 text-[15px] font-bold text-white transition active:scale-[0.98] ${
     isV2 ? "bg-[#B52B2A]" : "bg-gray-900"
   }`;
 
@@ -176,7 +177,7 @@ export function ProfileCard({
         >
           {photoBlock}
         </Link>
-        <div className="p-2.5">
+        <div className="p-3">
           {metaBlock}
           <Link
             href={profileHref}
@@ -184,24 +185,28 @@ export function ProfileCard({
             onClick={() => postProfileSeen(profile.id)}
           >
             Bekijk profiel
-            <ArrowRight className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
+            <ArrowRight className="size-[18px] shrink-0" strokeWidth={2.5} aria-hidden />
           </Link>
           {requiresAuthForMessage ? (
             <button
               type="button"
-              className={`${chatButtonClass} mt-1.5`}
-              onClick={() => setAuthPromptOpen(true)}
+              className={`${chatButtonClass} mt-2`}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setAuthPromptOpen(true);
+              }}
             >
-              <MessageCircle className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
+              <MessageCircle className="size-[18px] shrink-0" strokeWidth={2.5} aria-hidden />
               Stuur bericht
             </button>
           ) : (
             <Link
               href={chatHref}
-              className={`${chatButtonClass} mt-1.5`}
+              className={`${chatButtonClass} mt-2`}
               onClick={() => postProfileSeen(profile.id)}
             >
-              <MessageCircle className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
+              <MessageCircle className="size-[18px] shrink-0" strokeWidth={2.5} aria-hidden />
               Stuur bericht
             </Link>
           )}
@@ -223,11 +228,11 @@ export function ProfileCard({
       aria-label={`Profiel van ${profile.name} bekijken`}
     >
       {photoBlock}
-      <div className="p-2.5">
+      <div className="p-3">
         {metaBlock}
         <div className={`${chatButtonClass} mt-2.5`}>
           Bekijken
-          <ArrowRight className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
+          <ArrowRight className="size-[18px] shrink-0" strokeWidth={2.5} aria-hidden />
         </div>
       </div>
     </Link>

@@ -1,19 +1,16 @@
 /**
- * Premium discreet theme — executive lounge feel for divorced professionals.
+ * V2 theme — bold red accent on dark gray (kinky / discreet).
  */
 export const V2_THEME = {
-  /** Warm champagne gold accent */
-  red: "#C4A77D",
-  redHover: "#D4B88F",
-  redSoft: "#B8956A",
-  /** Deep slate backgrounds */
-  bg: "#0F1218",
-  bgElevated: "#171B24",
-  bgSurface: "#1E2430",
-  /** Typography */
-  text: "#F0EDE8",
-  textMuted: "#9CA3AF",
-  border: "rgba(196, 167, 125, 0.22)",
+  red: "#B52B2A",
+  redHover: "#D63B3A",
+  redSoft: "#C93535",
+  bg: "#121214",
+  bgElevated: "#1A1A1B",
+  bgSurface: "#2A2A2B",
+  text: "#F5F5F5",
+  textMuted: "#9B9B9B",
+  border: "rgba(181, 43, 42, 0.28)",
 } as const;
 
 export const V2_GRADIENT_PRIMARY =

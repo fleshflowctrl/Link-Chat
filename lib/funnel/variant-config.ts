@@ -28,9 +28,9 @@ export function getFunnelVariantConfig(variant: AppVariant): FunnelVariantConfig
       loginPath: `${withVariantPath("/login", variant)}?next=${loginNext}`,
       helpPath: withVariantPath("/me/help", variant),
       privacyPath: withVariantPath("/me/privacy", variant),
-      outerBg: "bg-[#0F1218]",
-      cardBg: "bg-[#171B24]",
-      headerBg: "bg-[#1E2430]/95 border-[#C4A77D]/15",
+      outerBg: "bg-[#121214]",
+      cardBg: "bg-[#1A1A1B]",
+      headerBg: "bg-[#2A2A2B]/95 border-[#B52B2A]/20",
       accent: V2_THEME.red,
       accentSoft: V2_THEME.redSoft,
     };
