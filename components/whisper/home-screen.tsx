@@ -9,6 +9,7 @@ import {
 } from "@/lib/credits-store";
 import {
   discoveryPreferencesLoaded,
+  refreshDiscoveryPreferencesFromServer,
   subscribeDiscoveryPreferences,
 } from "@/lib/discovery-preferences-store";
 // ActivityStrip is temporarily disabled — re-enable in the JSX below to bring
@@ -102,6 +103,7 @@ export function HomeScreen({
 
   useEffect(() => {
     initCreditsStore();
+    void refreshDiscoveryPreferencesFromServer();
   }, []);
 
   // Guest session for chat/credits runs in SessionSyncProvider. Fallback client
