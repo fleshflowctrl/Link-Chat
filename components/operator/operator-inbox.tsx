@@ -31,7 +31,9 @@ type InboxItem = {
   userEmail: string | null;
   lastMessagePreview: string | null;
   lastUserMessageAt: string | null;
+  lastActivityAt: string | null;
   unreadForOperator: boolean;
+  needsOperatorReply: boolean;
 };
 
 type UserThreadItem = {
@@ -58,6 +60,7 @@ type ThreadDetail = {
   ownerCredits: number;
   messages: ChatMessage[];
   memorySummary: string | null;
+  needsOperatorReply: boolean;
 };
 
 function OperatorUserCreditsBadge({ credits }: { credits: number }) {
@@ -81,7 +84,25 @@ function OperatorUserCreditsBadge({ credits }: { credits: number }) {
 
 function formatRel(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleString("nl-NL", {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  if (diffMs >= 0 && diffMs < 60_000) return "Zojuist";
+
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleString("nl-NL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return d.toLocaleString("nl-NL", {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -319,7 +340,13 @@ export function OperatorInbox() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [onlyUnread, setOnlyUnread] = useState(false);
+  const [inboxFilter, setInboxFilter] = useState<"unanswered" | "answered">(
+    "unanswered",
+  );
+  const [aiAutoReplyEnabled, setAiAutoReplyEnabled] = useState(false);
+  const [aiAutoSettingsLoading, setAiAutoSettingsLoading] = useState(true);
+  const [aiAutoProcessing, setAiAutoProcessing] = useState(false);
+  const aiAutoBusyRef = useRef(false);
   const [userChatsOpen, setUserChatsOpen] = useState(false);
   const [userThreads, setUserThreads] = useState<UserThreadItem[]>([]);
   const [userThreadsLoading, setUserThreadsLoading] = useState(false);
@@ -346,20 +373,34 @@ export function OperatorInbox() {
     return null;
   }, [detail?.messages]);
 
-  const visibleItems = useMemo(() => {
-    let list = [...items];
-    if (onlyUnread) list = list.filter((i) => i.unreadForOperator);
-    list.sort((a, b) => {
-      const ta = a.lastUserMessageAt
-        ? new Date(a.lastUserMessageAt).getTime()
-        : 0;
-      const tb = b.lastUserMessageAt
-        ? new Date(b.lastUserMessageAt).getTime()
-        : 0;
+  const sortInboxItems = useCallback((list: InboxItem[]) => {
+    return [...list].sort((a, b) => {
+      const ta = a.lastActivityAt
+        ? new Date(a.lastActivityAt).getTime()
+        : a.lastUserMessageAt
+          ? new Date(a.lastUserMessageAt).getTime()
+          : 0;
+      const tb = b.lastActivityAt
+        ? new Date(b.lastActivityAt).getTime()
+        : b.lastUserMessageAt
+          ? new Date(b.lastUserMessageAt).getTime()
+          : 0;
       return tb - ta;
     });
-    return list;
-  }, [items, onlyUnread]);
+  }, []);
+
+  const { unansweredItems, answeredItems } = useMemo(() => {
+    const unanswered = sortInboxItems(
+      items.filter((i) => i.needsOperatorReply),
+    );
+    const answered = sortInboxItems(
+      items.filter((i) => !i.needsOperatorReply),
+    );
+    return { unansweredItems: unanswered, answeredItems: answered };
+  }, [items, sortInboxItems]);
+
+  const visibleItems =
+    inboxFilter === "unanswered" ? unansweredItems : answeredItems;
 
   const loadInbox = useCallback(async () => {
     const res = await fetch("/api/operator/conversations", { cache: "no-store" });
@@ -376,6 +417,24 @@ export function OperatorInbox() {
     if (!selectedId) setError(null);
   }, [selectedId]);
 
+  const loadAiAutoSettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/operator/settings", { cache: "no-store" });
+      const data = (await res.json()) as {
+        ok: boolean;
+        aiAutoReplyEnabled?: boolean;
+        error?: string;
+      };
+      if (data.ok && typeof data.aiAutoReplyEnabled === "boolean") {
+        setAiAutoReplyEnabled(data.aiAutoReplyEnabled);
+      }
+    } catch {
+      /* keep previous */
+    } finally {
+      setAiAutoSettingsLoading(false);
+    }
+  }, []);
+
   const loadThread = useCallback(
     async (conversationId: string, opts?: { silent?: boolean }) => {
       if (!opts?.silent) setLoading(true);
@@ -386,6 +445,7 @@ export function OperatorInbox() {
       const data = (await res.json()) as ThreadDetail & {
         ok: boolean;
         error?: string;
+        queue?: { needs_operator_reply?: boolean } | null;
       };
       if (!opts?.silent) setLoading(false);
       if (!data.ok) {
@@ -408,6 +468,7 @@ export function OperatorInbox() {
           typeof data.ownerCredits === "number" ? data.ownerCredits : 0,
         messages: data.messages,
         memorySummary: data.memorySummary ?? null,
+        needsOperatorReply: data.queue?.needs_operator_reply ?? false,
       });
       setItems((prev) =>
         prev.map((i) =>
@@ -445,9 +506,70 @@ export function OperatorInbox() {
     }
   }, []);
 
+  const runAutoReplyProcessor = useCallback(async () => {
+    if (!aiAutoReplyEnabled || aiAutoBusyRef.current) return;
+    aiAutoBusyRef.current = true;
+    setAiAutoProcessing(true);
+    try {
+      const res = await fetch("/api/operator/process-auto-replies", {
+        method: "POST",
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        sent?: number;
+        error?: string;
+      };
+      if (data.ok && (data.sent ?? 0) > 0) {
+        await loadInbox();
+        if (selectedId) {
+          await loadThread(selectedId, { silent: true });
+        }
+      }
+    } catch {
+      /* ignore poll errors */
+    } finally {
+      aiAutoBusyRef.current = false;
+      setAiAutoProcessing(false);
+    }
+  }, [aiAutoReplyEnabled, loadInbox, loadThread, selectedId]);
+
+  async function toggleAiAutoReply(enabled: boolean) {
+    if (aiAutoSettingsLoading || enabled === aiAutoReplyEnabled) return;
+    setAiAutoReplyEnabled(enabled);
+    try {
+      const res = await fetch("/api/operator/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ aiAutoReplyEnabled: enabled }),
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        aiAutoReplyEnabled?: boolean;
+        error?: string;
+      };
+      if (!data.ok) {
+        setAiAutoReplyEnabled(!enabled);
+        setError(data.error ?? "AI-instelling opslaan mislukt");
+        return;
+      }
+      if (typeof data.aiAutoReplyEnabled === "boolean") {
+        setAiAutoReplyEnabled(data.aiAutoReplyEnabled);
+      }
+      if (data.aiAutoReplyEnabled) {
+        void runAutoReplyProcessor();
+      }
+    } catch {
+      setAiAutoReplyEnabled(!enabled);
+      setError("AI-instelling opslaan mislukt");
+    }
+  }
+
   const refreshLive = useCallback(() => {
     if (!isOperatorLivePollActive()) return;
     void loadInbox();
+    if (aiAutoReplyEnabled) {
+      void runAutoReplyProcessor();
+    }
     if (selectedId) {
       void loadThread(selectedId, { silent: true });
     }
@@ -461,9 +583,12 @@ export function OperatorInbox() {
     userChatsOpen,
     detail?.ownerUserId,
     loadUserThreads,
+    aiAutoReplyEnabled,
+    runAutoReplyProcessor,
   ]);
 
   useEffect(() => {
+    void loadAiAutoSettings();
     void loadInbox();
     const inboxTimer = window.setInterval(() => {
       if (!isOperatorLivePollActive()) return;
@@ -481,7 +606,17 @@ export function OperatorInbox() {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [loadInbox, refreshLive]);
+  }, [loadInbox, loadAiAutoSettings, refreshLive]);
+
+  useEffect(() => {
+    if (!aiAutoReplyEnabled) return;
+    void runAutoReplyProcessor();
+    const timer = window.setInterval(() => {
+      if (!isOperatorLivePollActive()) return;
+      void runAutoReplyProcessor();
+    }, OPERATOR_INBOX_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [aiAutoReplyEnabled, runAutoReplyProcessor]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -571,14 +706,14 @@ export function OperatorInbox() {
       setSuggestionsForMessageId(null);
       return;
     }
-    if (lastUserMessageId === suggestionsForMessageId) return;
-    void fetchReplySuggestions({ messageId: lastUserMessageId });
-  }, [
-    selectedId,
-    lastUserMessageId,
-    suggestionsForMessageId,
-    fetchReplySuggestions,
-  ]);
+    if (
+      suggestionsForMessageId &&
+      suggestionsForMessageId !== lastUserMessageId
+    ) {
+      setReplySuggestions([]);
+      setSuggestionsForMessageId(null);
+    }
+  }, [selectedId, lastUserMessageId, suggestionsForMessageId]);
 
   function selectConversation(id: string) {
     setSelectedId(id);
@@ -631,11 +766,12 @@ export function OperatorInbox() {
 
   async function sendReply() {
     if (!selectedId || !replyText.trim()) return;
+    const sentText = replyText.trim();
     setLoading(true);
     const res = await fetch(`/api/operator/conversations/${selectedId}/reply`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: replyText.trim() }),
+      body: JSON.stringify({ body: sentText }),
     });
     const data = (await res.json()) as { ok: boolean; error?: string };
     setLoading(false);
@@ -646,6 +782,31 @@ export function OperatorInbox() {
     setReplyText("");
     setReplySuggestions([]);
     setSuggestionsForMessageId(null);
+    const nowIso = new Date().toISOString();
+    setItems((prev) =>
+      prev.map((i) =>
+        i.conversationId === selectedId
+          ? {
+              ...i,
+              lastMessagePreview: sentText.slice(0, 280),
+              lastActivityAt: nowIso,
+              needsOperatorReply: false,
+              unreadForOperator: false,
+            }
+          : i,
+      ),
+    );
+    setUserThreads((prev) =>
+      prev.map((t) =>
+        t.conversationId === selectedId
+          ? {
+              ...t,
+              lastMessagePreview: sentText.slice(0, 280),
+              needsOperatorReply: false,
+            }
+          : t,
+      ),
+    );
     await loadThread(selectedId);
     await loadInbox();
   }
@@ -773,6 +934,46 @@ export function OperatorInbox() {
     backToList();
   }
 
+  const markAnswered = useCallback(
+    async (conversationId: string) => {
+      setMenuOpen(false);
+      const res = await fetch(
+        `/api/operator/conversations/${conversationId}/mark-answered`,
+        { method: "POST" },
+      );
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      if (!data.ok) {
+        setError(data.error ?? "Markeren als beantwoord mislukt");
+        return;
+      }
+      setItems((prev) =>
+        prev.map((i) =>
+          i.conversationId === conversationId
+            ? {
+                ...i,
+                needsOperatorReply: false,
+                unreadForOperator: false,
+                lastActivityAt: new Date().toISOString(),
+              }
+            : i,
+        ),
+      );
+      setUserThreads((prev) =>
+        prev.map((t) =>
+          t.conversationId === conversationId
+            ? { ...t, needsOperatorReply: false }
+            : t,
+        ),
+      );
+      setDetail((prev) =>
+        prev?.conversationId === conversationId
+          ? { ...prev, needsOperatorReply: false }
+          : prev,
+      );
+    },
+    [],
+  );
+
   const threadAccent = detail ? getPersonaAccent(detail.peerId) : null;
   const transcript =
     detail &&
@@ -780,6 +981,58 @@ export function OperatorInbox() {
       maxLines: 6,
       peerName: detail.peer.display_name,
     });
+
+  function renderConversationRow(item: InboxItem) {
+    const accent = getPersonaAccent(item.peerId);
+    return (
+      <li key={item.conversationId}>
+        <button
+          type="button"
+          onClick={() => selectConversation(item.conversationId)}
+          className={`flex w-full gap-3 border-b border-neutral-50 px-4 py-3.5 text-left active:bg-neutral-50 ${
+            selectedId === item.conversationId
+              ? "bg-primary/5 lg:bg-primary/[0.07]"
+              : ""
+          }`}
+        >
+          <div
+            className={`w-1 shrink-0 self-stretch rounded-full ${accent.headerBar}`}
+          />
+          <Avatar
+            src={item.ownerPhotoUrl}
+            alt={item.ownerDisplayName}
+            size="lg"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-[15px] font-semibold text-neutral-900">
+                {item.ownerDisplayName}
+              </span>
+              {item.lastActivityAt && (
+                <span className="shrink-0 text-[11px] text-neutral-400">
+                  {formatRel(item.lastActivityAt)}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <PersonaBadge peerId={item.peerId} name={item.peerDisplayName} />
+              {item.userEmail && (
+                <span className="truncate text-[10px] text-neutral-400">
+                  {item.userEmail}
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 truncate text-sm text-neutral-600">
+              {item.lastMessagePreview ?? "—"}
+            </p>
+          </div>
+          {item.needsOperatorReply && (
+            <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+          )}
+        </button>
+      </li>
+    );
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden lg:flex-row">
@@ -801,78 +1054,112 @@ export function OperatorInbox() {
               </Link>
             </div>
             <p className="text-xs text-neutral-500">
-              {visibleItems.length}{" "}
-              {visibleItems.length === 1 ? "gesprek" : "gesprekken"}
-              {onlyUnread ? " (ongelezen)" : ""}
+              {unansweredItems.length} niet beantwoord · {answeredItems.length}{" "}
+              beantwoord
             </p>
-            <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600">
-              <input
-                type="checkbox"
-                checked={onlyUnread}
-                onChange={(e) => setOnlyUnread(e.target.checked)}
-                className="rounded border-neutral-300"
-              />
-              Alleen ongelezen
-            </label>
-          </div>
-          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            {visibleItems.map((item) => {
-              const accent = getPersonaAccent(item.peerId);
-              return (
-                <li key={item.conversationId}>
-                  <button
-                    type="button"
-                    onClick={() => selectConversation(item.conversationId)}
-                    className={`flex w-full gap-3 border-b border-neutral-50 px-4 py-3.5 text-left active:bg-neutral-50 ${
-                      selectedId === item.conversationId
-                        ? "bg-primary/5 lg:bg-primary/[0.07]"
-                        : ""
+            <div className="mt-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                AI automatisch
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={aiAutoSettingsLoading}
+                  onClick={() => {
+                    if (!aiAutoReplyEnabled) return;
+                    void toggleAiAutoReply(false);
+                  }}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                    !aiAutoReplyEnabled
+                      ? "bg-primary text-white"
+                      : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                  }`}
+                >
+                  Uit
+                </button>
+                <button
+                  type="button"
+                  disabled={aiAutoSettingsLoading}
+                  onClick={() => {
+                    if (aiAutoReplyEnabled) return;
+                    void toggleAiAutoReply(true);
+                  }}
+                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                    aiAutoReplyEnabled
+                      ? "bg-primary text-white"
+                      : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                  }`}
+                >
+                  Aan
+                  {aiAutoProcessing && (
+                    <span className="ml-1 text-[10px] font-normal opacity-90">
+                      …
+                    </span>
+                  )}
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-neutral-500">
+                {aiAutoReplyEnabled
+                  ? aiAutoProcessing
+                    ? "Bezig met automatisch antwoorden…"
+                    : "Nieuwe berichten worden automatisch beantwoord"
+                  : "Je antwoordt zelf of gebruikt Genereer suggesties"}
+              </p>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setInboxFilter("unanswered")}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                  inboxFilter === "unanswered"
+                    ? "bg-primary text-white"
+                    : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                }`}
+              >
+                Niet beantwoord
+                {unansweredItems.length > 0 && (
+                  <span
+                    className={`ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
+                      inboxFilter === "unanswered"
+                        ? "bg-white/20 text-white"
+                        : "bg-amber-100 text-amber-900"
                     }`}
                   >
-                    <div
-                      className={`w-1 shrink-0 self-stretch rounded-full ${accent.headerBar}`}
-                    />
-                    <Avatar
-                      src={item.ownerPhotoUrl}
-                      alt={item.ownerDisplayName}
-                      size="lg"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-[15px] font-semibold text-neutral-900">
-                          {item.ownerDisplayName}
-                        </span>
-                        {item.lastUserMessageAt && (
-                          <span className="shrink-0 text-[11px] text-neutral-400">
-                            {formatRel(item.lastUserMessageAt)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <PersonaBadge
-                          peerId={item.peerId}
-                          name={item.peerDisplayName}
-                        />
-                        {item.userEmail && (
-                          <span className="truncate text-[10px] text-neutral-400">
-                            {item.userEmail}
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-0.5 truncate text-sm text-neutral-600">
-                        {item.lastMessagePreview ?? "—"}
-                      </p>
-                    </div>
-                    {item.unreadForOperator && (
-                      <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
+                    {unansweredItems.length}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setInboxFilter("answered")}
+                className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+                  inboxFilter === "answered"
+                    ? "bg-primary text-white"
+                    : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                }`}
+              >
+                Beantwoord
+                {answeredItems.length > 0 && (
+                  <span
+                    className={`ml-1.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
+                      inboxFilter === "answered"
+                        ? "bg-white/20 text-white"
+                        : "bg-neutral-200 text-neutral-700"
+                    }`}
+                  >
+                    {answeredItems.length}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+          <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {visibleItems.map(renderConversationRow)}
             {visibleItems.length === 0 && (
               <li className="px-4 py-16 text-center text-sm text-neutral-500">
-                Geen gesprekken
+                {inboxFilter === "unanswered"
+                  ? "Geen openstaande berichten"
+                  : "Nog geen beantwoorde gesprekken"}
               </li>
             )}
           </ul>
@@ -971,6 +1258,14 @@ export function OperatorInbox() {
                         className="block w-full px-4 py-2.5 text-left text-sm text-neutral-800 active:bg-neutral-50 disabled:opacity-50"
                       >
                         AI opnieuw
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading || !selectedId}
+                        onClick={() => selectedId && void markAnswered(selectedId)}
+                        className="block w-full px-4 py-2.5 text-left text-sm text-neutral-800 active:bg-neutral-50 disabled:opacity-50"
+                      >
+                        Markeer als beantwoord
                       </button>
                       <button
                         type="button"
@@ -1228,9 +1523,19 @@ export function OperatorInbox() {
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                     AI-suggesties
                   </p>
-                  {suggestionsLoading && (
-                    <span className="text-[10px] text-neutral-400">Denken…</span>
-                  )}
+                  <button
+                    type="button"
+                    disabled={suggestionsLoading}
+                    onClick={() =>
+                      void fetchReplySuggestions({
+                        force: true,
+                        messageId: lastUserMessageId,
+                      })
+                    }
+                    className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 transition active:bg-emerald-100 disabled:opacity-50"
+                  >
+                    {suggestionsLoading ? "Bezig…" : "Genereer suggesties"}
+                  </button>
                 </div>
                 {replySuggestions.length > 0 ? (
                   <div className="flex flex-col gap-1.5">
@@ -1247,7 +1552,7 @@ export function OperatorInbox() {
                   </div>
                 ) : !suggestionsLoading ? (
                   <p className="text-[11px] text-neutral-400">
-                    Geen suggesties beschikbaar.
+                    Tik op Genereer suggesties — 3 menselijke opties (±15 sec).
                   </p>
                 ) : null}
               </div>

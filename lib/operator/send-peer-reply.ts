@@ -16,7 +16,7 @@ export type SendOperatorPeerReplyInput = {
   text: string;
   /** Admin user id from site, or null for Telegram-only replies. */
   operatorId: string | null;
-  source?: "operator_manual" | "operator_telegram";
+  source?: "operator_manual" | "operator_telegram" | "operator_ai_auto";
 };
 
 export type SendOperatorPeerReplyResult =
@@ -77,6 +77,7 @@ export async function sendOperatorPeerReply(
       ownerUserId: input.ownerUserId,
       peerId: input.peerId,
       operatorId: input.operatorId,
+      messagePreview: text,
     });
   } else {
     const now = new Date().toISOString();
@@ -87,6 +88,7 @@ export async function sendOperatorPeerReply(
         unread_for_operator: false,
         operator_status: "replied",
         last_operator_reply_at: now,
+        last_message_preview: text.slice(0, 280),
         updated_at: now,
       })
       .eq("owner_user_id", input.ownerUserId)

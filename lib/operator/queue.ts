@@ -18,6 +18,30 @@ export type OperatorQueueRow = {
   updated_at: string;
 };
 
+/** Latest thread activity for inbox sort/display (user msg, operator reply, or queue touch). */
+export function operatorQueueLastActivityAt(
+  row: Pick<
+    OperatorQueueRow,
+    "last_user_message_at" | "last_operator_reply_at" | "updated_at"
+  >,
+): string | null {
+  let best: string | null = null;
+  let bestMs = 0;
+  for (const iso of [
+    row.last_user_message_at,
+    row.last_operator_reply_at,
+    row.updated_at,
+  ]) {
+    if (!iso) continue;
+    const ms = new Date(iso).getTime();
+    if (Number.isFinite(ms) && ms > bestMs) {
+      bestMs = ms;
+      best = iso;
+    }
+  }
+  return best;
+}
+
 export async function upsertOperatorQueueForUserMessage(
   supabase: SupabaseClient,
   input: {
@@ -82,21 +106,59 @@ export async function markOperatorReplied(
     ownerUserId: string;
     peerId: string;
     operatorId: string;
+    messagePreview?: string;
   },
 ): Promise<void> {
   const now = new Date().toISOString();
+  const preview = input.messagePreview?.trim().slice(0, 280);
+  const update: {
+    needs_operator_reply: boolean;
+    unread_for_operator: boolean;
+    operator_status: string;
+    last_operator_reply_at: string;
+    assigned_operator_id: string;
+    updated_at: string;
+    last_message_preview?: string;
+  } = {
+    needs_operator_reply: false,
+    unread_for_operator: false,
+    operator_status: "replied",
+    last_operator_reply_at: now,
+    assigned_operator_id: input.operatorId,
+    updated_at: now,
+  };
+  if (preview) {
+    update.last_message_preview = preview;
+  }
   await supabase
     .from("chat_operator_queue")
-    .update({
+    .update(update)
+    .eq("owner_user_id", input.ownerUserId)
+    .eq("peer_id", input.peerId);
+}
+
+/** Mark thread answered without sending a message (e.g. handled elsewhere). */
+export async function markOperatorAnswered(
+  supabase: SupabaseClient,
+  input: {
+    ownerUserId: string;
+    peerId: string;
+    operatorId: string;
+  },
+): Promise<void> {
+  const now = new Date().toISOString();
+  await supabase.from("chat_operator_queue").upsert(
+    {
+      owner_user_id: input.ownerUserId,
+      peer_id: input.peerId,
       needs_operator_reply: false,
       unread_for_operator: false,
       operator_status: "replied",
-      last_operator_reply_at: now,
       assigned_operator_id: input.operatorId,
       updated_at: now,
-    })
-    .eq("owner_user_id", input.ownerUserId)
-    .eq("peer_id", input.peerId);
+    },
+    { onConflict: "owner_user_id,peer_id" },
+  );
 }
 
 export async function cancelPendingAiForThread(

@@ -3,6 +3,7 @@ import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
 import { STARTING_USER_CREDITS } from "@/lib/credits/pricing";
 import { encodeConversationId } from "@/lib/operator/conversation-key";
 import type { OperatorQueueRow } from "@/lib/operator/queue";
+import { operatorQueueLastActivityAt } from "@/lib/operator/queue";
 
 export function normalizeOwnerCredits(raw: unknown): number {
   if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) {
@@ -75,6 +76,7 @@ export type OperatorInboxItem = {
   userEmail: string | null;
   lastMessagePreview: string | null;
   lastUserMessageAt: string | null;
+  lastActivityAt: string | null;
   unreadForOperator: boolean;
   assignedOperatorId: string | null;
   priority: number;
@@ -91,7 +93,7 @@ export async function loadOperatorInbox(
     .from("chat_operator_queue")
     .select("*")
     .order("priority", { ascending: false })
-    .order("last_user_message_at", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false, nullsFirst: false })
     .limit(limit);
 
   if (opts?.status) {
@@ -143,6 +145,7 @@ export async function loadOperatorInbox(
       userEmail: emails.get(row.owner_user_id) ?? null,
       lastMessagePreview: row.last_message_preview,
       lastUserMessageAt: row.last_user_message_at,
+      lastActivityAt: operatorQueueLastActivityAt(row),
       unreadForOperator: row.unread_for_operator,
       assignedOperatorId: row.assigned_operator_id,
       priority: row.priority,

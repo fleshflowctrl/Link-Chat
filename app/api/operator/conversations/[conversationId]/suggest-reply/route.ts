@@ -17,7 +17,10 @@ export async function POST(
 
   const decoded = decodeConversationId(params.conversationId);
   if (!decoded) {
-    return NextResponse.json({ ok: false, error: "Ongeldig gesprek-id" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "Ongeldig gesprek-id" },
+      { status: 400 },
+    );
   }
 
   const { data: profile, error: pe } = await auth.service
@@ -27,7 +30,10 @@ export async function POST(
     .maybeSingle();
 
   if (pe || !profile) {
-    return NextResponse.json({ ok: false, error: "Peer niet gevonden" }, { status: 404 });
+    return NextResponse.json(
+      { ok: false, error: "Peer niet gevonden" },
+      { status: 404 },
+    );
   }
 
   const { data: historyRows } = await auth.service
@@ -46,9 +52,12 @@ export async function POST(
     );
   }
 
-  const result = await generateOperatorReplySuggestions({
+  const result = await generateOperatorReplySuggestions(auth.service, {
     profile: profile as ChatProfileRow,
     history,
+    ownerUserId: decoded.ownerUserId,
+    peerId: decoded.peerId,
+    triggerUserMessageId: lastUser.id,
   });
 
   if (!result.ok) {

@@ -37,6 +37,7 @@ import { deductUserCredits, refundUserCredits } from "@/lib/credits/deduct";
 import { createClient } from "@/utils/supabase/server";
 import { isManualOperatorMode } from "@/lib/manual-operator-mode";
 import { upsertOperatorQueueForUserMessage } from "@/lib/operator/queue";
+import { maybeTriggerOperatorAutoReply } from "@/lib/operator/process-operator-auto-reply";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { notifyOperatorViaTelegram } from "@/lib/telegram/notify";
 
@@ -298,6 +299,11 @@ export async function POST(
       } catch (e) {
         console.warn("[telegram] notify error", e);
       }
+      await maybeTriggerOperatorAutoReply(service, {
+        ownerUserId: user.id,
+        peerId,
+        triggerUserMessageId: insertedUser.id,
+      });
     }
     return NextResponse.json({
       ok: true,

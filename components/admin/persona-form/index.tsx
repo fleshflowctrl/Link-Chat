@@ -728,9 +728,15 @@ export function PersonaForm({ mode, initial, idLocked }: PersonaFormProps) {
           id="chat"
           number={5}
           title="Chat-stijl"
-          description="Hoe ze tikt: tics, emoji, ritme, dingen die ze liever niet bespreekt."
+          description="Hoe ze tikt: tics, emoji, ritme, dingen die ze liever niet bespreekt. Operator AI-suggesties (Grok) lezen deze velden — vul ze in voor menselijkere antwoorden."
           icon={<MicIcon className="h-5 w-5" />}
         >
+          <p className="mb-4 rounded-xl border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
+            Tip: minstens 2–3 verbale tics, een emoji-palet, reply_length{" "}
+            <strong>short</strong> of <strong>variable</strong>, en punctuation{" "}
+            <strong>casual</strong> geven de sterkste operator-suggesties. Laat
+            quirks leeg? Dan klinken AI-antwoorden generieker.
+          </p>
           <Field label="Verbale tics" hint="laat 1× per ~5 berichten subtiel vallen">
             <ChipList values={v.chat_style.verbal_tics} onChange={(n) => setChat("verbal_tics", n)} placeholder="ff, lol, echt, … (geen ofzo/joh)" />
           </Field>

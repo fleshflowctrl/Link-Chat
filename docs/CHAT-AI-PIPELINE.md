@@ -7,7 +7,7 @@ When enabled in `.env.local`:
 - User messages are saved; **no** automatic `generatePeerReply`, pending queue, spontaneous, or winback.
 - Threads appear in **`/operator/inbox`** (`chat_operator_queue`).
 - Operators send via `POST /api/operator/conversations/{ownerId__peerId}/reply` (`message_source=operator_manual`). Unread e-mail queue (`scheduleUnreadEmailNotification`) runs on operator/Telegram sends too — same 5 min cron as auto-AI.
-- AI only via **`POST .../suggest-reply`** → `generatePeerReplyDraftOnly` (no DB insert).
+- AI only via **`POST .../suggest-reply`** → `generateOperatorReplySuggestions` (full `generatePeerReply` pipeline × 3 tones, draft-only, no DB insert).
 - Cancel old AI queue: `POST /api/operator/cancel-ai-pending`.
 
 ### Telegram operator (optional)
@@ -24,7 +24,7 @@ Env: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OPERATOR_CHAT_IDS`, optional `TELEGRAM_WEBH
 
 **Forum topics (recommended at scale):** set `TELEGRAM_OPERATOR_GROUP_CHAT_ID` to a supergroup with Topics enabled. Each user+persona conversation gets its own topic; reply in that topic (no reply-to needed). Migration: `20260522140000_chat_operator_telegram_topics.sql`.
 
-**Operator inbox UX:** persona color badges, user photo + age/location context, “alleen ongelezen” filter, transcript recap in long threads.
+**Operator inbox UX:** persona color badges, user photo + age/location context, filter tabs (niet beantwoord / beantwoord), **AI automatisch** toggle (3 suggesties → beste → versturen).
 
 **Operator summary (Grok):** menu → **Samenvatting** → `GET` loads saved text; **Opnieuw genereren** → `POST { refresh: true }`. Stored in `chat_operator_saved_summary` (migration `20260522150000`). Does not message the user.
 

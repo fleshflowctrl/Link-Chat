@@ -1,130 +1,183 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
-import { grokResponsesComplete, type GrokInputMessage } from "@/lib/xai/grok-responses";
+import { generatePeerReplyDraftOnly } from "@/lib/ai/generate-peer-reply";
+import { MULTI_MESSAGE_SEPARATOR } from "@/lib/ai/post-process-reply";
+import { getSavedOperatorSummary } from "@/lib/operator/saved-summary";
+import {
+  buildOperatorSuggestionContextBlock,
+  OPERATOR_SUGGESTION_TONES,
+  type OperatorSuggestionTone,
+} from "@/lib/operator/operator-suggestion-prompt";
 
-const MAX_MESSAGES = 24;
-
-function formatHistory(
-  rows: ChatMessageRow[],
-  peerName: string,
-): string {
-  const tail = rows.slice(-MAX_MESSAGES);
-  if (!tail.length) return "(nog geen berichten)";
-  return tail
-    .map((m) => {
-      const who = m.sender === "me" ? "USER" : peerName.toUpperCase();
-      const body =
-        m.body?.trim() ||
-        (m.kind === "image" ? "[afbeelding]" : m.kind === "gift" ? "[gift]" : "—");
-      return `${who}: ${body}`;
-    })
-    .join("\n");
+function normalizeSuggestionText(raw: string): string {
+  const parts = raw
+    .split(MULTI_MESSAGE_SEPARATOR)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return (parts[0] ?? raw).trim();
 }
 
-function parseSuggestions(raw: string): string[] {
-  const text = raw.trim();
-  if (!text) return [];
-
-  const tryParse = (candidate: string): string[] | null => {
-    try {
-      const parsed = JSON.parse(candidate) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed
-          .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-          .map((v) => v.trim())
-          .slice(0, 3);
-      }
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        Array.isArray((parsed as { suggestions?: unknown }).suggestions)
-      ) {
-        return ((parsed as { suggestions: unknown[] }).suggestions ?? [])
-          .filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-          .map((v) => v.trim())
-          .slice(0, 3);
-      }
-    } catch {
-      /* try next */
-    }
-    return null;
-  };
-
-  const direct = tryParse(text);
-  if (direct?.length) return direct;
-
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) {
-    const fromFence = tryParse(fenced[1].trim());
-    if (fromFence?.length) return fromFence;
-  }
-
-  const arrayMatch = text.match(/\[[\s\S]*\]/);
-  if (arrayMatch) {
-    const fromArray = tryParse(arrayMatch[0]);
-    if (fromArray?.length) return fromArray;
-  }
-
-  return text
-    .split(/\n+/)
-    .map((line) => line.replace(/^\s*\d+[\).\]]\s*/, "").trim())
-    .filter((line) => line.length > 0)
-    .slice(0, 3);
+function suggestionKey(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-export async function generateOperatorReplySuggestions(input: {
-  profile: ChatProfileRow;
-  history: ChatMessageRow[];
-}): Promise<
+function dedupeSuggestions(items: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of items) {
+    const key = suggestionKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+async function loadThreadMemorySummary(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+  peerId: string,
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("chat_ai_thread_memory")
+    .select("summary")
+    .eq("owner_user_id", ownerUserId)
+    .eq("peer_id", peerId)
+    .maybeSingle();
+  const summary = (data as { summary?: string } | null)?.summary;
+  return typeof summary === "string" && summary.trim() ? summary.trim() : null;
+}
+
+async function generateOneSuggestion(
+  supabase: SupabaseClient,
+  input: {
+    profile: ChatProfileRow;
+    history: ChatMessageRow[];
+    ownerUserId: string;
+    peerId: string;
+    triggerUserMessageId: string;
+    operatorContextBlock: string;
+    tone: OperatorSuggestionTone;
+    persistMemory: boolean;
+  },
+): Promise<
+  | { ok: true; text: string; model: string }
+  | { ok: false; error: string }
+> {
+  const result = await generatePeerReplyDraftOnly(supabase, {
+    profile: input.profile,
+    history: input.history,
+    ownerUserId: input.ownerUserId,
+    peerId: input.peerId,
+    options: {
+      draftOnly: true,
+      triggerUserMessageId: input.triggerUserMessageId,
+      forceSingleMessage: true,
+      forceDraftRevise: true,
+      operatorContextBlock: input.operatorContextBlock,
+      operatorSuggestionTone: input.tone,
+      skipMemoryPersistence: !input.persistMemory,
+    },
+  });
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  const text = normalizeSuggestionText(result.draftText);
+  if (!text) {
+    return { ok: false, error: "Lege suggestie" };
+  }
+
+  return { ok: true, text, model: result.model };
+}
+
+export async function generateOperatorReplySuggestions(
+  supabase: SupabaseClient,
+  input: {
+    profile: ChatProfileRow;
+    history: ChatMessageRow[];
+    ownerUserId: string;
+    peerId: string;
+    triggerUserMessageId: string;
+  },
+): Promise<
   | { ok: true; suggestions: [string, string, string]; model: string }
   | { ok: false; error: string }
 > {
-  const peerName = input.profile.display_name?.trim() || "Persona";
-  const lastUser = [...input.history].reverse().find((m) => m.sender === "me");
-  const lastUserText =
-    lastUser?.body?.trim() ||
-    (lastUser?.kind === "image" ? "[afbeelding]" : "");
-
-  const system: GrokInputMessage = {
-    role: "system",
-    content:
-      "Je helpt een menselijke chat-operator die namens een dating-persona antwoordt in het Nederlands. " +
-      "Geef precies 3 korte antwoord-opties op de laatste user-bericht. " +
-      "Elke optie is 1–3 zinnen, chattoon, warm en natuurlijk, passend bij de persona. " +
-      "Maak de 3 opties duidelijk verschillend (bijv. speels / warm / direct). " +
-      "Geen uitleg, geen markdown, geen nummering — alleen JSON: " +
-      '{"suggestions":["...","...","..."]}',
-  };
-
-  const user: GrokInputMessage = {
-    role: "user",
-    content:
-      `Persona: ${peerName}\n` +
-      (input.profile.bio?.trim() ? `Bio: ${input.profile.bio.trim()}\n` : "") +
-      (lastUserText ? `Laatste user-bericht: ${lastUserText}\n\n` : "") +
-      `Gesprek:\n${formatHistory(input.history, peerName)}`,
-  };
-
-  const out = await grokResponsesComplete([system, user], {
-    temperature: 0.72,
-    maxOutputTokens: 700,
-  });
-
-  if (!out.ok) {
-    return { ok: false, error: out.error };
+  const lastUser = [...input.history]
+    .reverse()
+    .find((m) => m.sender === "me");
+  if (!lastUser) {
+    return { ok: false, error: "Geen user-bericht om op te antwoorden" };
   }
 
-  let suggestions = parseSuggestions(out.text);
-  if (suggestions.length < 3) {
+  const [savedSummary, threadMemorySummary] = await Promise.all([
+    getSavedOperatorSummary(supabase, input.ownerUserId, input.peerId),
+    loadThreadMemorySummary(supabase, input.ownerUserId, input.peerId),
+  ]);
+
+  const operatorContextBlock = buildOperatorSuggestionContextBlock({
+    savedSummary,
+    threadMemorySummary,
+  });
+
+  const collected: string[] = [];
+  let lastModel = process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
+  const errors: string[] = [];
+
+  const toneResults = await Promise.all(
+    OPERATOR_SUGGESTION_TONES.map((tone, index) =>
+      generateOneSuggestion(supabase, {
+        ...input,
+        operatorContextBlock,
+        tone,
+        persistMemory: index === 0,
+      }),
+    ),
+  );
+
+  for (const result of toneResults) {
+    if (result.ok) {
+      collected.push(result.text);
+      lastModel = result.model;
+    } else {
+      errors.push(result.error);
+    }
+  }
+
+  let unique = dedupeSuggestions(collected);
+
+  if (unique.length < 3) {
+    for (const tone of OPERATOR_SUGGESTION_TONES) {
+      if (unique.length >= 3) break;
+      const retry = await generateOneSuggestion(supabase, {
+        ...input,
+        operatorContextBlock,
+        tone,
+        persistMemory: false,
+      });
+      if (retry.ok) {
+        lastModel = retry.model;
+        unique = dedupeSuggestions([...unique, retry.text]);
+      } else {
+        errors.push(retry.error);
+      }
+    }
+  }
+
+  if (unique.length < 3) {
     return {
       ok: false,
-      error: "Kon geen 3 suggesties genereren",
+      error:
+        errors[0] ??
+        `Kon geen 3 unieke suggesties genereren (${unique.length}/3)`,
     };
   }
 
-  suggestions = suggestions.slice(0, 3);
   return {
     ok: true,
-    suggestions: [suggestions[0]!, suggestions[1]!, suggestions[2]!],
-    model: out.model,
+    suggestions: [unique[0]!, unique[1]!, unique[2]!],
+    model: lastModel,
   };
 }

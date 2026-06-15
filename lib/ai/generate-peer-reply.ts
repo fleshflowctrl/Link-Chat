@@ -81,6 +81,7 @@ import { scheduleUnreadEmailNotification } from "@/lib/chat/schedule-unread-emai
 import type { GrokInputMessage } from "@/lib/xai/grok-responses";
 import { hasConversationBond } from "@/lib/ai/conversation-bond";
 import { isManualOperatorMode } from "@/lib/manual-operator-mode";
+import { operatorSuggestionToneAppend } from "@/lib/operator/operator-suggestion-prompt";
 
 function buildPersonaFallbackCtx(
   profile: ChatProfileRow,
@@ -356,6 +357,14 @@ export type GeneratePeerReplyOptions = {
   pendingKind?: FollowUpKind;
   /** Build reply text only — no chat_messages / pending inserts (operator suggest). */
   draftOnly?: boolean;
+  /** Operator inbox: extra context (saved summary, thread memory). */
+  operatorContextBlock?: string;
+  /** Operator inbox: tone variant for one of three suggestions. */
+  operatorSuggestionTone?: "playful" | "warm" | "direct";
+  /** Operator suggest: run draft-revise even when XAI_DRAFT_REVISE is off. */
+  forceDraftRevise?: boolean;
+  /** Operator suggest: read memory for prompt but skip DB upserts (parallel-safe). */
+  skipMemoryPersistence?: boolean;
 };
 
 /**
@@ -479,28 +488,8 @@ export async function generatePeerReply(
     prefix_messages_count: memory.prefix_messages_count,
     updated_at: new Date().toISOString(),
   };
-  const { error: memUpsertErr } = await supabase
-    .from("chat_ai_thread_memory")
-    .upsert(
-      {
-        ...memoryUpsertBase,
-        structured_facts: {
-          ...structured.facts,
-          __prefix: structured.prefix_messages_count,
-        },
-        persona_self_facts: {
-          ...personaSelfMem.facts,
-          __prefix: personaSelfMem.prefix_messages_count,
-        },
-      },
-      { onConflict: "owner_user_id,peer_id" },
-    );
-  if (memUpsertErr && /persona_self_facts/i.test(memUpsertErr.message)) {
-    // persona_self_facts column missing — retry without it.
-    console.warn(
-      "[generate-peer-reply] persona_self_facts column missing — apply 20260516200000_chat_realism_v2.sql",
-    );
-    const { error: retryErr } = await supabase
+  if (!args.options?.skipMemoryPersistence) {
+    const { error: memUpsertErr } = await supabase
       .from("chat_ai_thread_memory")
       .upsert(
         {
@@ -509,25 +498,47 @@ export async function generatePeerReply(
             ...structured.facts,
             __prefix: structured.prefix_messages_count,
           },
+          persona_self_facts: {
+            ...personaSelfMem.facts,
+            __prefix: personaSelfMem.prefix_messages_count,
+          },
         },
         { onConflict: "owner_user_id,peer_id" },
       );
-    if (retryErr && /structured_facts/i.test(retryErr.message)) {
+    if (memUpsertErr && /persona_self_facts/i.test(memUpsertErr.message)) {
+      // persona_self_facts column missing — retry without it.
+      console.warn(
+        "[generate-peer-reply] persona_self_facts column missing — apply 20260516200000_chat_realism_v2.sql",
+      );
+      const { error: retryErr } = await supabase
+        .from("chat_ai_thread_memory")
+        .upsert(
+          {
+            ...memoryUpsertBase,
+            structured_facts: {
+              ...structured.facts,
+              __prefix: structured.prefix_messages_count,
+            },
+          },
+          { onConflict: "owner_user_id,peer_id" },
+        );
+      if (retryErr && /structured_facts/i.test(retryErr.message)) {
+        await supabase
+          .from("chat_ai_thread_memory")
+          .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
+      } else if (retryErr) {
+        console.warn("[generate-peer-reply] memory upsert (v2 retry)", retryErr.message);
+      }
+    } else if (memUpsertErr && /structured_facts/i.test(memUpsertErr.message)) {
+      console.warn(
+        "[generate-peer-reply] structured_facts column missing — falling back to prose-only memory; apply 20260515110000_chat_realism_foundation.sql",
+      );
       await supabase
         .from("chat_ai_thread_memory")
         .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
-    } else if (retryErr) {
-      console.warn("[generate-peer-reply] memory upsert (v2 retry)", retryErr.message);
+    } else if (memUpsertErr) {
+      console.warn("[generate-peer-reply] memory upsert", memUpsertErr.message);
     }
-  } else if (memUpsertErr && /structured_facts/i.test(memUpsertErr.message)) {
-    console.warn(
-      "[generate-peer-reply] structured_facts column missing — falling back to prose-only memory; apply 20260515110000_chat_realism_foundation.sql",
-    );
-    await supabase
-      .from("chat_ai_thread_memory")
-      .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
-  } else if (memUpsertErr) {
-    console.warn("[generate-peer-reply] memory upsert", memUpsertErr.message);
   }
 
   // Safer memory: older turns → prose summary in prompt; recent → verbatim in tail.
@@ -767,6 +778,14 @@ export async function generatePeerReply(
         },
   );
 
+  let systemContent = system;
+  if (args.options?.operatorContextBlock?.trim()) {
+    systemContent += args.options.operatorContextBlock.trim();
+  }
+  if (args.options?.operatorSuggestionTone) {
+    systemContent += operatorSuggestionToneAppend(args.options.operatorSuggestionTone);
+  }
+
   const tail = sliceRecentDialogue(args.history);
   const visionIndices = new Set<number>();
   for (let i = tail.length - 1; i >= 0; i--) {
@@ -794,7 +813,7 @@ export async function generatePeerReply(
   }
 
   const input: GrokInputMessage[] = [
-    { role: "system", content: system },
+    { role: "system", content: systemContent },
     ...tail.map((r, i) => {
       const role = (r.sender === "me" ? "user" : "assistant") as "user" | "assistant";
       // Vision: attach pixels for at most the two latest user photos (plus the
@@ -865,9 +884,9 @@ export async function generatePeerReply(
   turnDebug.rawGrokResponse = draftText;
   let revised = false;
 
-  if (!v2BlankSlate && !isFollowUp && isDraftReviseEnabled()) {
+  if (!v2BlankSlate && !isFollowUp && (isDraftReviseEnabled() || args.options?.forceDraftRevise)) {
     try {
-      const r = await reviseDraftIfWorthIt(draftText, system);
+      const r = await reviseDraftIfWorthIt(draftText, systemContent);
       draftText = r.text;
       revised = r.revised;
       turnDebug.afterDraftRevise = draftText;
