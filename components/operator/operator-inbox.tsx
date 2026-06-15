@@ -311,6 +311,11 @@ export function OperatorInbox() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ThreadDetail | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [replySuggestions, setReplySuggestions] = useState<string[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsForMessageId, setSuggestionsForMessageId] = useState<
+    string | null
+  >(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -327,8 +332,19 @@ export function OperatorInbox() {
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
+  const suggestionsRequestRef = useRef(0);
 
   const inThread = Boolean(selectedId && detail);
+
+  const lastUserMessageId = useMemo(() => {
+    if (!detail?.messages.length) return null;
+    for (let i = detail.messages.length - 1; i >= 0; i--) {
+      if (detail.messages[i]?.sender === "me") {
+        return detail.messages[i]!.id;
+      }
+    }
+    return null;
+  }, [detail?.messages]);
 
   const visibleItems = useMemo(() => {
     let list = [...items];
@@ -491,8 +507,85 @@ export function OperatorInbox() {
     lastMessageIdRef.current = last;
   }, [detail?.messages, inThread]);
 
+  const fetchReplySuggestions = useCallback(
+    async (opts?: { force?: boolean; messageId?: string | null }) => {
+      if (!selectedId) return;
+      const targetMessageId = opts?.messageId ?? lastUserMessageId;
+      if (!targetMessageId) {
+        setReplySuggestions([]);
+        setSuggestionsForMessageId(null);
+        return;
+      }
+      if (!opts?.force && targetMessageId === suggestionsForMessageId) {
+        return;
+      }
+
+      const reqId = ++suggestionsRequestRef.current;
+      setSuggestionsLoading(true);
+      try {
+        const res = await fetch(
+          `/api/operator/conversations/${selectedId}/suggest-reply`,
+          { method: "POST" },
+        );
+        const data = (await res.json()) as {
+          ok: boolean;
+          suggestions?: string[];
+          suggestion?: string;
+          triggerUserMessageId?: string;
+          error?: string;
+        };
+        if (reqId !== suggestionsRequestRef.current) return;
+        if (!data.ok) {
+          setError(data.error ?? "AI-suggesties mislukt");
+          setReplySuggestions([]);
+          setSuggestionsForMessageId(targetMessageId);
+          return;
+        }
+        const next =
+          Array.isArray(data.suggestions) && data.suggestions.length >= 3
+            ? data.suggestions.slice(0, 3)
+            : data.suggestion
+              ? [data.suggestion]
+              : [];
+        setReplySuggestions(next);
+        setSuggestionsForMessageId(
+          data.triggerUserMessageId ?? targetMessageId,
+        );
+        setError(null);
+      } catch {
+        if (reqId !== suggestionsRequestRef.current) return;
+        setError("AI-suggesties mislukt");
+        setSuggestionsForMessageId(targetMessageId);
+      } finally {
+        if (reqId === suggestionsRequestRef.current) {
+          setSuggestionsLoading(false);
+        }
+      }
+    },
+    [selectedId, lastUserMessageId, suggestionsForMessageId],
+  );
+
+  useEffect(() => {
+    if (!selectedId || !lastUserMessageId) {
+      setReplySuggestions([]);
+      setSuggestionsForMessageId(null);
+      return;
+    }
+    if (lastUserMessageId === suggestionsForMessageId) return;
+    void fetchReplySuggestions({ messageId: lastUserMessageId });
+  }, [
+    selectedId,
+    lastUserMessageId,
+    suggestionsForMessageId,
+    fetchReplySuggestions,
+  ]);
+
   function selectConversation(id: string) {
     setSelectedId(id);
+    setReplySuggestions([]);
+    setSuggestionsForMessageId(null);
+    suggestionsRequestRef.current += 1;
+    setSuggestionsLoading(false);
     setMenuOpen(false);
     setError(null);
   }
@@ -501,6 +594,10 @@ export function OperatorInbox() {
     setSelectedId(null);
     setDetail(null);
     setReplyText("");
+    setReplySuggestions([]);
+    setSuggestionsForMessageId(null);
+    suggestionsRequestRef.current += 1;
+    setSuggestionsLoading(false);
     setMenuOpen(false);
     setUserChatsOpen(false);
     setUserThreads([]);
@@ -524,6 +621,10 @@ export function OperatorInbox() {
     }
     setSelectedId(conversationId);
     setReplyText("");
+    setReplySuggestions([]);
+    setSuggestionsForMessageId(null);
+    suggestionsRequestRef.current += 1;
+    setSuggestionsLoading(false);
     setUserChatsOpen(false);
     setError(null);
   }
@@ -543,6 +644,8 @@ export function OperatorInbox() {
       return;
     }
     setReplyText("");
+    setReplySuggestions([]);
+    setSuggestionsForMessageId(null);
     await loadThread(selectedId);
     await loadInbox();
   }
@@ -657,22 +760,7 @@ export function OperatorInbox() {
   async function fetchSuggestion() {
     if (!selectedId) return;
     setMenuOpen(false);
-    setLoading(true);
-    const res = await fetch(
-      `/api/operator/conversations/${selectedId}/suggest-reply`,
-      { method: "POST" },
-    );
-    const data = (await res.json()) as {
-      ok: boolean;
-      suggestion?: string;
-      error?: string;
-    };
-    setLoading(false);
-    if (!data.ok) {
-      setError(data.error ?? "Suggestie mislukt");
-      return;
-    }
-    if (data.suggestion) setReplyText(data.suggestion);
+    await fetchReplySuggestions({ force: true, messageId: lastUserMessageId });
   }
 
   async function markClosed() {
@@ -878,11 +966,11 @@ export function OperatorInbox() {
                       </button>
                       <button
                         type="button"
-                        disabled={loading}
+                        disabled={suggestionsLoading || !lastUserMessageId}
                         onClick={() => void fetchSuggestion()}
-                        className="block w-full px-4 py-2.5 text-left text-sm text-neutral-800 active:bg-neutral-50"
+                        className="block w-full px-4 py-2.5 text-left text-sm text-neutral-800 active:bg-neutral-50 disabled:opacity-50"
                       >
-                        AI-suggestie
+                        AI opnieuw
                       </button>
                       <button
                         type="button"
@@ -1134,6 +1222,36 @@ export function OperatorInbox() {
               </p>
               <OperatorUserCreditsBadge credits={detail.ownerCredits} />
             </div>
+            {lastUserMessageId && (
+              <div className="mb-2 px-1">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                    AI-suggesties
+                  </p>
+                  {suggestionsLoading && (
+                    <span className="text-[10px] text-neutral-400">Denken…</span>
+                  )}
+                </div>
+                {replySuggestions.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    {replySuggestions.map((suggestion, index) => (
+                      <button
+                        key={`${suggestionsForMessageId ?? "s"}-${index}`}
+                        type="button"
+                        onClick={() => setReplyText(suggestion)}
+                        className="rounded-2xl border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-left text-[13px] leading-snug text-neutral-800 transition active:scale-[0.99] active:bg-emerald-100"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                ) : !suggestionsLoading ? (
+                  <p className="text-[11px] text-neutral-400">
+                    Geen suggesties beschikbaar.
+                  </p>
+                ) : null}
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <textarea
                 value={replyText}

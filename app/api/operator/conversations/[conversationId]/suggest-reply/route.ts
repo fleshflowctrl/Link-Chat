@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { decodeConversationId } from "@/lib/operator/conversation-key";
 import { requireOperatorApi } from "@/lib/operator/api-auth";
+import { generateOperatorReplySuggestions } from "@/lib/operator/generate-reply-suggestions";
 import { logAiSuggestion } from "@/lib/operator/log";
-import { generatePeerReplyDraftOnly } from "@/lib/ai/generate-peer-reply";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
 
 export const dynamic = "force-dynamic";
@@ -39,13 +39,16 @@ export async function POST(
 
   const history = (historyRows ?? []) as ChatMessageRow[];
   const lastUser = [...history].reverse().find((m) => m.sender === "me");
+  if (!lastUser) {
+    return NextResponse.json(
+      { ok: false, error: "Geen user-bericht om op te antwoorden" },
+      { status: 400 },
+    );
+  }
 
-  const result = await generatePeerReplyDraftOnly(auth.service, {
+  const result = await generateOperatorReplySuggestions({
     profile: profile as ChatProfileRow,
     history,
-    ownerUserId: decoded.ownerUserId,
-    peerId: decoded.peerId,
-    options: { triggerUserMessageId: lastUser?.id },
   });
 
   if (!result.ok) {
@@ -62,7 +65,10 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    suggestion: result.draftText,
+    suggestions: result.suggestions,
+    suggestion: result.suggestions[0],
+    triggerUserMessageId: lastUser.id,
+    model: result.model,
     sentAutomatically: false,
   });
 }
