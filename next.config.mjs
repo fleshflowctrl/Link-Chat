@@ -64,7 +64,7 @@ const nextConfig = {
     return [
       {
         source: "/v2",
-        destination: "/discover",
+        destination: "/",
         permanent: false,
       },
       {

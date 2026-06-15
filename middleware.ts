@@ -52,7 +52,7 @@ function legacyV2RedirectUrl(request: NextRequest): URL | null {
   const { pathname } = request.nextUrl;
   if (pathname !== "/v2" && !pathname.startsWith("/v2/")) return null;
   const url = request.nextUrl.clone();
-  url.pathname = pathname === "/v2" ? "/discover" : pathname.slice(3) || "/discover";
+  url.pathname = pathname === "/v2" ? "/" : pathname.slice(3) || "/";
   return url;
 }
 
@@ -119,17 +119,6 @@ export async function middleware(request: NextRequest) {
 
     if (pathname.startsWith("/api")) {
       return out;
-    }
-
-    // Skip onboarding funnel — go straight to discover (/?testFunnel=1 still works).
-    if (
-      pathname === "/" &&
-      request.nextUrl.searchParams.get("testFunnel") !== "1"
-    ) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/discover";
-      url.search = "";
-      return redirectPreservingSessionCookies(out, url);
     }
 
     if (supabaseConfigured) {
