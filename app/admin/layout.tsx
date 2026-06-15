@@ -7,6 +7,9 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+// Admin is auth-gated and reads cookies — never prerender it at build time.
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: {

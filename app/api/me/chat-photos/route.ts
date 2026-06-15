@@ -3,6 +3,9 @@ import { readServerAppVariant } from "@/lib/app-variant";
 import { chatProfileMatchesVariant } from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 
+// Reads the signed-in user's cookies — must run per-request, never prerendered.
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/me/chat-photos
  *
