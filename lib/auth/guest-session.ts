@@ -38,11 +38,9 @@ async function startServerGuestSession(): Promise<{ userId: string | null }> {
   return { userId: data.userId ?? null };
 }
 
-/**
- * Ensures a Supabase session exists before funnel chat. Tries anonymous sign-in
- * first; if disabled on the project, falls back to server-minted guest accounts.
- */
-export async function ensureGuestSession(): Promise<{ userId: string | null }> {
+let guestSessionInFlight: Promise<{ userId: string | null }> | null = null;
+
+async function ensureGuestSessionInner(): Promise<{ userId: string | null }> {
   if (!isSupabaseConfigured()) {
     return { userId: null };
   }
@@ -55,18 +53,22 @@ export async function ensureGuestSession(): Promise<{ userId: string | null }> {
     return { userId: user.id };
   }
 
-  const { data, error } = await supabase.auth.signInAnonymously();
-  if (!error && data.user) {
-    return { userId: data.user.id };
-  }
-
-  const anonDisabled =
-    error?.message?.toLowerCase().includes("anonymous") ?? false;
-  if (!anonDisabled && error) {
-    throw new Error(error.message);
-  }
-
+  // Server-minted guest — skip slow anonymous sign-in round-trip.
   return startServerGuestSession();
+}
+
+/**
+ * Ensures a Supabase session exists before chat/credits. Deduped so discover
+ * bootstrap and SessionSyncProvider don't run this twice in parallel.
+ */
+export async function ensureGuestSession(): Promise<{ userId: string | null }> {
+  if (!guestSessionInFlight) {
+    guestSessionInFlight = ensureGuestSessionInner().catch((err) => {
+      guestSessionInFlight = null;
+      throw err;
+    });
+  }
+  return guestSessionInFlight;
 }
 
 /**

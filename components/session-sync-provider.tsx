@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { ensureGuestSession } from "@/lib/auth/guest-session";
 import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
 import { initCreditsStore } from "@/lib/credits-store";
 import {
@@ -38,9 +39,17 @@ export function SessionSyncProvider() {
 
   useEffect(() => {
     initCreditsStore();
-    void hydrateClientSessionFromServer();
+
+    // Guest session + inbox sync run in background — discover SSR already
+    // loads profiles; this only enables chat/credits without blocking UI.
+    void ensureGuestSession()
+      .then(() => hydrateClientSessionFromServer())
+      .catch(() => {
+        void hydrateClientSessionFromServer();
+      });
     void warmInboxThreadsCache();
     void processPendingChatsFromServer().then(() => requestThreadsRefetch());
+
     sendPresencePing();
 
     const runChatHeartbeat = () => {

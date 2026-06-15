@@ -6,6 +6,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import {
   getCreditsSnapshot,
   initCreditsStore,
+  isPermanentCreditsUser,
   subscribeCredits,
 } from "@/lib/credits-store";
 
@@ -18,11 +19,15 @@ export function CreditsPill() {
   const isV2 = variant === "v2";
   useEffect(() => { initCreditsStore(); }, []);
 
-  const balance = useSyncExternalStore(
+  const credits = useSyncExternalStore(
     subscribeCredits,
     getCreditsSnapshot,
     getCreditsSnapshot,
-  ).balance;
+  );
+
+  if (!isPermanentCreditsUser()) return null;
+
+  const balance = credits.balance;
 
   return (
     <Link

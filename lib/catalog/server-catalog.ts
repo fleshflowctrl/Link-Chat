@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { getProfileById, type Profile } from "@/data/profiles";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
@@ -256,15 +255,19 @@ export async function fetchHomePageCatalogServer(
 
   if (!user) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
+    const { fetchDiscoverPoolServer } = await import(
+      "@/lib/catalog/fetch-discover-pool-server"
+    );
+    const { pool, degraded } = await fetchDiscoverPoolServer(variant);
     const gridProfiles = pinProfileFirstInFeed(
-      pickDiscoverFeed(staticPool, userKey, meta.feedSlot),
-      staticPool,
+      pickDiscoverFeed(pool, userKey, meta.feedSlot),
+      pool,
       funnelPickedId,
     );
     return {
       gridProfiles,
       activityUsers: getNewWhisperUsers(),
-      catalogDegraded: false,
+      catalogDegraded: degraded,
       feedHash: hashFeedComposition(gridProfiles.map((p) => p.id)),
       ...meta,
     };
@@ -406,11 +409,30 @@ export async function fetchCatalogProfileByIdServer(
   options: CatalogVariantOptions = {},
 ): Promise<Profile | null> {
   const variant = options.variant ?? (await readServerAppVariant());
-  const staticPool = staticCatalogProfiles(variant);
 
   if (hasServerDevBypassCookie() || !isSupabaseConfigured()) {
     if (variant === "v2") return null;
     return getProfileById(id) ?? null;
+  }
+
+  // Profile catalog data is public — read it with the service-role client so we
+  // skip the (network-bound) auth.getUser() validation and RLS round-trips that
+  // made "Bekijk profiel" feel sluggish. Guests can view profiles too.
+  const { getServiceSupabase } = await import("@/lib/supabase/admin");
+  const admin = getServiceSupabase();
+
+  if (admin) {
+    let adminQuery = admin.from("chat_profiles").select("*").eq("id", id);
+    adminQuery = applyChatProfilesVariantFilter(adminQuery, variant);
+    const { data: row, error } = await adminQuery.maybeSingle();
+    if (!error && row && chatProfileMatchesVariant(row as ChatProfileRow, variant)) {
+      return chatProfileRowToProfile(row as ChatProfileRow);
+    }
+    if (!error && !row) {
+      if (variant === "v2") return null;
+      return getProfileById(id) ?? null;
+    }
+    // On admin error fall through to the anon client below.
   }
 
   let supabase: ReturnType<typeof createClient>;
@@ -420,11 +442,6 @@ export async function fetchCatalogProfileByIdServer(
     if (variant === "v2") return null;
     return getProfileById(id) ?? null;
   }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   let profileQuery = supabase.from("chat_profiles").select("*").eq("id", id);
   profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);

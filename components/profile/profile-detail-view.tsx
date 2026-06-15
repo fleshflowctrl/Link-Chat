@@ -3,12 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   BadgeCheck,
   ChevronLeft,
   ChevronRight,
   Heart,
+  Lock,
   MapPin,
   MessageCircle,
   MoreHorizontal,
@@ -17,8 +18,18 @@ import {
   Smile,
 } from "lucide-react";
 import type { Profile, ProfileInterestIcon } from "@/data/profiles";
+import { GuestAuthLinks } from "@/components/auth/guest-auth-links";
+import { GuestMessageAuthPrompt } from "@/components/auth/guest-message-auth-prompt";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
+import {
+  isPermanentCreditsUser,
+  subscribeCredits,
+} from "@/lib/credits-store";
+import {
+  GUEST_PHOTO_LOCK_MESSAGE,
+  isGuestLockedProfilePhoto,
+} from "@/lib/discover/guest-photo-lock";
 import { getEditProfileUi } from "@/lib/me/edit-profile-styles";
 
 function InterestGlyph({
@@ -64,14 +75,49 @@ function interestIconColor(icon: ProfileInterestIcon): string {
   }
 }
 
-export function ProfileDetailView({ profile }: { profile: Profile }) {
+export function ProfileDetailView({
+  profile,
+  initialViewerIsPermanent = false,
+}: {
+  profile: Profile;
+  /**
+   * SSR-resolved login state — keeps photo locks consistent on first paint so
+   * guests never see the photo before the blur applies.
+   */
+  initialViewerIsPermanent?: boolean;
+}) {
   const router = useRouter();
   const { variant } = useAppVariant();
   const ui = useMemo(() => getEditProfileUi(variant), [variant]);
+  const liveLoggedIn = useSyncExternalStore(
+    subscribeCredits,
+    isPermanentCreditsUser,
+    () => initialViewerIsPermanent,
+  );
+  const loggedIn = liveLoggedIn || initialViewerIsPermanent;
+  const photoLocked = !loggedIn && isGuestLockedProfilePhoto(profile.id);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  const chatHref = withVariantPath(`/messages/${profile.id}`, variant);
   const gallery = profile.gallery.length > 0 ? profile.gallery : [profile.photo];
   const [heroIndex, setHeroIndex] = useState(0);
 
   const heroSrc = gallery[heroIndex] ?? profile.photo;
+  const [heroLoaded, setHeroLoaded] = useState(false);
+  const heroStyle = photoLocked
+    ? {
+        filter: "blur(28px)",
+        opacity: heroLoaded ? 0.3 : 0,
+        transform: "scale(1.1)",
+        transition: "opacity 240ms ease",
+      }
+    : undefined;
+  const thumbStyle = photoLocked
+    ? {
+        filter: "blur(10px)",
+        opacity: 0.35,
+        transform: "scale(1.1)",
+      }
+    : undefined;
 
   const thumbSlots = useMemo(
     () =>
@@ -85,7 +131,10 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
 
   return (
     <div className="pb-4">
-      <div className="relative aspect-[3/4] max-h-[85vh] w-full overflow-hidden bg-ink/10">
+      <div
+        className="relative aspect-[3/4] max-h-[85vh] w-full overflow-hidden"
+        style={{ backgroundColor: photoLocked ? "#1A1A1B" : undefined }}
+      >
         <Image
           src={heroSrc}
           alt=""
@@ -93,8 +142,24 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
           priority
           sizes="100vw"
           className="object-contain"
+          style={heroStyle}
+          onLoad={() => setHeroLoaded(true)}
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/50" />
+
+        {photoLocked && (
+          <div
+            className="absolute inset-0 z-[15] flex items-center justify-center p-6"
+            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+          >
+            <p className="flex flex-col items-center gap-2 text-center">
+              <Lock className="h-5 w-5 text-[#c4a77d]" strokeWidth={2.25} aria-hidden />
+              <span className="max-w-[20ch] text-[13px] font-bold leading-snug text-white drop-shadow-sm">
+                {GUEST_PHOTO_LOCK_MESSAGE}
+              </span>
+            </p>
+          </div>
+        )}
 
         {/* top bar: back + actions */}
         <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between gap-2 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
@@ -106,14 +171,20 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
           >
             <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
           </button>
-          <button
-            type="button"
-            onClick={() => console.log("[profile] More options placeholder")}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
-            aria-label="Meer"
-          >
-            <MoreHorizontal className="h-5 w-5" strokeWidth={2} />
-          </button>
+          {loggedIn ? (
+            <button
+              type="button"
+              onClick={() => console.log("[profile] More options placeholder")}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white shadow-lg ring-1 ring-white/15 backdrop-blur-sm transition active:scale-95"
+              aria-label="Meer"
+            >
+              <MoreHorizontal className="h-5 w-5" strokeWidth={2} />
+            </button>
+          ) : (
+            <div className="rounded-full bg-black/45 px-1 py-1 shadow-lg ring-1 ring-white/15 backdrop-blur-sm">
+              <GuestAuthLinks compact onPhoto />
+            </div>
+          )}
         </div>
 
         {/* bottom name / city overlay */}
@@ -160,6 +231,7 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
                     width={120}
                     height={120}
                     className="h-full w-full object-cover"
+                    style={thumbStyle}
                   />
                   {slot.overlay && (
                     <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[12px] font-bold text-white">
@@ -212,14 +284,29 @@ export function ProfileDetailView({ profile }: { profile: Profile }) {
       </div>
 
       <div className={ui.sayHelloBar}>
-        <Link
-          href={withVariantPath(`/messages/${profile.id}`, variant)}
-          className={ui.sayHelloBtn}
-        >
-          <MessageCircle className="h-5 w-5" strokeWidth={2.25} />
-          Zeg hallo
-        </Link>
+        {loggedIn ? (
+          <Link href={chatHref} className={ui.sayHelloBtn}>
+            <MessageCircle className="h-5 w-5" strokeWidth={2.25} />
+            Zeg hallo
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className={ui.sayHelloBtn}
+            onClick={() => setAuthPromptOpen(true)}
+          >
+            <MessageCircle className="h-5 w-5" strokeWidth={2.25} />
+            Zeg hallo
+          </button>
+        )}
       </div>
+
+      <GuestMessageAuthPrompt
+        open={authPromptOpen}
+        onClose={() => setAuthPromptOpen(false)}
+        returnPath={chatHref}
+        profileName={profile.name}
+      />
     </div>
   );
 }

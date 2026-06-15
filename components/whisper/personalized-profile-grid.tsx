@@ -14,9 +14,11 @@ import { ProfileGrid } from "./profile-grid";
 export function PersonalizedProfileGrid({
   profiles,
   primaryAction = "profile",
+  initialViewerIsPermanent = false,
 }: {
   profiles: Profile[];
   primaryAction?: "profile" | "chat";
+  initialViewerIsPermanent?: boolean;
 }) {
   const prefs = useSyncExternalStore(
     subscribeDiscoveryPreferences,
@@ -37,5 +39,11 @@ export function PersonalizedProfileGrid({
     [profiles, prefs],
   );
 
-  return <ProfileGrid profiles={sorted} primaryAction={primaryAction} />;
+  return (
+    <ProfileGrid
+      profiles={sorted}
+      primaryAction={primaryAction}
+      initialViewerIsPermanent={initialViewerIsPermanent}
+    />
+  );
 }

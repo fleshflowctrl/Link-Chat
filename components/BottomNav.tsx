@@ -9,6 +9,10 @@ import {
   setServerUnreadBaseline,
   subscribeMessagesTabBadge,
 } from "@/lib/messages-tab-badge";
+import {
+  isPermanentCreditsUser,
+  subscribeCredits,
+} from "@/lib/credits-store";
 import { warmInboxThreadsCache } from "@/lib/warm-inbox-cache";
 import { appVariantFetchHeaders, readClientAppVariant } from "@/lib/app-variant";
 import { WHISPER_THREADS_REFETCH } from "@/lib/session-sync";
@@ -145,8 +149,13 @@ export function BottomNav({
     getMessagesTabBadgeLabel,
     () => null,
   );
+  const loggedIn = useSyncExternalStore(
+    subscribeCredits,
+    isPermanentCreditsUser,
+    () => false,
+  );
 
-  if (hideBottomNavOnPath(pathname)) {
+  if (!loggedIn || hideBottomNavOnPath(pathname)) {
     return null;
   }
 

@@ -5,8 +5,10 @@ import { VariantLink as Link } from "@/components/variant-link";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 import { postProfileSeen } from "@/lib/catalog/post-profile-seen";
-import { ArrowRight, MapPin, MessageCircle } from "lucide-react";
-import { type ReactNode } from "react";
+import { GuestMessageAuthPrompt } from "@/components/auth/guest-message-auth-prompt";
+import { GUEST_PHOTO_LOCK_MESSAGE } from "@/lib/discover/guest-photo-lock";
+import { ArrowRight, Lock, MapPin, MessageCircle } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import type { Profile, ProfileStatusVariant } from "@/data/profiles";
 
 function statusChipClasses(variant: ProfileStatusVariant): string {
@@ -54,12 +56,19 @@ function StatusChip({ status }: { status: Profile["status"] }) {
 export function ProfileCard({
   profile,
   primaryAction = "profile",
+  photoLocked = false,
+  requiresAuthForMessage = false,
 }: {
   profile: Profile;
   primaryAction?: "profile" | "chat";
+  /** Guest teaser — blurred photo until permanent login. */
+  photoLocked?: boolean;
+  /** Guests must log in before starting a chat. */
+  requiresAuthForMessage?: boolean;
 }) {
   const { variant } = useAppVariant();
   const isV2 = variant === "v2";
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const profileHref = withVariantPath(`/profile/${profile.id}`, variant);
   const chatHref = withVariantPath(`/messages/${profile.id}`, variant);
   const chatFirst = primaryAction === "chat";
@@ -70,20 +79,53 @@ export function ProfileCard({
       ? "bg-[#2A2A2B] ring-1 ring-[#B52B2A]/20 focus-visible:ring-[#B52B2A]"
       : "bg-white ring-black/5 focus-visible:ring-gray-900");
 
+  const [photoLoaded, setPhotoLoaded] = useState(false);
   const photoBlock = (
-    <div className="relative aspect-[4/5] w-full overflow-hidden">
+    <div
+      className="relative aspect-[4/5] w-full overflow-hidden"
+      style={photoLocked ? { backgroundColor: "#1A1A1B" } : undefined}
+    >
       <Image
         src={profile.photo}
         alt=""
         fill
         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 220px"
         className="object-cover"
+        style={
+          photoLocked
+            ? {
+                filter: "blur(24px)",
+                opacity: photoLoaded ? 0.3 : 0,
+                transform: "scale(1.1)",
+                transition: "opacity 220ms ease",
+              }
+            : undefined
+        }
+        onLoad={() => setPhotoLoaded(true)}
         priority={profile.id === "maya" || profile.id === "marcus"}
       />
       <div
         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent"
         aria-hidden
       />
+
+      {photoLocked && (
+        <div
+          className="absolute inset-0 z-[2] flex items-center justify-center p-3"
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+        >
+          <p className="flex flex-col items-center gap-1.5 text-center">
+            <Lock
+              className={`h-4 w-4 ${isV2 ? "text-[#c4a77d]" : "text-white"}`}
+              strokeWidth={2.25}
+              aria-hidden
+            />
+            <span className="text-[10px] font-bold leading-snug text-white drop-shadow-sm">
+              {GUEST_PHOTO_LOCK_MESSAGE}
+            </span>
+          </p>
+        </div>
+      )}
 
       <div className="absolute left-3 top-3 z-[1] max-w-[calc(100%-1.5rem)]">
         <StatusChip status={profile.status} />
@@ -144,15 +186,32 @@ export function ProfileCard({
             Bekijk profiel
             <ArrowRight className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
           </Link>
-          <Link
-            href={chatHref}
-            className={`${chatButtonClass} mt-1.5`}
-            onClick={() => postProfileSeen(profile.id)}
-          >
-            <MessageCircle className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
-            Stuur bericht
-          </Link>
+          {requiresAuthForMessage ? (
+            <button
+              type="button"
+              className={`${chatButtonClass} mt-1.5`}
+              onClick={() => setAuthPromptOpen(true)}
+            >
+              <MessageCircle className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
+              Stuur bericht
+            </button>
+          ) : (
+            <Link
+              href={chatHref}
+              className={`${chatButtonClass} mt-1.5`}
+              onClick={() => postProfileSeen(profile.id)}
+            >
+              <MessageCircle className="size-3 shrink-0" strokeWidth={2.5} aria-hidden />
+              Stuur bericht
+            </Link>
+          )}
         </div>
+        <GuestMessageAuthPrompt
+          open={authPromptOpen}
+          onClose={() => setAuthPromptOpen(false)}
+          returnPath={chatHref}
+          profileName={profile.name}
+        />
       </article>
     );
   }

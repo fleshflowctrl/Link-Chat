@@ -277,8 +277,7 @@ export function MeProfileView({
               } catch {
                 /* ignore */
               }
-              const funnelEntry =
-                variant === "v2" ? "/v2?testFunnel=1" : "/?testFunnel=1";
+              const funnelEntry = "/?testFunnel=1";
               router.push(funnelEntry);
             }}
             className="flex w-full items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white/90 py-3 text-[13px] font-semibold text-gray-600 shadow-sm transition active:scale-95"

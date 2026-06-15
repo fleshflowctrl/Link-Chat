@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { Profile } from "@/data/profiles";
 import type { EditProfileState } from "@/data/me-edit";
 import {
   initCreditsStore,
 } from "@/lib/credits-store";
+import {
+  discoveryPreferencesLoaded,
+  subscribeDiscoveryPreferences,
+} from "@/lib/discovery-preferences-store";
 // ActivityStrip is temporarily disabled — re-enable in the JSX below to bring
 // back the "Nieuw op whisper" rail.
 // import { ActivityStrip } from "./activity-strip";
@@ -15,6 +19,7 @@ import {
   pinProfileFirstInFeed,
 } from "@/lib/catalog/funnel-picked-peer";
 import { hashFeedComposition } from "@/lib/catalog/hourly-feed";
+import { ensureGuestSession } from "@/lib/auth/guest-session";
 import { appVariantFetchHeaders } from "@/lib/app-variant";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
 import { DiscoverGridFeed } from "./discover-grid-feed";
@@ -41,6 +46,8 @@ type Props = {
   feedHash: string;
   /** Fit header + feed in viewport without page scroll. */
   fitViewport?: boolean;
+  /** SSR-resolved: true when the request comes from a permanent (logged-in) account. */
+  initialViewerIsPermanent?: boolean;
 };
 
 type FeedGetResponse = {
@@ -63,6 +70,7 @@ export function HomeScreen({
   refreshCost,
   feedHash,
   fitViewport = false,
+  initialViewerIsPermanent = false,
 }: Props) {
   const [profile, setProfile] = useState<EditProfileState | null>(initialProfile);
 
@@ -73,9 +81,57 @@ export function HomeScreen({
   const [nextAt, setNextAt] = useState<number>(nextRefreshAt);
   const [hash, setHash] = useState<string>(feedHash);
 
+  // Hold the grid behind a loader until the feed has settled (preferences
+  // loaded + any client refetch resolved). This prevents the initial SSR set
+  // from being visibly re-sorted/replaced a beat later — which briefly exposed
+  // profile photos that should stay blurred for guests.
+  const prefsLoaded = useSyncExternalStore(
+    subscribeDiscoveryPreferences,
+    discoveryPreferencesLoaded,
+    () => false,
+  );
+  const [maxWaitElapsed, setMaxWaitElapsed] = useState(false);
+  const hasProfiles = profilesState.length > 0;
+  const feedReady = (hasProfiles && prefsLoaded) || maxWaitElapsed;
+
+  useEffect(() => {
+    // Safety valve: never keep the loader up forever if a sync call stalls.
+    const t = setTimeout(() => setMaxWaitElapsed(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     initCreditsStore();
   }, []);
+
+  // Guest session for chat/credits runs in SessionSyncProvider. Fallback client
+  // feed fetch only if SSR returned an empty pack (e.g. Supabase misconfigured).
+  useEffect(() => {
+    if (gridProfiles.length > 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await ensureGuestSession();
+        const res = await fetch("/api/me/home-feed", {
+          cache: "no-store",
+          headers: appVariantFetchHeaders(),
+        });
+        const json = (await res.json()) as FeedGetResponse;
+        if (cancelled || !json.ok || !Array.isArray(json.profiles)) return;
+        if (json.profiles.length > 0) {
+          setProfilesState(json.profiles);
+          if (typeof json.feedSlot === "number") setSlot(json.feedSlot);
+          if (typeof json.feedHash === "string") setHash(json.feedHash);
+          if (typeof json.nextRefreshAt === "number") setNextAt(json.nextRefreshAt);
+        }
+      } catch {
+        /* keep empty state */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gridProfiles.length]);
 
   // After onboarding "Dit is mijn type", show that profile first (SSR may
   // already have reordered; this covers guests and any race with the cookie).
@@ -161,7 +217,30 @@ export function HomeScreen({
     >
       <HomeHeader profile={profile} compact={fitViewport} />
       <CatalogFallbackBanner show={catalogDegraded} compact={fitViewport} />
-      <DiscoverGridFeed key={`${slot}:${hash}`} profiles={profilesState} />
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {!feedReady && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-canvas">
+            <span
+              className="h-7 w-7 animate-spin rounded-full border-2 border-[#B52B2A]/30 border-t-[#B52B2A]"
+              aria-label="Laden"
+            />
+          </div>
+        )}
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          style={{
+            opacity: feedReady ? 1 : 0,
+            transition: "opacity 200ms ease",
+          }}
+          aria-hidden={!feedReady}
+        >
+          <DiscoverGridFeed
+            key={`${slot}:${hash}`}
+            profiles={profilesState}
+            initialViewerIsPermanent={initialViewerIsPermanent}
+          />
+        </div>
+      </div>
     </div>
   );
 }

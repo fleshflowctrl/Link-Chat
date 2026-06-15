@@ -106,7 +106,7 @@ export function LoginForm({
   const isV2 = appVariant === "v2";
   const defaultAfterAuth = withVariantPath("/messages", appVariant);
   const loginPath = withVariantPath("/login", appVariant);
-  const funnelEntry = "/";
+  const funnelEntry = "/discover";
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {

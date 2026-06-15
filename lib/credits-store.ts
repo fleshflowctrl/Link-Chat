@@ -108,6 +108,11 @@ export function getCreditsIsGuestUser(): boolean {
   return snapshot.isGuestUser;
 }
 
+/** True when the user has a permanent email/password account (not guest/anonymous). */
+export function isPermanentCreditsUser(): boolean {
+  return snapshot.userKey !== "guest" && !snapshot.isGuestUser;
+}
+
 export function getCreditsSnapshot(): Snapshot {
   return snapshot;
 }

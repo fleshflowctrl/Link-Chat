@@ -5,6 +5,7 @@ import {
   DEV_BYPASS_VALUE,
   canUseDevBypassForHost,
 } from "@/lib/dev-bypass-config";
+import { isPermanentAuthUser } from "@/lib/auth/user-account";
 import { updateSession } from "@/utils/supabase/middleware";
 
 function hasDevBypassCookie(request: NextRequest): boolean {
@@ -20,6 +21,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === "/" || pathname === "/discover" || pathname.startsWith("/discover/"))
     return true;
   if (pathname.startsWith("/profile/")) return true;
+  if (pathname === "/terms" || pathname === "/privacy" || pathname === "/cookies")
+    return true;
   return false;
 }
 
@@ -49,7 +52,7 @@ function legacyV2RedirectUrl(request: NextRequest): URL | null {
   const { pathname } = request.nextUrl;
   if (pathname !== "/v2" && !pathname.startsWith("/v2/")) return null;
   const url = request.nextUrl.clone();
-  url.pathname = pathname === "/v2" ? "/" : pathname.slice(3) || "/";
+  url.pathname = pathname === "/v2" ? "/discover" : pathname.slice(3) || "/discover";
   return url;
 }
 
@@ -118,8 +121,20 @@ export async function middleware(request: NextRequest) {
       return out;
     }
 
+    // Skip onboarding funnel — go straight to discover (/?testFunnel=1 still works).
+    if (
+      pathname === "/" &&
+      request.nextUrl.searchParams.get("testFunnel") !== "1"
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/discover";
+      url.search = "";
+      return redirectPreservingSessionCookies(out, url);
+    }
+
     if (supabaseConfigured) {
-      if (!user && !isPublicPath(pathname)) {
+      const hasPermanentAccount = isPermanentAuthUser(user);
+      if (!hasPermanentAccount && !isPublicPath(pathname)) {
         if (hasDevBypassCookie(request)) {
           return out;
         }
@@ -128,20 +143,9 @@ export async function middleware(request: NextRequest) {
         url.searchParams.set("next", pathname + request.nextUrl.search);
         return redirectPreservingSessionCookies(out, url);
       }
-      if (user && (pathname === "/login" || pathname === "/signup")) {
+      if (hasPermanentAccount && (pathname === "/login" || pathname === "/signup")) {
         const url = request.nextUrl.clone();
         url.pathname = postLoginPath(request);
-        url.search = "";
-        return redirectPreservingSessionCookies(out, url);
-      }
-
-      if (
-        user &&
-        request.nextUrl.searchParams.get("testFunnel") !== "1" &&
-        pathname === "/"
-      ) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/messages";
         url.search = "";
         return redirectPreservingSessionCookies(out, url);
       }
