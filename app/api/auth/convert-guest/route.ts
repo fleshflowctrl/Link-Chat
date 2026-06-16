@@ -20,18 +20,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: true, needsEmailConfirm: false });
   }
 
-  let body: { email?: string; password?: string };
+  let body: { email?: string; password?: string; nickname?: string; age?: number; city?: string };
   try {
-    body = (await request.json()) as { email?: string; password?: string };
+    body = (await request.json()) as { email?: string; password?: string; nickname?: string; age?: number; city?: string };
   } catch {
     return bad("Ongeldige JSON");
   }
 
   const email = typeof body.email === "string" ? body.email.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
+  const nickname = typeof body.nickname === "string" ? body.nickname.trim() : "";
+  const city = typeof body.city === "string" ? body.city.trim() : "";
+  const ageRaw = body.age;
+  const age =
+    typeof ageRaw === "number" && Number.isFinite(ageRaw)
+      ? Math.round(ageRaw)
+      : NaN;
 
   if (!email || !email.includes("@")) {
     return bad("Ongeldig e-mailadres");
+  }
+  if (!nickname) {
+    return bad("Vul een nickname in.");
+  }
+  if (!Number.isFinite(age) || age < 18 || age > 120) {
+    return bad("Vul een geldige leeftijd in (18–120).");
+  }
+  if (!city) {
+    return bad("Vul je stad in.");
   }
   if (password.length < PASSWORD_MIN) {
     return bad(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn`);
@@ -68,6 +84,20 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  // Save basic profile fields while we still have the guest session.
+  await supabase
+    .from("user_profiles")
+    .upsert(
+      {
+        user_id: user.id,
+        first_name: nickname,
+        age,
+        location: city,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
 
   return NextResponse.json({
     ok: true,

@@ -14,6 +14,9 @@ function bad(msg: string, status = 400) {
 
 type Body = {
   email?: string;
+  nickname?: string;
+  age?: number;
+  city?: string;
   password?: string;
   next?: string;
 };
@@ -48,9 +51,25 @@ export async function POST(request: Request) {
   const email =
     typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
+  const nickname = typeof body.nickname === "string" ? body.nickname.trim() : "";
+  const city = typeof body.city === "string" ? body.city.trim() : "";
+  const ageRaw = body.age;
+  const age =
+    typeof ageRaw === "number" && Number.isFinite(ageRaw)
+      ? Math.round(ageRaw)
+      : NaN;
 
   if (!email || !email.includes("@")) {
     return bad("Ongeldig e-mailadres");
+  }
+  if (!nickname) {
+    return bad("Vul een nickname in.");
+  }
+  if (!Number.isFinite(age) || age < 18 || age > 120) {
+    return bad("Vul een geldige leeftijd in (18–120).");
+  }
+  if (!city) {
+    return bad("Vul je stad in.");
   }
   if (password.length < PASSWORD_MIN) {
     return bad(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn`);
@@ -79,6 +98,20 @@ export async function POST(request: Request) {
   if (!userId) {
     return bad("Account aanmaken mislukt", 500);
   }
+
+  // Persist basic profile fields for the new account (service role bypasses RLS).
+  await admin
+    .from("user_profiles")
+    .upsert(
+      {
+        user_id: userId,
+        first_name: nickname,
+        age,
+        location: city,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
 
   const grant = await grantSignupCreditsForUser(userId);
   if (!grant.ok) {

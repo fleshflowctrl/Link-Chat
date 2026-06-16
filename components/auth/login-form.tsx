@@ -129,6 +129,9 @@ export function LoginForm({
   }, [nextPath, nextPathOverride]);
 
   const [email, setEmail] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [age, setAge] = useState("");
+  const [city, setCity] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -149,6 +152,24 @@ export function LoginForm({
     if (!trimmed || !password) return;
 
     if (mode === "signup") {
+      const nick = nickname.trim();
+      const ageNum = Number(age);
+      const cityLabel = city.trim();
+      if (!nick) {
+        setStatus("error");
+        setMessage("Vul een nickname in.");
+        return;
+      }
+      if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 120) {
+        setStatus("error");
+        setMessage("Vul een geldige leeftijd in (18–120).");
+        return;
+      }
+      if (!cityLabel) {
+        setStatus("error");
+        setMessage("Vul je stad in.");
+        return;
+      }
       if (!acceptTerms) {
         setStatus("error");
         setMessage("Accepteer de voorwaarden en het privacybeleid om door te gaan.");
@@ -193,6 +214,9 @@ export function LoginForm({
         email: trimmed,
         password,
         nextPath,
+        nickname: nickname.trim(),
+        age: Number(age),
+        city: city.trim(),
       });
       if (!converted.ok) {
         setStatus("error");
@@ -212,6 +236,9 @@ export function LoginForm({
       credentials: "same-origin",
       body: JSON.stringify({
         email: trimmed,
+        nickname: nickname.trim(),
+        age: Number(age),
+        city: city.trim(),
         password,
         next: nextPath,
       }),
@@ -408,6 +435,50 @@ export function LoginForm({
               className={inputClass}
             />
           </label>
+          {mode === "signup" && (
+            <>
+              <label className="block">
+                <span className={labelClass}>Nickname</span>
+                <input
+                  type="text"
+                  autoComplete="nickname"
+                  required
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="Bijv. Alex"
+                  className={inputClass}
+                />
+              </label>
+              <div className={embedded ? "grid grid-cols-2 gap-2" : "grid grid-cols-2 gap-3"}>
+                <label className="block">
+                  <span className={labelClass}>Leeftijd</span>
+                  <input
+                    type="number"
+                    min={18}
+                    max={120}
+                    inputMode="numeric"
+                    required
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    placeholder="50"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="block">
+                  <span className={labelClass}>Stad</span>
+                  <input
+                    type="text"
+                    autoComplete="address-level2"
+                    required
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="Amsterdam"
+                    className={inputClass}
+                  />
+                </label>
+              </div>
+            </>
+          )}
           <PasswordField
             id="login-password"
             label="Wachtwoord"
