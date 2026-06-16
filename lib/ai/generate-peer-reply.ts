@@ -365,6 +365,8 @@ export type GeneratePeerReplyOptions = {
   forceDraftRevise?: boolean;
   /** Operator suggest: read memory for prompt but skip DB upserts (parallel-safe). */
   skipMemoryPersistence?: boolean;
+  /** Operator inbox / AI auto — warmer length + smart follow-up questions */
+  operatorSuggestMode?: boolean;
 };
 
 /**
@@ -665,7 +667,9 @@ export async function generatePeerReply(
 
   const terseMode = v2BlankSlate || isFollowUp
     ? false
-    : decideTerseMode({
+    : args.options?.operatorSuggestMode
+      ? false
+      : decideTerseMode({
         turnIndex: priorAssistantTurns,
         bedtimePhase: bedtime.phase,
         burstMode,
@@ -692,6 +696,7 @@ export async function generatePeerReply(
     bondFormed,
     userFlirtLevel: userCrossChatProfile?.flirt_level,
     isFollowUp,
+    operatorSuggestMode: args.options?.operatorSuggestMode,
   });
 
   const turnDebug = createChatTurnDebug(args.peerId, AI_CHAT_PROMPT_VERSION);
@@ -766,7 +771,7 @@ export async function generatePeerReply(
           energyHint: {
             state: energy.state,
             hint: energy.hint,
-            lengthBias: energy.lengthBias,
+            lengthBias: args.options?.operatorSuggestMode ? "normal" : energy.lengthBias,
           },
           terseMode,
           personaSelfFacts: hasAnySelfClaims(personaSelfMem.facts)

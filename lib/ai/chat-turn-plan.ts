@@ -41,6 +41,9 @@ export type ChatTurnPlan = {
   canAskBack: boolean;
   canIntroduceBotActivity: boolean;
   needsDirectAnswerFirst: boolean;
+  /** Operator inbox / AI auto — warmer length + optional follow-up question */
+  operatorSuggestMode?: boolean;
+  shouldEncourageQuestion?: boolean;
   /** Internal — drives prompt + fallbacks */
   normalizedIntent: NormalizedUserIntent;
 };
@@ -144,7 +147,12 @@ export type BuildChatTurnPlanInput = {
   bondFormed?: boolean;
   userFlirtLevel?: "low" | "medium" | "high" | "explicit";
   isFollowUp?: boolean;
+  /** Operator suggest / AI auto — longer, warmer replies with smart questions */
+  operatorSuggestMode?: boolean;
 };
+
+const USER_SHORT_DISMISSIVE_RE =
+  /^(?:ok(?:é|e|ay)?|ja|jaa|haha|hehe|lol|hm+|mm+)\.?$/i;
 
 export function buildChatTurnPlan(input: BuildChatTurnPlanInput): ChatTurnPlan {
   const userText = input.currentUserMessage.trim();
@@ -310,8 +318,54 @@ export function buildChatTurnPlan(input: BuildChatTurnPlanInput): ChatTurnPlan {
     canIntroduceBotActivity = false;
   }
 
-  if (allUser.length < 25 && userIntent !== "greeting_plus_how_are_you") {
+  if (
+    !input.operatorSuggestMode &&
+    allUser.length < 25 &&
+    userIntent !== "greeting_plus_how_are_you"
+  ) {
     maxTotalChars = Math.min(maxTotalChars, 70);
+  }
+
+  let operatorSuggestMode = Boolean(input.operatorSuggestMode);
+  let shouldEncourageQuestion = false;
+
+  if (operatorSuggestMode) {
+    maxTotalChars = Math.max(maxTotalChars + 50, 130);
+    if (userIntent === "greeting_only") {
+      maxTotalChars = Math.max(maxTotalChars, 90);
+    } else if (allUser.length < 25) {
+      maxTotalChars = Math.max(maxTotalChars, 110);
+    }
+
+    const recentPeerBodies = input.recentMessages
+      .filter((t) => t.sender === "peer")
+      .slice(-3)
+      .map((t) => t.body ?? "");
+    const peerQuestionsRecent = recentPeerBodies.filter((b) => b.includes("?")).length;
+    const userShortDismissive = USER_SHORT_DISMISSIVE_RE.test(allUser.trim());
+    const userSubstantive = allUser.length >= 25;
+
+    shouldEncourageQuestion =
+      !userShortDismissive &&
+      peerQuestionsRecent < 2 &&
+      (userSubstantive ||
+        userIntent === "flirt" ||
+        userIntent === "compliment" ||
+        userIntent === "direct_question" ||
+        userIntent === "activity_question" ||
+        userIntent === "plans_question" ||
+        userIntent === "greeting_plus_how_are_you" ||
+        userIntent === "how_are_you");
+
+    if (shouldEncourageQuestion) {
+      canAskBack = true;
+      allowedMoves.push(
+        "1-3 warme zinnen",
+        "concrete vraag over iets uit zijn bericht",
+      );
+    } else {
+      allowedMoves.push("1-3 warme zinnen, betrokken — niet kil");
+    }
   }
 
   return {
@@ -328,6 +382,8 @@ export function buildChatTurnPlan(input: BuildChatTurnPlanInput): ChatTurnPlan {
     canAskBack,
     canIntroduceBotActivity,
     needsDirectAnswerFirst,
+    operatorSuggestMode,
+    shouldEncourageQuestion,
     normalizedIntent,
   };
 }
@@ -354,8 +410,16 @@ export function chatTurnPlanPromptLines(plan: ChatTurnPlan): string[] {
     botFacts ? `- Wat jij net over jezelf zei / doet: ${botFacts}` : "",
     `- Max lengte: ~${plan.maxTotalChars} tekens, max ${plan.maxBubbles} bubbel(s) (gebruik <<<>>> tussen bubbels)`,
     `- Groeten: ${plan.shouldGreet ? "ja, max één korte begroeting" : "nee, niet opnieuw groeten"}`,
-    `- Terugvragen: ${plan.canAskBack ? "mag, max één korte vraag" : "liever niet"}`,
+    `- Terugvragen: ${
+      plan.shouldEncourageQuestion
+        ? "ja — één concrete vraag over iets uit zijn bericht als dat natuurlijk past (geen standaardinterview)"
+        : plan.canAskBack
+          ? "mag, max één korte vraag"
+          : "liever niet"
+    }`,
     `- Nieuwe activiteit over jezelf: ${plan.canIntroduceBotActivity ? "alleen kort en consistent met wat je al zei" : "nee, tenzij hij vraagt wat je doet"}`,
-    "- Stijl komt daarna: kort Nederlands, casual, geen AI-toon, weinig emoji, geen '...' spam.",
+    plan.operatorSuggestMode
+      ? "- Stijl: 1-3 zinnen Nederlands, warm betrokken — niet telegrafisch of ongeïnteresseerd. Geen AI-toon, weinig emoji."
+      : "- Stijl komt daarna: kort Nederlands, casual, geen AI-toon, weinig emoji, geen '...' spam.",
   ].filter(Boolean);
 }

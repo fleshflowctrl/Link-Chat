@@ -1,4 +1,5 @@
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
+import { computeOperatorQuestionHint } from "@/lib/operator/operator-suggestion-prompt";
 import { grokResponsesComplete, type GrokInputMessage } from "@/lib/xai/grok-responses";
 
 function parseChoice(raw: string, max: number): number | null {
@@ -23,13 +24,16 @@ export async function pickBestOperatorSuggestion(input: {
     (lastUser?.kind === "image" ? "[afbeelding]" : "(geen tekst)");
 
   const persona = input.profile.display_name?.trim() || "Persona";
+  const { hint: questionHint } = computeOperatorQuestionHint(input.history);
 
   const system: GrokInputMessage = {
     role: "system",
     content:
       "Je beoordeelt 3 kandidaat-antwoorden voor een dating-chat in het Nederlands. " +
-      "Kies het antwoord dat het meest klinkt als een echt mens op WhatsApp: kort, natuurlijk, passend bij persona en user-bericht. " +
-      "Geen AI-taal, geen therapeut, geen overdreven beleefdheid. " +
+      "Kies het antwoord dat het meest klinkt als een echt mens op WhatsApp: warm betrokken, 1-3 zinnen, passend bij persona en user-bericht. " +
+      "Vermijd telegrafische eenliners die ongeïnteresseerd klinken. " +
+      questionHint +
+      " Geen AI-taal, geen therapeut, geen overdreven beleefdheid. " +
       "Antwoord ALLEEN met het cijfer 1, 2 of 3.",
   };
 

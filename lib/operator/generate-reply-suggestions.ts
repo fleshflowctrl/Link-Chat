@@ -77,6 +77,7 @@ async function generateOneSuggestion(
       operatorContextBlock: input.operatorContextBlock,
       operatorSuggestionTone: input.tone,
       skipMemoryPersistence: !input.persistMemory,
+      operatorSuggestMode: true,
     },
   });
 
