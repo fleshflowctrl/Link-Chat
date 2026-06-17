@@ -3,6 +3,8 @@ import { convertGuestToPermanentAccountServer } from "@/lib/auth/convert-guest-s
 import { isGuestAuthUser } from "@/lib/auth/user-account";
 import { parseAffiliateClickId } from "@/lib/affiliate/conversion-url";
 import { fireAffiliateSignupConversionServer } from "@/lib/affiliate/fire-signup-conversion-server";
+import { notifySignupViaTelegram } from "@/lib/telegram/notify-signup";
+import { scheduleAfterResponse } from "@/lib/vercel/schedule-after-response";
 import {
   discoveryPrefsToJson,
   funnelInputToDiscoveryPrefs,
@@ -144,6 +146,17 @@ export async function POST(request: Request) {
       txid: result.userId,
     });
   }
+
+  void scheduleAfterResponse(() =>
+    notifySignupViaTelegram({
+      email,
+      nickname,
+      age,
+      city,
+      gender,
+      seekingGender,
+    }),
+  );
 
   return NextResponse.json({
     ok: true,

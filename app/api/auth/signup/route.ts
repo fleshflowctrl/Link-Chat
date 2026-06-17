@@ -3,6 +3,8 @@ import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import { parseAffiliateClickId } from "@/lib/affiliate/conversion-url";
 import { fireAffiliateSignupConversionServer } from "@/lib/affiliate/fire-signup-conversion-server";
 import { grantSignupCreditsForUser } from "@/lib/credits/grant-signup-credits";
+import { notifySignupViaTelegram } from "@/lib/telegram/notify-signup";
+import { scheduleAfterResponse } from "@/lib/vercel/schedule-after-response";
 import {
   discoveryPrefsToJson,
   funnelInputToDiscoveryPrefs,
@@ -235,6 +237,17 @@ export async function POST(request: Request) {
       500,
     );
   }
+
+  void scheduleAfterResponse(() =>
+    notifySignupViaTelegram({
+      email,
+      nickname,
+      age,
+      city,
+      gender,
+      seekingGender,
+    }),
+  );
 
   return NextResponse.json({
     ok: true,

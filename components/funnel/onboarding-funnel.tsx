@@ -252,7 +252,7 @@ const WELCOME_COPY = {
     subAccent: "Discreet · op jouw tempo.",
   },
   v2: {
-    headline: ["Meer tijd.", "Discreet flirten."],
+    headline: ["Nieuwe spanning.", "Gewoon privé."],
     subMuted: "Voor 50-plussers. ",
     subAccent: "Geen haast · wel spanning.",
   },
