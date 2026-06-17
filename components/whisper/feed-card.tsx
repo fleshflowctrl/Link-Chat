@@ -111,18 +111,33 @@ export function FeedCard({ profile, compact = false, photoLocked = false }: Prop
           <h2
             className={
               compact
-                ? "truncate text-[22px] font-extrabold leading-tight tracking-tight drop-shadow-md"
-                : "truncate text-[26px] font-extrabold leading-tight tracking-tight drop-shadow-md"
+                ? "truncate text-[22px] font-extrabold leading-tight tracking-tight text-white drop-shadow-md"
+                : "truncate text-[26px] font-extrabold leading-tight tracking-tight text-white drop-shadow-md"
             }
           >
             {profile.name}, {profile.age}
           </h2>
         </div>
         {profile.city && (
-          <div className="mt-1 flex items-center gap-1 text-[13px] font-medium text-white/95 drop-shadow">
-            <MapPin className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+          <div className="mt-1 flex items-center gap-1 text-[13px] font-medium text-white/80 drop-shadow">
+            <MapPin
+              className="h-3.5 w-3.5 text-white/70"
+              strokeWidth={2.25}
+              aria-hidden
+            />
             <span className="truncate">{profile.city}</span>
           </div>
+        )}
+        {profile.bio.trim() && (
+          <p
+            className={
+              compact
+                ? "mt-1 line-clamp-2 text-[12px] font-normal leading-snug text-white/55 drop-shadow"
+                : "mt-1.5 line-clamp-2 text-[13px] font-normal leading-snug text-white/55 drop-shadow"
+            }
+          >
+            {profile.bio}
+          </p>
         )}
 
         {profile.interests.length > 0 && !compact && (
