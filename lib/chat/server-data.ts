@@ -14,8 +14,9 @@ import {
 } from "@/lib/chat/map-rows";
 import { readServerAppVariant, type AppVariant } from "@/lib/app-variant";
 import {
+  applyChatProfileIdLookupFilter,
   applyChatProfilesVariantFilter,
-  chatProfileMatchesVariant,
+  isResolvableChatProfileRow,
 } from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
@@ -147,16 +148,10 @@ export async function fetchUnreadInboxCountServer(
   if (latestPeerByPeer.size === 0) return 0;
 
   const peerIds = Array.from(latestPeerByPeer.keys());
-  let variantProfilesQuery = supabase
+  const { data: variantPeers, error: variantPeersError } = await supabase
     .from("chat_profiles")
     .select("id")
     .in("id", peerIds);
-  variantProfilesQuery = applyChatProfilesVariantFilter(
-    variantProfilesQuery,
-    variant,
-  );
-  const { data: variantPeers, error: variantPeersError } =
-    await variantProfilesQuery;
   if (variantPeersError) return 0;
   const peersInPool = new Set(
     (variantPeers ?? []).map((r) => r.id as string).filter(Boolean),
@@ -260,12 +255,10 @@ export async function fetchThreadListServer(
       return [];
     }
 
-    let profilesQuery = supabase
+    const { data: profiles, error: pe } = await supabase
       .from("chat_profiles")
       .select("*")
       .in("id", peerOrder);
-    profilesQuery = applyChatProfilesVariantFilter(profilesQuery, variant);
-    const { data: profiles, error: pe } = await profilesQuery;
 
     if (pe || !profiles?.length) {
       console.error("[fetchThreadListServer] profiles", pe);
@@ -361,7 +354,7 @@ export async function fetchConversationServer(
   const fallbackMeta = getThreadMeta(peerId);
 
   let profileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
-  profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
+  profileQuery = applyChatProfileIdLookupFilter(profileQuery);
 
   // Run the four independent reads in parallel — was previously serial,
   // which added ~3× supabase RTT to every chat open.
@@ -382,7 +375,7 @@ export async function fetchConversationServer(
 
   const { data: profile, error: profileError } = profileResult;
 
-  if (profileError || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, variant)) {
+  if (profileError || !profile || !isResolvableChatProfileRow(profile)) {
     return {
       messages: [],
       meta: fallbackMeta,

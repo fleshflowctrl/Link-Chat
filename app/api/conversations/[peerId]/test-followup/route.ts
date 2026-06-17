@@ -5,10 +5,9 @@ import {
 } from "@/lib/ai/generate-peer-reply";
 import type { FollowUpKind } from "@/lib/ai/follow-up-reply";
 import { messageRowToUi, type ChatMessageRow, type ChatProfileRow } from "@/lib/chat/map-rows";
-import { readServerAppVariant } from "@/lib/app-variant";
 import {
-  applyChatProfilesVariantFilter,
-  chatProfileMatchesVariant,
+  applyChatProfileIdLookupFilter,
+  isResolvableChatProfileRow,
 } from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 import { isManualOperatorMode } from "@/lib/manual-operator-mode";
@@ -62,12 +61,11 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "Niet geautoriseerd" }, { status: 401 });
   }
 
-  const variant = await readServerAppVariant();
   let profileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
-  profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
+  profileQuery = applyChatProfileIdLookupFilter(profileQuery);
   const { data: profile, error: pe } = await profileQuery.maybeSingle();
 
-  if (pe || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, variant)) {
+  if (pe || !profile || !isResolvableChatProfileRow(profile)) {
     return NextResponse.json({ ok: false, error: "Onbekende persoon" }, { status: 404 });
   }
 

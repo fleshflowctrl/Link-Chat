@@ -223,7 +223,6 @@ export function LoginForm({
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [acceptMarketing, setAcceptMarketing] = useState(false);
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
   const [gender, setGender] = useState<FunnelGender | null>(null);
   const [seekingGender, setSeekingGender] = useState<SignupSeekingGender | null>(
@@ -249,11 +248,6 @@ export function LoginForm({
     if (!trimmed || !password) {
       setStatus("error");
       setMessage("Vul je e-mailadres en wachtwoord in.");
-      return false;
-    }
-    if (!acceptTerms) {
-      setStatus("error");
-      setMessage("Accepteer de voorwaarden en het privacybeleid om door te gaan.");
       return false;
     }
     if (password.length < PASSWORD_MIN) {
@@ -296,6 +290,11 @@ export function LoginForm({
     if (!seekingGender) {
       setStatus("error");
       setMessage("Kies of je een man of vrouw zoekt.");
+      return null;
+    }
+    if (!acceptTerms) {
+      setStatus("error");
+      setMessage("Accepteer de voorwaarden en het privacybeleid om door te gaan.");
       return null;
     }
     return {
@@ -699,6 +698,36 @@ export function LoginForm({
                   />
                 </label>
               </div>
+              <div className="space-y-2 text-[12px] leading-snug text-inkMuted">
+                <label className="flex gap-2">
+                  <input
+                    type="checkbox"
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                    className="mt-0.5 rounded border-neutral-300"
+                    required
+                  />
+                  <span>
+                    Ik ga akkoord met de{" "}
+                    <Link
+                      href={LEGAL_PATHS.terms}
+                      className="font-medium text-primary underline-offset-2 hover:underline"
+                      target="_blank"
+                    >
+                      algemene voorwaarden
+                    </Link>{" "}
+                    en het{" "}
+                    <Link
+                      href={LEGAL_PATHS.privacy}
+                      className="font-medium text-primary underline-offset-2 hover:underline"
+                      target="_blank"
+                    >
+                      privacybeleid
+                    </Link>
+                    . Ik ben 18 jaar of ouder.
+                  </span>
+                </label>
+              </div>
             </>
           ) : (
             <>
@@ -751,50 +780,6 @@ export function LoginForm({
                   visible={confirmVisible}
                   onToggleVisible={() => setConfirmVisible((v) => !v)}
                 />
-              )}
-              {mode === "signup" && (
-                <div className="space-y-2 text-[12px] leading-snug text-inkMuted">
-                  <label className="flex gap-2">
-                    <input
-                      type="checkbox"
-                      checked={acceptTerms}
-                      onChange={(e) => setAcceptTerms(e.target.checked)}
-                      className="mt-0.5 rounded border-neutral-300"
-                      required
-                    />
-                    <span>
-                      Ik ga akkoord met de{" "}
-                      <Link
-                        href={LEGAL_PATHS.terms}
-                        className="font-medium text-primary underline-offset-2 hover:underline"
-                        target="_blank"
-                      >
-                        algemene voorwaarden
-                      </Link>{" "}
-                      en het{" "}
-                      <Link
-                        href={LEGAL_PATHS.privacy}
-                        className="font-medium text-primary underline-offset-2 hover:underline"
-                        target="_blank"
-                      >
-                        privacybeleid
-                      </Link>
-                      . Ik ben 18 jaar of ouder.
-                    </span>
-                  </label>
-                  <label className="flex gap-2">
-                    <input
-                      type="checkbox"
-                      checked={acceptMarketing}
-                      onChange={(e) => setAcceptMarketing(e.target.checked)}
-                      className="mt-0.5 rounded border-neutral-300"
-                    />
-                    <span>
-                      Ja, stuur mij e-mails over acties en nieuws (optioneel, afmelden
-                      kan altijd).
-                    </span>
-                  </label>
-                </div>
               )}
             </>
           )}

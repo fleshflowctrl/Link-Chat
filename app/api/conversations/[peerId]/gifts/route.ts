@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { readServerAppVariant } from "@/lib/app-variant";
 import {
-  applyChatProfilesVariantFilter,
-  chatProfileMatchesVariant,
+  applyChatProfileIdLookupFilter,
+  isResolvableChatProfileRow,
 } from "@/lib/catalog/profile-variant";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { messageRowToUi, type ChatMessageRow } from "@/lib/chat/map-rows";
@@ -70,15 +69,14 @@ export async function POST(
 
   const peerId = params.peerId;
 
-  const variant = await readServerAppVariant();
   let profileQuery = supabase
     .from("chat_profiles")
-    .select("id, display_name, app_variant")
+    .select("id, display_name, app_variant, is_archived")
     .eq("id", peerId);
-  profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
+  profileQuery = applyChatProfileIdLookupFilter(profileQuery);
   const { data: profile, error: pe } = await profileQuery.maybeSingle();
 
-  if (pe || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, variant)) {
+  if (pe || !profile || !isResolvableChatProfileRow(profile)) {
     return NextResponse.json(
       { ok: false, error: "Onbekende persoon" },
       { status: 404 },

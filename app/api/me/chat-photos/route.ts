@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import { readServerAppVariant } from "@/lib/app-variant";
-import { chatProfileMatchesVariant } from "@/lib/catalog/profile-variant";
 import { createClient } from "@/utils/supabase/server";
 
 // Reads the signed-in user's cookies — must run per-request, never prerendered.
@@ -35,8 +33,6 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ ok: false, error: "Niet geautoriseerd" }, { status: 401 });
   }
-
-  const variant = await readServerAppVariant();
 
   const { data, error } = await supabase
     .from("chat_photo_unlocks")
@@ -87,7 +83,6 @@ export async function GET() {
   for (const row of (data ?? []) as unknown as Row[]) {
     const msg = row.message;
     if (!msg || !msg.image_url || !msg.peer) continue;
-    if (!chatProfileMatchesVariant(msg.peer, variant)) continue;
 
     const peer = msg.peer;
     if (!groupsMap.has(peer.id)) {

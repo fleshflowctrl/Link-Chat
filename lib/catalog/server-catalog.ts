@@ -22,10 +22,11 @@ import {
 import type { AppVariant } from "@/lib/app-variant";
 import { DEFAULT_APP_VARIANT, readServerAppVariant } from "@/lib/app-variant";
 import {
+  applyChatProfileIdLookupFilter,
   applyChatProfilesVariantFilter,
   applyDiscoverPoolFilters,
   applyLiveDiscoverPoolFilter,
-  chatProfileMatchesVariant,
+  isResolvableChatProfileRow,
   staticCatalogProfiles,
 } from "@/lib/catalog/profile-variant";
 import { pinProfileFirstInFeed } from "@/lib/catalog/funnel-picked-peer";
@@ -447,9 +448,9 @@ export async function fetchCatalogProfileByIdServer(
 
   if (admin) {
     let adminQuery = admin.from("chat_profiles").select("*").eq("id", id);
-    adminQuery = applyChatProfilesVariantFilter(adminQuery, variant);
+    adminQuery = applyChatProfileIdLookupFilter(adminQuery);
     const { data: row, error } = await adminQuery.maybeSingle();
-    if (!error && row && chatProfileMatchesVariant(row as ChatProfileRow, variant)) {
+    if (!error && row && isResolvableChatProfileRow(row)) {
       return chatProfileRowToProfile(row as ChatProfileRow);
     }
     if (!error && !row) {
@@ -468,7 +469,7 @@ export async function fetchCatalogProfileByIdServer(
   }
 
   let profileQuery = supabase.from("chat_profiles").select("*").eq("id", id);
-  profileQuery = applyChatProfilesVariantFilter(profileQuery, variant);
+  profileQuery = applyChatProfileIdLookupFilter(profileQuery);
   const { data: row, error } = await profileQuery.maybeSingle();
 
   if (error || !row) {
@@ -476,7 +477,7 @@ export async function fetchCatalogProfileByIdServer(
     return getProfileById(id) ?? null;
   }
 
-  if (!chatProfileMatchesVariant(row as ChatProfileRow, variant)) {
+  if (!isResolvableChatProfileRow(row)) {
     return null;
   }
 

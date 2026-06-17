@@ -26,6 +26,21 @@ export function applyChatProfilesVariantFilter<T>(
   return q.eq("app_variant", variant) as T;
 }
 
+type ChatProfileRowLike = { is_archived?: boolean | null } | null | undefined;
+
+/** Profile/chat open by id — discover mixes v1+v2 live personas. */
+export function applyChatProfileIdLookupFilter<T>(query: T): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const q = query as any;
+  return q.eq("is_archived", false) as T;
+}
+
+export function isResolvableChatProfileRow(
+  row: ChatProfileRowLike,
+): row is { is_archived?: boolean | null } {
+  return row != null && row.is_archived !== true;
+}
+
 /** Discover / home feed — only admin live-map personas (`online_now`). */
 export function applyLiveDiscoverPoolFilter<T>(query: T): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

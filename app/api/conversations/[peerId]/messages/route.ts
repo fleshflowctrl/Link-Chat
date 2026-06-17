@@ -25,10 +25,10 @@ import {
   sleep,
   syncDelayThresholdMs,
 } from "@/lib/ai/reply-pacing";
-import { parseAppVariant, readServerAppVariant } from "@/lib/app-variant";
+import { parseAppVariant } from "@/lib/app-variant";
 import {
-  applyChatProfilesVariantFilter,
-  chatProfileMatchesVariant,
+  applyChatProfileIdLookupFilter,
+  isResolvableChatProfileRow,
 } from "@/lib/catalog/profile-variant";
 import { isGuestAuthUser } from "@/lib/auth/user-account";
 import { bundleUnits, notEnoughBundleMessage } from "@/lib/credits/copy";
@@ -77,10 +77,8 @@ export async function GET(
 
   // Lazy catch-up: if a pending reply is due (e.g. user closed the app and is
   // now reopening), deliver it before returning so it shows up in this load.
-  const requestVariant = await readServerAppVariant();
-
   let getProfileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
-  getProfileQuery = applyChatProfilesVariantFilter(getProfileQuery, requestVariant);
+  getProfileQuery = applyChatProfileIdLookupFilter(getProfileQuery);
   const { data: profileForGet } = await getProfileQuery.maybeSingle();
 
   if (!profileForGet) {
@@ -198,13 +196,12 @@ export async function POST(
   }
 
   const peerId = params.peerId;
-  const requestVariant = await readServerAppVariant();
 
   let postProfileQuery = supabase.from("chat_profiles").select("*").eq("id", peerId);
-  postProfileQuery = applyChatProfilesVariantFilter(postProfileQuery, requestVariant);
+  postProfileQuery = applyChatProfileIdLookupFilter(postProfileQuery);
   const { data: profile, error: pe } = await postProfileQuery.maybeSingle();
 
-  if (pe || !profile || !chatProfileMatchesVariant(profile as ChatProfileRow, requestVariant)) {
+  if (pe || !profile || !isResolvableChatProfileRow(profile)) {
     return NextResponse.json({ ok: false, error: "Onbekende persoon" }, { status: 404 });
   }
 
