@@ -12,7 +12,7 @@ import {
   initCreditsStore,
   subscribeCredits,
 } from "@/lib/credits-store";
-import { BUNDLES_TITLE } from "@/lib/credits/copy";
+import { BUNDLES_SUBTITLE, BUNDLES_TITLE } from "@/lib/credits/copy";
 import { CreditPrice } from "@/components/credits/credit-price";
 import {
   PackageBonusBadge,
@@ -56,14 +56,23 @@ function PackageCard({
             <p
               className={
                 isDark
-                  ? "text-[15px] font-bold leading-tight text-white"
-                  : "text-[15px] font-bold leading-tight text-ink"
+                  ? "text-[15px] font-bold leading-snug text-white"
+                  : "text-[15px] font-bold leading-snug text-ink"
               }
             >
               {pkg.bundleLabel}
             </p>
             <PackageBonusBadge bonus={pkg.bonus} />
           </div>
+          <p
+            className={
+              isDark
+                ? "mt-0.5 text-[11px] leading-snug text-white/55"
+                : "mt-0.5 text-[11px] leading-snug text-inkMuted"
+            }
+          >
+            {pkg.bundleDescription}
+          </p>
           <PackagePointsSummary pkg={pkg} compact tone={tone} />
         </div>
 
@@ -98,9 +107,9 @@ function BonusBundlesSection({ packages: bonusPkgs }: { packages: CreditPackage[
 
   return (
     <section className="space-y-2">
-      <p className="px-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
-        Bundels met bonus
-      </p>
+            <p className="px-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
+              Meer gespreksruimte
+            </p>
       <div className="space-y-2">
         {bonusPkgs.map((pkg) => (
           <PackageCard key={pkg.id} pkg={pkg} tone="dark" />
@@ -130,9 +139,7 @@ export function CreditsView() {
             <h1 className="text-[26px] font-bold leading-tight tracking-tight text-ink">
               {BUNDLES_TITLE}
             </h1>
-            <p className="mt-0.5 text-[12px] text-gray-500">
-              Koop een bundel voor berichten en extra&apos;s
-            </p>
+            <p className="mt-0.5 text-[12px] text-gray-500">{BUNDLES_SUBTITLE}</p>
           </div>
           <CreditsPill />
         </div>
@@ -146,7 +153,7 @@ export function CreditsView() {
         <div className="space-y-3">
           <section className="space-y-2">
             <p className="px-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/70">
-              Bundels zonder bonus
+              Start hier
             </p>
             <PackageCard pkg={starterPackage} />
           </section>

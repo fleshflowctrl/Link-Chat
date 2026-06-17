@@ -140,10 +140,58 @@ export function LoginForm({
   const [message, setMessage] = useState<string | null>(null);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptMarketing, setAcceptMarketing] = useState(false);
+  const [signupStep, setSignupStep] = useState<1 | 2>(1);
 
   const supabaseConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL?.length,
   );
+
+  function validateSignupStep1(): boolean {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !password) {
+      setStatus("error");
+      setMessage("Vul je e-mailadres en wachtwoord in.");
+      return false;
+    }
+    if (!acceptTerms) {
+      setStatus("error");
+      setMessage("Accepteer de voorwaarden en het privacybeleid om door te gaan.");
+      return false;
+    }
+    if (password.length < PASSWORD_MIN) {
+      setStatus("error");
+      setMessage(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn.`);
+      return false;
+    }
+    if (password !== confirmPassword) {
+      setStatus("error");
+      setMessage("Wachtwoorden komen niet overeen.");
+      return false;
+    }
+    return true;
+  }
+
+  function validateSignupStep2(): boolean {
+    const nick = nickname.trim();
+    const ageNum = Number(age);
+    const cityLabel = city.trim();
+    if (!nick) {
+      setStatus("error");
+      setMessage("Vul een nickname in.");
+      return false;
+    }
+    if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 120) {
+      setStatus("error");
+      setMessage("Vul een geldige leeftijd in (18–120).");
+      return false;
+    }
+    if (!cityLabel) {
+      setStatus("error");
+      setMessage("Vul je stad in.");
+      return false;
+    }
+    return true;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -151,40 +199,15 @@ export function LoginForm({
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !password) return;
 
-    if (mode === "signup") {
-      const nick = nickname.trim();
-      const ageNum = Number(age);
-      const cityLabel = city.trim();
-      if (!nick) {
-        setStatus("error");
-        setMessage("Vul een nickname in.");
-        return;
-      }
-      if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 120) {
-        setStatus("error");
-        setMessage("Vul een geldige leeftijd in (18–120).");
-        return;
-      }
-      if (!cityLabel) {
-        setStatus("error");
-        setMessage("Vul je stad in.");
-        return;
-      }
-      if (!acceptTerms) {
-        setStatus("error");
-        setMessage("Accepteer de voorwaarden en het privacybeleid om door te gaan.");
-        return;
-      }
-      if (password.length < PASSWORD_MIN) {
-        setStatus("error");
-        setMessage(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn.`);
-        return;
-      }
-      if (password !== confirmPassword) {
-        setStatus("error");
-        setMessage("Wachtwoorden komen niet overeen.");
-        return;
-      }
+    if (mode === "signup" && signupStep === 1) {
+      if (!validateSignupStep1()) return;
+      setStatus("idle");
+      setSignupStep(2);
+      return;
+    }
+
+    if (mode === "signup" && !validateSignupStep2()) {
+      return;
     }
 
     setStatus("loading");
@@ -338,21 +361,27 @@ export function LoginForm({
   const title = mode === "signup" ? "Registreren" : "Inloggen";
   const subtitle =
     mode === "signup"
-      ? "Maak je account met e-mail en wachtwoord."
+      ? signupStep === 1
+        ? "Stap 1 van 2 — je accountgegevens."
+        : "Stap 2 van 2 — hoe mogen we je noemen?"
       : "Log in met je e-mail en wachtwoord.";
 
   const submitLabel = embedded
     ? mode === "signup"
       ? status === "loading"
         ? "Bezig…"
-        : "Account aanmaken"
+        : signupStep === 1
+          ? "Volgende"
+          : "Account aanmaken"
       : status === "loading"
         ? "Bezig…"
         : "Doorgaan"
     : mode === "signup"
       ? status === "loading"
         ? "Account aanmaken…"
-        : "Account aanmaken"
+        : signupStep === 1
+          ? "Volgende"
+          : "Account aanmaken"
       : status === "loading"
         ? "Bezig met inloggen…"
         : "Inloggen";
@@ -380,8 +409,8 @@ export function LoginForm({
     : "mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35";
 
   const submitClass = embedded
-    ? `mt-0.5 ${mode === "signup" ? "h-10" : "h-11"} rounded-full text-[14px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60`
-    : "h-12 rounded-full bg-gradient-primary text-[15px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60";
+    ? `mt-0.5 ${mode === "signup" ? "h-10" : "h-11"} w-full rounded-full px-5 text-[14px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60`
+    : "h-12 w-full rounded-full bg-gradient-primary px-6 text-[15px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60";
 
   const submitStyle =
     embedded && isV2 ? { background: V2_GRADIENT_PRIMARY } : undefined;
@@ -423,19 +452,7 @@ export function LoginForm({
           onSubmit={onSubmit}
           className={`flex flex-col ${embedded ? (mode === "signup" ? "gap-2" : "gap-2.5") : "mt-6 gap-4"}`}
         >
-          <label className="block">
-            <span className={labelClass}>E-mailadres</span>
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="jij@voorbeeld.nl"
-              className={inputClass}
-            />
-          </label>
-          {mode === "signup" && (
+          {mode === "signup" && signupStep === 2 ? (
             <>
               <label className="block">
                 <span className={labelClass}>Nickname</span>
@@ -478,100 +495,135 @@ export function LoginForm({
                 </label>
               </div>
             </>
-          )}
-          <PasswordField
-            id="login-password"
-            label="Wachtwoord"
-            labelClass={labelClass}
-            inputClass={inputClass}
-            value={password}
-            onChange={setPassword}
-            placeholder={
-              mode === "signup" && embedded
-                ? `min. ${PASSWORD_MIN} tekens`
-                : "••••••••"
-            }
-            autoComplete={
-              mode === "signup" ? "new-password" : "current-password"
-            }
-            minLength={mode === "signup" ? PASSWORD_MIN : undefined}
-            visible={passwordVisible}
-            onToggleVisible={() => setPasswordVisible((v) => !v)}
-            hint={
-              mode === "signup" && !embedded
-                ? `Minimaal ${PASSWORD_MIN} tekens`
-                : undefined
-            }
-          />
-          {showConfirmPassword && (
-            <PasswordField
-              id="login-password-confirm"
-              label="Herhaal wachtwoord"
-              labelClass={labelClass}
-              inputClass={inputClass}
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              placeholder="••••••••"
-              autoComplete="new-password"
-              visible={confirmVisible}
-              onToggleVisible={() => setConfirmVisible((v) => !v)}
-            />
-          )}
-          {mode === "signup" && (
-            <div className="space-y-2 text-[12px] leading-snug text-inkMuted">
-              <label className="flex gap-2">
+          ) : (
+            <>
+              <label className="block">
+                <span className={labelClass}>E-mailadres</span>
                 <input
-                  type="checkbox"
-                  checked={acceptTerms}
-                  onChange={(e) => setAcceptTerms(e.target.checked)}
-                  className="mt-0.5 rounded border-neutral-300"
+                  type="email"
+                  autoComplete="email"
                   required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="jij@voorbeeld.nl"
+                  className={inputClass}
                 />
-                <span>
-                  Ik ga akkoord met de{" "}
-                  <Link
-                    href={LEGAL_PATHS.terms}
-                    className="font-medium text-primary underline-offset-2 hover:underline"
-                    target="_blank"
-                  >
-                    algemene voorwaarden
-                  </Link>{" "}
-                  en het{" "}
-                  <Link
-                    href={LEGAL_PATHS.privacy}
-                    className="font-medium text-primary underline-offset-2 hover:underline"
-                    target="_blank"
-                  >
-                    privacybeleid
-                  </Link>
-                  . Ik ben 18 jaar of ouder.
-                </span>
               </label>
-              <label className="flex gap-2">
-                <input
-                  type="checkbox"
-                  checked={acceptMarketing}
-                  onChange={(e) => setAcceptMarketing(e.target.checked)}
-                  className="mt-0.5 rounded border-neutral-300"
+              <PasswordField
+                id="login-password"
+                label="Wachtwoord"
+                labelClass={labelClass}
+                inputClass={inputClass}
+                value={password}
+                onChange={setPassword}
+                placeholder={
+                  mode === "signup" && embedded
+                    ? `min. ${PASSWORD_MIN} tekens`
+                    : "••••••••"
+                }
+                autoComplete={
+                  mode === "signup" ? "new-password" : "current-password"
+                }
+                minLength={mode === "signup" ? PASSWORD_MIN : undefined}
+                visible={passwordVisible}
+                onToggleVisible={() => setPasswordVisible((v) => !v)}
+                hint={
+                  mode === "signup" && !embedded
+                    ? `Minimaal ${PASSWORD_MIN} tekens`
+                    : undefined
+                }
+              />
+              {showConfirmPassword && (
+                <PasswordField
+                  id="login-password-confirm"
+                  label="Herhaal wachtwoord"
+                  labelClass={labelClass}
+                  inputClass={inputClass}
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  visible={confirmVisible}
+                  onToggleVisible={() => setConfirmVisible((v) => !v)}
                 />
-                <span>
-                  Ja, stuur mij e-mails over acties en nieuws (optioneel, afmelden
-                  kan altijd).
-                </span>
-              </label>
-            </div>
+              )}
+              {mode === "signup" && (
+                <div className="space-y-2 text-[12px] leading-snug text-inkMuted">
+                  <label className="flex gap-2">
+                    <input
+                      type="checkbox"
+                      checked={acceptTerms}
+                      onChange={(e) => setAcceptTerms(e.target.checked)}
+                      className="mt-0.5 rounded border-neutral-300"
+                      required
+                    />
+                    <span>
+                      Ik ga akkoord met de{" "}
+                      <Link
+                        href={LEGAL_PATHS.terms}
+                        className="font-medium text-primary underline-offset-2 hover:underline"
+                        target="_blank"
+                      >
+                        algemene voorwaarden
+                      </Link>{" "}
+                      en het{" "}
+                      <Link
+                        href={LEGAL_PATHS.privacy}
+                        className="font-medium text-primary underline-offset-2 hover:underline"
+                        target="_blank"
+                      >
+                        privacybeleid
+                      </Link>
+                      . Ik ben 18 jaar of ouder.
+                    </span>
+                  </label>
+                  <label className="flex gap-2">
+                    <input
+                      type="checkbox"
+                      checked={acceptMarketing}
+                      onChange={(e) => setAcceptMarketing(e.target.checked)}
+                      className="mt-0.5 rounded border-neutral-300"
+                    />
+                    <span>
+                      Ja, stuur mij e-mails over acties en nieuws (optioneel, afmelden
+                      kan altijd).
+                    </span>
+                  </label>
+                </div>
+              )}
+            </>
           )}
           {message && status === "error" && (
             <p className="text-[12px] text-red-600">{message}</p>
           )}
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className={submitClassFinal}
-            style={submitStyle}
-          >
-            {submitLabel}
-          </button>
+          <div className={mode === "signup" && signupStep === 2 ? "flex flex-col gap-2" : ""}>
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className={`${submitClassFinal} inline-flex w-full items-center justify-center`}
+              style={submitStyle}
+            >
+              {submitLabel}
+            </button>
+            {mode === "signup" && signupStep === 2 && (
+              <button
+                type="button"
+                disabled={status === "loading"}
+                onClick={() => {
+                  setMessage(null);
+                  setStatus("idle");
+                  setSignupStep(1);
+                }}
+                className={
+                  embedded
+                    ? "h-10 w-full rounded-full text-[14px] font-semibold text-ink ring-1 ring-black/10 transition enabled:active:scale-[0.98] disabled:opacity-60"
+                    : "h-11 w-full rounded-full text-[15px] font-semibold text-ink ring-1 ring-black/10 transition enabled:active:scale-[0.98] disabled:opacity-60"
+                }
+              >
+                Terug
+              </button>
+            )}
+          </div>
         </form>
 
       {!embedded && (

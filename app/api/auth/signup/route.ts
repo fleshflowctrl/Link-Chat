@@ -108,6 +108,7 @@ export async function POST(request: Request) {
         first_name: nickname,
         age,
         location: city,
+        credits: 0,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },

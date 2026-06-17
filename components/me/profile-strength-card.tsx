@@ -71,7 +71,7 @@ function ProgressRing({ percent }: { percent: number }) {
 function StepRow({ field }: { field: CompletenessFieldMeta }) {
   return (
     <VariantLink
-      href={`/me/edit?focus=${field.focus}`}
+      href={`/me?focus=${field.focus}`}
       className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors active:bg-black/[0.04]"
     >
       <span
@@ -174,7 +174,7 @@ export function ProfileStrengthCard({
           ))}
           {report.nextSteps.length > visibleSteps.length && (
             <VariantLink
-              href="/me/edit"
+              href="/me"
               className="self-end px-3 pt-1 text-[12px] font-semibold text-primary"
             >
               Toon alle ›

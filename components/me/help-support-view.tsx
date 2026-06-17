@@ -109,9 +109,9 @@ const faqs: FaqItem[] = [
   {
     id: "verify-account",
     category: "account",
-    question: "Hoe verifieer ik mijn account?",
+    question: "Hoe bevestig ik mijn e-mailadres?",
     answer:
-      "Open je profiel en tik op 'Profiel bewerken'. Volg de stappen voor een korte selfie-verificatie. Geverifieerde accounts krijgen een blauw vinkje en meer matches.",
+      "Na registratie sturen we een bevestigingsmail. Open de link in die mail om je account te activeren. Geen mail ontvangen? Check je spammap of vraag een nieuwe link aan via Profiel → Account.",
   },
   {
     id: "change-email",
@@ -557,6 +557,22 @@ export function HelpSupportView() {
             </span>
             <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">
               Cookiebeleid
+            </p>
+            <ChevronRight
+              className="h-4 w-4 shrink-0 text-gray-300"
+              strokeWidth={2.25}
+              aria-hidden
+            />
+          </Link>
+          <Link
+            href="/refund"
+            className="flex min-h-[52px] items-center gap-3 border-t border-gray-100 px-4 py-3 transition active:bg-black/[0.02]"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+              <CreditCard className="h-[16px] w-[16px]" strokeWidth={2} />
+            </span>
+            <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">
+              Refund &amp; billing
             </p>
             <ChevronRight
               className="h-4 w-4 shrink-0 text-gray-300"

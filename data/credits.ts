@@ -2,8 +2,10 @@ export type CreditPackTopBadge = "trending" | "best-value";
 
 export interface CreditPackage {
   id: string;
-  /** User-facing bundle name (Starterbundel, Populaire bundel, …). */
+  /** User-facing bundle name. */
   bundleLabel: string;
+  /** Short line under the title — gespreksgericht, geen credits-jargon. */
+  bundleDescription: string;
   credits: number;
   bonus: number;
   price: number;
@@ -28,7 +30,10 @@ import { pointsForPackPriceEur } from "@/lib/credits/pricing";
 function pack(
   price: number,
   bonusPercent: number,
-  rest: Omit<CreditPackage, "credits" | "bonus" | "price" | "original" | "perCredit">,
+  rest: Omit<
+    CreditPackage,
+    "credits" | "bonus" | "price" | "original" | "perCredit"
+  >,
 ): CreditPackage {
   const credits = pointsForPackPriceEur(price);
   const bonus = bonusPercent > 0 ? Math.round(credits * bonusPercent) : 0;
@@ -48,7 +53,8 @@ export const FIRST_PURCHASE_PACKAGE_ID = "welcome";
 export const packages: CreditPackage[] = [
   pack(19.99, 0, {
     id: "1000",
-    bundleLabel: "Starterbundel",
+    bundleLabel: "Voor een eerste gesprek",
+    bundleDescription: "Genoeg om echt kennis te maken en een gesprek te starten.",
     icon: "⭐",
     iconAsset: 100,
     tile: "from-[#7C5CFF] to-[#9B7BFF]",
@@ -56,32 +62,38 @@ export const packages: CreditPackage[] = [
   }),
   pack(39.99, 0.4, {
     id: "2500",
-    bundleLabel: "Populaire bundel",
+    bundleLabel: "Meest gekozen, rustig verder praten",
+    bundleDescription: "Meer ruimte om door te chatten zonder meteen op te zijn.",
     icon: "🎂",
     iconAsset: 250,
     tile: "from-pink-400 to-pink-500",
+    badge: "trending",
     defaultSelected: true,
   }),
   pack(69.99, 0.4, {
     id: "5000",
-    bundleLabel: "Voordeelbundel",
+    bundleLabel: "Voor langere gesprekken",
+    bundleDescription: "Voor als je een gesprek wilt laten groeien en dieper wilt gaan.",
     icon: "👜",
     iconAsset: 500,
     tile: "from-orange-400 to-orange-500",
   }),
   pack(119.99, 0.4, {
     id: "10000",
-    bundleLabel: "XL bundel",
+    bundleLabel: "Beste waarde",
+    bundleDescription: "De meeste gespreksruimte, ideaal als je vaker chat.",
     icon: "🔐",
     iconAsset: 1000,
     tile: "from-yellow-400 to-amber-500",
+    badge: "best-value",
   }),
 ];
 
 /** One-time welcome offer — only while the user has never bought a bundle. */
 export const firstPurchasePackage: CreditPackage = {
   id: FIRST_PURCHASE_PACKAGE_ID,
-  bundleLabel: "Welkomstbundel",
+  bundleLabel: "Welkomstaanbod",
+  bundleDescription: "Extra gespreksruimte bij je allereerste aankoop, eenmalig.",
   credits: 200,
   bonus: 0,
   price: 19.99,

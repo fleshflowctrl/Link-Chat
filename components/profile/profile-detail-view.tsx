@@ -5,11 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
-  BadgeCheck,
   ChevronLeft,
   ChevronRight,
   Heart,
-  Lock,
   MapPin,
   MessageCircle,
   MoreHorizontal,
@@ -26,10 +24,8 @@ import {
   isPermanentCreditsUser,
   subscribeCredits,
 } from "@/lib/credits-store";
-import {
-  getGuestPhotoLockMessage,
-  isGuestLockedProfilePhoto,
-} from "@/lib/discover/guest-photo-lock";
+import { GuestPhotoLockOverlay } from "@/components/discover/guest-photo-lock-message";
+import { isGuestLockedProfilePhoto } from "@/lib/discover/guest-photo-lock";
 import { getEditProfileUi } from "@/lib/me/edit-profile-styles";
 
 function InterestGlyph({
@@ -148,17 +144,11 @@ export function ProfileDetailView({
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/50" />
 
         {photoLocked && (
-          <div
+          <GuestPhotoLockOverlay
+            profileName={profile.name}
+            size="md"
             className="absolute inset-0 z-[15] flex items-center justify-center p-6"
-            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-          >
-            <p className="flex flex-col items-center gap-2 text-center">
-              <Lock className="h-5 w-5 text-[#E85A59]" strokeWidth={2.25} aria-hidden />
-              <span className="max-w-[20ch] text-[13px] font-bold leading-snug text-white drop-shadow-sm">
-                {getGuestPhotoLockMessage(profile.name)}
-              </span>
-            </p>
-          </div>
+          />
         )}
 
         {/* top bar: back + actions */}
@@ -193,13 +183,6 @@ export function ProfileDetailView({
             <h1 className="min-w-0 text-[1.9rem] font-bold leading-tight tracking-tight text-white drop-shadow-md">
               {profile.name}, {profile.age}
             </h1>
-            {profile.isVerified && (
-              <BadgeCheck
-                className="h-7 w-7 shrink-0 text-primary drop-shadow-md"
-                strokeWidth={2}
-                aria-label="Geverifieerd"
-              />
-            )}
           </div>
           <p className="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium text-white/95 drop-shadow">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-white" strokeWidth={2.25} />

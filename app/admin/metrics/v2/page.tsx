@@ -85,7 +85,7 @@ export default async function AdminMetricsV2Page() {
           {res.error}
         </div>
       ) : (
-        <MetricsDashboard metrics={res.metrics} />
+        <MetricsDashboard metrics={res.metrics} variant="v2" />
       )}
     </div>
   );

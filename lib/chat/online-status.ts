@@ -1,13 +1,9 @@
 /**
  * Peer presence for chat header + inbox dot.
  *
- * "Nu online" only briefly after she sent in this thread. Otherwise show a
- * realistic last-seen label, "Slapend" during her sleep window, or "Typt…"
- * while a reply is being delivered.
+ * Shows "Typt…" while a reply is being delivered, otherwise last-seen or offline.
  */
 
-import { getBedtimeContext } from "@/lib/ai/bedtime";
-import { getDiscoverLiveChatPresence } from "@/lib/catalog/discover-feed-status";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 
 /** Green dot / "Nu online" — phone still in hand after her last bubble. */
@@ -78,11 +74,7 @@ export function isPeerLiveInChat(opts: {
   return age >= 0 && age <= RECENT_ACTIVITY_HARD_ONLINE_MS;
 }
 
-export type ChatHeaderPresenceVariant =
-  | "typing"
-  | "online"
-  | "offline"
-  | "asleep";
+export type ChatHeaderPresenceVariant = "typing" | "online" | "offline";
 
 export type ChatHeaderPresence = {
   variant: ChatHeaderPresenceVariant;
@@ -141,7 +133,7 @@ export function formatLastSeenNl(lastActiveAt: Date, now: Date = new Date()): st
   }
 }
 
-/** Page-3 header subtitle — online, offline (last seen), asleep, or typing. */
+/** Page-3 header subtitle — offline (last seen) or typing. */
 export function getChatHeaderPresence(opts: {
   messages: Array<{ sender: string; createdAt?: string }>;
   peerTyping?: boolean;
@@ -152,42 +144,12 @@ export function getChatHeaderPresence(opts: {
   timeZone?: string;
 }): ChatHeaderPresence {
   const now = opts.now ?? new Date();
-  const tz = opts.timeZone ?? defaultTimeZone();
 
   if (opts.peerTyping) {
     return { variant: "typing", label: "Typt…", showGreenDot: true };
   }
 
   const lastPeerMessageAt = lastPeerMessageFromHistory(opts.messages);
-  const last = opts.messages[opts.messages.length - 1];
-  const lastMessageSender =
-    last?.sender === "peer" ? "peer" : last?.sender === "me" ? "me" : null;
-
-  const bedtime = getBedtimeContext({
-    now,
-    timeZone: tz,
-    personaId: opts.personaId,
-    peerLastReplyAt: lastPeerMessageAt,
-  });
-
-  if (bedtime.phase === "asleep") {
-    return { variant: "asleep", label: "Slapend", showGreenDot: false };
-  }
-
-  if (opts.discoverBucket === "live") {
-    return getDiscoverLiveChatPresence(opts.personaId);
-  }
-
-  const online = computePeerOnlineNow({
-    profile: {} as ChatProfileRow,
-    lastPeerMessageAt,
-    lastMessageSender,
-    now,
-  });
-
-  if (online) {
-    return { variant: "online", label: "Nu online", showGreenDot: true };
-  }
 
   if (lastPeerMessageAt) {
     return {

@@ -4,12 +4,15 @@ import Image from "next/image";
 import { VariantLink as Link } from "@/components/variant-link";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
-import { BadgeCheck, MapPin, User } from "lucide-react";
+import { GuestPhotoLockOverlay } from "@/components/discover/guest-photo-lock-message";
+import { MapPin, User } from "lucide-react";
+import { useState } from "react";
 import type { Profile } from "@/data/profiles";
 
 type Props = {
   profile: Profile;
   compact?: boolean;
+  photoLocked?: boolean;
 };
 
 const INTEREST_EMOJI: Record<string, string> = {
@@ -26,18 +29,16 @@ const INTEREST_EMOJI: Record<string, string> = {
  * is overlaid on top of the image. A bottom gradient keeps text legible
  * no matter how light or busy the photo behind it is.
  */
-export function FeedCard({ profile, compact = false }: Props) {
+export function FeedCard({ profile, compact = false, photoLocked = false }: Props) {
   const { variant } = useAppVariant();
   const isV2 = variant === "v2";
-  const isOnline =
+  const [photoLoaded, setPhotoLoaded] = useState(false);
+  const isPresenceStatus =
     profile.status.variant === "online" || profile.status.variant === "active";
   const isNew = profile.status.variant === "new";
-  const showStatusChip = profile.status.label.trim().length > 0;
-  const chipMotionClass = isNew
-    ? "animate-discover-badge-new"
-    : isOnline
-      ? "animate-discover-badge-live"
-      : "";
+  const showStatusChip =
+    !isPresenceStatus && profile.status.label.trim().length > 0;
+  const chipMotionClass = isNew ? "animate-discover-badge-new" : "";
 
   return (
     <div
@@ -53,9 +54,24 @@ export function FeedCard({ profile, compact = false }: Props) {
         fill
         sizes="(max-width: 480px) 100vw, 420px"
         className="object-cover"
+        style={
+          photoLocked
+            ? {
+                filter: "blur(24px)",
+                opacity: photoLoaded ? 0.35 : 0,
+                transform: "scale(1.08)",
+                transition: "opacity 220ms ease",
+              }
+            : undefined
+        }
+        onLoad={() => setPhotoLoaded(true)}
         priority
         fetchPriority="high"
       />
+
+      {photoLocked && (
+        <GuestPhotoLockOverlay profileName={profile.name} size="md" />
+      )}
 
       {/* Dark bottom gradient so overlaid text is always legible. Stronger
        * than a 1/4 fade because we now stack name + city + interests +
@@ -78,12 +94,6 @@ export function FeedCard({ profile, compact = false }: Props) {
               isNew ? "bg-pink-500/90" : "bg-black/55"
             }`}
           >
-            {isOnline && (
-              <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-70" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
-              </span>
-            )}
             {profile.status.label}
           </span>
         </div>
@@ -107,13 +117,6 @@ export function FeedCard({ profile, compact = false }: Props) {
           >
             {profile.name}, {profile.age}
           </h2>
-          {profile.isVerified && (
-            <BadgeCheck
-              className="h-5 w-5 shrink-0 text-white drop-shadow-md"
-              strokeWidth={2.4}
-              aria-hidden
-            />
-          )}
         </div>
         {profile.city && (
           <div className="mt-1 flex items-center gap-1 text-[13px] font-medium text-white/95 drop-shadow">
@@ -142,14 +145,14 @@ export function FeedCard({ profile, compact = false }: Props) {
           href={withVariantPath(`/profile/${profile.id}`, variant)}
           className={
             (compact
-              ? "mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-full py-2 text-[12px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] "
-              : "mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-full py-2.5 text-[13px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] ") +
+              ? "mt-3 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] "
+              : "mt-4 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] ") +
             (isV2
               ? "bg-white/95 text-[#3D3D3D] ring-1 ring-white/30"
               : "bg-white/95 text-ink ring-1 ring-black/5")
           }
         >
-          <User className="h-4 w-4 shrink-0" strokeWidth={2.5} aria-hidden />
+          <User className="h-5 w-5 shrink-0" strokeWidth={2.5} aria-hidden />
           Bekijk profiel
         </Link>
       </div>

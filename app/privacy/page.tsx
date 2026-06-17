@@ -4,7 +4,7 @@ import { SITE_TITLE } from "@/lib/brand";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: `Privacybeleid — ${SITE_TITLE}`,
+  title: `Privacyverklaring — ${SITE_TITLE}`,
 };
 
 export default function PrivacyPage() {

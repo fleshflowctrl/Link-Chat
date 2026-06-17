@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ChevronsRight,
   Coins,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/credits-store";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
+import { GuestMessageAuthPrompt } from "@/components/auth/guest-message-auth-prompt";
 import { FeedCard } from "./feed-card";
 import { ProfileStrengthBanner } from "./profile-strength-banner";
 
@@ -161,6 +163,10 @@ type Props = {
   compact?: boolean;
   /** One-shot: open on this profile (e.g. funnel pick) instead of saved cursor. */
   startAtProfileId?: string | null;
+  /** Guest photo blur for specific profile ids. */
+  lockedPhotoIds?: Set<string>;
+  /** Guests must sign up before opening chat. */
+  requiresAuthForMessage?: boolean;
 };
 
 function formatCountdown(ms: number): string {
@@ -195,8 +201,11 @@ export function FeedStack({
   profile,
   compact = false,
   startAtProfileId = null,
+  lockedPhotoIds = new Set<string>(),
+  requiresAuthForMessage = false,
 }: Props) {
   const { variant } = useAppVariant();
+  const isV2 = variant === "v2";
 
   // Per-user key so two accounts in the same browser don't share progress.
   const userKey = useSyncExternalStore(
@@ -207,6 +216,7 @@ export function FeedStack({
 
   const [index, setIndex] = useState<number>(0);
   const [hydrated, setHydrated] = useState(false);
+  const [authPromptOpen, setAuthPromptOpen] = useState(false);
 
   // Restore the cursor for this user + slot. If the saved profileId still
   // exists in the current pack we resume on exactly that profile, even when
@@ -269,6 +279,10 @@ export function FeedStack({
     return () => window.clearTimeout(t);
   }, [hydrated, current?.id]);
 
+  useEffect(() => {
+    setAuthPromptOpen(false);
+  }, [current?.id]);
+
   // Pre-warm the next few photos so the image is already decoded by the
   // time the user taps "Volgende" — eliminates the lag where the new card
   // briefly shows the gray bg or stale photo while the next file loads.
@@ -294,6 +308,31 @@ export function FeedStack({
     [current, variant],
   );
 
+  const progressPct =
+    total > 0 ? Math.min(100, ((safeIndex + 1) / total) * 100) : 0;
+
+  const primaryBtnClass = compact
+    ? "flex min-h-[52px] items-center justify-center gap-2.5 rounded-full px-4 py-3.5 text-white shadow-md transition active:scale-[0.98]"
+    : "flex min-h-[56px] items-center justify-center gap-2.5 rounded-full px-4 py-3.5 text-white shadow-md transition active:scale-[0.98]";
+
+  const primaryBtnStyle = isV2
+    ? "bg-gradient-to-r from-[#B52B2A] to-[#D63B3A]"
+    : "bg-gradient-primary";
+
+  const secondaryBtnStyle = isV2
+    ? "bg-gradient-to-r from-[#9E2423] to-[#B52B2A]"
+    : "bg-gray-900";
+
+  const swipeDismiss = useCallback(
+    (offsetX: number, velocityX: number) => {
+      const threshold = 72;
+      if (offsetX < -threshold || velocityX < -450) {
+        handleNext();
+      }
+    },
+    [handleNext],
+  );
+
   return (
     <section
       className={
@@ -302,26 +341,19 @@ export function FeedStack({
           : "flex min-h-0 w-full flex-1 flex-col gap-2 px-4 pb-3 pt-2"
       }
     >
-      {/* Progress dots + countdown */}
-      <div className="flex items-center gap-2.5">
-        <div className="flex flex-1 items-center gap-1">
-          {Array.from({ length: total }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded-full transition-colors ${
-                i < safeIndex
-                  ? "bg-primary/60"
-                  : i === safeIndex
-                    ? "bg-primary"
-                    : "bg-gray-200"
-              }`}
-            />
-          ))}
-        </div>
-        <span className="flex shrink-0 items-center gap-1 rounded-full bg-lavender px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary">
-          <Timer className="h-3 w-3" strokeWidth={2.25} aria-hidden />
-          <span>{countdown}</span>
-        </span>
+      {/* Progress bar */}
+      <div className="h-1 w-full overflow-hidden rounded-full bg-gray-200/80">
+        <div
+          className={`h-full rounded-full transition-[width] duration-300 ease-out ${
+            isV2 ? "bg-[#B52B2A]" : "bg-primary"
+          }`}
+          style={{ width: `${progressPct}%` }}
+          role="progressbar"
+          aria-valuenow={safeIndex + 1}
+          aria-valuemin={1}
+          aria-valuemax={total}
+          aria-label={`Profiel ${safeIndex + 1} van ${total}`}
+        />
       </div>
 
       {atEnd ? (
@@ -341,58 +373,111 @@ export function FeedStack({
         </div>
       ) : (
         <>
-          <div className="flex min-h-0 flex-1">
-            <FeedCard key={current.id} profile={current} compact={compact} />
+          <div className="relative flex min-h-0 flex-1 overflow-hidden">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={current.id}
+                className="flex h-full w-full touch-pan-y"
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.65}
+                onDragEnd={(_, info) =>
+                  swipeDismiss(info.offset.x, info.velocity.x)
+                }
+                initial={{ opacity: 0, x: 48, scale: 0.98 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -100, scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 400, damping: 34 }}
+              >
+                <FeedCard
+                  profile={current}
+                  compact={compact}
+                  photoLocked={lockedPhotoIds.has(current.id)}
+                />
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           <div
             className={
               compact
-                ? "grid shrink-0 grid-cols-2 gap-2"
-                : "grid shrink-0 grid-cols-2 gap-2.5"
+                ? "grid shrink-0 grid-cols-2 gap-2.5"
+                : "grid shrink-0 grid-cols-2 gap-3"
             }
           >
-            <Link
-              href={openHref}
-              className={
-                compact
-                  ? "flex items-center justify-center gap-2 rounded-xl bg-gradient-primary px-2.5 py-2 text-white shadow-md transition active:scale-[0.98]"
-                  : "flex items-center justify-center gap-2.5 rounded-2xl bg-gradient-primary px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
-              }
-            >
-              <MessageCircle
-                className={compact ? "h-4 w-4 shrink-0" : "h-5 w-5 shrink-0"}
-                strokeWidth={2.5}
-                aria-hidden
-              />
-              <span className="flex min-w-0 flex-col text-left leading-tight">
-                <span className={compact ? "text-[13px] font-bold" : "text-[14px] font-bold"}>
-                  Open gesprek
-                </span>
-                {!compact && (
-                  <span className="truncate text-[11px] font-medium opacity-90">
-                    Praat met {current.name}
+            {requiresAuthForMessage ? (
+              <button
+                type="button"
+                onClick={() => {
+                  postProfileSeen(current.id);
+                  setAuthPromptOpen(true);
+                }}
+                className={`${primaryBtnClass} ${primaryBtnStyle}`}
+              >
+                <MessageCircle
+                  className={compact ? "h-5 w-5 shrink-0" : "h-5 w-5 shrink-0"}
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+                <span className="flex min-w-0 flex-col text-left leading-tight">
+                  <span
+                    className={
+                      compact ? "text-[15px] font-bold" : "text-[15px] font-bold"
+                    }
+                  >
+                    Open gesprek
                   </span>
-                )}
-              </span>
-            </Link>
+                  {!compact && (
+                    <span className="truncate text-[11px] font-medium opacity-90">
+                      Praat met {current.name}
+                    </span>
+                  )}
+                </span>
+              </button>
+            ) : (
+              <Link
+                href={openHref}
+                className={`${primaryBtnClass} ${primaryBtnStyle}`}
+                onClick={() => postProfileSeen(current.id)}
+              >
+                <MessageCircle
+                  className={compact ? "h-5 w-5 shrink-0" : "h-5 w-5 shrink-0"}
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+                <span className="flex min-w-0 flex-col text-left leading-tight">
+                  <span
+                    className={
+                      compact ? "text-[15px] font-bold" : "text-[15px] font-bold"
+                    }
+                  >
+                    Open gesprek
+                  </span>
+                  {!compact && (
+                    <span className="truncate text-[11px] font-medium opacity-90">
+                      Praat met {current.name}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            )}
 
             <button
               type="button"
               onClick={handleNext}
-              className={
-                compact
-                  ? "flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-2.5 py-2 text-white shadow-md transition active:scale-[0.98]"
-                  : "flex items-center justify-center gap-2.5 rounded-2xl bg-gray-900 px-3 py-2.5 text-white shadow-md transition active:scale-[0.98]"
-              }
+              className={`${primaryBtnClass} ${secondaryBtnStyle}`}
             >
               <ChevronsRight
-                className={compact ? "h-4 w-4 shrink-0" : "h-5 w-5 shrink-0"}
+                className={compact ? "h-5 w-5 shrink-0" : "h-5 w-5 shrink-0"}
                 strokeWidth={2.5}
                 aria-hidden
               />
               <span className="flex flex-col text-left leading-tight">
-                <span className={compact ? "text-[13px] font-bold" : "text-[14px] font-bold"}>
+                <span
+                  className={
+                    compact ? "text-[15px] font-bold" : "text-[15px] font-bold"
+                  }
+                >
                   Volgende
                 </span>
                 {!compact && (
@@ -403,6 +488,15 @@ export function FeedStack({
               </span>
             </button>
           </div>
+
+          {current && (
+            <GuestMessageAuthPrompt
+              open={authPromptOpen}
+              onClose={() => setAuthPromptOpen(false)}
+              returnPath={openHref}
+              profileName={current.name}
+            />
+          )}
         </>
       )}
 

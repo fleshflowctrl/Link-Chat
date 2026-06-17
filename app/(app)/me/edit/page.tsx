@@ -1,9 +1,14 @@
-import { EditProfileView } from "@/components/me/edit-profile-view";
-import { fetchUserEditProfileServer } from "@/lib/me/server-profile";
+import { redirect } from "next/navigation";
 
-export default async function MeEditPage() {
-  const { profile, syncToken } = await fetchUserEditProfileServer();
-  return (
-    <EditProfileView initialProfile={profile} syncToken={syncToken} />
-  );
+type Props = {
+  searchParams: Promise<{ focus?: string }>;
+};
+
+/** Legacy route — profile editing lives on `/me`. */
+export default async function MeEditPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const qs = params.focus
+    ? `?focus=${encodeURIComponent(params.focus)}`
+    : "";
+  redirect(`/me${qs}`);
 }

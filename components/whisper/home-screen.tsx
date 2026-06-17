@@ -1,20 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { Profile } from "@/data/profiles";
 import type { EditProfileState } from "@/data/me-edit";
 import {
+  applyServerCreditsUpdate,
+  getCreditsSnapshot,
   initCreditsStore,
+  subscribeCredits,
 } from "@/lib/credits-store";
 import {
   discoveryPreferencesLoaded,
   refreshDiscoveryPreferencesFromServer,
   subscribeDiscoveryPreferences,
 } from "@/lib/discovery-preferences-store";
-// ActivityStrip is temporarily disabled — re-enable in the JSX below to bring
-// back the "Nieuw op whisper" rail.
-// import { ActivityStrip } from "./activity-strip";
 import {
   consumeFunnelPickedPeerClient,
   pinProfileFirstInFeed,
@@ -23,7 +23,7 @@ import { hashFeedComposition } from "@/lib/catalog/hourly-feed";
 import { ensureGuestSession } from "@/lib/auth/guest-session";
 import { appVariantFetchHeaders } from "@/lib/app-variant";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
-import { DiscoverGridFeed } from "./discover-grid-feed";
+import { PersonalizedFeedStack } from "./personalized-feed-stack";
 import { HomeHeader } from "./home-header";
 
 type Props = {
@@ -81,8 +81,17 @@ export function HomeScreen({
   const [slot, setSlot] = useState<number>(feedSlot);
   const [nextAt, setNextAt] = useState<number>(nextRefreshAt);
   const [hash, setHash] = useState<string>(feedHash);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [funnelStartId, setFunnelStartId] = useState<string | null>(null);
 
-  // Hold the grid behind a loader until the feed has settled (preferences
+  const balance = useSyncExternalStore(
+    subscribeCredits,
+    () => getCreditsSnapshot().balance,
+    () => null,
+  );
+
+  // Hold the feed behind a loader until preferences have settled (preferences
   // loaded + any client refetch resolved). This prevents the initial SSR set
   // from being visibly re-sorted/replaced a beat later — which briefly exposed
   // profile photos that should stay blurred for guests.
@@ -140,6 +149,7 @@ export function HomeScreen({
   useEffect(() => {
     const pickedId = consumeFunnelPickedPeerClient();
     if (!pickedId) return;
+    setFunnelStartId(pickedId);
     setProfilesState((prev) => {
       const next = pinProfileFirstInFeed(prev, prev, pickedId);
       if (next[0]?.id === pickedId) {
@@ -209,6 +219,44 @@ export function HomeScreen({
     };
   }, [nextAt]);
 
+  const handleRefreshNow = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshError(null);
+    try {
+      const res = await fetch("/api/me/home-feed/refresh", {
+        method: "POST",
+        cache: "no-store",
+        headers: appVariantFetchHeaders(),
+      });
+      const json = (await res.json()) as FeedGetResponse & {
+        ok?: boolean;
+        error?: string;
+        balance?: number;
+      };
+      if (!res.ok || !json.ok) {
+        setRefreshError(
+          json.error === "insufficient credits"
+            ? "Niet genoeg berichten in je bundel voor een nieuwe ronde."
+            : (json.error ?? "Vernieuwen mislukt"),
+        );
+        return;
+      }
+      if (Array.isArray(json.profiles)) {
+        setProfilesState(json.profiles);
+      }
+      if (typeof json.feedSlot === "number") setSlot(json.feedSlot);
+      if (typeof json.feedHash === "string") setHash(json.feedHash);
+      if (typeof json.nextRefreshAt === "number") setNextAt(json.nextRefreshAt);
+      if (typeof json.balance === "number") {
+        applyServerCreditsUpdate(json.balance);
+      }
+    } catch {
+      setRefreshError("Vernieuwen mislukt — probeer opnieuw.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   return (
     <div
       className={
@@ -236,9 +284,20 @@ export function HomeScreen({
           }}
           aria-hidden={!feedReady}
         >
-          <DiscoverGridFeed
+          <PersonalizedFeedStack
             key={`${slot}:${hash}`}
             profiles={profilesState}
+            feedSlot={slot}
+            feedHash={hash}
+            nextRefreshAt={nextAt}
+            refreshCost={refreshCost}
+            balance={balance}
+            onRefreshNow={handleRefreshNow}
+            refreshing={refreshing}
+            refreshError={refreshError}
+            profile={profile}
+            compact={fitViewport}
+            startAtProfileId={funnelStartId}
             initialViewerIsPermanent={initialViewerIsPermanent}
           />
         </div>

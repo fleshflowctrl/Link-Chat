@@ -1,5 +1,5 @@
 import type { AdminMetrics } from "@/lib/admin/metrics";
-import { pct } from "@/lib/admin/metrics";
+import { MetricsPeriodTable } from "@/components/admin/metrics-period-table";
 
 function nf(n: number, digits = 0): string {
   return n.toLocaleString("nl-NL", {
@@ -8,315 +8,99 @@ function nf(n: number, digits = 0): string {
   });
 }
 
+function euro(cents: number): string {
+  return `€ ${(cents / 100).toLocaleString("nl-NL", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function pctLabel(p: number): string {
-  if (!Number.isFinite(p) || p <= 0) return "0,0%";
-  return `${p.toLocaleString("nl-NL", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  })}%`;
+  if (!Number.isFinite(p) || p <= 0) return "0%";
+  return `${Math.round(p)}%`;
 }
 
 function StatCard({
   label,
   value,
-  hint,
   tone = "default",
 }: {
   label: string;
   value: string;
-  hint?: string;
-  tone?: "default" | "primary" | "success" | "warn";
+  tone?: "default" | "warn";
 }) {
   const toneClass =
-    tone === "primary"
-      ? "from-primary/10 to-primary/0 border-primary/15"
-      : tone === "success"
-        ? "from-emerald-50 to-white border-emerald-200/60"
-        : tone === "warn"
-          ? "from-amber-50 to-white border-amber-200/60"
-          : "from-white to-white border-black/5";
+    tone === "warn"
+      ? "border-amber-300/70 bg-gradient-to-br from-amber-50 to-white"
+      : "border-black/5 bg-white";
 
   return (
     <div
-      className={`flex flex-col gap-1 rounded-2xl border bg-gradient-to-br ${toneClass} p-5 shadow-sm`}
+      className={`flex min-h-[88px] flex-col justify-center rounded-xl border px-4 py-3 shadow-sm ${toneClass}`}
     >
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
         {label}
       </span>
-      <span className="font-display text-3xl font-semibold tracking-tight text-gray-900">
+      <span className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-gray-900">
         {value}
       </span>
-      {hint ? (
-        <span className="text-xs font-medium text-gray-500">{hint}</span>
-      ) : null}
     </div>
   );
 }
 
-function FunnelRow({
-  label,
-  num,
-  denom,
-  hint,
-}: {
-  label: string;
-  num: number;
-  denom: number;
-  hint?: string;
-}) {
-  const p = pct(num, denom);
-  return (
-    <li className="px-4 py-3 sm:px-5 sm:py-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-gray-900">{label}</p>
-          {hint ? (
-            <p className="mt-0.5 text-xs text-gray-500">{hint}</p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:shrink-0">
-          <div className="h-2 w-full max-w-[10rem] flex-1 overflow-hidden rounded-full bg-gray-100 sm:w-40 sm:flex-none">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-pink-400"
-              style={{ width: `${Math.min(100, p)}%` }}
-            />
-          </div>
-          <div className="w-16 text-right text-sm font-semibold tabular-nums text-gray-900 sm:w-20">
-            {pctLabel(p)}
-          </div>
-          <div className="w-full text-right text-xs tabular-nums text-gray-500 sm:w-32">
-            {nf(num)} / {nf(denom)}
-          </div>
-        </div>
-      </div>
-    </li>
-  );
-}
+type MetricsDashboardProps = {
+  metrics: AdminMetrics;
+  variant?: string;
+};
 
-/**
- * Pure presentation of the admin metrics. Both /admin/metrics (live) and
- * /admin/metrics/totaal (all-time) render this with their own data.
- */
-export function MetricsDashboard({ metrics }: { metrics: AdminMetrics }) {
+export function MetricsDashboard({ metrics, variant }: MetricsDashboardProps) {
   return (
     <>
-      <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <section className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
+        <StatCard label="Website visits" value={nf(metrics.visitors)} />
+        <StatCard label="Users" value={nf(metrics.users)} />
+        <StatCard label="Gesprekken" value={nf(metrics.conversations)} />
+        <StatCard label="Open chats" value={nf(metrics.openChats)} tone="warn" />
+        <StatCard label="Aankopen" value={nf(metrics.purchases)} />
+        <StatCard label="Omzet totaal" value={euro(metrics.revenueCents)} />
         <StatCard
-          label="Online nu"
-          value={nf(metrics.usersOnlineNow)}
-          hint="Ingelogde users met activiteit in de laatste 90s"
-          tone="success"
+          label="Avg revenue / user"
+          value={euro(metrics.avgRevenuePerUserCents)}
         />
         <StatCard
-          label="Website bezoekers"
-          value={nf(metrics.visitors)}
-          hint={`${nf(metrics.visitorsLast7d)} laatste 7d · ${nf(metrics.visitorsLast30d)} laatste 30d`}
-          tone="primary"
+          label="Avg. LTV paying user"
+          value={euro(metrics.avgLtvPayingUserCents)}
+        />
+        <StatCard label="Credits verkocht" value={nf(metrics.creditsSold)} />
+      </section>
+
+      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <StatCard label="Signup mobile" value={pctLabel(metrics.signupMobilePct)} />
+        <StatCard label="Signup desktop" value={pctLabel(metrics.signupDesktopPct)} />
+        <StatCard
+          label="Berichten profiel (7d)"
+          value={nf(metrics.messagesProfile7d)}
         />
         <StatCard
-          label="Sign-ups"
-          value={nf(metrics.signups)}
-          hint={`${nf(metrics.signupsLast7d)} laatste 7d · ${nf(metrics.signupsLast30d)} laatste 30d`}
-          tone="success"
+          label="Berichten users (7d)"
+          value={nf(metrics.messagesUsers7d)}
         />
         <StatCard
-          label="Chattende users"
-          value={nf(metrics.chatters)}
-          hint={`${nf(metrics.totalUserMessages)} berichten verstuurd`}
-        />
-        <StatCard
-          label="Betalende klanten"
-          value={nf(metrics.payingUsers)}
-          hint="Minstens 1 credit-pack gekocht"
-          tone="warn"
-        />
-        <StatCard
-          label="Unieke betaal-klikkers"
-          value={nf(metrics.checkoutClickers)}
-          hint={`${nf(metrics.checkoutClicks)} totale kliks · ${nf(metrics.checkoutClicksLast7d)} laatste 7d`}
-          tone="primary"
-        />
-        <StatCard
-          label="Voltooide aankopen"
-          value={nf(metrics.paidPurchases)}
-          hint={`${nf(metrics.paidPurchasesLast7d)} laatste 7d · klik → koop ${pctLabel(pct(metrics.paidPurchases, metrics.checkoutClicks))}`}
-          tone="success"
-        />
-        <StatCard
-          label="Berichten per sign-up"
-          value={nf(metrics.avgMessagesPerSignup, 1)}
-          hint="Gemiddeld over alle accounts"
-        />
-        <StatCard
-          label="Credits saldo (totaal)"
-          value={nf(metrics.creditsBalanceTotal)}
-          hint={`Gem. ${nf(metrics.signups > 0 ? metrics.creditsBalanceTotal / metrics.signups : 0, 1)} per account · ${nf(metrics.creditsCreditedTotal)} ooit toegekend`}
-          tone="primary"
-        />
-        <StatCard
-          label="Credits gebruikt per sign-up"
-          value={nf(metrics.avgCreditsSpentPerSignup, 0)}
-          hint={`${nf(metrics.avgCreditsSpentPerChatter, 0)} gem. per chattende user · totaal ${nf(metrics.creditsSpentTotal)} uitgegeven`}
-          tone="warn"
-        />
-        <StatCard
-          label="Bezoekers → sign-up"
-          value={nf(metrics.visitorsConvertedToSignup)}
-          hint="Met visitor-cookie gekoppeld"
-        />
-        <StatCard
-          label="Bezoekers → chat"
-          value={nf(metrics.visitorsConvertedToChat)}
-          hint="Bezoekers die ook chatten"
+          label="Berichten totaal (7d)"
+          value={nf(metrics.messagesTotal7d)}
         />
       </section>
 
-      <section className="mb-8 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
-        <header className="border-b border-black/5 px-5 py-4">
-          <h2 className="text-sm font-semibold tracking-tight text-gray-900">
-            Conversie funnel
-          </h2>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Bezoeker → sign-up → eerste chat → betalende klant.
-          </p>
-        </header>
-        <ul className="divide-y divide-black/5">
-          <FunnelRow
-            label="Bezoeker → sign-up"
-            num={metrics.visitorsConvertedToSignup}
-            denom={metrics.visitors}
-            hint="Cookies sinds tracking aanstond"
-          />
-          <FunnelRow
-            label="Bezoeker → chat"
-            num={metrics.visitorsConvertedToChat}
-            denom={metrics.visitors}
-            hint="Visitor die ook chatte"
-          />
-          <FunnelRow
-            label="Sign-up → chat"
-            num={metrics.chatters}
-            denom={metrics.signups}
-            hint="Account met ≥1 verzonden bericht"
-          />
-          <FunnelRow
-            label="Sign-up → betalende klant"
-            num={metrics.payingUsers}
-            denom={metrics.signups}
-            hint="Account met ≥1 credit-pack aankoop"
-          />
-          <FunnelRow
-            label="Sign-up → klikte op Betaal"
-            num={metrics.checkoutClickers}
-            denom={metrics.signups}
-            hint="Unieke users die minstens 1× op Betaal klikten"
-          />
-          <FunnelRow
-            label="Betaal-klikker → betaalde klant"
-            num={metrics.payingUsers}
-            denom={metrics.checkoutClickers}
-            hint="Van de mensen die klikten — hoeveel rondden af"
-          />
-          <FunnelRow
-            label="Klik op Betaal → voltooide aankoop"
-            num={metrics.paidPurchases}
-            denom={metrics.checkoutClicks}
-            hint="Per losse klik (incl. herhalingen door dezelfde user)"
-          />
-        </ul>
-      </section>
-
-      <section className="mb-8 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
-        <header className="border-b border-black/5 px-5 py-4">
-          <h2 className="text-sm font-semibold tracking-tight text-gray-900">
-            Retentie
-          </h2>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Van de users die al lang genoeg een account hebben — hoeveel
-            stuurden ≥ N dagen ná hun signup nog een bericht?
-          </p>
-        </header>
-        <ul className="divide-y divide-black/5">
-          {metrics.retention.map((r) => (
-            <FunnelRow
-              key={r.days}
-              label={`D${r.days} retentie`}
-              num={r.retained}
-              denom={r.eligible}
-              hint={
-                r.eligible === 0
-                  ? "Nog geen accounts ouder dan deze periode"
-                  : `Cohort: accounts ≥ ${r.days} dag${r.days === 1 ? "" : "en"} oud`
-              }
-            />
-          ))}
-        </ul>
-      </section>
-
-      <section className="mb-8 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
-        <header className="border-b border-black/5 px-5 py-4">
-          <h2 className="text-sm font-semibold tracking-tight text-gray-900">
-            Funnel doorloop — per stap
-          </h2>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Unieke bezoekers per onboarding-stap. Drop-off is het verschil
-            met de vorige stap.
-          </p>
-        </header>
-        <ul className="divide-y divide-black/5">
-          {metrics.funnelSteps.map((s, i) => {
-            const base = metrics.funnelSteps[0]?.visitors ?? 0;
-            const prev = i > 0 ? metrics.funnelSteps[i - 1].visitors : null;
-            const dropoff =
-              prev !== null && prev > 0 ? Math.max(0, prev - s.visitors) : 0;
-            const dropoffPct =
-              prev !== null && prev > 0 ? (dropoff / prev) * 100 : 0;
-            const reachPct = base > 0 ? (s.visitors / base) * 100 : 0;
-            return (
-              <li key={s.step} className="px-4 py-3 sm:px-5 sm:py-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                  <div className="flex items-start gap-3 sm:contents">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-gray-600">
-                      {s.step}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900">
-                        {s.label}
-                      </p>
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {prev === null
-                          ? "Startpunt van de funnel"
-                          : dropoff > 0
-                            ? `−${nf(dropoff)} bezoeker${dropoff === 1 ? "" : "s"} (${pctLabel(dropoffPct)} drop-off)`
-                            : "Niemand viel hier af"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:shrink-0">
-                    <div className="h-2 w-full max-w-[10rem] flex-1 overflow-hidden rounded-full bg-gray-100 sm:w-40 sm:flex-none">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-primary to-pink-400"
-                        style={{ width: `${Math.min(100, reachPct)}%` }}
-                      />
-                    </div>
-                    <div className="w-16 text-right text-sm font-semibold tabular-nums text-gray-900 sm:w-20">
-                      {pctLabel(reachPct)}
-                    </div>
-                    <div className="w-full text-right text-xs tabular-nums text-gray-500 sm:w-24">
-                      {nf(s.visitors)} bezoekers
-                    </div>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      <p className="text-[11px] text-gray-400">
-        Bezoekers worden geteld via een UUID in localStorage; geen
-        persoonsgegevens, geen externe trackers.
-      </p>
+      <MetricsPeriodTable
+        months={metrics.periodMonths}
+        totals={{
+          revenueCents: metrics.revenueCents,
+          users: metrics.users,
+          purchases: metrics.purchases,
+        }}
+        variant={variant}
+        since={metrics.metricsSince}
+      />
     </>
   );
 }

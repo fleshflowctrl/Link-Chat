@@ -8,6 +8,17 @@ function nf(n: number, digits = 0): string {
   });
 }
 
+function euro(cents: number): string {
+  return `€ ${(cents / 100).toLocaleString("nl-NL", {
+    minimumFractionDigits: digits(cents),
+    maximumFractionDigits: digits(cents),
+  })}`;
+}
+
+function digits(cents: number): number {
+  return cents % 100 === 0 ? 0 : 2;
+}
+
 function formatTs(iso: string | null): string {
   if (!iso) return "begin";
   try {
@@ -24,61 +35,29 @@ type Row = {
   label: string;
   get: (m: AdminMetrics) => number;
   digits?: number;
-  /** Higher is better (true) or lower is better (false) for delta coloring. */
+  format?: (n: number) => string;
   higherBetter?: boolean;
 };
 
 const ROWS: Array<Row | "group" | string> = [
-  "Bereik",
-  { label: "Website bezoekers", get: (m) => m.visitors },
-  { label: "Sign-ups", get: (m) => m.signups },
-  { label: "Chattende users", get: (m) => m.chatters },
-  { label: "Berichten verstuurd", get: (m) => m.totalUserMessages },
-  { label: "Berichten per sign-up", get: (m) => m.avgMessagesPerSignup, digits: 1 },
-
-  "Betalingen",
-  { label: "Betalende klanten", get: (m) => m.payingUsers },
-  { label: "Unieke betaal-klikkers", get: (m) => m.checkoutClickers },
-  { label: "Totale Betaal-kliks", get: (m) => m.checkoutClicks },
-  { label: "Voltooide aankopen", get: (m) => m.paidPurchases },
-
-  "Credits",
-  { label: "Credits gebruikt totaal", get: (m) => m.creditsSpentTotal },
-  { label: "Gem. credits per sign-up", get: (m) => m.avgCreditsSpentPerSignup },
-  { label: "Gem. credits per chatter", get: (m) => m.avgCreditsSpentPerChatter },
-
-  "Visitor → conversie",
-  { label: "Bezoeker → sign-up", get: (m) => m.visitorsConvertedToSignup },
-  { label: "Bezoeker → chat", get: (m) => m.visitorsConvertedToChat },
-
-  "Retentie",
+  "Kern",
+  { label: "Users", get: (m) => m.users },
+  { label: "Gesprekken", get: (m) => m.conversations },
+  { label: "Open chats", get: (m) => m.openChats },
+  { label: "Aankopen", get: (m) => m.purchases },
   {
-    label: "D1 retentie",
-    get: (m) => {
-      const r = m.retention.find((x) => x.days === 1);
-      if (!r || r.eligible === 0) return 0;
-      return (r.retained / r.eligible) * 100;
-    },
-    digits: 1,
+    label: "Omzet totaal",
+    get: (m) => m.revenueCents,
+    format: (n) => euro(n),
   },
   {
-    label: "D7 retentie",
-    get: (m) => {
-      const r = m.retention.find((x) => x.days === 7);
-      if (!r || r.eligible === 0) return 0;
-      return (r.retained / r.eligible) * 100;
-    },
-    digits: 1,
+    label: "Credits verkocht",
+    get: (m) => m.creditsSold,
   },
-  {
-    label: "D30 retentie",
-    get: (m) => {
-      const r = m.retention.find((x) => x.days === 30);
-      if (!r || r.eligible === 0) return 0;
-      return (r.retained / r.eligible) * 100;
-    },
-    digits: 1,
-  },
+  "Berichten (7d)",
+  { label: "Profiel", get: (m) => m.messagesProfile7d },
+  { label: "Users", get: (m) => m.messagesUsers7d },
+  { label: "Totaal", get: (m) => m.messagesTotal7d },
 ];
 
 function deltaTone(
@@ -128,17 +107,6 @@ export function MetricsCompare({
         </div>
       </div>
 
-      <div className="border-b border-black/5 bg-gray-50/80 px-4 py-3 text-[11px] font-semibold text-gray-500 sm:hidden">
-        <p className="truncate">
-          <span className="uppercase tracking-wider">A · </span>
-          <span className="font-bold text-gray-700">{labelA}</span>
-        </p>
-        <p className="mt-0.5 truncate">
-          <span className="uppercase tracking-wider">B · </span>
-          <span className="font-bold text-gray-700">{labelB}</span>
-        </p>
-      </div>
-
       <div>
         {ROWS.map((row, i) => {
           if (typeof row === "string") {
@@ -160,44 +128,22 @@ export function MetricsCompare({
               : tone === "bad"
                 ? "text-red-700"
                 : "text-gray-400";
+          const fmt = row.format ?? ((n: number) => nf(n, row.digits ?? 0));
 
           return (
             <div
               key={row.label}
               className="border-t border-black/[0.04] px-4 py-3 text-sm sm:grid sm:grid-cols-[1.4fr_repeat(3,_1fr)] sm:items-baseline sm:gap-0 sm:px-5 sm:py-2.5"
             >
-              {/* Mobile layout: label on one line, A | Δ | B on the next. */}
-              <div className="text-gray-700 sm:text-gray-700">{row.label}</div>
-
-              <div className="mt-1 flex items-baseline justify-between gap-3 sm:contents">
-                <div className="flex flex-col items-start sm:contents">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:hidden">
-                    A
-                  </span>
-                  <span className="font-semibold tabular-nums text-gray-900">
-                    {nf(va, row.digits ?? 0)}
-                  </span>
-                </div>
-
-                <div className="flex flex-col items-center sm:contents">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:hidden">
-                    Δ
-                  </span>
-                  <span
-                    className={`text-center font-medium tabular-nums ${toneClass}`}
-                  >
-                    {formatDelta(va, vb, row.digits ?? 0)}
-                  </span>
-                </div>
-
-                <div className="flex flex-col items-end sm:contents">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 sm:hidden">
-                    B
-                  </span>
-                  <span className="font-semibold tabular-nums text-gray-900">
-                    {nf(vb, row.digits ?? 0)}
-                  </span>
-                </div>
+              <div className="text-gray-700">{row.label}</div>
+              <div className="mt-1 font-semibold tabular-nums text-gray-900 sm:mt-0">
+                {fmt(va)}
+              </div>
+              <div className={`font-medium tabular-nums ${toneClass}`}>
+                {formatDelta(va, vb, row.digits ?? 0)}
+              </div>
+              <div className="font-semibold tabular-nums text-gray-900">
+                {fmt(vb)}
               </div>
             </div>
           );

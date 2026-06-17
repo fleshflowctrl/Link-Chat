@@ -12,8 +12,6 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Camera,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Heart,
@@ -39,6 +37,8 @@ import {
 } from "@/lib/me/profile-completeness";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { appVariantFetchHeaders } from "@/lib/app-variant";
+import { CreditsPill } from "@/components/ui/credits-pill";
+import { SignOutButton } from "@/components/me/sign-out-button";
 import { getEditProfileUi } from "@/lib/me/edit-profile-styles";
 
 const BIO_MAX = 280;
@@ -54,11 +54,14 @@ function clone<T>(x: T): T {
 type EditProfileViewProps = {
   initialProfile: EditProfileState;
   syncToken: string;
+  /** Bottom-nav `/me` tab — no back button, profile-first header. */
+  isTabRoot?: boolean;
 };
 
 export function EditProfileView({
   initialProfile,
   syncToken,
+  isTabRoot = false,
 }: EditProfileViewProps) {
   const router = useRouter();
   const { variant } = useAppVariant();
@@ -111,8 +114,6 @@ export function EditProfileView({
   );
   const [lookingOpen, setLookingOpen] = useState(false);
   const [interestsOpen, setInterestsOpen] = useState(false);
-  const [prefsOpen, setPrefsOpen] = useState(true);
-
   useEffect(() => {
     const snap = clone(initialProfile);
     setState(snap);
@@ -404,22 +405,30 @@ export function EditProfileView({
 
   return (
     <div className="pb-10">
-      <header className="flex items-center justify-between gap-2 px-4 py-3 pt-3">
-        <button
-          type="button"
-          onClick={() => void handleBack()}
-          disabled={saving}
-          className={ui.backBtn}
-          aria-label="Terug"
-        >
-          <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
-        </button>
-        <h1 className="flex-1 text-center text-lg font-bold text-ink">
-          Profiel bewerken
-        </h1>
-        {/* Spacer to balance the back button so the title stays centered. */}
-        <div className="h-11 w-11 shrink-0" aria-hidden />
-      </header>
+      {isTabRoot ? (
+        <header className="flex items-start justify-between gap-3 px-5 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
+          <h1 className="text-[28px] font-bold leading-tight tracking-tight text-ink">
+            Profiel
+          </h1>
+          <CreditsPill />
+        </header>
+      ) : (
+        <header className="flex items-center justify-between gap-2 px-4 py-3 pt-3">
+          <button
+            type="button"
+            onClick={() => void handleBack()}
+            disabled={saving}
+            className={ui.backBtn}
+            aria-label="Terug"
+          >
+            <ChevronLeft className="h-6 w-6" strokeWidth={2.25} />
+          </button>
+          <h1 className="flex-1 text-center text-lg font-bold text-ink">
+            Profiel bewerken
+          </h1>
+          <div className="h-11 w-11 shrink-0" aria-hidden />
+        </header>
+      )}
 
       <div id="section-photo" className="flex flex-col items-center px-5 pt-1">
         <div className="relative">
@@ -441,14 +450,6 @@ export function EditProfileView({
               )}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => mainInputRef.current?.click()}
-            className={ui.cameraBtn}
-            aria-label="Foto wijzigen"
-          >
-            <Camera className="h-[18px] w-[18px]" strokeWidth={2} />
-          </button>
           <input
             ref={mainInputRef}
             type="file"
@@ -667,73 +668,7 @@ export function EditProfileView({
       </section>
 
       <section className="mt-5 px-5">
-        <button
-          type="button"
-          onClick={() => setPrefsOpen((o) => !o)}
-          className={ui.cardFlat}
-        >
-          <span className="text-[15px] font-bold text-ink">Voorkeuren</span>
-          <ChevronDown
-            className={`h-5 w-5 text-ink/40 transition ${prefsOpen ? "rotate-180" : ""}`}
-          />
-        </button>
-        <AnimatePresence>
-          {prefsOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <div className={`mt-2 ${ui.card}`}>
-                <ToggleRow
-                  label="Toon mijn afstand"
-                  checked={state.preferences.showDistance}
-                  onChange={(v) =>
-                    setState((s) => ({
-                      ...s,
-                      preferences: { ...s.preferences, showDistance: v },
-                    }))
-                  }
-                />
-                <div className={ui.divider} />
-                <ToggleRow
-                  label="Toon onlinestatus"
-                  checked={state.preferences.showOnlineStatus}
-                  onChange={(v) =>
-                    setState((s) => ({
-                      ...s,
-                      preferences: { ...s.preferences, showOnlineStatus: v },
-                    }))
-                  }
-                />
-                <div className={ui.divider} />
-                <ToggleRow
-                  label="Sta nieuwe chatverzoeken toe"
-                  checked={state.preferences.allowNewChatRequests}
-                  onChange={(v) =>
-                    setState((s) => ({
-                      ...s,
-                      preferences: { ...s.preferences, allowNewChatRequests: v },
-                    }))
-                  }
-                />
-                <div className={ui.divider} />
-                <ToggleRow
-                  label="Pushmeldingen"
-                  checked={state.preferences.pushNotifications}
-                  onChange={(v) =>
-                    setState((s) => ({
-                      ...s,
-                      preferences: { ...s.preferences, pushNotifications: v },
-                    }))
-                  }
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div className="mt-6 space-y-3 px-1">
+        <div className="space-y-3 px-1">
           <button
             type="button"
             className="text-left text-[13px] font-medium text-inkMuted underline-offset-2 hover:underline"
@@ -751,6 +686,12 @@ export function EditProfileView({
           </button>
         </div>
       </section>
+
+      {isTabRoot && (
+        <div className="mt-8 flex flex-col items-center px-5 pb-8">
+          <SignOutButton />
+        </div>
+      )}
 
       <AnimatePresence>
         {toast && (
@@ -852,40 +793,6 @@ function FieldRow({
         {label}
       </p>
       <div className="mt-0.5">{children}</div>
-    </div>
-  );
-}
-
-function ToggleRow({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  const { variant } = useAppVariant();
-  const isV2 = variant === "v2";
-
-  return (
-    <div className="flex min-h-[44px] items-center justify-between gap-3 px-4 py-2">
-      <span className="text-[14px] font-semibold text-ink">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative h-8 w-[52px] shrink-0 rounded-full transition-colors ${
-          checked ? "bg-primary" : isV2 ? "bg-white/15" : "bg-ink/15"
-        }`}
-      >
-        <span
-          className={`absolute left-1 top-1 h-6 w-6 rounded-full shadow transition-transform ${
-            isV2 ? "bg-[#E8E8E8]" : "bg-white"
-          } ${checked ? "translate-x-[22px]" : "translate-x-0"}`}
-        />
-      </button>
     </div>
   );
 }

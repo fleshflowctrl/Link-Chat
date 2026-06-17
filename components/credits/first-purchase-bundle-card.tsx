@@ -5,8 +5,10 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { CreditPackage } from "@/data/credits";
 import { CreditPrice } from "@/components/credits/credit-price";
-import { bundleTotalUnits, bundleUnits } from "@/lib/credits/copy";
-import { POINTS_PER_MESSAGE } from "@/lib/credits/pricing";
+import {
+  bundleMessagesTotalLabel,
+  bundleMessagesLabel,
+} from "@/lib/credits/copy";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 
@@ -18,7 +20,6 @@ type Props = {
 export function FirstPurchaseBundleCard({ pkg, className }: Props) {
   const { variant } = useAppVariant();
   const href = withVariantPath(`/credits/checkout/${pkg.id}`, variant);
-  const messageCount = Math.floor((pkg.credits + pkg.bonus) / POINTS_PER_MESSAGE);
 
   return (
     <section className={className}>
@@ -53,15 +54,15 @@ export function FirstPurchaseBundleCard({ pkg, className }: Props) {
                   {pkg.bundleLabel}
                 </span>
                 <p className="mt-2 text-[22px] font-extrabold leading-none tracking-tight text-white">
-                  {bundleTotalUnits(pkg.credits, pkg.bonus)}
+                  {bundleMessagesTotalLabel(pkg.credits, pkg.bonus)}
                 </p>
                 {pkg.bonus > 0 ? (
                   <p className="mt-1 text-[11px] font-medium text-white/55">
-                    {bundleUnits(pkg.credits)} + bonus
+                    {bundleMessagesLabel(pkg.credits)} + extra
                   </p>
                 ) : null}
                 <p className="mt-1 text-[12px] font-semibold leading-snug text-[#E8A8A7]">
-                  {messageCount.toLocaleString("nl-NL")} berichten · alleen bij je eerste koop
+                  {pkg.bundleDescription}
                 </p>
               </div>
               <ChevronRight

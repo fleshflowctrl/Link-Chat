@@ -1,16 +1,13 @@
-import { MeProfileView } from "@/components/me/me-profile-view";
+import { EditProfileView } from "@/components/me/edit-profile-view";
 import { fetchUserEditProfileServer } from "@/lib/me/server-profile";
 
 export default async function MePage() {
-  const { profile, syncToken, stats, showVerified, isAdmin } =
-    await fetchUserEditProfileServer();
+  const { profile, syncToken } = await fetchUserEditProfileServer();
   return (
-    <MeProfileView
+    <EditProfileView
       initialProfile={profile}
       syncToken={syncToken}
-      stats={stats}
-      showVerified={showVerified}
-      isAdmin={isAdmin}
+      isTabRoot
     />
   );
 }

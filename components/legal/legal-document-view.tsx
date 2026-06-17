@@ -23,6 +23,9 @@ export function LegalDocumentView({ doc }: { doc: LegalDocument }) {
           <Link href={LEGAL_PATHS.cookies} className="text-primary underline-offset-2 hover:underline">
             Cookies
           </Link>
+          <Link href={LEGAL_PATHS.refund} className="text-primary underline-offset-2 hover:underline">
+            Refund &amp; billing
+          </Link>
         </nav>
       </header>
 

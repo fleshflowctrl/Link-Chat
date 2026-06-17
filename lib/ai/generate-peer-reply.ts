@@ -42,6 +42,7 @@ import {
   type PersonaSelfFacts,
 } from "@/lib/ai/persona-self-memory";
 import { refreshUserChatPersonaIfNeeded } from "@/lib/ai/user-cross-chat-profile";
+import type { UserChatPersonaRow } from "@/lib/ai/user-cross-chat-profile";
 import {
   endsWithQuestion,
   hasEmoji,
@@ -71,6 +72,7 @@ import { computeEnergy, getHourInTimeZone } from "@/lib/ai/energy-curve";
 import {
   isDraftReviseEnabled,
   reviseDraftIfWorthIt,
+  reviseDraftLight,
 } from "@/lib/ai/draft-revise";
 import { getBedtimeContext } from "@/lib/ai/bedtime";
 import { getWorkContext } from "@/lib/ai/work-schedule";
@@ -367,7 +369,181 @@ export type GeneratePeerReplyOptions = {
   skipMemoryPersistence?: boolean;
   /** Operator inbox / AI auto — warmer length + smart follow-up questions */
   operatorSuggestMode?: boolean;
+  /** Skip memory refresh when operator batch already prepared context once. */
+  preloadedMemory?: PreloadedReplyMemory;
+  /** Cheaper draft-revise without resending the full system prompt. */
+  lightDraftRevise?: boolean;
+  maxOutputTokens?: number;
 };
+
+export type PreloadedReplyMemory = {
+  memory: ThreadMemoryRow;
+  structured: StructuredMemoryRow;
+  userCrossChatProfile: UserChatPersonaRow | null;
+  personaSelfMem: PersonaSelfMemoryRow;
+};
+
+type MemoryRow = {
+  summary?: string;
+  prefix_messages_count?: number;
+  structured_facts?: unknown;
+  persona_self_facts?: unknown;
+};
+
+function parseMemoryRow(m: MemoryRow | null): {
+  prevMemory: ThreadMemoryRow | null;
+  prevStructured: StructuredMemoryRow | null;
+  prevSelfMemory: PersonaSelfMemoryRow | null;
+} {
+  const prevMemory: ThreadMemoryRow | null =
+    m && typeof m.summary === "string" && typeof m.prefix_messages_count === "number"
+      ? { summary: m.summary, prefix_messages_count: m.prefix_messages_count }
+      : null;
+  const prevStructured: StructuredMemoryRow | null = (() => {
+    if (!m || !m.structured_facts || typeof m.structured_facts !== "object") {
+      return null;
+    }
+    const facts = m.structured_facts as StructuredFacts;
+    const sfPrefix =
+      typeof (facts as Record<string, unknown>).__prefix === "number"
+        ? ((facts as Record<string, unknown>).__prefix as number)
+        : 0;
+    const cleanFacts: StructuredFacts = { ...facts };
+    delete (cleanFacts as Record<string, unknown>).__prefix;
+    return { facts: cleanFacts, prefix_messages_count: sfPrefix };
+  })();
+  const prevSelfMemory: PersonaSelfMemoryRow | null = (() => {
+    if (!m || !m.persona_self_facts || typeof m.persona_self_facts !== "object") {
+      return null;
+    }
+    const facts = m.persona_self_facts as PersonaSelfFacts & { __prefix?: number };
+    const pfx = typeof facts.__prefix === "number" ? facts.__prefix : 0;
+    const clean: PersonaSelfFacts = { self_claims: facts.self_claims };
+    return { facts: clean, prefix_messages_count: pfx };
+  })();
+  return { prevMemory, prevStructured, prevSelfMemory };
+}
+
+async function persistReplyMemory(
+  supabase: SupabaseClient,
+  args: {
+    ownerUserId: string;
+    peerId: string;
+    memory: ThreadMemoryRow;
+    structured: StructuredMemoryRow;
+    personaSelfMem: PersonaSelfMemoryRow;
+  },
+): Promise<void> {
+  const memoryUpsertBase = {
+    owner_user_id: args.ownerUserId,
+    peer_id: args.peerId,
+    summary: args.memory.summary,
+    prefix_messages_count: args.memory.prefix_messages_count,
+    updated_at: new Date().toISOString(),
+  };
+  const { error: memUpsertErr } = await supabase
+    .from("chat_ai_thread_memory")
+    .upsert(
+      {
+        ...memoryUpsertBase,
+        structured_facts: {
+          ...args.structured.facts,
+          __prefix: args.structured.prefix_messages_count,
+        },
+        persona_self_facts: {
+          ...args.personaSelfMem.facts,
+          __prefix: args.personaSelfMem.prefix_messages_count,
+        },
+      },
+      { onConflict: "owner_user_id,peer_id" },
+    );
+  if (memUpsertErr && /persona_self_facts/i.test(memUpsertErr.message)) {
+    console.warn(
+      "[generate-peer-reply] persona_self_facts column missing — apply 20260516200000_chat_realism_v2.sql",
+    );
+    const { error: retryErr } = await supabase
+      .from("chat_ai_thread_memory")
+      .upsert(
+        {
+          ...memoryUpsertBase,
+          structured_facts: {
+            ...args.structured.facts,
+            __prefix: args.structured.prefix_messages_count,
+          },
+        },
+        { onConflict: "owner_user_id,peer_id" },
+      );
+    if (retryErr && /structured_facts/i.test(retryErr.message)) {
+      await supabase
+        .from("chat_ai_thread_memory")
+        .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
+    } else if (retryErr) {
+      console.warn("[generate-peer-reply] memory upsert (v2 retry)", retryErr.message);
+    }
+  } else if (memUpsertErr && /structured_facts/i.test(memUpsertErr.message)) {
+    console.warn(
+      "[generate-peer-reply] structured_facts column missing — falling back to prose-only memory",
+    );
+    await supabase
+      .from("chat_ai_thread_memory")
+      .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
+  } else if (memUpsertErr) {
+    console.warn("[generate-peer-reply] memory upsert", memUpsertErr.message);
+  }
+}
+
+/** Load + refresh thread memory once (shared by operator suggestion batches). */
+export async function prepareReplyMemoryContext(
+  supabase: SupabaseClient,
+  args: {
+    history: ChatMessageRow[];
+    ownerUserId: string;
+    peerId: string;
+    profile: ChatProfileRow;
+    persist?: boolean;
+  },
+): Promise<PreloadedReplyMemory> {
+  const { data: memRow } = await supabase
+    .from("chat_ai_thread_memory")
+    .select("*")
+    .eq("peer_id", args.peerId)
+    .eq("owner_user_id", args.ownerUserId)
+    .maybeSingle();
+
+  const { prevMemory, prevStructured, prevSelfMemory } = parseMemoryRow(
+    (memRow ?? null) as MemoryRow | null,
+  );
+
+  const [memory, structured, userCrossChatProfile, personaSelfMem] = await Promise.all([
+    refreshThreadSummaryIfNeeded(args.history, prevMemory).catch((): ThreadMemoryRow => ({
+      summary: prevMemory?.summary ?? "",
+      prefix_messages_count: prevMemory?.prefix_messages_count ?? 0,
+    })),
+    refreshStructuredMemoryIfNeeded(args.history, prevStructured, {
+      refreshDelta: isV2ChatProfile(args.profile)
+        ? V2_STRUCTURED_MEMORY_REFRESH_DELTA
+        : undefined,
+    }).catch(
+      (): StructuredMemoryRow => prevStructured ?? { facts: {}, prefix_messages_count: 0 },
+    ),
+    refreshUserChatPersonaIfNeeded(supabase, args.ownerUserId).catch(() => null),
+    refreshPersonaSelfMemoryIfNeeded(args.history, prevSelfMemory).catch(
+      (): PersonaSelfMemoryRow => prevSelfMemory ?? { facts: {}, prefix_messages_count: 0 },
+    ),
+  ]);
+
+  if (args.persist !== false) {
+    await persistReplyMemory(supabase, {
+      ownerUserId: args.ownerUserId,
+      peerId: args.peerId,
+      memory,
+      structured,
+      personaSelfMem,
+    });
+  }
+
+  return { memory, structured, userCrossChatProfile, personaSelfMem };
+}
 
 /**
  * Run the full generate-and-persist pipeline. Returns success with the
@@ -409,138 +585,26 @@ export async function generatePeerReply(
     };
   }
 
-  // ----- Prose summary (legacy thread memory) -----
-  // select("*") so envs missing the structured_facts column (migration
-  // 20260515110000_chat_realism_foundation.sql) still resolve — the row
-  // just won't carry that field and prevStructured falls back to null.
-  const { data: memRow } = await supabase
-    .from("chat_ai_thread_memory")
-    .select("*")
-    .eq("peer_id", args.peerId)
-    .eq("owner_user_id", args.ownerUserId)
-    .maybeSingle();
+  let memory: ThreadMemoryRow;
+  let structured: StructuredMemoryRow;
+  let userCrossChatProfile: UserChatPersonaRow | null;
+  let personaSelfMem: PersonaSelfMemoryRow;
 
-  type Row = {
-    summary?: string;
-    prefix_messages_count?: number;
-    structured_facts?: unknown;
-    persona_self_facts?: unknown;
-  };
-  const m = (memRow ?? null) as Row | null;
-  const prevMemory: ThreadMemoryRow | null =
-    m && typeof m.summary === "string" && typeof m.prefix_messages_count === "number"
-      ? { summary: m.summary, prefix_messages_count: m.prefix_messages_count }
-      : null;
-  const prevStructured: StructuredMemoryRow | null = (() => {
-    if (!m || !m.structured_facts || typeof m.structured_facts !== "object") {
-      return null;
-    }
-    const facts = m.structured_facts as StructuredFacts;
-    // We track the structured-memory's own prefix_messages_count in the
-    // structured_facts blob itself so the two memory systems can refresh
-    // independently.
-    const sfPrefix =
-      typeof (facts as Record<string, unknown>).__prefix === "number"
-        ? ((facts as Record<string, unknown>).__prefix as number)
-        : 0;
-    const cleanFacts: StructuredFacts = { ...facts };
-    delete (cleanFacts as Record<string, unknown>).__prefix;
-    return { facts: cleanFacts, prefix_messages_count: sfPrefix };
-  })();
-  const prevSelfMemory: PersonaSelfMemoryRow | null = (() => {
-    if (!m || !m.persona_self_facts || typeof m.persona_self_facts !== "object") {
-      return null;
-    }
-    const facts = m.persona_self_facts as PersonaSelfFacts & { __prefix?: number };
-    const pfx = typeof facts.__prefix === "number" ? facts.__prefix : 0;
-    const clean: PersonaSelfFacts = { self_claims: facts.self_claims };
-    return { facts: clean, prefix_messages_count: pfx };
-  })();
-
-  // Refresh all four in parallel — prose summary is cheap (only fires on
-  // long threads), structured memory fires every ~12 new messages, the
-  // cross-conversation user profile fires every ~8 new user messages
-  // across all his threads, and persona self-memory fires every ~10 new
-  // persona messages.
-  const [memory, structured, userCrossChatProfile, personaSelfMem] = await Promise.all([
-    refreshThreadSummaryIfNeeded(args.history, prevMemory).catch((): ThreadMemoryRow => ({
-      summary: prevMemory?.summary ?? "",
-      prefix_messages_count: prevMemory?.prefix_messages_count ?? 0,
-    })),
-    refreshStructuredMemoryIfNeeded(args.history, prevStructured, {
-      refreshDelta: isV2ChatProfile(args.profile)
-        ? V2_STRUCTURED_MEMORY_REFRESH_DELTA
-        : undefined,
-    }).catch(
-      (): StructuredMemoryRow => prevStructured ?? { facts: {}, prefix_messages_count: 0 },
-    ),
-    refreshUserChatPersonaIfNeeded(supabase, args.ownerUserId).catch(() => null),
-    refreshPersonaSelfMemoryIfNeeded(args.history, prevSelfMemory).catch(
-      (): PersonaSelfMemoryRow => prevSelfMemory ?? { facts: {}, prefix_messages_count: 0 },
-    ),
-  ]);
-
-  // Try to write both prose summary and structured facts. If the
-  // structured_facts column doesn't exist yet (migration not applied),
-  // retry without it so we at least keep the prose memory working.
-  const memoryUpsertBase = {
-    owner_user_id: args.ownerUserId,
-    peer_id: args.peerId,
-    summary: memory.summary,
-    prefix_messages_count: memory.prefix_messages_count,
-    updated_at: new Date().toISOString(),
-  };
-  if (!args.options?.skipMemoryPersistence) {
-    const { error: memUpsertErr } = await supabase
-      .from("chat_ai_thread_memory")
-      .upsert(
-        {
-          ...memoryUpsertBase,
-          structured_facts: {
-            ...structured.facts,
-            __prefix: structured.prefix_messages_count,
-          },
-          persona_self_facts: {
-            ...personaSelfMem.facts,
-            __prefix: personaSelfMem.prefix_messages_count,
-          },
-        },
-        { onConflict: "owner_user_id,peer_id" },
-      );
-    if (memUpsertErr && /persona_self_facts/i.test(memUpsertErr.message)) {
-      // persona_self_facts column missing — retry without it.
-      console.warn(
-        "[generate-peer-reply] persona_self_facts column missing — apply 20260516200000_chat_realism_v2.sql",
-      );
-      const { error: retryErr } = await supabase
-        .from("chat_ai_thread_memory")
-        .upsert(
-          {
-            ...memoryUpsertBase,
-            structured_facts: {
-              ...structured.facts,
-              __prefix: structured.prefix_messages_count,
-            },
-          },
-          { onConflict: "owner_user_id,peer_id" },
-        );
-      if (retryErr && /structured_facts/i.test(retryErr.message)) {
-        await supabase
-          .from("chat_ai_thread_memory")
-          .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
-      } else if (retryErr) {
-        console.warn("[generate-peer-reply] memory upsert (v2 retry)", retryErr.message);
-      }
-    } else if (memUpsertErr && /structured_facts/i.test(memUpsertErr.message)) {
-      console.warn(
-        "[generate-peer-reply] structured_facts column missing — falling back to prose-only memory; apply 20260515110000_chat_realism_foundation.sql",
-      );
-      await supabase
-        .from("chat_ai_thread_memory")
-        .upsert(memoryUpsertBase, { onConflict: "owner_user_id,peer_id" });
-    } else if (memUpsertErr) {
-      console.warn("[generate-peer-reply] memory upsert", memUpsertErr.message);
-    }
+  if (args.options?.preloadedMemory) {
+    ({ memory, structured, userCrossChatProfile, personaSelfMem } =
+      args.options.preloadedMemory);
+  } else {
+    const loaded = await prepareReplyMemoryContext(supabase, {
+      history: args.history,
+      ownerUserId: args.ownerUserId,
+      peerId: args.peerId,
+      profile: args.profile,
+      persist: !args.options?.skipMemoryPersistence,
+    });
+    memory = loaded.memory;
+    structured = loaded.structured;
+    userCrossChatProfile = loaded.userCrossChatProfile;
+    personaSelfMem = loaded.personaSelfMem;
   }
 
   // Safer memory: older turns → prose summary in prompt; recent → verbatim in tail.
@@ -861,7 +925,11 @@ export async function generatePeerReply(
   // ----- Grok call -----
   let grok: Awaited<ReturnType<typeof grokResponsesComplete>>;
   try {
-    grok = await grokResponsesComplete(input);
+    grok = await grokResponsesComplete(input, {
+      maxOutputTokens:
+        args.options?.maxOutputTokens ??
+        (args.options?.operatorSuggestMode ? 400 : undefined),
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     grok = { ok: false as const, error: msg };
@@ -891,7 +959,9 @@ export async function generatePeerReply(
 
   if (!v2BlankSlate && !isFollowUp && (isDraftReviseEnabled() || args.options?.forceDraftRevise)) {
     try {
-      const r = await reviseDraftIfWorthIt(draftText, systemContent);
+      const r = args.options?.lightDraftRevise
+        ? await reviseDraftLight(draftText, args.profile.display_name)
+        : await reviseDraftIfWorthIt(draftText, systemContent);
       draftText = r.text;
       revised = r.revised;
       turnDebug.afterDraftRevise = draftText;

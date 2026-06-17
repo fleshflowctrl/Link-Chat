@@ -16,10 +16,10 @@ import {
 import { CreditPrice } from "@/components/credits/credit-price";
 import {
   BACK_TO_BUNDLES_ARIA,
-  bundleBonusUnits,
-  bundleTotalUnits,
-  bundleUnits,
-  bundleUnitsAdded,
+  bundleBonusMessagesLabel,
+  bundleMessagesAdded,
+  bundleMessagesLabel,
+  bundleMessagesTotalLabel,
 } from "@/lib/credits/copy";
 import { PackageBonusBadge, PackagePointsSummary } from "@/components/credits/package-points-summary";
 import { useAppVariant } from "@/components/app-variant-provider";
@@ -68,7 +68,7 @@ export function CheckoutView({
         applyServerPurchaseUpdate(json.balance, json.purchaseCount);
       }
       setSuccess(
-        bundleUnitsAdded(json.grantedCredits ?? pkg.credits + pkg.bonus),
+        bundleMessagesAdded(json.grantedCredits ?? pkg.credits + pkg.bonus),
       );
       setTimeout(() => router.push(creditsPath), 900);
     },
@@ -206,7 +206,7 @@ export function CheckoutView({
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-inner">
               <Image
                 src={`/assets/credits_${pkg.iconAsset}.png`}
-                alt={bundleUnits(pkg.credits)}
+                alt={pkg.bundleLabel}
                 fill
                 className="object-cover"
                 sizes="56px"
@@ -219,6 +219,9 @@ export function CheckoutView({
                 </p>
                 <PackageBonusBadge bonus={pkg.bonus} />
               </div>
+              <p className="mt-1 text-[13px] leading-snug text-inkMuted">
+                {pkg.bundleDescription}
+              </p>
               <PackagePointsSummary pkg={pkg} />
             </div>
           </div>
@@ -227,16 +230,20 @@ export function CheckoutView({
             <div className="mt-4 space-y-2 rounded-2xl bg-[#B52B2A]/8 px-3 py-2.5 ring-1 ring-[#B52B2A]/20">
               <div className="flex items-center justify-between gap-2 text-[12px]">
                 <span className="font-medium text-inkMuted">Basis</span>
-                <span className="font-semibold text-ink">{bundleUnits(pkg.credits)}</span>
+                <span className="font-semibold text-ink">
+                  {bundleMessagesLabel(pkg.credits)}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-2 text-[12px]">
-                <span className="font-medium text-[#B52B2A]">Bonus (gratis)</span>
-                <span className="font-bold text-[#B52B2A]">{bundleBonusUnits(pkg.bonus)}</span>
+                <span className="font-medium text-[#B52B2A]">Extra berichten</span>
+                <span className="font-bold text-[#B52B2A]">
+                  {bundleBonusMessagesLabel(pkg.bonus)}
+                </span>
               </div>
               <div className="flex items-center justify-between gap-2 border-t border-[#B52B2A]/15 pt-2 text-[13px]">
-                <span className="font-bold text-ink">Je ontvangt</span>
+                <span className="font-bold text-ink">Je kunt versturen</span>
                 <span className="font-extrabold text-ink">
-                  {bundleTotalUnits(pkg.credits, pkg.bonus)}
+                  {bundleMessagesTotalLabel(pkg.credits, pkg.bonus)}
                 </span>
               </div>
             </div>
@@ -276,14 +283,22 @@ export function CheckoutView({
           )}
 
           <p className="px-1 text-center text-[11px] leading-snug text-gray-500">
-            Door te betalen ontvang je je tegoed direct en ga je akkoord dat je
-            herroepingsrecht vervalt zodra het tegoed is bijgeschreven. Zie{" "}
+            Door te betalen ga je akkoord dat de dienst direct na betaling start en
+            begrijp je dat gebruikte credits niet worden terugbetaald. Zie{" "}
             <Link
               href={LEGAL_PATHS.terms}
               className="font-medium text-primary underline-offset-2 hover:underline"
               target="_blank"
             >
               voorwaarden
+            </Link>{" "}
+            en{" "}
+            <Link
+              href={LEGAL_PATHS.refund}
+              className="font-medium text-primary underline-offset-2 hover:underline"
+              target="_blank"
+            >
+              refund policy
             </Link>
             .
           </p>

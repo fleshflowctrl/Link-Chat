@@ -1,5 +1,4 @@
 import type { AdminMetrics } from "@/lib/admin/metrics";
-import { pct } from "@/lib/admin/metrics";
 
 function nf(n: number, digits = 0): string {
   return n.toLocaleString("nl-NL", {
@@ -8,40 +7,28 @@ function nf(n: number, digits = 0): string {
   });
 }
 
+function euro(cents: number): string {
+  return `€ ${(cents / 100).toLocaleString("nl-NL", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 type Row = {
   label: string;
   get: (m: AdminMetrics) => number;
   digits?: number;
-  suffix?: string;
+  format?: (n: number) => string;
 };
 
 const ROWS: Array<Row | string> = [
-  "Bereik",
-  { label: "Website bezoekers", get: (m) => m.visitors },
-  { label: "Sign-ups", get: (m) => m.signups },
-  { label: "Chattende users", get: (m) => m.chatters },
-  { label: "Berichten verstuurd", get: (m) => m.totalUserMessages },
-  {
-    label: "Berichten per sign-up",
-    get: (m) => m.avgMessagesPerSignup,
-    digits: 1,
-  },
-  "Betalingen",
-  { label: "Betalende klanten", get: (m) => m.payingUsers },
-  { label: "Unieke betaal-klikkers", get: (m) => m.checkoutClickers },
-  { label: "Voltooide aankopen", get: (m) => m.paidPurchases },
-  "Conversie",
-  { label: "Bezoeker → sign-up", get: (m) => m.visitorsConvertedToSignup },
-  { label: "Bezoeker → chat", get: (m) => m.visitorsConvertedToChat },
-  {
-    label: "Checkout → betaald %",
-    get: (m) =>
-      m.checkoutClickers > 0
-        ? pct(m.paidPurchases, m.checkoutClickers)
-        : 0,
-    digits: 1,
-    suffix: "%",
-  },
+  "Kern",
+  { label: "Users", get: (m) => m.users },
+  { label: "Gesprekken", get: (m) => m.conversations },
+  { label: "Open chats", get: (m) => m.openChats },
+  { label: "Aankopen", get: (m) => m.purchases },
+  { label: "Omzet", get: (m) => m.revenueCents, format: euro },
+  { label: "Credits verkocht", get: (m) => m.creditsSold },
 ];
 
 function deltaClass(v1: number, v2: number): string {
@@ -80,34 +67,18 @@ export function MetricsVariantCompare({
           const a = row.get(v1);
           const b = row.get(v2);
           const diff = b - a;
-          const suffix = row.suffix ?? "";
+          const fmt = row.format ?? ((n: number) => nf(n, row.digits ?? 0));
           return (
             <div
               key={row.label}
               className="border-t border-black/[0.04] px-4 py-3 text-sm sm:grid sm:grid-cols-[1.2fr_1fr_1fr_1fr] sm:items-baseline sm:gap-2 sm:px-5"
             >
               <div className="text-gray-700">{row.label}</div>
-              <div className="mt-1 font-semibold tabular-nums sm:mt-0">
-                <span className="text-[10px] font-semibold uppercase text-gray-400 sm:hidden">
-                  V1{" "}
-                </span>
-                {nf(a, row.digits ?? 0)}
-                {suffix}
-              </div>
-              <div className="font-semibold tabular-nums">
-                <span className="text-[10px] font-semibold uppercase text-gray-400 sm:hidden">
-                  V2{" "}
-                </span>
-                {nf(b, row.digits ?? 0)}
-                {suffix}
-              </div>
+              <div className="mt-1 font-semibold tabular-nums sm:mt-0">{fmt(a)}</div>
+              <div className="font-semibold tabular-nums">{fmt(b)}</div>
               <div className={`font-medium tabular-nums ${deltaClass(a, b)}`}>
-                <span className="text-[10px] font-semibold uppercase text-gray-400 sm:hidden">
-                  Δ{" "}
-                </span>
                 {diff > 0 ? "+" : ""}
-                {nf(diff, row.digits ?? 0)}
-                {suffix}
+                {fmt(diff)}
               </div>
             </div>
           );

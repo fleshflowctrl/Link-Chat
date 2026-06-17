@@ -46,7 +46,7 @@ export function ProfileStrengthBanner({
   if (compact) {
     return (
       <Link
-        href={`/me/edit?focus=${top.focus}`}
+        href={`/me?focus=${top.focus}`}
         className={`flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-white shadow-md transition active:scale-[0.99] ${gradient}`}
       >
         <span
@@ -75,7 +75,7 @@ export function ProfileStrengthBanner({
   return (
     <div className="px-4 pt-3">
       <Link
-        href={`/me/edit?focus=${top.focus}`}
+        href={`/me?focus=${top.focus}`}
         className={`block overflow-hidden rounded-2xl px-4 pb-3.5 pt-3 text-white shadow-lg active:scale-[0.99] ${gradient}`}
       >
         <div className="flex items-center justify-between gap-2">

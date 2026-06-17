@@ -21,6 +21,47 @@ export function isDraftReviseEnabled(): boolean {
   return raw === "1" || raw === "true" || raw === "yes" || raw === "on";
 }
 
+/** Cheaper revise pass — no full persona system prompt (operator / auto-reply). */
+export async function reviseDraftLight(
+  draft: string,
+  personaName?: string,
+): Promise<{ text: string; revised: boolean }> {
+  if (!draft.trim()) return { text: draft, revised: false };
+
+  const who = personaName?.trim() || "Persona";
+  const out = await grokResponsesComplete(
+    [
+      {
+        role: "system",
+        content:
+          `Je bent editor voor korte Nederlandse dating-app antwoorden van ${who}. ` +
+          "Als het kandidaat-antwoord al natuurlijk klinkt (menselijk, WhatsApp-toon): antwoord exact KEEP. " +
+          "Als het AI-achtig, te lang, te formeel of met geforceerde vraag is: herschrijf één keer in het Nederlands. " +
+          "Alleen de herschreven tekst of KEEP — geen uitleg.",
+      },
+      {
+        role: "user",
+        content: `Kandidaat:\n${draft}\n\nKEEP of herschrijving:`,
+      },
+    ],
+    { temperature: 0.35, maxOutputTokens: 300 },
+  );
+
+  if (!out.ok) return { text: draft, revised: false };
+  const verdict = out.text.trim();
+  if (!verdict || /^keep\b/i.test(verdict)) return { text: draft, revised: false };
+
+  const cleaned = verdict
+    .replace(/^(rewrite|herschrijf|herziening)[:\s]*/i, "")
+    .replace(/^["“”']+|["“”']+$/g, "")
+    .trim();
+
+  if (!cleaned || cleaned.length > draft.length * 2 + 200) {
+    return { text: draft, revised: false };
+  }
+  return { text: cleaned, revised: true };
+}
+
 export async function reviseDraftIfWorthIt(
   draft: string,
   systemPrompt: string,

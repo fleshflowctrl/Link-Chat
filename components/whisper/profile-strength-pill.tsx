@@ -42,7 +42,7 @@ export function ProfileStrengthPill({
 
   return (
     <Link
-      href={`/me/edit?focus=${focus}`}
+      href={`/me?focus=${focus}`}
       aria-label={`Profiel ${report.percent}% compleet — maak af`}
       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-sm ring-1 transition active:scale-95 ${
         isV2

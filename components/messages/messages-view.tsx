@@ -14,7 +14,6 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
-  BadgeCheck,
   Link2,
   Mic,
   Pin,
@@ -122,13 +121,6 @@ function PinnedSection({ threads }: { threads: MessageThread[] }) {
                 <span className="truncate text-[15px] font-bold text-ink">
                   {t.name}
                 </span>
-                {t.verified && (
-                  <BadgeCheck
-                    className="h-4 w-4 shrink-0 text-primary"
-                    strokeWidth={2.25}
-                    aria-label="Geverifieerd"
-                  />
-                )}
               </div>
               <div className="mt-1 flex items-center gap-1.5 text-[13px] text-inkMuted">
                 <Mic className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} />
@@ -191,13 +183,6 @@ function ConversationRow({
           >
             {locked ? "Iemand nieuw" : t.name}
           </span>
-          {!locked && t.verified && (
-            <BadgeCheck
-              className="h-4 w-4 shrink-0 text-primary"
-              strokeWidth={2.25}
-              aria-label="Geverifieerd"
-            />
-          )}
         </div>
         <span
           className={`shrink-0 text-[10px] ${

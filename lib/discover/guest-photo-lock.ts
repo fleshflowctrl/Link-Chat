@@ -8,7 +8,23 @@ export function isGuestLockedProfilePhoto(profileId: string): boolean {
   return (h >>> 0) % 2 === 0;
 }
 
-export function getGuestPhotoLockMessage(profileName: string): string {
-  const name = profileName.trim() || "dit profiel";
-  return `Meld je aan om de foto's van ${name} te zien`;
+export type GuestPhotoLockCopy = {
+  title: string;
+  subtitle: string;
+};
+
+export function getGuestPhotoLockMessage(
+  profileName: string,
+): GuestPhotoLockCopy {
+  const name = profileName.trim();
+  if (!name) {
+    return {
+      title: "Privémodus staat aan voor de foto's van dit profiel",
+      subtitle: "Log in om ze te bekijken",
+    };
+  }
+  return {
+    title: `Privémodus staat aan voor ${name}'s foto's`,
+    subtitle: "Log in om ze te bekijken",
+  };
 }

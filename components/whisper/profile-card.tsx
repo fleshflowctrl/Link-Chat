@@ -6,8 +6,8 @@ import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 import { postProfileSeen } from "@/lib/catalog/post-profile-seen";
 import { GuestMessageAuthPrompt } from "@/components/auth/guest-message-auth-prompt";
-import { getGuestPhotoLockMessage } from "@/lib/discover/guest-photo-lock";
-import { ArrowRight, Lock, MapPin, MessageCircle } from "lucide-react";
+import { GuestPhotoLockOverlay } from "@/components/discover/guest-photo-lock-message";
+import { ArrowRight, MapPin, MessageCircle } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import type { Profile, ProfileStatusVariant } from "@/data/profiles";
 
@@ -33,19 +33,14 @@ function statusChipClasses(variant: ProfileStatusVariant): string {
 
 function StatusChip({ status }: { status: Profile["status"] }) {
   const { variant, label } = status;
-  const dot = (
-    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" aria-hidden />
-  );
+  if (variant === "online" || variant === "active") return null;
 
   let prefix: ReactNode = null;
   if (variant === "replied") prefix = <span aria-hidden>⚡</span>;
   if (variant === "popular") prefix = <span aria-hidden>🔥</span>;
 
-  const showDot = variant === "active" || variant === "online";
-
   return (
     <span className={statusChipClasses(variant)}>
-      {showDot && dot}
       {prefix}
       <span>{label}</span>
     </span>
@@ -109,21 +104,11 @@ export function ProfileCard({
       />
 
       {photoLocked && (
-        <div
+        <GuestPhotoLockOverlay
+          profileName={profile.name}
+          size="sm"
           className="absolute inset-0 z-[2] flex items-center justify-center p-3"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-        >
-          <p className="flex flex-col items-center gap-1.5 text-center">
-            <Lock
-              className={`h-4 w-4 ${isV2 ? "text-[#E85A59]" : "text-white"}`}
-              strokeWidth={2.25}
-              aria-hidden
-            />
-            <span className="text-[10px] font-bold leading-snug text-white drop-shadow-sm">
-              {getGuestPhotoLockMessage(profile.name)}
-            </span>
-          </p>
-        </div>
+        />
       )}
 
       {profile.status.label.trim().length > 0 && (

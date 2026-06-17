@@ -4,8 +4,7 @@ import {
   getOperatorAppSettings,
   resolveOperatorAiActorId,
 } from "@/lib/operator/ai-auto-settings";
-import { generateOperatorReplySuggestions } from "@/lib/operator/generate-reply-suggestions";
-import { pickBestOperatorSuggestion } from "@/lib/operator/pick-best-operator-suggestion";
+import { generateOperatorAutoReplyDraft } from "@/lib/operator/generate-reply-suggestions";
 import { sendOperatorPeerReply } from "@/lib/operator/send-peer-reply";
 import { logAiSuggestion } from "@/lib/operator/log";
 import { encodeConversationId } from "@/lib/operator/conversation-key";
@@ -107,7 +106,7 @@ export async function processOperatorAutoReply(
 
     const triggerUserMessageId = input.triggerUserMessageId ?? lastUser.id;
 
-    const suggestions = await generateOperatorReplySuggestions(supabase, {
+    const draft = await generateOperatorAutoReplyDraft(supabase, {
       profile: profile as ChatProfileRow,
       history,
       ownerUserId: input.ownerUserId,
@@ -115,27 +114,16 @@ export async function processOperatorAutoReply(
       triggerUserMessageId,
     });
 
-    if (!suggestions.ok) {
+    if (!draft.ok) {
       await releaseQueueClaim(supabase, input.ownerUserId, input.peerId);
-      return { ok: false, error: suggestions.error };
-    }
-
-    const picked = await pickBestOperatorSuggestion({
-      profile: profile as ChatProfileRow,
-      history,
-      suggestions: suggestions.suggestions,
-    });
-
-    if (!picked.ok) {
-      await releaseQueueClaim(supabase, input.ownerUserId, input.peerId);
-      return { ok: false, error: picked.error };
+      return { ok: false, error: draft.error };
     }
 
     const operatorId = resolveOperatorAiActorId(settings);
     const sent = await sendOperatorPeerReply(supabase, {
       ownerUserId: input.ownerUserId,
       peerId: input.peerId,
-      text: picked.text,
+      text: draft.text,
       operatorId,
       source: "operator_ai_auto",
     });
@@ -156,7 +144,7 @@ export async function processOperatorAutoReply(
     return {
       ok: true,
       sent: true,
-      text: picked.text,
+      text: draft.text,
       conversationId,
     };
   } catch (e) {

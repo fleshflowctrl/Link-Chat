@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChatMessageRow, ChatProfileRow } from "@/lib/chat/map-rows";
-import { generatePeerReplyDraftOnly } from "@/lib/ai/generate-peer-reply";
+import {
+  generatePeerReplyDraftOnly,
+  prepareReplyMemoryContext,
+  type PreloadedReplyMemory,
+} from "@/lib/ai/generate-peer-reply";
 import { MULTI_MESSAGE_SEPARATOR } from "@/lib/ai/post-process-reply";
 import { getSavedOperatorSummary } from "@/lib/operator/saved-summary";
 import {
@@ -8,6 +12,7 @@ import {
   OPERATOR_SUGGESTION_TONES,
   type OperatorSuggestionTone,
 } from "@/lib/operator/operator-suggestion-prompt";
+import { pickOperatorSuggestionTone } from "@/lib/operator/pick-operator-tone";
 
 function normalizeSuggestionText(raw: string): string {
   const parts = raw
@@ -48,17 +53,20 @@ async function loadThreadMemorySummary(
   return typeof summary === "string" && summary.trim() ? summary.trim() : null;
 }
 
+type SuggestionBaseInput = {
+  profile: ChatProfileRow;
+  history: ChatMessageRow[];
+  ownerUserId: string;
+  peerId: string;
+  triggerUserMessageId: string;
+  operatorContextBlock: string;
+  preloadedMemory: PreloadedReplyMemory;
+};
+
 async function generateOneSuggestion(
   supabase: SupabaseClient,
-  input: {
-    profile: ChatProfileRow;
-    history: ChatMessageRow[];
-    ownerUserId: string;
-    peerId: string;
-    triggerUserMessageId: string;
-    operatorContextBlock: string;
+  input: SuggestionBaseInput & {
     tone: OperatorSuggestionTone;
-    persistMemory: boolean;
   },
 ): Promise<
   | { ok: true; text: string; model: string }
@@ -74,9 +82,11 @@ async function generateOneSuggestion(
       triggerUserMessageId: input.triggerUserMessageId,
       forceSingleMessage: true,
       forceDraftRevise: true,
+      lightDraftRevise: true,
       operatorContextBlock: input.operatorContextBlock,
       operatorSuggestionTone: input.tone,
-      skipMemoryPersistence: !input.persistMemory,
+      skipMemoryPersistence: true,
+      preloadedMemory: input.preloadedMemory,
       operatorSuggestMode: true,
     },
   });
@@ -93,6 +103,23 @@ async function generateOneSuggestion(
   return { ok: true, text, model: result.model };
 }
 
+async function buildOperatorContext(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+  peerId: string,
+) {
+  const [savedSummary, threadMemorySummary] = await Promise.all([
+    getSavedOperatorSummary(supabase, ownerUserId, peerId),
+    loadThreadMemorySummary(supabase, ownerUserId, peerId),
+  ]);
+
+  return buildOperatorSuggestionContextBlock({
+    savedSummary,
+    threadMemorySummary,
+  });
+}
+
+/** Manual operator inbox: 3 tone variants, shared memory + light revise. */
 export async function generateOperatorReplySuggestions(
   supabase: SupabaseClient,
   input: {
@@ -113,28 +140,30 @@ export async function generateOperatorReplySuggestions(
     return { ok: false, error: "Geen user-bericht om op te antwoorden" };
   }
 
-  const [savedSummary, threadMemorySummary] = await Promise.all([
-    getSavedOperatorSummary(supabase, input.ownerUserId, input.peerId),
-    loadThreadMemorySummary(supabase, input.ownerUserId, input.peerId),
+  const [operatorContextBlock, preloadedMemory] = await Promise.all([
+    buildOperatorContext(supabase, input.ownerUserId, input.peerId),
+    prepareReplyMemoryContext(supabase, {
+      history: input.history,
+      ownerUserId: input.ownerUserId,
+      peerId: input.peerId,
+      profile: input.profile,
+      persist: true,
+    }),
   ]);
 
-  const operatorContextBlock = buildOperatorSuggestionContextBlock({
-    savedSummary,
-    threadMemorySummary,
-  });
+  const base = {
+    ...input,
+    operatorContextBlock,
+    preloadedMemory,
+  };
 
   const collected: string[] = [];
   let lastModel = process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
   const errors: string[] = [];
 
   const toneResults = await Promise.all(
-    OPERATOR_SUGGESTION_TONES.map((tone, index) =>
-      generateOneSuggestion(supabase, {
-        ...input,
-        operatorContextBlock,
-        tone,
-        persistMemory: index === 0,
-      }),
+    OPERATOR_SUGGESTION_TONES.map((tone) =>
+      generateOneSuggestion(supabase, { ...base, tone }),
     ),
   );
 
@@ -152,12 +181,7 @@ export async function generateOperatorReplySuggestions(
   if (unique.length < 3) {
     for (const tone of OPERATOR_SUGGESTION_TONES) {
       if (unique.length >= 3) break;
-      const retry = await generateOneSuggestion(supabase, {
-        ...input,
-        operatorContextBlock,
-        tone,
-        persistMemory: false,
-      });
+      const retry = await generateOneSuggestion(supabase, { ...base, tone });
       if (retry.ok) {
         lastModel = retry.model;
         unique = dedupeSuggestions([...unique, retry.text]);
@@ -181,4 +205,73 @@ export async function generateOperatorReplySuggestions(
     suggestions: [unique[0]!, unique[1]!, unique[2]!],
     model: lastModel,
   };
+}
+
+/** AI auto-reply: tone pick + 1 pipeline (much cheaper than 3× + pick-best). */
+export async function generateOperatorAutoReplyDraft(
+  supabase: SupabaseClient,
+  input: {
+    profile: ChatProfileRow;
+    history: ChatMessageRow[];
+    ownerUserId: string;
+    peerId: string;
+    triggerUserMessageId: string;
+  },
+): Promise<
+  | { ok: true; text: string; model: string; tone: OperatorSuggestionTone }
+  | { ok: false; error: string }
+> {
+  const lastUser = [...input.history]
+    .reverse()
+    .find((m) => m.sender === "me");
+  if (!lastUser) {
+    return { ok: false, error: "Geen user-bericht om op te antwoorden" };
+  }
+
+  const [operatorContextBlock, preloadedMemory, tonePick] = await Promise.all([
+    buildOperatorContext(supabase, input.ownerUserId, input.peerId),
+    prepareReplyMemoryContext(supabase, {
+      history: input.history,
+      ownerUserId: input.ownerUserId,
+      peerId: input.peerId,
+      profile: input.profile,
+      persist: true,
+    }),
+    pickOperatorSuggestionTone({
+      profile: input.profile,
+      history: input.history,
+    }),
+  ]);
+
+  const tone = tonePick.ok ? tonePick.tone : "warm";
+
+  const result = await generatePeerReplyDraftOnly(supabase, {
+    profile: input.profile,
+    history: input.history,
+    ownerUserId: input.ownerUserId,
+    peerId: input.peerId,
+    options: {
+      draftOnly: true,
+      triggerUserMessageId: input.triggerUserMessageId,
+      forceSingleMessage: true,
+      forceDraftRevise: true,
+      lightDraftRevise: true,
+      operatorContextBlock,
+      operatorSuggestionTone: tone,
+      skipMemoryPersistence: true,
+      preloadedMemory,
+      operatorSuggestMode: true,
+    },
+  });
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  const text = normalizeSuggestionText(result.draftText);
+  if (!text) {
+    return { ok: false, error: "Leeg auto-antwoord" };
+  }
+
+  return { ok: true, text, model: result.model, tone };
 }

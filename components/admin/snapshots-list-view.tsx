@@ -115,11 +115,17 @@ export function SnapshotsListView({
                     Periode: {formatTs(s.periodStart)} → {formatTs(s.periodEnd)}
                   </p>
                   <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[12px] sm:grid-cols-3 lg:grid-cols-5">
-                    <Stat label="Bezoekers" value={nf(m.visitors)} />
-                    <Stat label="Sign-ups" value={nf(m.signups)} />
-                    <Stat label="Chatters" value={nf(m.chatters)} />
-                    <Stat label="Betalend" value={nf(m.payingUsers)} />
-                    <Stat label="Aankopen" value={nf(m.paidPurchases)} />
+                    <Stat
+                      label="Users"
+                      value={nf(m.users ?? (m as { signups?: number }).signups ?? 0)}
+                    />
+                    <Stat label="Gesprekken" value={nf(m.conversations ?? 0)} />
+                    <Stat label="Aankopen" value={nf(m.purchases ?? (m as { paidPurchases?: number }).paidPurchases ?? 0)} />
+                    <Stat
+                      label="Omzet"
+                      value={`€ ${((m.revenueCents ?? 0) / 100).toLocaleString("nl-NL", { minimumFractionDigits: 0 })}`}
+                    />
+                    <Stat label="Open chats" value={nf(m.openChats ?? 0)} />
                   </div>
                 </Link>
               </div>

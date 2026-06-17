@@ -12,16 +12,10 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import {
-  AnimatePresence,
-  animate,
-  motion,
-  useMotionValue,
-} from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { FUNNEL_SESSION_KEY, ONBOARDED_KEY } from "@/data/funnel";
 import { funnelSets, type FunnelWelcomeCard } from "@/data/funnelProfiles";
 import {
-  likesPreviewAvatarUrls,
   profiles as staticCatalogProfiles,
   type Profile,
 } from "@/data/profiles";
@@ -39,7 +33,6 @@ import { SITE_DISPLAY } from "@/lib/brand";
 import { APP_SHELL_WIDTH_CLASS } from "@/lib/responsive-shell";
 
 const WELCOME_MIN_PROFILE_AGE = 40;
-const WELCOME_ONLINE_COUNT_TARGET = 847;
 
 function OnboardingFunnelFallback() {
   return (
@@ -208,10 +201,10 @@ const WELCOME_CARD_SLOTS = [
 ] as const;
 
 const WELCOME_STATUS_PATTERN: ReadonlyArray<FunnelWelcomeCard["status"]> = [
-  "online",
+  null,
   "new",
   "new",
-  "online",
+  null,
 ];
 
 function catalogProfileToWelcomeCard(
@@ -257,13 +250,11 @@ const WELCOME_COPY = {
     headline: ["Ontmoet vrouwen die", "weten wat ze willen."],
     subMuted: "Voor mannen 50+. ",
     subAccent: "Discreet · op jouw tempo.",
-    socialLabel: "mannen 50+ actief vandaag",
   },
   v2: {
     headline: ["Meer tijd.", "Discreet flirten."],
     subMuted: "Voor mannen 50+. ",
     subAccent: "Geen haast · wel spanning.",
-    socialLabel: "mannen 50+ actief vandaag",
   },
 } as const;
 
@@ -277,8 +268,6 @@ function StepWelcome({
   const cfg = useFunnelConfig();
   const isV2 = cfg.variant === "v2";
   const copy = WELCOME_COPY[cfg.variant];
-  const countMv = useMotionValue(0);
-  const [countLabel, setCountLabel] = useState("0");
   const [setIndex, setSetIndex] = useState(0);
   const lastInteractRef = useRef(0);
 
@@ -290,20 +279,6 @@ function StepWelcome({
   const touchCards = useCallback(() => {
     lastInteractRef.current = Date.now();
   }, []);
-
-  useEffect(() => {
-    const unsub = countMv.on("change", (v) => {
-      setCountLabel(Math.round(v).toLocaleString());
-    });
-    const ctrl = animate(countMv, WELCOME_ONLINE_COUNT_TARGET, {
-      duration: 1.2,
-      ease: "easeOut",
-    });
-    return () => {
-      unsub();
-      ctrl.stop();
-    };
-  }, [countMv]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -378,12 +353,6 @@ function StepWelcome({
                         priority={setIndex === 0 && slotIndex < 2}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
-                      {profile.status === "online" && (
-                        <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-emerald-500 pl-2 pr-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" aria-hidden />
-                          Nu online
-                        </span>
-                      )}
                       {profile.status === "new" && (
                         <span className="absolute left-2 top-2 rounded-full bg-pink-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
                           Nieuw
@@ -430,57 +399,6 @@ function StepWelcome({
             {copy.subAccent}
           </span>
         </p>
-
-        <div className="mt-2 flex w-full flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <div className="flex min-w-0 max-w-[70%] items-center gap-1.5">
-            <div className="flex shrink-0 -space-x-1.5 pl-0.5">
-              {likesPreviewAvatarUrls.map((url, i) => (
-                <span
-                  key={url}
-                  className={`relative h-6 w-6 overflow-hidden rounded-full ring-2 ${
-                    isV2 ? "ring-[#252526]" : "ring-[#F5F3EE]"
-                  }`}
-                  style={{ zIndex: 3 - i }}
-                >
-                  <Image
-                    src={url}
-                    alt=""
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-cover"
-                  />
-                </span>
-              ))}
-            </div>
-            <p
-              className={`min-w-0 text-[11px] leading-snug ${
-                isV2 ? "text-inkMuted" : "text-gray-700"
-              }`}
-            >
-              <span
-                className={`font-bold tabular-nums ${
-                  isV2 ? "text-ink" : "text-gray-900"
-                }`}
-              >
-                {countLabel}
-              </span>{" "}
-              {copy.socialLabel}
-            </p>
-          </div>
-          <div
-            className={`ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 shadow-sm ring-1 ${
-              isV2
-                ? "bg-[#353536]/90 ring-white/10"
-                : "bg-white/90 ring-black/[0.06]"
-            }`}
-          >
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
-            </span>
-            <span className="text-[10px] font-semibold text-green-600">Live</span>
-          </div>
-        </div>
 
         <button
           type="button"

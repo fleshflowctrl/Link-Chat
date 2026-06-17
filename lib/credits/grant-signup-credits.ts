@@ -1,9 +1,12 @@
-import { SIGNUP_ACCOUNT_CREDITS } from "@/lib/credits/pricing";
+import {
+  SIGNUP_ACCOUNT_CREDITS,
+  STARTING_USER_CREDITS,
+} from "@/lib/credits/pricing";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 
 /**
- * Bonus when a guest/anonymous user becomes a permanent account (+100 on top of
- * existing balance). Uses service role so it works even before email confirmation.
+ * Grant 7 free messages (70 credits) when a user creates a permanent account.
+ * Unused guest-trial balance (max 50 credits) is preserved on top.
  */
 export async function grantSignupCreditsForUser(
   userId: string,
@@ -25,11 +28,12 @@ export async function grantSignupCreditsForUser(
     return { ok: false, error: readErr.message };
   }
 
-  const current =
+  const existingBalance =
     typeof existing?.credits === "number" && existing.credits >= 0
       ? existing.credits
       : 0;
-  const credits = current + SIGNUP_ACCOUNT_CREDITS;
+  const guestTrialRemainder = Math.min(existingBalance, STARTING_USER_CREDITS);
+  const credits = SIGNUP_ACCOUNT_CREDITS + guestTrialRemainder;
 
   const { error } = await admin.from("user_profiles").upsert(
     {

@@ -12,7 +12,6 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  BadgeCheck,
   Check,
   CheckCheck,
   ChevronLeft,
@@ -47,7 +46,7 @@ import {
 } from "@/lib/credits/copy";
 import {
   CHAT_MESSAGE_COST_CREDITS,
-  SIGNUP_ACCOUNT_CREDITS,
+  SIGNUP_FREE_MESSAGES,
 } from "@/lib/credits/pricing";
 import { useAppVariant } from "@/components/app-variant-provider";
 import { appVariantFetchHeaders, withVariantPath } from "@/lib/app-variant";
@@ -1117,13 +1116,6 @@ export function ChatConversationView({
             <span className="truncate text-[16px] font-bold text-ink">
               {meta.name}
             </span>
-            {meta.verified && (
-              <BadgeCheck
-                className="h-[18px] w-[18px] shrink-0 text-primary"
-                strokeWidth={2}
-                aria-label="Geverifieerd"
-              />
-            )}
           </div>
         </div>
         <div className="relative shrink-0">
@@ -1669,7 +1661,7 @@ export function ChatConversationView({
                         variant === "v2" ? "text-[#B52B2A]" : "text-primary"
                       }`}
                     >
-                      {bundleRewardUnits(SIGNUP_ACCOUNT_CREDITS)}
+                      {SIGNUP_FREE_MESSAGES} gratis berichten
                     </p>
                     <p
                       className={`mt-1 text-[14px] font-bold ${

@@ -23,38 +23,12 @@ export function getDiscoverPresenceBucket(
   feedSlot: number,
 ): DiscoverPresenceBucket {
   const roll = statusRoll(profileId, userKey, feedSlot);
-  if (roll < 10) return "live";
-  if (roll < 20) return "new";
+  if (roll < 10) return "new";
   return "default";
 }
 
-export function getDiscoverLiveChatPresence(profileId: string): {
-  variant: "online";
-  label: string;
-  showGreenDot: true;
-} {
-  const live = liveStatusLabel(profileId);
-  return {
-    variant: "online",
-    label: live.label,
-    showGreenDot: true,
-  };
-}
-
-function liveStatusLabel(profileId: string): {
-  variant: "online" | "active";
-  label: string;
-} {
-  const variant =
-    fnv1aHash(`${profileId}::live-kind`) % 2 === 0 ? "online" : "active";
-  return {
-    variant,
-    label: variant === "online" ? "Nu online" : "Actief nu",
-  };
-}
-
 /**
- * Discover (page 1) status chips — only ~10% "live", ~10% "Nieuw", rest none.
+ * Discover (page 1) status chips — only ~10% "Nieuw", no fake live/online badges.
  * Deterministic per profile + hourly slot so the feed feels stable, not random
  * on every re-render.
  */
@@ -66,17 +40,6 @@ export function applyDiscoverFeedStatus(
   const roll = statusRoll(profile.id, userKey, feedSlot);
 
   if (roll < 10) {
-    const live = liveStatusLabel(profile.id);
-    return {
-      ...profile,
-      status: {
-        variant: live.variant,
-        label: live.label,
-      },
-    };
-  }
-
-  if (roll < 20) {
     return {
       ...profile,
       status: { variant: "new", label: "Nieuw" },

@@ -16,8 +16,12 @@ export const CREDITS_PER_EURO = BASE_PACK_CREDITS / BASE_PACK_PRICE_EUR;
 /** New accounts start with this balance (DB default matches). */
 export const STARTING_USER_CREDITS = 50;
 
-/** Bonus punten when a guest registers a permanent account. */
-export const SIGNUP_ACCOUNT_CREDITS = 30;
+/** Gratis berichten bij permanent account (signup / guest → account). */
+export const SIGNUP_FREE_MESSAGES = 7;
+
+/** Bonus punten bij registratie: 7 berichten × 10 punten = 70. */
+export const SIGNUP_ACCOUNT_CREDITS =
+  SIGNUP_FREE_MESSAGES * POINTS_PER_MESSAGE;
 
 /** Outgoing chat text or image — 10 Beright punten (€2). */
 export const CHAT_MESSAGE_COST_CREDITS = POINTS_PER_MESSAGE;

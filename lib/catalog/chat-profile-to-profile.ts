@@ -94,12 +94,15 @@ function galleryForRow(row: ChatProfileRow): string[] {
  * Map a catalog (`chat_profiles`) row to the discovery `Profile` shape used by the UI.
  */
 export function chatProfileRowToProfile(row: ChatProfileRow): Profile {
+  const variant = parseStatusVariant(row.status_variant);
+  const rawLabel =
+    typeof row.status_label === "string" && row.status_label.trim()
+      ? row.status_label.trim()
+      : "";
+  const isPresenceStatus = variant === "online" || variant === "active";
   const status: Profile["status"] = {
-    variant: parseStatusVariant(row.status_variant),
-    label:
-      typeof row.status_label === "string" && row.status_label.trim()
-        ? row.status_label.trim()
-        : "Active now",
+    variant: isPresenceStatus ? "quiet" : variant,
+    label: isPresenceStatus ? "" : rawLabel,
   };
 
   const interests = parseInterests(row.interests);

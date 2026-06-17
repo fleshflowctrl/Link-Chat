@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  BadgeCheck,
   ChevronRight,
   CreditCard,
   Gift,
@@ -155,11 +154,6 @@ export function MeProfileView({
                 <span className="text-2xl font-bold leading-tight">
                   {displayName}
                 </span>
-                {showVerified && (
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/95 text-primary shadow-sm ring-1 ring-white/50">
-                    <BadgeCheck className="h-4 w-4" strokeWidth={2.5} aria-label="Geverifieerd" />
-                  </span>
-                )}
               </div>
               {ageLoc ? (
                 <p className="mt-1 text-xs text-white/90">{ageLoc}</p>

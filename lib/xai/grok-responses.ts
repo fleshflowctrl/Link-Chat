@@ -36,6 +36,32 @@ function contentToPlainText(content: string | GrokContentPart[]): string {
     .trim();
 }
 
+function logGrokUsage(
+  label: string,
+  model: string,
+  data: Record<string, unknown>,
+): void {
+  const raw = process.env.XAI_LOG_USAGE?.trim().toLowerCase();
+  if (!raw || raw === "0" || raw === "false" || raw === "off") return;
+
+  const usage =
+    (data.usage as Record<string, unknown> | undefined) ??
+    ((data.response as Record<string, unknown> | undefined)?.usage as
+      | Record<string, unknown>
+      | undefined);
+
+  if (!usage) return;
+
+  console.info("[xai-usage]", {
+    label,
+    model,
+    input_tokens: usage.input_tokens ?? usage.prompt_tokens,
+    output_tokens: usage.output_tokens ?? usage.completion_tokens,
+    cached_input_tokens: usage.cached_input_tokens ?? usage.cache_read_input_tokens,
+    total_tokens: usage.total_tokens,
+  });
+}
+
 function xaiFetchSignal(): AbortSignal {
   return AbortSignal.timeout(XAI_FETCH_TIMEOUT_MS);
 }
@@ -149,6 +175,8 @@ async function grokViaResponses(
     };
   }
 
+  logGrokUsage("responses", typeof data.model === "string" ? data.model : model, data);
+
   return {
     ok: true,
     text,
@@ -212,6 +240,12 @@ async function grokViaChatCompletions(
       httpStatus: res.status,
     };
   }
+
+  logGrokUsage(
+    "chat-completions",
+    typeof data.model === "string" ? data.model : model,
+    data,
+  );
 
   return {
     ok: true,
