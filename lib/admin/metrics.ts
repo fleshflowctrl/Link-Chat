@@ -268,6 +268,7 @@ function rawToAdminMetrics(raw: MetricsRawData): AdminMetrics {
   const userCount = raw.users.length;
   const payingUsers = raw.payingUserIds.size;
   return {
+    visitors: raw.visitors,
     users: userCount,
     conversations: raw.conversations,
     openChats: raw.openChats,
