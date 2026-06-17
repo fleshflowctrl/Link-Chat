@@ -58,7 +58,7 @@ function SignupChoiceGroup<T extends string>({
 }) {
   function boxClass(selected: boolean): string {
     const base =
-      "flex h-12 w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition enabled:active:scale-[0.98]";
+      "flex h-11 w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition enabled:active:scale-[0.98] sm:h-12";
     if (isV2) {
       return `${base} ${
         selected
@@ -498,7 +498,7 @@ export function LoginForm({
         ? isV2
           ? "rounded-2xl bg-[#2A2A2B] p-3.5 shadow-card ring-1 ring-white/10"
           : "rounded-2xl bg-canvas p-3.5 shadow-card ring-1 ring-black/[0.06]"
-        : "rounded-3xl bg-canvas p-8 shadow-card ring-1 ring-black/[0.06]";
+        : "flex h-[min(100dvh-1.5rem,52rem)] w-full flex-col overflow-hidden rounded-3xl bg-canvas p-4 shadow-card ring-1 ring-black/[0.06] sm:h-[min(100dvh-2rem,52rem)] sm:p-6";
 
   const labelClass = embedded
     ? "text-[11px] font-semibold text-inkMuted"
@@ -511,11 +511,11 @@ export function LoginForm({
     ? isV2
       ? `mt-1.5 ${embeddedInputH} w-full rounded-xl border-0 bg-[#1D1D1E] px-3.5 text-[15px] text-ink ring-1 ring-white/[0.08] outline-none placeholder:text-inkMuted/80 focus:ring-2 focus:ring-[#B52B2A]/40`
       : `mt-1.5 ${embeddedInputH} w-full rounded-xl border-0 bg-[#F8F6F1] px-3.5 text-[15px] text-ink ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35`
-    : "mt-1.5 h-12 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35";
+    : "mt-1.5 h-11 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35 sm:h-12";
 
   const submitClass = embedded
     ? `mt-0.5 ${mode === "signup" ? "h-10" : "h-11"} w-full rounded-full px-5 text-[14px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60`
-    : "h-12 w-full rounded-full bg-gradient-primary px-6 text-[15px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60";
+    : "h-11 w-full rounded-full bg-gradient-primary px-6 text-[15px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60 sm:h-12";
 
   const submitStyle =
     embedded && isV2 ? { background: V2_GRADIENT_PRIMARY } : undefined;
@@ -555,7 +555,7 @@ export function LoginForm({
 
       <form
           onSubmit={onSubmit}
-          className={`flex flex-col ${embedded ? (mode === "signup" ? "gap-2" : "gap-2.5") : "mt-6 gap-4"}`}
+          className={`flex ${!embedded ? "min-h-0 flex-1 flex-col justify-between" : "flex-col"} ${embedded ? (mode === "signup" ? "gap-2" : "gap-2.5") : "mt-4 gap-3 sm:mt-5 sm:gap-4"}`}
         >
           {mode === "signup" && signupStep === 2 ? (
             <>
@@ -756,7 +756,7 @@ export function LoginForm({
         </form>
 
       {!embedded && (
-        <p className="mt-6 text-center text-sm text-inkMuted">
+        <p className="mt-4 text-center text-sm text-inkMuted sm:mt-5">
           {mode === "signup" ? (
             <>
               Heb je al een account?{" "}
