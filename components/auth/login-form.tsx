@@ -31,6 +31,14 @@ const PASSWORD_MIN = 6;
 
 type SignupSeekingGender = Exclude<FunnelSeekingGender, "both">;
 
+type SignupStep2Profile = {
+  nickname: string;
+  age: number;
+  city: string;
+  gender: FunnelGender;
+  seekingGender: SignupSeekingGender;
+};
+
 function SignupChoiceGroup<T extends string>({
   label,
   labelClass,
@@ -245,36 +253,42 @@ export function LoginForm({
     return true;
   }
 
-  function validateSignupStep2(): boolean {
+  function validateSignupStep2(): SignupStep2Profile | null {
     const nick = nickname.trim();
     const ageNum = Number(age);
     const cityLabel = city.trim();
     if (!nick) {
       setStatus("error");
       setMessage("Vul een nickname in.");
-      return false;
+      return null;
     }
     if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 120) {
       setStatus("error");
       setMessage("Vul een geldige leeftijd in (18–120).");
-      return false;
+      return null;
     }
     if (!cityLabel) {
       setStatus("error");
       setMessage("Vul je stad in.");
-      return false;
+      return null;
     }
     if (!gender) {
       setStatus("error");
       setMessage("Kies of je een man of vrouw bent.");
-      return false;
+      return null;
     }
     if (!seekingGender) {
       setStatus("error");
       setMessage("Kies of je een man of vrouw zoekt.");
-      return false;
+      return null;
     }
-    return true;
+    return {
+      nickname: nick,
+      age: ageNum,
+      city: cityLabel,
+      gender,
+      seekingGender,
+    };
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -290,7 +304,9 @@ export function LoginForm({
       return;
     }
 
-    if (mode === "signup" && !validateSignupStep2()) {
+    const signupProfile =
+      mode === "signup" ? validateSignupStep2() : null;
+    if (mode === "signup" && !signupProfile) {
       return;
     }
 
@@ -321,11 +337,11 @@ export function LoginForm({
         email: trimmed,
         password,
         nextPath,
-        nickname: nickname.trim(),
-        age: Number(age),
-        city: city.trim(),
-        gender,
-        seekingGender,
+        nickname: signupProfile!.nickname,
+        age: signupProfile!.age,
+        city: signupProfile!.city,
+        gender: signupProfile!.gender,
+        seekingGender: signupProfile!.seekingGender,
       });
       if (!converted.ok) {
         setStatus("error");
@@ -345,14 +361,14 @@ export function LoginForm({
       credentials: "same-origin",
       body: JSON.stringify({
         email: trimmed,
-        nickname: nickname.trim(),
-        age: Number(age),
-        city: city.trim(),
+        nickname: signupProfile!.nickname,
+        age: signupProfile!.age,
+        city: signupProfile!.city,
         password,
         next: nextPath,
         visitorId: getOrCreateVisitorId(),
-        gender,
-        seekingGender,
+        gender: signupProfile!.gender,
+        seekingGender: signupProfile!.seekingGender,
       }),
     });
 
