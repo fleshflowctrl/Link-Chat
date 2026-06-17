@@ -16,6 +16,10 @@ import type { AppVariant } from "@/lib/app-variant";
 import { DEFAULT_APP_VARIANT, withVariantPath } from "@/lib/app-variant";
 import { convertAnonymousToPermanentAccount } from "@/lib/auth/guest-session";
 import { trackSignupLink } from "@/lib/analytics/visitor-id";
+import {
+  fireAffiliateSignupConversion,
+  getStoredAffiliateClickId,
+} from "@/lib/affiliate/911-for-me";
 import type {
   FunnelAgeRange,
   FunnelLookingFor,
@@ -85,7 +89,11 @@ export async function saveFunnelAccount(
     existingUser?.user_metadata?.is_funnel_guest === true;
 
   if (isGuest) {
-    const converted = await convertAnonymousToPermanentAccount({ email, password });
+    const converted = await convertAnonymousToPermanentAccount({
+      email,
+      password,
+      affiliateClickId: getStoredAffiliateClickId(),
+    });
     if (!converted.ok) {
       return { ok: false, error: mapSupabaseAuthError(converted.error) };
     }
@@ -101,6 +109,7 @@ export async function saveFunnelAccount(
         email,
         password,
         next: discoverPath,
+        affiliateClickId: getStoredAffiliateClickId(),
       }),
     });
 
@@ -152,6 +161,7 @@ export async function saveFunnelAccount(
   // user so the admin metrics page can compute visitor → signup funnel.
   // Best-effort; never blocks signup completion.
   void trackSignupLink(userId, variant);
+  fireAffiliateSignupConversion({ txid: userId ?? undefined });
 
   // Without a session (email confirmation flow) we can't upsert under RLS.
   // We still return ok so the funnel can finish; profile data is also kept in

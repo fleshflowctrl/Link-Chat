@@ -66,6 +66,21 @@ function xaiFetchSignal(): AbortSignal {
   return AbortSignal.timeout(XAI_FETCH_TIMEOUT_MS);
 }
 
+function fetchErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  return String(e);
+}
+
+function isTransientGrokError(error: string): boolean {
+  return /fetch failed|econnreset|etimedout|network|timeout|aborted|socket hang up|und_err_connect/i.test(
+    error,
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export type GrokCompleteOptions = {
   /** Chat completions + some Responses models; default 0.62 */
   temperature?: number;
@@ -135,15 +150,20 @@ async function grokViaResponses(
   | { ok: true; text: string; model: string }
   | { ok: false; error: string; httpStatus?: number }
 > {
-  const res = await fetch(XAI_RESPONSES_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify(buildResponsesPayload(model, input, opts)),
-    signal: xaiFetchSignal(),
-  });
+  let res: Response;
+  try {
+    res = await fetch(XAI_RESPONSES_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify(buildResponsesPayload(model, input, opts)),
+      signal: xaiFetchSignal(),
+    });
+  } catch (e) {
+    return { ok: false, error: fetchErrorMessage(e) };
+  }
 
   const raw = await res.text();
   let data: Record<string, unknown> = {};
@@ -193,23 +213,28 @@ async function grokViaChatCompletions(
   | { ok: true; text: string; model: string }
   | { ok: false; error: string; httpStatus?: number }
 > {
-  const res = await fetch(XAI_CHAT_COMPLETIONS_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: input,
-      temperature:
-        typeof opts.temperature === "number"
-          ? Math.min(2, Math.max(0, opts.temperature))
-          : 0.8,
-      max_tokens: Math.min(Math.max(opts.maxOutputTokens ?? 1024, 64), 8192),
-    }),
-    signal: xaiFetchSignal(),
-  });
+  let res: Response;
+  try {
+    res = await fetch(XAI_CHAT_COMPLETIONS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: input,
+        temperature:
+          typeof opts.temperature === "number"
+            ? Math.min(2, Math.max(0, opts.temperature))
+            : 0.8,
+        max_tokens: Math.min(Math.max(opts.maxOutputTokens ?? 1024, 64), 8192),
+      }),
+      signal: xaiFetchSignal(),
+    });
+  } catch (e) {
+    return { ok: false, error: fetchErrorMessage(e) };
+  }
 
   const raw = await res.text();
   let data: Record<string, unknown> = {};
@@ -281,9 +306,6 @@ export async function grokResponsesComplete(
   if (!key) {
     return { ok: false, error: "Missing XAI_API_KEY" };
   }
-  // When the conversation contains an image, prefer a vision-capable model
-  // if the operator configured one; otherwise fall through to the default
-  // (which on grok-4.x is multimodal-capable as of 2025).
   const visionModel = process.env.XAI_VISION_MODEL?.trim();
   const baseModel = process.env.XAI_CHAT_MODEL?.trim() || "grok-4.3";
   const model = hasImagePart(input) && visionModel ? visionModel : baseModel;
@@ -294,19 +316,28 @@ export async function grokResponsesComplete(
   };
 
   const withImages = hasImagePart(input);
-  // Chat completions use OpenAI-style image_url parts; Responses needs input_image.
-  const first = withImages
-    ? await grokViaChatCompletions(key, model, input, opts)
-    : await grokViaResponses(key, model, input, opts);
-  if (first.ok) return first;
+  const maxAttempts = 3;
 
-  const second = withImages
-    ? await grokViaResponses(key, model, input, opts)
-    : await grokViaChatCompletions(key, model, input, opts);
-  if (second.ok) return second;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const first = withImages
+      ? await grokViaChatCompletions(key, model, input, opts)
+      : await grokViaResponses(key, model, input, opts);
+    if (first.ok) return first;
 
-  return {
-    ok: false,
-    error: `${first.error} | Fallback: ${second.error}`,
-  };
+    const second = withImages
+      ? await grokViaResponses(key, model, input, opts)
+      : await grokViaChatCompletions(key, model, input, opts);
+    if (second.ok) return second;
+
+    const combined = `${first.error} | Fallback: ${second.error}`;
+    const transient =
+      isTransientGrokError(first.error) || isTransientGrokError(second.error);
+    if (!transient || attempt === maxAttempts - 1) {
+      return { ok: false, error: combined };
+    }
+
+    await sleep(1_500 * (attempt + 1));
+  }
+
+  return { ok: false, error: "xAI request failed after retries" };
 }

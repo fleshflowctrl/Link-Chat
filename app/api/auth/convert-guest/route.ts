@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { convertGuestToPermanentAccountServer } from "@/lib/auth/convert-guest-server";
 import { isGuestAuthUser } from "@/lib/auth/user-account";
+import { parseAffiliateClickId } from "@/lib/affiliate/conversion-url";
+import { fireAffiliateSignupConversionServer } from "@/lib/affiliate/fire-signup-conversion-server";
 import {
   discoveryPrefsToJson,
   funnelInputToDiscoveryPrefs,
@@ -32,6 +34,7 @@ export async function POST(request: Request) {
     city?: string;
     gender?: string;
     seekingGender?: string;
+    affiliateClickId?: string;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -133,6 +136,14 @@ export async function POST(request: Request) {
       },
       { onConflict: "user_id" },
     );
+
+  const affiliateClickId = parseAffiliateClickId(body.affiliateClickId);
+  if (affiliateClickId) {
+    fireAffiliateSignupConversionServer({
+      clickId: affiliateClickId,
+      txid: result.userId,
+    });
+  }
 
   return NextResponse.json({
     ok: true,

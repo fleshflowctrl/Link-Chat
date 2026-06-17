@@ -6,13 +6,15 @@ import { useAppVariant } from "@/components/app-variant-provider";
 import { withVariantPath } from "@/lib/app-variant";
 import { GuestPhotoLockOverlay } from "@/components/discover/guest-photo-lock-message";
 import { MapPin, User } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import type { Profile } from "@/data/profiles";
+import { isProfilePhotoPreloaded, preloadProfilePhoto } from "@/lib/discover/preload-profile-photos";
 
 type Props = {
   profile: Profile;
   compact?: boolean;
   photoLocked?: boolean;
+  imagePriority?: boolean;
 };
 
 const INTEREST_EMOJI: Record<string, string> = {
@@ -29,16 +31,37 @@ const INTEREST_EMOJI: Record<string, string> = {
  * is overlaid on top of the image. A bottom gradient keeps text legible
  * no matter how light or busy the photo behind it is.
  */
-export function FeedCard({ profile, compact = false, photoLocked = false }: Props) {
+export function FeedCard({
+  profile,
+  compact = false,
+  photoLocked = false,
+  imagePriority = false,
+}: Props) {
   const { variant } = useAppVariant();
   const isV2 = variant === "v2";
-  const [photoLoaded, setPhotoLoaded] = useState(false);
+  const [photoLoaded, setPhotoLoaded] = useState(() =>
+    isProfilePhotoPreloaded(profile.photo),
+  );
   const isPresenceStatus =
     profile.status.variant === "online" || profile.status.variant === "active";
   const isNew = profile.status.variant === "new";
   const showStatusChip =
     !isPresenceStatus && profile.status.label.trim().length > 0;
   const chipMotionClass = isNew ? "animate-discover-badge-new" : "";
+
+  useLayoutEffect(() => {
+    if (isProfilePhotoPreloaded(profile.photo)) {
+      setPhotoLoaded(true);
+      return;
+    }
+    let cancelled = false;
+    void preloadProfilePhoto(profile.photo).then(() => {
+      if (!cancelled) setPhotoLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.photo]);
 
   return (
     <div
@@ -54,6 +77,7 @@ export function FeedCard({ profile, compact = false, photoLocked = false }: Prop
         fill
         sizes="(max-width: 480px) 100vw, 420px"
         className="object-cover"
+        unoptimized
         style={
           photoLocked
             ? {
@@ -62,11 +86,13 @@ export function FeedCard({ profile, compact = false, photoLocked = false }: Prop
                 transform: "scale(1.08)",
                 transition: "opacity 220ms ease",
               }
-            : undefined
+            : photoLoaded
+              ? undefined
+              : { opacity: 0 }
         }
         onLoad={() => setPhotoLoaded(true)}
-        priority
-        fetchPriority="high"
+        priority={imagePriority}
+        fetchPriority={imagePriority ? "high" : "auto"}
       />
 
       {photoLocked && (

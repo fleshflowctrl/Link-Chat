@@ -21,7 +21,10 @@ import {
   Zap,
 } from "lucide-react";
 import type { Profile } from "@/data/profiles";
-import { HOURLY_FEED_SIZE } from "@/lib/catalog/hourly-feed";
+import {
+  GUEST_PREVIEW_USER_KEY,
+  HOURLY_FEED_SIZE,
+} from "@/lib/catalog/hourly-feed";
 import type { EditProfileState } from "@/data/me-edit";
 import { hasProfileBasics } from "@/lib/me/profile-completeness";
 import { BUNDLES_TITLE, bundleUnits, BUY_BUNDLES_CTA, insufficientBundleWithCost } from "@/lib/credits/copy";
@@ -36,8 +39,33 @@ import { FeedCard } from "./feed-card";
 import { ProfileStrengthBanner } from "./profile-strength-banner";
 
 const FEED_INDEX_KEY_PREFIX = "whisper_feed_index";
+const GUEST_EXHAUSTED_KEY_PREFIX = "whisper_guest_feed_exhausted";
 
 type SavedCursor = { index: number; profileId: string | null };
+
+function guestExhaustedKey(feedHash: string): string {
+  return `${GUEST_EXHAUSTED_KEY_PREFIX}:${feedHash}`;
+}
+
+function readGuestFeedExhausted(feedHash: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(guestExhaustedKey(feedHash)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeGuestFeedExhausted(feedHash: string, exhausted: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    const key = guestExhaustedKey(feedHash);
+    if (exhausted) localStorage.setItem(key, "1");
+    else localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Per-user, per-slot localStorage key. Keeping this purely slot-keyed (not
@@ -112,36 +140,15 @@ function writeSavedCursor(
 }
 
 import { postProfileSeen } from "@/lib/catalog/post-profile-seen";
+import {
+  preloadProfilePhotosAround,
+  preloadProfilePhotosIdle,
+  preloadProfilePhoto,
+} from "@/lib/discover/preload-profile-photos";
 
-/** Number of upcoming profile photos to preload while the user is browsing. */
-const PRELOAD_AHEAD = 3;
-
-/**
- * Warm the browser image cache for the next `count` profiles so rapid
- * "Volgende" taps swap to a fully-decoded image without a flash of blank.
- */
-function usePreloadNextPhotos(
-  profiles: Profile[],
-  index: number,
-  count: number,
-) {
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const refs: HTMLImageElement[] = [];
-    for (let i = 1; i <= count; i++) {
-      const next = profiles[index + i];
-      if (!next?.photo) continue;
-      const img = new window.Image();
-      img.decoding = "async";
-      img.loading = "eager";
-      img.src = next.photo;
-      refs.push(img);
-    }
-    return () => {
-      for (const img of refs) img.src = "";
-    };
-  }, [profiles, index, count]);
-}
+/** Upcoming cards to decode before the user swipes. */
+const PRELOAD_AHEAD = 8;
+const PRELOAD_BEHIND = 1;
 
 type Props = {
   profiles: Profile[];
@@ -168,6 +175,8 @@ type Props = {
   lockedPhotoIds?: Set<string>;
   /** Guests must sign up before opening chat. */
   requiresAuthForMessage?: boolean;
+  /** Guests must sign up to see more profiles after the preview pack. */
+  requiresAuthToContinue?: boolean;
 };
 
 function formatCountdown(ms: number): string {
@@ -204,6 +213,7 @@ export function FeedStack({
   startAtProfileId = null,
   lockedPhotoIds = new Set<string>(),
   requiresAuthForMessage = false,
+  requiresAuthToContinue = false,
 }: Props) {
   const { variant } = useAppVariant();
   const isV2 = variant === "v2";
@@ -214,6 +224,10 @@ export function FeedStack({
     getCreditsSnapshot,
     getCreditsSnapshot,
   ).userKey;
+  // Guests share one preview pack — don't tie progress to anonymous user ids.
+  const progressKey = requiresAuthToContinue
+    ? GUEST_PREVIEW_USER_KEY
+    : userKey;
 
   const [index, setIndex] = useState<number>(0);
   const [hydrated, setHydrated] = useState(false);
@@ -228,33 +242,60 @@ export function FeedStack({
   // current pack size. A new slot uses a fresh storage key so this is a
   // natural reset when the timer rotates.
   useLayoutEffect(() => {
+    let resumeIndex = 0;
     if (startAtProfileId) {
       const found = profiles.findIndex((p) => p.id === startAtProfileId);
-      setIndex(found >= 0 ? found : 0);
-      setHydrated(true);
-      return;
+      resumeIndex = found >= 0 ? found : 0;
+    } else if (requiresAuthToContinue && readGuestFeedExhausted(feedHash)) {
+      resumeIndex = profiles.length;
+    } else {
+      let saved = readSavedCursor(progressKey, feedSlot);
+      if (
+        requiresAuthToContinue &&
+        userKey !== progressKey &&
+        saved.index < profiles.length
+      ) {
+        const legacy = readSavedCursor(userKey, feedSlot);
+        if (legacy.index > saved.index) saved = legacy;
+      }
+      resumeIndex = Math.min(Math.max(0, saved.index), profiles.length);
+      if (saved.profileId) {
+        const found = profiles.findIndex((p) => p.id === saved.profileId);
+        if (found >= 0) resumeIndex = found;
+      }
+      if (requiresAuthToContinue && resumeIndex >= profiles.length) {
+        resumeIndex = profiles.length;
+      }
     }
-    const saved = readSavedCursor(userKey, feedSlot);
-    let resumeIndex = Math.min(Math.max(0, saved.index), profiles.length);
-    if (saved.profileId) {
-      const found = profiles.findIndex((p) => p.id === saved.profileId);
-      if (found >= 0) resumeIndex = found;
-    }
+    preloadProfilePhotosAround(profiles, resumeIndex, PRELOAD_AHEAD, PRELOAD_BEHIND);
+    const first = profiles[resumeIndex]?.photo;
+    if (first) void preloadProfilePhoto(first);
     setIndex(resumeIndex);
     setHydrated(true);
     // We intentionally re-derive on slot change; pack changes inside a slot
     // shouldn't reset (the server keeps order stable), so `profiles` and
     // `feedHash` are not deps here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userKey, feedSlot, startAtProfileId]);
+  }, [progressKey, feedSlot, feedHash, startAtProfileId, requiresAuthToContinue]);
 
   // Persist progress (skip the very first render before hydration to avoid
   // overwriting a saved value with the initial 0).
   useEffect(() => {
     if (!hydrated) return;
     const profileId = profiles[index]?.id ?? null;
-    writeSavedCursor(userKey, feedSlot, { index, profileId });
-  }, [hydrated, userKey, feedSlot, index, profiles]);
+    writeSavedCursor(progressKey, feedSlot, { index, profileId });
+    if (requiresAuthToContinue) {
+      writeGuestFeedExhausted(feedHash, index >= profiles.length);
+    }
+  }, [
+    hydrated,
+    progressKey,
+    feedSlot,
+    feedHash,
+    index,
+    profiles,
+    requiresAuthToContinue,
+  ]);
 
   const [now, setNow] = useState<number>(() => Date.now());
   useEffect(() => {
@@ -286,10 +327,15 @@ export function FeedStack({
     setAuthPromptOpen(false);
   }, [current?.id]);
 
-  // Pre-warm the next few photos so the image is already decoded by the
-  // time the user taps "Volgende" — eliminates the lag where the new card
-  // briefly shows the gray bg or stale photo while the next file loads.
-  usePreloadNextPhotos(profiles, safeIndex, PRELOAD_AHEAD);
+  // Keep upcoming cards warm while swiping; preload the full pack in idle time.
+  useLayoutEffect(() => {
+    preloadProfilePhotosAround(profiles, safeIndex, PRELOAD_AHEAD, PRELOAD_BEHIND);
+  }, [profiles, safeIndex]);
+
+  useEffect(() => {
+    const urls = profiles.map((p) => p.photo).filter(Boolean);
+    preloadProfilePhotosIdle(urls);
+  }, [profiles]);
 
   const remaining = Math.max(0, nextRefreshAt - now);
   const countdown = formatCountdown(remaining);
@@ -368,6 +414,7 @@ export function FeedStack({
             insufficient={insufficient}
             refreshing={refreshing}
             onRefreshNow={onRefreshNow}
+            requiresAuthToContinue={requiresAuthToContinue}
           />
           {showProfileNudge && profile && (
             <ProfileStrengthBanner profile={profile} compact />
@@ -404,6 +451,7 @@ export function FeedStack({
                   profile={current}
                   compact={compact}
                   photoLocked={lockedPhotoIds.has(current.id)}
+                  imagePriority
                 />
               </motion.div>
             </AnimatePresence>
@@ -529,6 +577,7 @@ type EndProps = {
   insufficient: boolean;
   refreshing: boolean;
   onRefreshNow: () => void | Promise<void>;
+  requiresAuthToContinue: boolean;
 };
 
 function FeedEndCard({
@@ -538,9 +587,19 @@ function FeedEndCard({
   insufficient,
   refreshing,
   onRefreshNow,
+  requiresAuthToContinue,
 }: EndProps) {
   const { variant } = useAppVariant();
   const isV2 = variant === "v2";
+  const discoverHref = withVariantPath("/discover", variant);
+  const loginHref = withVariantPath(
+    `/login?next=${encodeURIComponent(discoverHref)}`,
+    variant,
+  );
+  const signupHref = withVariantPath(
+    `/signup?next=${encodeURIComponent(discoverHref)}`,
+    variant,
+  );
 
   return (
     <div
@@ -579,18 +638,52 @@ function FeedEndCard({
 
       <div className="relative flex flex-col items-center gap-1">
         <h2 className="text-[20px] font-extrabold tracking-tight text-ink">
-          Klaar voor meer?
+          {requiresAuthToContinue ? "Wil je verder ontdekken?" : "Klaar voor meer?"}
         </h2>
         <p className="text-[13px] leading-snug text-inkMuted">
-          Je hebt de {HOURLY_FEED_SIZE} matches van dit uur bekeken — maar{" "}
-          <span className="font-bold text-ink">
-            honderden andere profielen
-          </span>{" "}
-          wachten al.
+          {requiresAuthToContinue ? (
+            <>
+              Je hebt de {HOURLY_FEED_SIZE} gratis profielen bekeken. Maak een
+              account aan of log in om{" "}
+              <span className="font-bold text-ink">honderden andere profielen</span>{" "}
+              te ontdekken.
+            </>
+          ) : (
+            <>
+              Je hebt de {HOURLY_FEED_SIZE} matches van dit uur bekeken — maar{" "}
+              <span className="font-bold text-ink">
+                honderden andere profielen
+              </span>{" "}
+              wachten al.
+            </>
+          )}
         </p>
       </div>
 
-      {!isAnonymous && (
+      {requiresAuthToContinue ? (
+        <div className="relative w-full">
+          <Link
+            href={signupHref}
+            className={
+              isV2
+                ? "flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#B52B2A] via-[#C93535] to-[#D63B3A] px-4 py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+                : "flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-primary via-[#8B6BFF] to-accentPink px-4 py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-[0.98]"
+            }
+          >
+            Account aanmaken
+          </Link>
+          <Link
+            href={loginHref}
+            className={`mt-2 flex w-full items-center justify-center rounded-2xl py-3.5 text-[15px] font-bold ring-1 transition active:scale-[0.98] ${
+              isV2
+                ? "bg-[#353536] text-white ring-white/10"
+                : "bg-gray-100 text-gray-900 ring-black/10"
+            }`}
+          >
+            Inloggen
+          </Link>
+        </div>
+      ) : !isAnonymous ? (
         <div className="relative w-full">
           <button
             type="button"
@@ -649,7 +742,7 @@ function FeedEndCard({
             </span>
           </p>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

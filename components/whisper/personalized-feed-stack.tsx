@@ -77,6 +77,7 @@ export function PersonalizedFeedStack({
       profiles={sorted}
       lockedPhotoIds={lockedPhotoIds}
       requiresAuthForMessage={!effectivelyLoggedIn}
+      requiresAuthToContinue={!effectivelyLoggedIn}
     />
   );
 }

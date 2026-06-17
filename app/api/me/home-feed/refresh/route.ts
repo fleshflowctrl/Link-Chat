@@ -7,6 +7,7 @@ import {
 } from "@/lib/catalog/hourly-feed";
 import type { Profile } from "@/data/profiles";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
+import { isGuestAuthUser } from "@/lib/auth/user-account";
 import { readServerAppVariant } from "@/lib/app-variant";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
 import { applyDiscoverPoolFilters, staticCatalogProfiles } from "@/lib/catalog/profile-variant";
@@ -43,6 +44,12 @@ export async function POST() {
     return NextResponse.json(
       { ok: false, error: "not signed in" },
       { status: 401 },
+    );
+  }
+  if (isGuestAuthUser(user)) {
+    return NextResponse.json(
+      { ok: false, error: "signup required" },
+      { status: 403 },
     );
   }
 

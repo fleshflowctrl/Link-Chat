@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { encodeConversationId } from "@/lib/operator/conversation-key";
+import { clearAutoReplyCooldown } from "@/lib/operator/auto-reply-cooldown";
 import { logManualOperatorMode } from "@/lib/operator/log";
 
 export type OperatorQueueRow = {
@@ -70,6 +71,20 @@ export async function upsertOperatorQueueForUserMessage(
   if (error) {
     return { ok: false, error: error.message };
   }
+
+  clearAutoReplyCooldown(input.ownerUserId, input.peerId);
+
+  // Bust stale ai_processing locks immediately when a new user message arrives.
+  await supabase
+    .from("chat_operator_queue")
+    .update({
+      operator_status: "waiting_operator",
+      needs_operator_reply: true,
+      updated_at: now,
+    })
+    .eq("owner_user_id", input.ownerUserId)
+    .eq("peer_id", input.peerId)
+    .eq("operator_status", "ai_processing");
 
   logManualOperatorMode({
     conversationId: encodeConversationId(input.ownerUserId, input.peerId),

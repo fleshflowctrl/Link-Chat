@@ -3,10 +3,13 @@ import type { NewWhisperUser } from "@/data/newUsers";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
 import { applyDiscoverFeedStatusToProfiles } from "@/lib/catalog/discover-feed-status";
+import { isGuestAuthUser } from "@/lib/auth/user-account";
 import { hasServerDevBypassCookie } from "@/lib/dev-bypass-server";
 import {
   HOURLY_FEED_SIZE,
   activeFeedSlot,
+  GUEST_PREVIEW_USER_KEY,
+  guestPreviewFeedSlot,
   hashFeedComposition,
   hourlyFeedRefreshCostForVariant,
   nextHourBoundary,
@@ -85,6 +88,16 @@ function bundleMeta(
     feedSlot: activeFeedSlot(now, refreshOffset),
     refreshOffset,
     nextRefreshAt: nextHourBoundary(now),
+    refreshCost: hourlyFeedRefreshCostForVariant(variant),
+  };
+}
+
+/** Guests get one preview pack — no hourly rotation until they sign up. */
+function guestPreviewBundleMeta(userKey: string, variant: AppVariant) {
+  return {
+    feedSlot: guestPreviewFeedSlot(userKey),
+    refreshOffset: 0,
+    nextRefreshAt: Number.MAX_SAFE_INTEGER,
     refreshCost: hourlyFeedRefreshCostForVariant(variant),
   };
 }
@@ -254,18 +267,19 @@ export async function fetchHomePageCatalogServer(
     data: { user },
   } = await supabase.auth.getUser();
 
-  const userKey = user?.id ?? "guest";
-  const refreshOffset = user ? await fetchRefreshOffset(supabase, user.id) : 0;
-  const meta = bundleMeta(refreshOffset, variant, now);
+  const isGuestViewer = !user || isGuestAuthUser(user);
 
-  if (!user) {
+  if (isGuestViewer) {
     const { getNewWhisperUsers } = await import("@/data/newUsers");
     const { fetchDiscoverPoolServer } = await import(
       "@/lib/catalog/fetch-discover-pool-server"
     );
-    const { pool, degraded } = await fetchDiscoverPoolServer(variant, { allLiveVariants });
+    const { pool, degraded } = await fetchDiscoverPoolServer(variant, {
+      allLiveVariants,
+    });
+    const guestMeta = guestPreviewBundleMeta(GUEST_PREVIEW_USER_KEY, variant);
     const gridProfiles = pinProfileFirstInFeed(
-      pickDiscoverFeed(pool, userKey, meta.feedSlot),
+      pickDiscoverFeed(pool, GUEST_PREVIEW_USER_KEY, guestMeta.feedSlot),
       pool,
       funnelPickedId,
     );
@@ -274,9 +288,12 @@ export async function fetchHomePageCatalogServer(
       activityUsers: getNewWhisperUsers(),
       catalogDegraded: degraded,
       feedHash: hashFeedComposition(gridProfiles.map((p) => p.id)),
-      ...meta,
+      ...guestMeta,
     };
   }
+
+  const refreshOffset = await fetchRefreshOffset(supabase, user.id);
+  const meta = bundleMeta(refreshOffset, variant, now);
 
   // Pull a wide pool so the hourly picker can rotate through many subsets.
   let gridQuery = supabase

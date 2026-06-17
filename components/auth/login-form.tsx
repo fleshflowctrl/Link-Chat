@@ -13,6 +13,10 @@ import {
 } from "@/lib/auth/guest-session";
 import { applyServerCreditsUpdate } from "@/lib/credits-store";
 import { getOrCreateVisitorId, trackSignupLink } from "@/lib/analytics/visitor-id";
+import {
+  fireAffiliateSignupConversion,
+  getStoredAffiliateClickId,
+} from "@/lib/affiliate/911-for-me";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import {
   type AppVariant,
@@ -354,6 +358,7 @@ export function LoginForm({
         city: signupProfile!.city,
         gender: signupProfile!.gender,
         seekingGender: signupProfile!.seekingGender,
+        affiliateClickId: getStoredAffiliateClickId(),
       });
       if (!converted.ok) {
         setStatus("error");
@@ -361,6 +366,7 @@ export function LoginForm({
         return;
       }
       void trackSignupLink(converted.userId);
+      fireAffiliateSignupConversion({ txid: converted.userId ?? undefined });
       await hydrateClientSessionFromServer();
       router.replace(nextPath);
       router.refresh();
@@ -381,6 +387,7 @@ export function LoginForm({
         visitorId: getOrCreateVisitorId(),
         gender: signupProfile!.gender,
         seekingGender: signupProfile!.seekingGender,
+        affiliateClickId: getStoredAffiliateClickId(),
       }),
     });
 
@@ -430,6 +437,7 @@ export function LoginForm({
       applyServerCreditsUpdate(signupData.signupCredits);
     }
     void trackSignupLink(signupData.userId ?? null);
+    fireAffiliateSignupConversion({ txid: signupData.userId ?? undefined });
     await hydrateClientSessionFromServer();
     router.replace(nextPath);
     router.refresh();

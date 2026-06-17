@@ -1,9 +1,9 @@
 "use client";
 
+import { buildAffiliateConversionUrl } from "@/lib/affiliate/conversion-url";
+
 const CLICK_ID_STORAGE = "whisper:aff_click_id";
 const CONVERSION_FIRED_STORAGE = "whisper:aff_cv_fired";
-
-const CV_ENDPOINT = "https://911-for-me.com/cf/cv";
 
 /** Read affiliate click id from landing URL (?click_id=…). First touch wins. */
 export function captureAffiliateClickFromUrl(): void {
@@ -34,25 +34,11 @@ export function getStoredAffiliateClickId(): string | null {
   }
 }
 
-function buildConversionUrl(clickId: string, txid: string, payout?: string): string {
-  const url = new URL(CV_ENDPOINT);
-  url.searchParams.set("click_id", clickId);
-  url.searchParams.set("txid", txid);
-  const payoutVal =
-    payout?.trim() ||
-    (typeof process.env.NEXT_PUBLIC_AFFILIATE_CV_PAYOUT === "string"
-      ? process.env.NEXT_PUBLIC_AFFILIATE_CV_PAYOUT.trim()
-      : "");
-  if (payoutVal) url.searchParams.set("payout", payoutVal);
-  return url.toString();
-}
-
 /**
- * Postback for a successful funnel signup (step 7). Fires at most once per
- * browser session storage (per stored click_id).
+ * Client-side postback backup (Image pixel + fetch). Fires at most once per
+ * browser (per stored click_id). Server also fires when clickId is sent on signup.
  */
 export function fireAffiliateSignupConversion(options?: {
-  /** Unique conversion id — defaults to user id or a random uuid. */
   txid?: string | null;
   payout?: string | null;
 }): void {
@@ -73,7 +59,11 @@ export function fireAffiliateSignupConversion(options?: {
       ? crypto.randomUUID()
       : `signup-${Date.now()}`);
 
-  const target = buildConversionUrl(clickId, txid, options?.payout ?? undefined);
+  const target = buildAffiliateConversionUrl({
+    clickId,
+    txid,
+    payout: options?.payout ?? undefined,
+  });
 
   try {
     localStorage.setItem(CONVERSION_FIRED_STORAGE, "1");
@@ -81,7 +71,6 @@ export function fireAffiliateSignupConversion(options?: {
     // Still attempt the pixel if we can't persist the fired flag.
   }
 
-  // Tracking pixel — reliable for third-party postbacks (adblockers may still block).
   const img = new Image();
   img.src = target;
 

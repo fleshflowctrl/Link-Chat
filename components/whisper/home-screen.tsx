@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { NewWhisperUser } from "@/data/newUsers";
 import type { Profile } from "@/data/profiles";
 import type { EditProfileState } from "@/data/me-edit";
@@ -8,6 +8,7 @@ import {
   applyServerCreditsUpdate,
   getCreditsSnapshot,
   initCreditsStore,
+  isPermanentCreditsUser,
   subscribeCredits,
 } from "@/lib/credits-store";
 import {
@@ -20,6 +21,7 @@ import {
   pinProfileFirstInFeed,
 } from "@/lib/catalog/funnel-picked-peer";
 import { hashFeedComposition } from "@/lib/catalog/hourly-feed";
+import { preloadProfilePhotosAround, preloadProfilePhotosIdle } from "@/lib/discover/preload-profile-photos";
 import { ensureGuestSession } from "@/lib/auth/guest-session";
 import { appVariantFetchHeaders } from "@/lib/app-variant";
 import { CatalogFallbackBanner } from "./catalog-fallback-banner";
@@ -91,6 +93,12 @@ export function HomeScreen({
     () => null,
   );
 
+  const viewerIsPermanent = useSyncExternalStore(
+    subscribeCredits,
+    isPermanentCreditsUser,
+    () => initialViewerIsPermanent,
+  );
+
   // Hold the feed behind a loader until preferences have settled (preferences
   // loaded + any client refetch resolved). This prevents the initial SSR set
   // from being visibly re-sorted/replaced a beat later — which briefly exposed
@@ -114,6 +122,19 @@ export function HomeScreen({
     initCreditsStore();
     void refreshDiscoveryPreferencesFromServer();
   }, []);
+
+  // Start decoding feed photos as soon as the pack is known — before the
+  // preferences gate lifts and before the user sees the first card.
+  useLayoutEffect(() => {
+    if (profilesState.length === 0) return;
+    preloadProfilePhotosAround(profilesState, 0, 10, 0);
+    preloadProfilePhotosIdle(profilesState.map((p) => p.photo));
+  }, [profilesState]);
+
+  useLayoutEffect(() => {
+    if (gridProfiles.length === 0) return;
+    preloadProfilePhotosAround(gridProfiles, 0, 10, 0);
+  }, [gridProfiles]);
 
   // Guest session for chat/credits runs in SessionSyncProvider. Fallback client
   // feed fetch only if SSR returned an empty pack (e.g. Supabase misconfigured).
@@ -181,10 +202,11 @@ export function HomeScreen({
     };
   }, []);
 
-  // Auto-rotate at the natural hour boundary: when the countdown hits zero,
-  // pull a fresh slice from the server and reset the timer.
+  // Auto-rotate at the natural hour boundary for signed-in users only.
   const fetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (!viewerIsPermanent) return;
+
     function scheduleNext() {
       if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
       const delay = Math.max(2000, nextAt - Date.now() + 500);
@@ -217,7 +239,7 @@ export function HomeScreen({
     return () => {
       if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current);
     };
-  }, [nextAt]);
+  }, [nextAt, viewerIsPermanent]);
 
   const handleRefreshNow = useCallback(async () => {
     setRefreshing(true);

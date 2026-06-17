@@ -501,6 +501,8 @@ export async function prepareReplyMemoryContext(
     peerId: string;
     profile: ChatProfileRow;
     persist?: boolean;
+    /** Skip Grok memory-refresh calls (faster operator auto-reply). */
+    skipRefresh?: boolean;
   },
 ): Promise<PreloadedReplyMemory> {
   const { data: memRow } = await supabase
@@ -513,6 +515,20 @@ export async function prepareReplyMemoryContext(
   const { prevMemory, prevStructured, prevSelfMemory } = parseMemoryRow(
     (memRow ?? null) as MemoryRow | null,
   );
+
+  if (args.skipRefresh) {
+    const { data: personaRow } = await supabase
+      .from("user_chat_persona")
+      .select("*")
+      .eq("user_id", args.ownerUserId)
+      .maybeSingle();
+    return {
+      memory: prevMemory ?? { summary: "", prefix_messages_count: 0 },
+      structured: prevStructured ?? { facts: {}, prefix_messages_count: 0 },
+      userCrossChatProfile: (personaRow as PreloadedReplyMemory["userCrossChatProfile"]) ?? null,
+      personaSelfMem: prevSelfMemory ?? { facts: {}, prefix_messages_count: 0 },
+    };
+  }
 
   const [memory, structured, userCrossChatProfile, personaSelfMem] = await Promise.all([
     refreshThreadSummaryIfNeeded(args.history, prevMemory).catch((): ThreadMemoryRow => ({

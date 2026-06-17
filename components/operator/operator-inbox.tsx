@@ -14,6 +14,7 @@ import { getPersonaAccent } from "@/lib/operator/persona-style";
 import {
   isOperatorLivePollActive,
   OPERATOR_INBOX_POLL_MS,
+  OPERATOR_AUTO_REPLY_POLL_MS,
   OPERATOR_THREAD_POLL_MS,
 } from "@/lib/operator/live-poll";
 
@@ -346,7 +347,6 @@ export function OperatorInbox() {
   const [aiAutoReplyEnabled, setAiAutoReplyEnabled] = useState(false);
   const [aiAutoSettingsLoading, setAiAutoSettingsLoading] = useState(true);
   const [aiAutoProcessing, setAiAutoProcessing] = useState(false);
-  const aiAutoBusyRef = useRef(false);
   const [userChatsOpen, setUserChatsOpen] = useState(false);
   const [userThreads, setUserThreads] = useState<UserThreadItem[]>([]);
   const [userThreadsLoading, setUserThreadsLoading] = useState(false);
@@ -360,6 +360,7 @@ export function OperatorInbox() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
   const suggestionsRequestRef = useRef(0);
+  const aiAutoBusyRef = useRef(false);
 
   const inThread = Boolean(selectedId && detail);
 
@@ -517,9 +518,19 @@ export function OperatorInbox() {
       const data = (await res.json()) as {
         ok: boolean;
         sent?: number;
+        processed?: number;
+        errors?: string[];
         error?: string;
       };
-      if (data.ok && (data.sent ?? 0) > 0) {
+      if (!data.ok) {
+        setError(data.error ?? "AI auto-reply mislukt");
+        return;
+      }
+      const errs = data.errors ?? [];
+      if (errs.length > 0) {
+        setError(`AI fout: ${errs[0]}`);
+      }
+      if ((data.sent ?? 0) > 0) {
         await loadInbox();
         if (selectedId) {
           await loadThread(selectedId, { silent: true });
@@ -557,6 +568,8 @@ export function OperatorInbox() {
       }
       if (data.aiAutoReplyEnabled) {
         void runAutoReplyProcessor();
+      } else {
+        setAiAutoProcessing(false);
       }
     } catch {
       setAiAutoReplyEnabled(!enabled);
@@ -614,7 +627,7 @@ export function OperatorInbox() {
     const timer = window.setInterval(() => {
       if (!isOperatorLivePollActive()) return;
       void runAutoReplyProcessor();
-    }, OPERATOR_INBOX_POLL_MS);
+    }, OPERATOR_AUTO_REPLY_POLL_MS);
     return () => window.clearInterval(timer);
   }, [aiAutoReplyEnabled, runAutoReplyProcessor]);
 

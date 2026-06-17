@@ -4,6 +4,10 @@ import {
   setOperatorAiAutoReplyEnabled,
 } from "@/lib/operator/ai-auto-settings";
 import { requireOperatorApi } from "@/lib/operator/api-auth";
+import {
+  processPendingOperatorAutoReplies,
+  resetStuckOperatorAutoReplyClaims,
+} from "@/lib/operator/process-operator-auto-reply";
 
 export const dynamic = "force-dynamic";
 
@@ -43,10 +47,25 @@ export async function PATCH(request: Request) {
       body.aiAutoReplyEnabled,
       auth.operatorId,
     );
+
+    let stuckClaimsReset = 0;
+    if (body.aiAutoReplyEnabled) {
+      stuckClaimsReset = await resetStuckOperatorAutoReplyClaims(auth.service, {
+        forceAll: true,
+      });
+      void processPendingOperatorAutoReplies(auth.service, {
+        limit: 8,
+        maxBatches: 6,
+      }).catch((e) => {
+        console.warn("[operator-auto-reply] kickoff after enable", e);
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       aiAutoReplyEnabled: settings.aiAutoReplyEnabled,
       updatedAt: settings.updatedAt,
+      stuckClaimsReset,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

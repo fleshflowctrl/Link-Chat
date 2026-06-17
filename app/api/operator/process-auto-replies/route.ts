@@ -10,7 +10,8 @@ export async function POST() {
   if (!auth.ok) return auth.response;
 
   const result = await processPendingOperatorAutoReplies(auth.service, {
-    limit: 2,
+    limit: 4,
+    maxBatches: 3,
   });
 
   return NextResponse.json({

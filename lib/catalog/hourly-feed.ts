@@ -14,6 +14,8 @@
 export const FEED_ROTATION_HOURS = 2;
 export const HOUR_MS = FEED_ROTATION_HOURS * 60 * 60 * 1000;
 export const HOURLY_FEED_SIZE = 30;
+/** Stable discover key for all non-permanent viewers (no auth + anonymous). */
+export const GUEST_PREVIEW_USER_KEY = "guest";
 export {
   HOURLY_FEED_REFRESH_COST_CREDITS as HOURLY_FEED_REFRESH_COST,
   V2_HOURLY_FEED_REFRESH_COST_CREDITS,
@@ -44,6 +46,14 @@ export function nextHourBoundary(now: number = Date.now()): number {
 /** Active slot id, factoring in any paid refreshes the user has accrued. */
 export function activeFeedSlot(now: number, refreshOffset: number): number {
   return currentHourBucket(now) + Math.max(0, refreshOffset | 0);
+}
+
+/**
+ * Fixed discover slot for guests — does not advance with wall-clock rotation so
+ * non-permanent viewers cannot poll/wait their way into a fresh hourly pack.
+ */
+export function guestPreviewFeedSlot(userKey: string): number {
+  return fnv1aHash(`guest-preview::${userKey}`) % 1_000_000;
 }
 
 /* ------------------------------------------------------------------------- */

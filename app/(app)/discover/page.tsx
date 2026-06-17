@@ -14,6 +14,14 @@ export default async function DiscoverPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {catalog.gridProfiles[0]?.photo ? (
+        <link
+          rel="preload"
+          as="image"
+          href={catalog.gridProfiles[0].photo}
+          fetchPriority="high"
+        />
+      ) : null}
       <PostDiscoverToast />
       <div
         className={`shrink-0 border-b border-[#B52B2A]/25 bg-[#1D1D1E]/95 py-2 text-center text-[11px] font-medium tracking-wide text-[#B52B2A] ${APP_PAGE_PADDING_X}`}

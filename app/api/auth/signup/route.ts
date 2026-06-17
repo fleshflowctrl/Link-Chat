@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
+import { parseAffiliateClickId } from "@/lib/affiliate/conversion-url";
+import { fireAffiliateSignupConversionServer } from "@/lib/affiliate/fire-signup-conversion-server";
 import { grantSignupCreditsForUser } from "@/lib/credits/grant-signup-credits";
 import {
   discoveryPrefsToJson,
@@ -26,6 +28,7 @@ type Body = {
   visitorId?: string;
   gender?: string;
   seekingGender?: string;
+  affiliateClickId?: string;
 };
 
 const UUID_RX =
@@ -175,6 +178,14 @@ export async function POST(request: Request) {
   const grant = await grantSignupCreditsForUser(userId);
   if (!grant.ok) {
     return bad(grant.error ?? "Credits bij registratie mislukt", 500);
+  }
+
+  const affiliateClickId = parseAffiliateClickId(body.affiliateClickId);
+  if (affiliateClickId) {
+    fireAffiliateSignupConversionServer({
+      clickId: affiliateClickId,
+      txid: userId,
+    });
   }
 
   // If this signup came from a tracked visitor, bind that visitor to the
