@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { convertGuestToPermanentAccountServer } from "@/lib/auth/convert-guest-server";
 import { isGuestAuthUser } from "@/lib/auth/user-account";
+import {
+  discoveryPrefsToJson,
+  funnelInputToDiscoveryPrefs,
+} from "@/lib/discovery-preferences-server";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -20,9 +24,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: true, needsEmailConfirm: false });
   }
 
-  let body: { email?: string; password?: string; nickname?: string; age?: number; city?: string };
+  let body: {
+    email?: string;
+    password?: string;
+    nickname?: string;
+    age?: number;
+    city?: string;
+    gender?: string;
+    seekingGender?: string;
+  };
   try {
-    body = (await request.json()) as { email?: string; password?: string; nickname?: string; age?: number; city?: string };
+    body = (await request.json()) as typeof body;
   } catch {
     return bad("Ongeldige JSON");
   }
@@ -36,6 +48,14 @@ export async function POST(request: Request) {
     typeof ageRaw === "number" && Number.isFinite(ageRaw)
       ? Math.round(ageRaw)
       : NaN;
+  const genderRaw = typeof body.gender === "string" ? body.gender.trim() : "";
+  const seekingGenderRaw =
+    typeof body.seekingGender === "string" ? body.seekingGender.trim() : "";
+  const gender = genderRaw === "man" || genderRaw === "woman" ? genderRaw : "";
+  const seekingGender =
+    seekingGenderRaw === "men" || seekingGenderRaw === "women"
+      ? seekingGenderRaw
+      : "";
 
   if (!email || !email.includes("@")) {
     return bad("Ongeldig e-mailadres");
@@ -48,6 +68,12 @@ export async function POST(request: Request) {
   }
   if (!city) {
     return bad("Vul je stad in.");
+  }
+  if (!gender) {
+    return bad("Kies of je een man of vrouw bent.");
+  }
+  if (!seekingGender) {
+    return bad("Kies of je een man of vrouw zoekt.");
   }
   if (password.length < PASSWORD_MIN) {
     return bad(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn`);
@@ -85,6 +111,12 @@ export async function POST(request: Request) {
     );
   }
 
+  const discoveryPrefs = funnelInputToDiscoveryPrefs({
+    lookingFor: null,
+    seekingGender,
+    ageRange: { min: 18, max: 80, anyAge: true },
+  });
+
   // Save basic profile fields while we still have the guest session.
   await supabase
     .from("user_profiles")
@@ -94,6 +126,9 @@ export async function POST(request: Request) {
         first_name: nickname,
         age,
         location: city,
+        gender,
+        seeking_gender: seekingGender,
+        discovery_prefs: discoveryPrefsToJson(discoveryPrefs),
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },

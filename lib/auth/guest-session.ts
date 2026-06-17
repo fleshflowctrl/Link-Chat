@@ -83,6 +83,8 @@ export async function convertAnonymousToPermanentAccount(input: {
   nickname?: string;
   age?: number;
   city?: string;
+  gender?: string;
+  seekingGender?: string;
 }): Promise<
   | { ok: true; needsEmailConfirm: boolean; userId: string | null }
   | { ok: false; error: string }
@@ -102,6 +104,8 @@ export async function convertAnonymousToPermanentAccount(input: {
       nickname: input.nickname,
       age: input.age,
       city: input.city,
+      gender: input.gender,
+      seekingGender: input.seekingGender,
     }),
   });
 

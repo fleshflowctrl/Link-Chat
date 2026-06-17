@@ -320,12 +320,10 @@ export function FeedStack({
     : "flex min-h-[56px] items-center justify-center gap-2.5 rounded-full px-4 py-3.5 text-white shadow-md transition active:scale-[0.98]";
 
   const primaryBtnStyle = isV2
-    ? "bg-gradient-to-r from-[#AD3635] to-[#C4403F] ring-1 ring-black/10"
+    ? "bg-gradient-to-r from-[#BA3D3C] to-[#CF4A49] ring-1 ring-black/10"
     : "bg-gradient-primary";
 
-  const secondaryBtnStyle = isV2
-    ? "bg-gradient-to-r from-[#962B2A] to-[#A83635] ring-1 ring-black/15"
-    : "bg-gray-900";
+  const secondaryBtnStyle = isV2 ? primaryBtnStyle : "bg-gray-900";
 
   const swipeDismiss = useCallback(
     (offsetX: number, velocityX: number) => {

@@ -20,10 +20,70 @@ import {
 } from "@/lib/app-variant";
 import { V2_GRADIENT_PRIMARY } from "@/lib/v2-theme";
 import { createClient } from "@/utils/supabase/client";
+import type {
+  FunnelGender,
+  FunnelSeekingGender,
+} from "@/lib/funnel/save-funnel-account";
 
 type LoginFormMode = "login" | "signup";
 
 const PASSWORD_MIN = 6;
+
+type SignupSeekingGender = Exclude<FunnelSeekingGender, "both">;
+
+function SignupChoiceGroup<T extends string>({
+  label,
+  labelClass,
+  value,
+  onChange,
+  options,
+  isV2,
+  embedded,
+}: {
+  label: string;
+  labelClass: string;
+  value: T | null;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+  isV2: boolean;
+  embedded: boolean;
+}) {
+  function boxClass(selected: boolean): string {
+    const base =
+      "flex h-12 w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition enabled:active:scale-[0.98]";
+    if (isV2) {
+      return `${base} ${
+        selected
+          ? "bg-[#353536] text-ink ring-2 ring-[#B52B2A]/50"
+          : "bg-[#1D1D1E] text-ink ring-1 ring-white/[0.08] hover:ring-white/15"
+      }`;
+    }
+    return `${base} ${
+      selected
+        ? "bg-primary/10 text-primary ring-2 ring-primary/40"
+        : "bg-white text-ink ring-1 ring-black/[0.06]"
+    }`;
+  }
+
+  return (
+    <div>
+      <span className={labelClass}>{label}</span>
+      <div className={`mt-1.5 grid grid-cols-2 ${embedded ? "gap-2" : "gap-3"}`}>
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={value === opt.value}
+            onClick={() => onChange(opt.value)}
+            className={boxClass(value === opt.value)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function PasswordField({
   id,
@@ -141,6 +201,20 @@ export function LoginForm({
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptMarketing, setAcceptMarketing] = useState(false);
   const [signupStep, setSignupStep] = useState<1 | 2>(1);
+  const [gender, setGender] = useState<FunnelGender | null>(null);
+  const [seekingGender, setSeekingGender] = useState<SignupSeekingGender | null>(
+    null,
+  );
+
+  function onSignupGenderChange(value: FunnelGender) {
+    setGender(value);
+    setSeekingGender(value === "man" ? "women" : "men");
+  }
+
+  function onSignupSeekingGenderChange(value: SignupSeekingGender) {
+    setSeekingGender(value);
+    setGender(value === "men" ? "woman" : "man");
+  }
 
   const supabaseConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL?.length,
@@ -188,6 +262,16 @@ export function LoginForm({
     if (!cityLabel) {
       setStatus("error");
       setMessage("Vul je stad in.");
+      return false;
+    }
+    if (!gender) {
+      setStatus("error");
+      setMessage("Kies of je een man of vrouw bent.");
+      return false;
+    }
+    if (!seekingGender) {
+      setStatus("error");
+      setMessage("Kies of je een man of vrouw zoekt.");
       return false;
     }
     return true;
@@ -240,6 +324,8 @@ export function LoginForm({
         nickname: nickname.trim(),
         age: Number(age),
         city: city.trim(),
+        gender,
+        seekingGender,
       });
       if (!converted.ok) {
         setStatus("error");
@@ -265,6 +351,8 @@ export function LoginForm({
         password,
         next: nextPath,
         visitorId: getOrCreateVisitorId(),
+        gender,
+        seekingGender,
       }),
     });
 
@@ -364,7 +452,7 @@ export function LoginForm({
     mode === "signup"
       ? signupStep === 1
         ? "Stap 1 van 2 — je accountgegevens."
-        : "Stap 2 van 2 — hoe mogen we je noemen?"
+        : "Stap 2 van 2 — je profielgegevens"
       : "Log in met je e-mail en wachtwoord.";
 
   const submitLabel = embedded
@@ -467,6 +555,30 @@ export function LoginForm({
                   className={inputClass}
                 />
               </label>
+              <SignupChoiceGroup
+                label="Ik ben een"
+                labelClass={labelClass}
+                value={gender}
+                onChange={onSignupGenderChange}
+                isV2={isV2}
+                embedded={embedded}
+                options={[
+                  { value: "man", label: "Man" },
+                  { value: "woman", label: "Vrouw" },
+                ]}
+              />
+              <SignupChoiceGroup
+                label="Ik zoek een"
+                labelClass={labelClass}
+                value={seekingGender}
+                onChange={onSignupSeekingGenderChange}
+                isV2={isV2}
+                embedded={embedded}
+                options={[
+                  { value: "men", label: "Man" },
+                  { value: "women", label: "Vrouw" },
+                ]}
+              />
               <div className={embedded ? "grid grid-cols-2 gap-2" : "grid grid-cols-2 gap-3"}>
                 <label className="block">
                   <span className={labelClass}>Leeftijd</span>

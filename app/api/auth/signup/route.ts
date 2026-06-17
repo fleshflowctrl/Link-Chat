@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import { grantSignupCreditsForUser } from "@/lib/credits/grant-signup-credits";
+import {
+  discoveryPrefsToJson,
+  funnelInputToDiscoveryPrefs,
+} from "@/lib/discovery-preferences-server";
 import { getServiceSupabase } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
@@ -20,6 +24,8 @@ type Body = {
   password?: string;
   next?: string;
   visitorId?: string;
+  gender?: string;
+  seekingGender?: string;
 };
 
 const UUID_RX =
@@ -65,6 +71,14 @@ export async function POST(request: Request) {
   const visitorIdRaw =
     typeof body.visitorId === "string" ? body.visitorId.trim() : "";
   const visitorId = UUID_RX.test(visitorIdRaw) ? visitorIdRaw : null;
+  const genderRaw = typeof body.gender === "string" ? body.gender.trim() : "";
+  const seekingGenderRaw =
+    typeof body.seekingGender === "string" ? body.seekingGender.trim() : "";
+  const gender = genderRaw === "man" || genderRaw === "woman" ? genderRaw : "";
+  const seekingGender =
+    seekingGenderRaw === "men" || seekingGenderRaw === "women"
+      ? seekingGenderRaw
+      : "";
 
   if (!email || !email.includes("@")) {
     return bad("Ongeldig e-mailadres");
@@ -77,6 +91,12 @@ export async function POST(request: Request) {
   }
   if (!city) {
     return bad("Vul je stad in.");
+  }
+  if (!gender) {
+    return bad("Kies of je een man of vrouw bent.");
+  }
+  if (!seekingGender) {
+    return bad("Kies of je een man of vrouw zoekt.");
   }
   if (password.length < PASSWORD_MIN) {
     return bad(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn`);
@@ -128,6 +148,12 @@ export async function POST(request: Request) {
     return bad("Account aanmaken mislukt", 500);
   }
 
+  const discoveryPrefs = funnelInputToDiscoveryPrefs({
+    lookingFor: null,
+    seekingGender,
+    ageRange: { min: 18, max: 80, anyAge: true },
+  });
+
   // Persist basic profile fields for the new account (service role bypasses RLS).
   await admin
     .from("user_profiles")
@@ -137,6 +163,9 @@ export async function POST(request: Request) {
         first_name: nickname,
         age,
         location: city,
+        gender,
+        seeking_gender: seekingGender,
+        discovery_prefs: discoveryPrefsToJson(discoveryPrefs),
         credits: 0,
         updated_at: new Date().toISOString(),
       },
