@@ -9,11 +9,11 @@ export default function AuthLayout({
   return (
     <div
       data-app-variant="v2"
-      className="h-[100dvh] overflow-hidden px-3 py-3 sm:px-4 sm:py-4 md:px-6"
+      className="min-h-[100dvh] overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:px-6"
       style={{ backgroundColor: V2_THEME.bg }}
     >
       <div
-        className={`mx-auto flex h-full w-full items-center ${APP_SHELL_WIDTH_CLASS} md:max-w-md`}
+        className={`mx-auto flex min-h-[calc(100dvh-1.5rem)] w-full items-center ${APP_SHELL_WIDTH_CLASS} md:max-w-md`}
       >
         {children}
       </div>

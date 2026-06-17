@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { hydrateClientSessionFromServer } from "@/lib/client-user-session";
@@ -39,6 +39,14 @@ type SignupStep2Profile = {
   seekingGender: SignupSeekingGender;
 };
 
+function FieldHint({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-1 truncate text-[10px] leading-tight text-inkMuted sm:text-[11px]">
+      {children}
+    </p>
+  );
+}
+
 function SignupChoiceGroup<T extends string>({
   label,
   labelClass,
@@ -47,6 +55,7 @@ function SignupChoiceGroup<T extends string>({
   options,
   isV2,
   embedded,
+  compact = false,
 }: {
   label: string;
   labelClass: string;
@@ -55,10 +64,12 @@ function SignupChoiceGroup<T extends string>({
   options: { value: T; label: string }[];
   isV2: boolean;
   embedded: boolean;
+  compact?: boolean;
 }) {
   function boxClass(selected: boolean): string {
-    const base =
-      "flex h-11 w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition enabled:active:scale-[0.98] sm:h-12";
+    const base = compact
+      ? "flex h-10 w-full items-center justify-center rounded-xl text-[14px] font-semibold transition enabled:active:scale-[0.98] sm:h-11 sm:rounded-2xl sm:text-[15px]"
+      : "flex h-11 w-full items-center justify-center rounded-2xl text-[15px] font-semibold transition enabled:active:scale-[0.98] sm:h-12";
     if (isV2) {
       return `${base} ${
         selected
@@ -173,6 +184,7 @@ export function LoginForm({
 }) {
   const isV2 = appVariant === "v2";
   const defaultAfterAuth = withVariantPath("/messages", appVariant);
+  const discoverPath = withVariantPath("/discover", appVariant);
   const loginPath = withVariantPath("/login", appVariant);
   const signupPath = withVariantPath("/signup", appVariant);
   const router = useRouter();
@@ -476,7 +488,7 @@ export function LoginForm({
       ? status === "loading"
         ? "Bezig…"
         : signupStep === 1
-          ? "Volgende"
+          ? "Verder naar laatste stap"
           : "Account aanmaken"
       : status === "loading"
         ? "Bezig…"
@@ -485,11 +497,13 @@ export function LoginForm({
       ? status === "loading"
         ? "Account aanmaken…"
         : signupStep === 1
-          ? "Volgende"
+          ? "Verder naar laatste stap"
           : "Account aanmaken"
       : status === "loading"
         ? "Bezig met inloggen…"
         : "Inloggen";
+
+  const isSignupStep2 = !embedded && mode === "signup" && signupStep === 2;
 
   const cardClass =
     seamless && embedded
@@ -498,7 +512,9 @@ export function LoginForm({
         ? isV2
           ? "rounded-2xl bg-[#2A2A2B] p-3.5 shadow-card ring-1 ring-white/10"
           : "rounded-2xl bg-canvas p-3.5 shadow-card ring-1 ring-black/[0.06]"
-        : "flex h-[min(100dvh-1.5rem,52rem)] w-full flex-col overflow-hidden rounded-3xl bg-canvas p-4 shadow-card ring-1 ring-black/[0.06] sm:h-[min(100dvh-2rem,52rem)] sm:p-6";
+        : isSignupStep2
+          ? "flex max-h-[calc(100dvh-1.5rem)] w-full min-h-0 flex-col overflow-hidden rounded-3xl bg-canvas p-4 shadow-card ring-1 ring-black/[0.06] sm:max-h-[calc(100dvh-2rem)] sm:p-5"
+          : "w-full rounded-3xl bg-canvas p-4 shadow-card ring-1 ring-black/[0.06] sm:p-6";
 
   const labelClass = embedded
     ? "text-[11px] font-semibold text-inkMuted"
@@ -511,7 +527,9 @@ export function LoginForm({
     ? isV2
       ? `mt-1.5 ${embeddedInputH} w-full rounded-xl border-0 bg-[#1D1D1E] px-3.5 text-[15px] text-ink ring-1 ring-white/[0.08] outline-none placeholder:text-inkMuted/80 focus:ring-2 focus:ring-[#B52B2A]/40`
       : `mt-1.5 ${embeddedInputH} w-full rounded-xl border-0 bg-[#F8F6F1] px-3.5 text-[15px] text-ink ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35`
-    : "mt-1.5 h-11 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35 sm:h-12";
+    : isSignupStep2
+      ? "mt-1 h-10 w-full rounded-xl border-0 bg-white px-3.5 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35 sm:mt-1.5 sm:h-11 sm:rounded-2xl sm:px-4"
+      : "mt-1.5 h-11 w-full rounded-2xl border-0 bg-white px-4 text-[15px] text-ink shadow-card ring-1 ring-black/[0.06] outline-none placeholder:text-inkMuted focus:ring-2 focus:ring-primary/35 sm:h-12";
 
   const submitClass = embedded
     ? `mt-0.5 ${mode === "signup" ? "h-10" : "h-11"} w-full rounded-full px-5 text-[14px] font-bold text-white shadow-md transition enabled:active:scale-[0.98] disabled:opacity-60`
@@ -529,17 +547,59 @@ export function LoginForm({
 
   const showConfirmPassword = mode === "signup";
 
+  function handleAuthBack() {
+    if (mode === "signup" && signupStep === 2) {
+      setMessage(null);
+      setStatus("idle");
+      setSignupStep(1);
+      return;
+    }
+    router.push(discoverPath);
+  }
+
   return (
     <div className={seamless && embedded ? "" : cardClass}>
       {!embedded && (
         <>
+          {mode === "signup" && signupStep === 2 ? (
+            <button
+              type="button"
+              onClick={handleAuthBack}
+              aria-label="Terug naar vorige stap"
+              className="-ml-1 mb-1 inline-flex h-9 w-9 items-center justify-center rounded-full text-inkMuted transition hover:bg-white/[0.06] hover:text-ink active:scale-95"
+            >
+              <ChevronLeft className="h-5 w-5" strokeWidth={2.25} />
+            </button>
+          ) : (
+            <Link
+              href={discoverPath}
+              aria-label="Terug naar ontdekken"
+              className="-ml-1 mb-1 inline-flex h-9 w-9 items-center justify-center rounded-full text-inkMuted transition hover:bg-white/[0.06] hover:text-ink active:scale-95"
+            >
+              <ChevronLeft className="h-5 w-5" strokeWidth={2.25} />
+            </Link>
+          )}
           <p className="text-center font-serif text-sm font-medium uppercase tracking-[0.2em] text-primary">
             {SITE_DISPLAY}
           </p>
-          <h1 className="mt-2 text-center font-serif text-2xl font-semibold text-ink">
+          <h1
+            className={
+              isSignupStep2
+                ? "mt-1 text-center font-serif text-xl font-semibold text-ink sm:mt-2 sm:text-2xl"
+                : "mt-2 text-center font-serif text-2xl font-semibold text-ink"
+            }
+          >
             {title}
           </h1>
-          <p className="mt-2 text-center text-sm text-inkMuted">{subtitle}</p>
+          <p
+            className={
+              isSignupStep2
+                ? "mt-1 text-center text-xs text-inkMuted sm:text-sm"
+                : "mt-2 text-center text-sm text-inkMuted"
+            }
+          >
+            {subtitle}
+          </p>
         </>
       )}
 
@@ -555,12 +615,16 @@ export function LoginForm({
 
       <form
           onSubmit={onSubmit}
-          className={`flex ${!embedded ? "min-h-0 flex-1 flex-col justify-between" : "flex-col"} ${embedded ? (mode === "signup" ? "gap-2" : "gap-2.5") : "mt-4 gap-3 sm:mt-5 sm:gap-4"}`}
+          className={`flex flex-col ${isSignupStep2 ? "mt-3 min-h-0 flex-1" : ""} ${embedded ? (mode === "signup" ? "gap-2" : "gap-2.5") : isSignupStep2 ? "" : "mt-4 gap-3 sm:mt-5 sm:gap-4"}`}
         >
+          <div
+            className={`flex flex-col ${embedded ? (mode === "signup" ? "gap-2" : "gap-2.5") : isSignupStep2 ? "min-h-0 flex-1 gap-2 overflow-y-auto overscroll-contain sm:gap-2.5" : "gap-3 sm:gap-4"}`}
+          >
           {mode === "signup" && signupStep === 2 ? (
             <>
               <label className="block">
                 <span className={labelClass}>Nickname</span>
+                <FieldHint>Dit is de naam die anderen op je profiel zien.</FieldHint>
                 <input
                   type="text"
                   autoComplete="nickname"
@@ -578,6 +642,7 @@ export function LoginForm({
                 onChange={onSignupGenderChange}
                 isV2={isV2}
                 embedded={embedded}
+                compact={isSignupStep2}
                 options={[
                   { value: "man", label: "Man" },
                   { value: "woman", label: "Vrouw" },
@@ -590,14 +655,16 @@ export function LoginForm({
                 onChange={onSignupSeekingGenderChange}
                 isV2={isV2}
                 embedded={embedded}
+                compact={isSignupStep2}
                 options={[
                   { value: "men", label: "Man" },
                   { value: "women", label: "Vrouw" },
                 ]}
               />
-              <div className={embedded ? "grid grid-cols-2 gap-2" : "grid grid-cols-2 gap-3"}>
+              <div className={embedded ? "grid grid-cols-1 gap-2 sm:grid-cols-2" : "grid grid-cols-2 gap-2 sm:gap-2.5"}>
                 <label className="block">
                   <span className={labelClass}>Leeftijd</span>
+                  <FieldHint>Alleen zichtbaar als jij dat wilt.</FieldHint>
                   <input
                     type="number"
                     min={18}
@@ -606,12 +673,13 @@ export function LoginForm({
                     required
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    placeholder="50"
+                    placeholder="Bijv. 50"
                     className={inputClass}
                   />
                 </label>
                 <label className="block">
                   <span className={labelClass}>Stad</span>
+                  <FieldHint>Vul je stad of regio in, geen exact adres.</FieldHint>
                   <input
                     type="text"
                     autoComplete="address-level2"
@@ -722,10 +790,13 @@ export function LoginForm({
               )}
             </>
           )}
+          </div>
           {message && status === "error" && (
             <p className="text-[12px] text-red-600">{message}</p>
           )}
-          <div className={mode === "signup" && signupStep === 2 ? "flex flex-col gap-2" : ""}>
+          <div
+            className={isSignupStep2 ? "flex shrink-0 flex-col gap-2 pt-3" : ""}
+          >
             <button
               type="submit"
               disabled={status === "loading"}
@@ -734,28 +805,21 @@ export function LoginForm({
             >
               {submitLabel}
             </button>
-            {mode === "signup" && signupStep === 2 && (
-              <button
-                type="button"
-                disabled={status === "loading"}
-                onClick={() => {
-                  setMessage(null);
-                  setStatus("idle");
-                  setSignupStep(1);
-                }}
-                className={
-                  embedded
-                    ? "h-10 w-full rounded-full text-[14px] font-semibold text-ink ring-1 ring-black/10 transition enabled:active:scale-[0.98] disabled:opacity-60"
-                    : "h-11 w-full rounded-full text-[15px] font-semibold text-ink ring-1 ring-black/10 transition enabled:active:scale-[0.98] disabled:opacity-60"
-                }
-              >
-                Terug
-              </button>
+            {isSignupStep2 && (
+              <p className="pt-1 text-center text-sm text-inkMuted">
+                Heb je al een account?{" "}
+                <Link
+                  href={`${loginPath}${authToggleQuery}`}
+                  className="font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  Inloggen
+                </Link>
+              </p>
             )}
           </div>
         </form>
 
-      {!embedded && (
+      {!embedded && !isSignupStep2 && (
         <p className="mt-4 text-center text-sm text-inkMuted sm:mt-5">
           {mode === "signup" ? (
             <>
