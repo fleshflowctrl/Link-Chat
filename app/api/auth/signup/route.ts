@@ -19,7 +19,11 @@ type Body = {
   city?: string;
   password?: string;
   next?: string;
+  visitorId?: string;
 };
+
+const UUID_RX =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 /**
  * Server-side signup: create confirmed auth user, grant credits, return session.
@@ -58,6 +62,9 @@ export async function POST(request: Request) {
     typeof ageRaw === "number" && Number.isFinite(ageRaw)
       ? Math.round(ageRaw)
       : NaN;
+  const visitorIdRaw =
+    typeof body.visitorId === "string" ? body.visitorId.trim() : "";
+  const visitorId = UUID_RX.test(visitorIdRaw) ? visitorIdRaw : null;
 
   if (!email || !email.includes("@")) {
     return bad("Ongeldig e-mailadres");
@@ -73,6 +80,28 @@ export async function POST(request: Request) {
   }
   if (password.length < PASSWORD_MIN) {
     return bad(`Wachtwoord moet minimaal ${PASSWORD_MIN} tekens zijn`);
+  }
+
+  // Device/browser-level guard: one permanent signup per tracked visitor id.
+  if (visitorId) {
+    const { data: existingVisit, error: visitErr } = await admin
+      .from("site_visits")
+      .select("signed_up_user_id")
+      .eq("visitor_id", visitorId)
+      .maybeSingle();
+    if (visitErr) {
+      return bad("Kon apparaatcontrole niet uitvoeren. Probeer opnieuw.", 500);
+    }
+    const alreadySignedUp =
+      !!existingVisit &&
+      typeof (existingVisit as { signed_up_user_id?: string | null })
+        .signed_up_user_id === "string";
+    if (alreadySignedUp) {
+      return bad(
+        "Er is al een account gekoppeld aan dit apparaat. Log in met je bestaande account.",
+        409,
+      );
+    }
   }
 
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -117,6 +146,36 @@ export async function POST(request: Request) {
   const grant = await grantSignupCreditsForUser(userId);
   if (!grant.ok) {
     return bad(grant.error ?? "Credits bij registratie mislukt", 500);
+  }
+
+  // If this signup came from a tracked visitor, bind that visitor to the
+  // newly created auth user so future signups from this browser are blocked.
+  if (visitorId) {
+    const now = new Date().toISOString();
+    const { data: existingVisit } = await admin
+      .from("site_visits")
+      .select("visitor_id, signed_up_user_id")
+      .eq("visitor_id", visitorId)
+      .maybeSingle();
+
+    if (existingVisit) {
+      const row = existingVisit as { signed_up_user_id?: string | null };
+      if (!row.signed_up_user_id) {
+        await admin
+          .from("site_visits")
+          .update({ signed_up_user_id: userId, signed_up_at: now })
+          .eq("visitor_id", visitorId);
+      }
+    } else {
+      await admin.from("site_visits").insert({
+        visitor_id: visitorId,
+        first_visit_at: now,
+        last_visit_at: now,
+        visit_count: 1,
+        signed_up_user_id: userId,
+        signed_up_at: now,
+      });
+    }
   }
 
   const { createClient } = await import("@supabase/supabase-js");

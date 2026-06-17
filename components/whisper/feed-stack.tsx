@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -217,6 +218,8 @@ export function FeedStack({
   const [index, setIndex] = useState<number>(0);
   const [hydrated, setHydrated] = useState(false);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  /** Only animate card transitions after the user taps Volgende or swipes. */
+  const slideTransitionsRef = useRef(false);
 
   // Restore the cursor for this user + slot. If the saved profileId still
   // exists in the current pack we resume on exactly that profile, even when
@@ -224,7 +227,7 @@ export function FeedStack({
   // one). Otherwise fall back to the saved integer position clamped to the
   // current pack size. A new slot uses a fresh storage key so this is a
   // natural reset when the timer rotates.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (startAtProfileId) {
       const found = profiles.findIndex((p) => p.id === startAtProfileId);
       setIndex(found >= 0 ? found : 0);
@@ -298,6 +301,7 @@ export function FeedStack({
   // Always advance from the *latest* index using a functional update so
   // rapid taps queue up correctly in React 18's automatic batching.
   const handleNext = useCallback(() => {
+    slideTransitionsRef.current = true;
     setIndex((i) => Math.min(i + 1, total));
   }, [total]);
 
@@ -316,11 +320,11 @@ export function FeedStack({
     : "flex min-h-[56px] items-center justify-center gap-2.5 rounded-full px-4 py-3.5 text-white shadow-md transition active:scale-[0.98]";
 
   const primaryBtnStyle = isV2
-    ? "bg-gradient-to-r from-[#B52B2A] to-[#D63B3A]"
+    ? "bg-gradient-to-r from-[#AD3635] to-[#C4403F] ring-1 ring-black/10"
     : "bg-gradient-primary";
 
   const secondaryBtnStyle = isV2
-    ? "bg-gradient-to-r from-[#9E2423] to-[#B52B2A]"
+    ? "bg-gradient-to-r from-[#962B2A] to-[#A83635] ring-1 ring-black/15"
     : "bg-gray-900";
 
   const swipeDismiss = useCallback(
@@ -374,6 +378,7 @@ export function FeedStack({
       ) : (
         <>
           <div className="relative flex min-h-0 flex-1 overflow-hidden">
+            {!hydrated ? null : (
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={current.id}
@@ -384,9 +389,17 @@ export function FeedStack({
                 onDragEnd={(_, info) =>
                   swipeDismiss(info.offset.x, info.velocity.x)
                 }
-                initial={{ opacity: 0, x: 48, scale: 0.98 }}
+                initial={
+                  slideTransitionsRef.current
+                    ? { opacity: 0, x: 48, scale: 0.98 }
+                    : false
+                }
                 animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: -100, scale: 0.96 }}
+                exit={
+                  slideTransitionsRef.current
+                    ? { opacity: 0, x: -100, scale: 0.96 }
+                    : { opacity: 1, x: 0, scale: 1 }
+                }
                 transition={{ type: "spring", stiffness: 400, damping: 34 }}
               >
                 <FeedCard
@@ -396,6 +409,7 @@ export function FeedStack({
                 />
               </motion.div>
             </AnimatePresence>
+            )}
           </div>
 
           <div

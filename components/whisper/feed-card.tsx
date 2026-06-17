@@ -99,12 +99,12 @@ export function FeedCard({ profile, compact = false, photoLocked = false }: Prop
         </div>
       )}
 
-      {/* Overlay content — bottom */}
+      {/* Overlay content — bottom (above photo-lock layer) */}
       <div
         className={
           compact
-            ? "absolute inset-x-0 bottom-0 z-[1] p-3 text-white"
-            : "absolute inset-x-0 bottom-0 z-[1] p-4 text-white"
+            ? "absolute inset-x-0 bottom-0 z-[3] p-3 text-white"
+            : "absolute inset-x-0 bottom-0 z-[3] p-4 text-white"
         }
       >
         <div className="flex min-w-0 items-center gap-1.5">
@@ -145,12 +145,13 @@ export function FeedCard({ profile, compact = false, photoLocked = false }: Prop
           href={withVariantPath(`/profile/${profile.id}`, variant)}
           className={
             (compact
-              ? "mt-3 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] "
-              : "mt-4 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] ") +
+              ? "relative z-[4] mt-3 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] "
+              : "relative z-[4] mt-4 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full py-3.5 text-[15px] font-bold shadow-lg backdrop-blur-md transition active:scale-[0.98] ") +
             (isV2
               ? "bg-white/95 text-[#3D3D3D] ring-1 ring-white/30"
               : "bg-white/95 text-ink ring-1 ring-black/5")
           }
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <User className="h-5 w-5 shrink-0" strokeWidth={2.5} aria-hidden />
           Bekijk profiel

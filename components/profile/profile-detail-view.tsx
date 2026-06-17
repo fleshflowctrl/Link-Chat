@@ -193,7 +193,7 @@ export function ProfileDetailView({
 
       <div className="relative z-10 -mt-5 rounded-t-[1.5rem] bg-canvas px-4 pb-6 pt-4 shadow-[0_-12px_48px_-12px_rgba(0,0,0,0.12)]">
         {/* thumbnail strip */}
-        {thumbSlots.length > 1 && (
+        {thumbSlots.length > 1 && !photoLocked && (
           <div className="scrollbar-hide -mx-1 mb-4 flex gap-2 overflow-x-auto pb-1 pt-1">
             {thumbSlots.map((slot) => {
               const active = heroIndex === slot.index;

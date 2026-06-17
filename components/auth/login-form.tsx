@@ -12,7 +12,7 @@ import {
   isPermanentAuthUser,
 } from "@/lib/auth/guest-session";
 import { applyServerCreditsUpdate } from "@/lib/credits-store";
-import { trackSignupLink } from "@/lib/analytics/visitor-id";
+import { getOrCreateVisitorId, trackSignupLink } from "@/lib/analytics/visitor-id";
 import { mapSupabaseAuthError } from "@/lib/auth/error-messages";
 import {
   type AppVariant,
@@ -264,6 +264,7 @@ export function LoginForm({
         city: city.trim(),
         password,
         next: nextPath,
+        visitorId: getOrCreateVisitorId(),
       }),
     });
 
