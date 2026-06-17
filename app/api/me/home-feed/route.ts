@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const variant = await readServerAppVariant();
-  const bundle = await fetchHomePageCatalogServer({ variant });
+  const bundle = await fetchHomePageCatalogServer({ variant, allLiveVariants: true });
   return NextResponse.json({
     ok: true,
     profiles: bundle.gridProfiles,

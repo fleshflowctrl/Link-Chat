@@ -9,7 +9,7 @@ import type { Profile } from "@/data/profiles";
 import type { ChatProfileRow } from "@/lib/chat/map-rows";
 import { readServerAppVariant } from "@/lib/app-variant";
 import { chatProfileRowToProfile } from "@/lib/catalog/chat-profile-to-profile";
-import { applyChatProfilesVariantFilter, staticCatalogProfiles } from "@/lib/catalog/profile-variant";
+import { applyDiscoverPoolFilters, staticCatalogProfiles } from "@/lib/catalog/profile-variant";
 import { buildDiscoverPackForRefresh } from "@/lib/catalog/server-catalog";
 import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
@@ -139,10 +139,14 @@ export async function POST() {
     let refreshQuery = supabase
       .from("chat_profiles")
       .select("*")
+      .eq("is_ai", true)
       .order("home_sort", { ascending: true })
       .order("display_name", { ascending: true })
-      .limit(120);
-    refreshQuery = applyChatProfilesVariantFilter(refreshQuery, variant);
+      .limit(240);
+    refreshQuery = applyDiscoverPoolFilters(refreshQuery, {
+      variant,
+      allLiveVariants: true,
+    });
     const { data: rows } = await refreshQuery;
     if (rows && rows.length > 0) {
       pool = (rows as ChatProfileRow[]).map(chatProfileRowToProfile);

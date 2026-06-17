@@ -25,3 +25,22 @@ export function applyChatProfilesVariantFilter<T>(
   const q = query as any;
   return q.eq("app_variant", variant) as T;
 }
+
+/** Discover / home feed — only admin live-map personas (`online_now`). */
+export function applyLiveDiscoverPoolFilter<T>(query: T): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const q = query as any;
+  return q.eq("online_now", true).eq("is_archived", false) as T;
+}
+
+export function applyDiscoverPoolFilters<T>(
+  query: T,
+  options: { variant: AppVariant; allLiveVariants?: boolean },
+): T {
+  if (options.allLiveVariants) {
+    return applyLiveDiscoverPoolFilter(query);
+  }
+  return applyLiveDiscoverPoolFilter(
+    applyChatProfilesVariantFilter(query, options.variant),
+  );
+}

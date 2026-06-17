@@ -7,7 +7,7 @@ import { fetchUserProfileServerOptional } from "@/lib/me/server-profile";
 
 export default async function DiscoverPage() {
   const [catalog, initialProfile, viewerIsPermanent] = await Promise.all([
-    fetchHomePageCatalogServer({ variant: "v2" }),
+    fetchHomePageCatalogServer({ variant: "v2", allLiveVariants: true }),
     fetchUserProfileServerOptional(),
     getViewerIsPermanentServer(),
   ]);

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -17,6 +18,7 @@ import {
   Heart,
   MapPin,
   Plus,
+  ShieldHalf,
   Trash2,
   User,
   X,
@@ -56,12 +58,14 @@ type EditProfileViewProps = {
   syncToken: string;
   /** Bottom-nav `/me` tab — no back button, profile-first header. */
   isTabRoot?: boolean;
+  isAdmin?: boolean;
 };
 
 export function EditProfileView({
   initialProfile,
   syncToken,
   isTabRoot = false,
+  isAdmin = false,
 }: EditProfileViewProps) {
   const router = useRouter();
   const { variant } = useAppVariant();
@@ -688,7 +692,16 @@ export function EditProfileView({
       </section>
 
       {isTabRoot && (
-        <div className="mt-8 flex flex-col items-center px-5 pb-8">
+        <div className="mt-8 flex flex-col items-center gap-2.5 px-5 pb-8">
+          {isAdmin && (
+            <Link
+              href="/admin/messages"
+              className="inline-flex min-h-[48px] w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-ink px-5 py-3 text-sm font-bold text-white shadow-card ring-1 ring-black/[0.08] transition active:scale-[0.99]"
+            >
+              <ShieldHalf className="h-4 w-4" strokeWidth={2.25} />
+              Admin paneel
+            </Link>
+          )}
           <SignOutButton />
         </div>
       )}

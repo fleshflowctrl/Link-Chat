@@ -42,6 +42,12 @@ export const ADMIN_NAV: NavItem[] = [
   },
   { href: "/admin/users", label: "Gebruikers", icon: <IdIcon />, matchPrefix: true },
   { href: "/admin/personas", label: "Personas", icon: <UsersIcon />, matchPrefix: true },
+  {
+    href: "/admin/profile-assets",
+    label: "Profiel foto's",
+    icon: <CameraIcon />,
+    matchPrefix: true,
+  },
   { href: "/admin/messages", label: "Berichten", icon: <ChatBubbleIcon />, matchPrefix: true },
   {
     href: "/admin/scene-templates",

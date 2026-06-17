@@ -20,6 +20,8 @@ import type { AppVariant } from "@/lib/app-variant";
 import { DEFAULT_APP_VARIANT, readServerAppVariant } from "@/lib/app-variant";
 import {
   applyChatProfilesVariantFilter,
+  applyDiscoverPoolFilters,
+  applyLiveDiscoverPoolFilter,
   chatProfileMatchesVariant,
   staticCatalogProfiles,
 } from "@/lib/catalog/profile-variant";
@@ -30,6 +32,8 @@ import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 export type CatalogVariantOptions = {
   /** Which bot pool to load. Defaults to v1 (unchanged behaviour). */
   variant?: AppVariant;
+  /** Discover: mix live personas from v1 and v2 on one feed. */
+  allLiveVariants?: boolean;
 };
 
 export type HomePageCatalogBundle = {
@@ -200,6 +204,7 @@ export async function fetchHomePageCatalogServer(
   options: CatalogVariantOptions = {},
 ): Promise<HomePageCatalogBundle> {
   const variant = options.variant ?? DEFAULT_APP_VARIANT;
+  const allLiveVariants = options.allLiveVariants ?? false;
   const now = Date.now();
   const { consumeFunnelPickedPeerServer } = await import(
     "@/lib/catalog/funnel-picked-peer"
@@ -258,7 +263,7 @@ export async function fetchHomePageCatalogServer(
     const { fetchDiscoverPoolServer } = await import(
       "@/lib/catalog/fetch-discover-pool-server"
     );
-    const { pool, degraded } = await fetchDiscoverPoolServer(variant);
+    const { pool, degraded } = await fetchDiscoverPoolServer(variant, { allLiveVariants });
     const gridProfiles = pinProfileFirstInFeed(
       pickDiscoverFeed(pool, userKey, meta.feedSlot),
       pool,
@@ -277,10 +282,11 @@ export async function fetchHomePageCatalogServer(
   let gridQuery = supabase
     .from("chat_profiles")
     .select("*")
+    .eq("is_ai", true)
     .order("home_sort", { ascending: true })
     .order("display_name", { ascending: true })
-    .limit(120);
-  gridQuery = applyChatProfilesVariantFilter(gridQuery, variant);
+    .limit(allLiveVariants ? 240 : 120);
+  gridQuery = applyDiscoverPoolFilters(gridQuery, { variant, allLiveVariants });
   const { data: rows, error: gridError } = await gridQuery;
 
   let pool: Profile[];
@@ -384,6 +390,7 @@ export async function fetchFunnelCatalogProfilesServer(
     .order("display_name", { ascending: true })
     .limit(250);
   funnelQuery = applyChatProfilesVariantFilter(funnelQuery, variant);
+  funnelQuery = applyLiveDiscoverPoolFilter(funnelQuery);
   const { data: rows, error } = await funnelQuery;
 
   if (error || !rows?.length) {
