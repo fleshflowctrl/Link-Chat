@@ -26,6 +26,7 @@ type NavItem = {
 };
 
 export const ADMIN_NAV: NavItem[] = [
+  { href: "/admin/roadmap", label: "Funnel roadmap", icon: <ChartIcon /> },
   { href: "/admin/metrics", label: "Statistieken (live)", icon: <ChartIcon /> },
   { href: "/admin/metrics/v2", label: "Statistieken V2", icon: <ChartIcon /> },
   {

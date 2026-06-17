@@ -20,6 +20,7 @@ import {
   type Profile,
 } from "@/data/profiles";
 import { trackFunnelStep } from "@/lib/analytics/visitor-id";
+import { FUNNEL_STEP_WELCOME_CTA, FUNNEL_STEP_WELCOME_VIEW } from "@/lib/analytics/funnel-steps";
 import type { AppVariant } from "@/lib/app-variant";
 import { DEFAULT_APP_VARIANT } from "@/lib/app-variant";
 import {
@@ -130,10 +131,11 @@ function OnboardingFunnelInner({
 
   useEffect(() => {
     if (!hydrated) return;
-    void trackFunnelStep(1, cfg.variant);
+    void trackFunnelStep(FUNNEL_STEP_WELCOME_VIEW, cfg.variant);
   }, [hydrated, cfg.variant]);
 
   const enterDiscover = useCallback(() => {
+    void trackFunnelStep(FUNNEL_STEP_WELCOME_CTA, cfg.variant);
     try {
       localStorage.setItem(ONBOARDED_KEY, "true");
       sessionStorage.removeItem(FUNNEL_SESSION_KEY);

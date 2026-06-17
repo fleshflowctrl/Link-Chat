@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { RegisterPageTracker } from "@/components/analytics/register-page-tracker";
 import { LoginForm } from "@/components/auth/login-form";
 
 export default function SignupPage() {
@@ -10,6 +11,7 @@ export default function SignupPage() {
         </div>
       }
     >
+      <RegisterPageTracker />
       <LoginForm mode="signup" appVariant="v2" />
     </Suspense>
   );
