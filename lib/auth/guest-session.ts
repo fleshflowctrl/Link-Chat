@@ -46,14 +46,26 @@ async function ensureGuestSessionInner(): Promise<{ userId: string | null }> {
   }
 
   const supabase = createClient();
+
+  // Never replace an existing session — permanent users must stay signed in.
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user?.id) {
+    return { userId: session.user.id };
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (user) {
+  if (user?.id) {
     return { userId: user.id };
   }
 
-  // Server-minted guest — skip slow anonymous sign-in round-trip.
+  // Refresh from the httpOnly cookie before minting a throwaway guest session.
+  const { data: refreshed } = await supabase.auth.refreshSession();
+  if (refreshed.session?.user?.id) {
+    return { userId: refreshed.session.user.id };
+  }
+
   return startServerGuestSession();
 }
 

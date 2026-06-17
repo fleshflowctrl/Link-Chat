@@ -26,15 +26,15 @@ import {
 const GRAY = "#9CA3AF";
 
 const TAB_SUFFIXES = [
+  { suffix: "/discover", label: "Ontdekken", Icon: Search, badge: null as string | null },
   {
     suffix: "/messages",
     label: "Berichten",
     Icon: MessageCircle,
     badge: null as string | null,
   },
-  { suffix: "/discover", label: "Ontdekken", Icon: Search, badge: null as string | null },
-  { suffix: "/credits", label: "Berichtenbundels", Icon: Coins, badge: null },
   { suffix: "/me", label: "Profiel", Icon: User, badge: null },
+  { suffix: "/credits", label: "Berichtenbundels", Icon: Coins, badge: null },
 ] as const;
 
 function isActive(pathname: string, href: string) {

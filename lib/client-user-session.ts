@@ -69,9 +69,10 @@ export async function hydrateClientSessionFromServer(): Promise<void> {
   const userId = await fetchAuthenticatedUserId();
   if (userId) {
     hydrateClientSessionForUser(userId);
-  } else {
-    clearClientCachesOnLogout();
+    return;
   }
+  // Session may still be hydrating — don't wipe client state on a transient miss.
+  void refreshCreditsFromServer();
 }
 
 /** @deprecated Use hydrateClientSessionForUser */

@@ -1,9 +1,11 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { isPermanentAuthUser } from "@/lib/auth/user-account";
 import {
   GUEST_UID_COOKIE,
   mintGuestSessionTokens,
 } from "@/lib/auth/guest-session-server";
+import { createClient } from "@/utils/supabase/server";
 import { isSupabaseConfigured } from "@/utils/supabase/public-env";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user && isPermanentAuthUser(user)) {
+      return NextResponse.json({ ok: true, skipped: true, userId: user.id });
+    }
+
     const cookieStore = cookies();
     const existing = cookieStore.get(GUEST_UID_COOKIE)?.value ?? null;
     const tokens = await mintGuestSessionTokens(existing);
