@@ -248,12 +248,12 @@ function buildWelcomeSetsFromCatalog(
 const WELCOME_COPY = {
   v1: {
     headline: ["Ontmoet vrouwen die", "weten wat ze willen."],
-    subMuted: "Voor mannen 50+. ",
+    subMuted: "Voor 50-plussers. ",
     subAccent: "Discreet · op jouw tempo.",
   },
   v2: {
     headline: ["Meer tijd.", "Discreet flirten."],
-    subMuted: "Voor mannen 50+. ",
+    subMuted: "Voor 50-plussers. ",
     subAccent: "Geen haast · wel spanning.",
   },
 } as const;
@@ -405,7 +405,7 @@ function StepWelcome({
           onClick={onStart}
           className="mt-3 flex w-full items-center justify-center rounded-full bg-gradient-to-r from-[var(--funnel-accent)] to-[var(--funnel-accent-soft)] py-3.5 text-[15px] font-extrabold text-white shadow-lg transition active:scale-95"
         >
-          Krijg nu toegang!
+          Start discreet rondkijken
         </button>
 
         <p
