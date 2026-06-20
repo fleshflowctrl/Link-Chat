@@ -1,12 +1,19 @@
 import { redirect } from "next/navigation";
 import { OnboardingFunnel } from "@/components/funnel/onboarding-funnel";
 import { fetchFunnelCatalogProfilesServer } from "@/lib/catalog/server-catalog";
-import { AffiliateClickCapture } from "@/components/analytics/affiliate-click-capture";
-import { VisitorTracker } from "@/components/analytics/visitor-tracker";
 import { getViewerIsPermanentServer } from "@/lib/auth/viewer-server";
 
-/** New visitors land on the onboarding funnel; returning logged-in users skip to discover. */
-export default async function HomePage() {
+/** Visitors land on Discover; admin can still open `/?testFunnel=1` to preview onboarding. */
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ testFunnel?: string }>;
+}) {
+  const { testFunnel } = await searchParams;
+  if (testFunnel !== "1") {
+    redirect("/discover");
+  }
+
   if (await getViewerIsPermanentServer()) {
     redirect("/discover");
   }
@@ -16,10 +23,6 @@ export default async function HomePage() {
   });
 
   return (
-    <>
-      <VisitorTracker variant="v2" />
-      <AffiliateClickCapture />
-      <OnboardingFunnel initialCatalog={funnelCatalog} variant="v2" />
-    </>
+    <OnboardingFunnel initialCatalog={funnelCatalog} variant="v2" />
   );
 }
